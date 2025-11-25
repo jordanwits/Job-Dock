@@ -1,0 +1,120 @@
+import { Invoice } from '../types/invoice'
+import { useInvoiceStore } from '../store/invoiceStore'
+import { Card } from '@/components/ui'
+import { cn } from '@/lib/utils'
+
+interface InvoiceCardProps {
+  invoice: Invoice
+}
+
+const InvoiceCard = ({ invoice }: InvoiceCardProps) => {
+  const { setSelectedInvoice } = useInvoiceStore()
+
+  const statusColors = {
+    draft: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    sent: 'bg-primary-blue/20 text-primary-blue border-primary-blue/30',
+    overdue: 'bg-red-500/20 text-red-400 border-red-500/30',
+    cancelled: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  }
+
+  const paymentStatusColors = {
+    pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    partial: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    paid: 'bg-green-500/20 text-green-400 border-green-500/30',
+  }
+  
+  // Only show status badge if it's not redundant with paymentStatus
+  // Show status for: draft, overdue, cancelled
+  // Hide status for: sent (since paymentStatus already shows pending/partial/paid)
+  const shouldShowStatus = invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount)
+  }
+
+  const isOverdue = invoice.dueDate && 
+    new Date(invoice.dueDate) < new Date() && 
+    invoice.paymentStatus !== 'paid'
+
+  return (
+    <Card
+      className="cursor-pointer hover:border-primary-gold transition-colors"
+      onClick={() => setSelectedInvoice(invoice)}
+    >
+      <div className="space-y-3">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-primary-light">
+              {invoice.invoiceNumber}
+            </h3>
+            {invoice.contactName && (
+              <p className="text-sm text-primary-light/70">{invoice.contactName}</p>
+            )}
+            {invoice.contactCompany && (
+              <p className="text-xs text-primary-light/50">{invoice.contactCompany}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1 items-end">
+            {shouldShowStatus && (
+              <span
+                className={cn(
+                  'px-2 py-1 text-xs font-medium rounded border',
+                  statusColors[invoice.status]
+                )}
+              >
+                {invoice.status}
+              </span>
+            )}
+            <span
+              className={cn(
+                'px-2 py-1 text-xs font-medium rounded border',
+                paymentStatusColors[invoice.paymentStatus]
+              )}
+            >
+              {invoice.paymentStatus}
+            </span>
+          </div>
+        </div>
+
+        {/* Line Items Count */}
+        <div className="text-sm text-primary-light/70">
+          {invoice.lineItems.length} item{invoice.lineItems.length !== 1 ? 's' : ''}
+        </div>
+
+        {/* Payment Info */}
+        {invoice.paymentStatus === 'partial' && (
+          <div className="text-sm text-primary-light/70">
+            Paid: {formatCurrency(invoice.paidAmount)} / {formatCurrency(invoice.total)}
+          </div>
+        )}
+
+        {/* Total */}
+        <div className="pt-2 border-t border-primary-blue">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-primary-light/70">Total</span>
+            <span className="text-xl font-bold text-primary-gold">
+              {formatCurrency(invoice.total)}
+            </span>
+          </div>
+        </div>
+
+        {/* Due Date */}
+        {invoice.dueDate && (
+          <div className={cn(
+            "text-xs",
+            isOverdue ? "text-red-400 font-medium" : "text-primary-light/50"
+          )}>
+            {isOverdue ? '⚠️ ' : ''}Due: {new Date(invoice.dueDate).toLocaleDateString()}
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+export default InvoiceCard
+

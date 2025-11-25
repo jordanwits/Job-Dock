@@ -1,0 +1,22 @@
+import { z } from 'zod'
+
+export const invoiceLineItemSchema = z.object({
+  description: z.string().min(1, 'Description is required'),
+  quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+  unitPrice: z.number().min(0, 'Unit price must be 0 or greater'),
+})
+
+export const invoiceSchema = z.object({
+  contactId: z.string().min(1, 'Contact is required'),
+  lineItems: z.array(invoiceLineItemSchema).min(1, 'At least one line item is required'),
+  taxRate: z.number().min(0).max(100).optional(),
+  discount: z.number().min(0).optional(),
+  notes: z.string().optional(),
+  dueDate: z.string().optional(),
+  paymentTerms: z.string().optional(),
+  status: z.enum(['draft', 'sent', 'overdue', 'cancelled']).optional(),
+  paymentStatus: z.enum(['pending', 'partial', 'paid']).optional(),
+})
+
+export type InvoiceFormData = z.infer<typeof invoiceSchema>
+
