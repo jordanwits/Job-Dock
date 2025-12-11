@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react'
 import Header from './Header'
 import Sidebar from './Sidebar'
+import { DataSourceIndicator } from '@/components/system'
 
 export interface AppLayoutProps {
   children: ReactNode
@@ -36,7 +37,10 @@ const AppLayout = ({
           />
         )}
         <main className="flex-1 lg:ml-64">
-          <div className="container mx-auto p-4 md:p-6">{children}</div>
+          <div className="container mx-auto p-4 md:p-6 space-y-6">
+            <DataSourceIndicator />
+            {children}
+          </div>
         </main>
       </div>
     </div>

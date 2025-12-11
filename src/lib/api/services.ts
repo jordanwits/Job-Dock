@@ -7,13 +7,14 @@
 
 import apiClient from './client'
 import { mockServices } from '../mock/api'
+import { appEnv } from '@/lib/env'
 import type { Quote, CreateQuoteData } from '@/features/quotes/types/quote'
 import type { Invoice, CreateInvoiceData } from '@/features/invoices/types/invoice'
 import type { Job, CreateJobData } from '@/features/scheduling/types/job'
 import type { Service, CreateServiceData } from '@/features/scheduling/types/service'
 
 // Determine which services to use
-const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true' || import.meta.env.DEV
+const useMockData = appEnv.isMock
 
 // Real API implementations
 const realAuthService = {

@@ -1,0 +1,27 @@
+{
+  "name": "jobdock-infrastructure",
+  "version": "1.0.0",
+  "description": "AWS CDK infrastructure for JobDock",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk",
+    "deploy:dev": "cdk deploy JobDockStack-dev --require-approval never",
+    "deploy:staging": "cdk deploy JobDockStack-staging --require-approval never",
+    "deploy:prod": "cdk deploy JobDockStack-prod --require-approval always",
+    "destroy:dev": "cdk destroy JobDockStack-dev",
+    "diff:dev": "cdk diff JobDockStack-dev",
+    "synth:dev": "cdk synth JobDockStack-dev"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "aws-cdk": "^2.120.0",
+    "esbuild": "^0.27.0",
+    "typescript": "~5.3.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.120.0",
+    "constructs": "^10.3.0"
+  }
+}

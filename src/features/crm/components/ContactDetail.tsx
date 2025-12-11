@@ -1,4 +1,4 @@
-import { Contact } from '../types/contact'
+import type { Contact, UpdateContactData } from '../types/contact'
 import { useContactStore } from '../store/contactStore'
 import { Modal, Button } from '@/components/ui'
 import { useState } from 'react'
@@ -16,7 +16,7 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const handleUpdate = async (data: any) => {
+  const handleUpdate = async (data: UpdateContactData) => {
     try {
       await updateContact({ id: contact.id, ...data })
       setIsEditing(false)
@@ -228,13 +228,20 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
           </>
         }
       >
-        <p className="text-primary-light">
-          Are you sure you want to delete{' '}
-          <strong>
-            {contact.firstName} {contact.lastName}
-          </strong>
-          ? This action cannot be undone.
-        </p>
+        <div className="text-primary-light space-y-3 text-sm">
+          <p>
+            Deleting{' '}
+            <strong>
+              {contact.firstName} {contact.lastName}
+            </strong>{' '}
+            will also permanently remove every quote, invoice, and scheduled job
+            linked to this contact. This cannot be undone.
+          </p>
+          <p>
+            Please confirm you want to proceed and that you have exported any
+            information you might need later.
+          </p>
+        </div>
       </Modal>
     </>
   )

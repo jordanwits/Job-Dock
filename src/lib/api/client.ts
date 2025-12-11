@@ -1,6 +1,8 @@
 import axios from 'axios'
+import { appEnv } from '@/lib/env'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_URL = appEnv.apiUrl
+const DEFAULT_TENANT_ID = appEnv.defaultTenantId
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -16,6 +18,10 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem('auth_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    const tenantId = localStorage.getItem('tenant_id') || DEFAULT_TENANT_ID
+    if (tenantId) {
+      config.headers['X-Tenant-ID'] = tenantId
     }
     return config
   },

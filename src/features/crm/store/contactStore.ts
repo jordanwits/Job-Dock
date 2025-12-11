@@ -2,6 +2,31 @@ import { create } from 'zustand'
 import { contactsService } from '@/lib/api/services'
 import type { Contact, CreateContactData, UpdateContactData } from '../types/contact'
 
+type ApiErrorShape = {
+  response?: {
+    data?: {
+      error?: {
+        message?: string
+      }
+    }
+  }
+  message?: string
+}
+
+const resolveErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const parsed = error as ApiErrorShape
+    const serverMessage = parsed.response?.data?.error?.message
+    if (serverMessage) {
+      return serverMessage
+    }
+    if (parsed.message) {
+      return parsed.message
+    }
+  }
+  return fallback
+}
+
 interface ContactState {
   contacts: Contact[]
   selectedContact: Contact | null
@@ -22,7 +47,7 @@ interface ContactState {
   clearError: () => void
 }
 
-export const useContactStore = create<ContactState>((set, get) => ({
+export const useContactStore = create<ContactState>((set, _get) => ({
   contacts: [],
   selectedContact: null,
   isLoading: false,
@@ -35,9 +60,10 @@ export const useContactStore = create<ContactState>((set, get) => ({
     try {
       const contacts = await contactsService.getAll()
       set({ contacts, isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = resolveErrorMessage(error, 'Failed to fetch contacts')
       set({
-        error: error.message || 'Failed to fetch contacts',
+        error: message,
         isLoading: false,
       })
     }
@@ -48,9 +74,10 @@ export const useContactStore = create<ContactState>((set, get) => ({
     try {
       const contact = await contactsService.getById(id)
       set({ selectedContact: contact, isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = resolveErrorMessage(error, 'Failed to fetch contact')
       set({
-        error: error.message || 'Failed to fetch contact',
+        error: message,
         isLoading: false,
       })
     }
@@ -65,9 +92,10 @@ export const useContactStore = create<ContactState>((set, get) => ({
         isLoading: false,
       }))
       return Promise.resolve()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = resolveErrorMessage(error, 'Failed to create contact')
       set({
-        error: error.message || 'Failed to create contact',
+        error: message,
         isLoading: false,
       })
       throw error
@@ -88,9 +116,10 @@ export const useContactStore = create<ContactState>((set, get) => ({
             : state.selectedContact,
         isLoading: false,
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = resolveErrorMessage(error, 'Failed to update contact')
       set({
-        error: error.message || 'Failed to update contact',
+        error: message,
         isLoading: false,
       })
       throw error
@@ -107,9 +136,10 @@ export const useContactStore = create<ContactState>((set, get) => ({
           state.selectedContact?.id === id ? null : state.selectedContact,
         isLoading: false,
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = resolveErrorMessage(error, 'Failed to delete contact')
       set({
-        error: error.message || 'Failed to delete contact',
+        error: message,
         isLoading: false,
       })
       throw error
