@@ -60,6 +60,9 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
   const watchedTaxRatePercent = watch('taxRate') || 0
   const watchedTaxRate = watchedTaxRatePercent / 100
   const watchedDiscount = watch('discount') || 0
+  const contactIdValue = watch('contactId')
+  const statusValue = watch('status')
+  const paymentStatusValue = watch('paymentStatus')
 
   // Calculate totals
   const subtotal = watchedLineItems.reduce(
@@ -115,6 +118,7 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
       <Select
         label="Contact *"
         {...register('contactId')}
+        value={contactIdValue}
         error={errors.contactId?.message}
         options={[
           { value: '', label: 'Select a contact' },
@@ -290,6 +294,7 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
         <Select
           label="Status"
           {...register('status')}
+          value={statusValue}
           error={errors.status?.message}
           options={[
             { value: 'draft', label: 'Draft' },
@@ -301,6 +306,7 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
         <Select
           label="Payment Status"
           {...register('paymentStatus')}
+          value={paymentStatusValue}
           error={errors.paymentStatus?.message}
           options={[
             { value: 'pending', label: 'Pending' },

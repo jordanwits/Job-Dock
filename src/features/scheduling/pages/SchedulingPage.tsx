@@ -41,6 +41,7 @@ const SchedulingPage = () => {
   } = useServiceStore()
 
   const [showJobForm, setShowJobForm] = useState(false)
+  const [editingJob, setEditingJob] = useState<typeof selectedJob>(null)
   const [showServiceForm, setShowServiceForm] = useState(false)
   const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services'>('calendar')
 
@@ -63,8 +64,12 @@ const SchedulingPage = () => {
 
   const handleUpdateJob = async (data: any) => {
     try {
-      await updateJob(data)
-      setSelectedJob(null)
+      if (editingJob) {
+        await updateJob({ ...data, id: editingJob.id })
+        setEditingJob(null)
+        setShowJobForm(false)
+        setSelectedJob(null)
+      }
     } catch (error) {
       // Error handled by store
     }
@@ -232,15 +237,18 @@ const SchedulingPage = () => {
         isOpen={showJobForm}
         onClose={() => {
           setShowJobForm(false)
+          setEditingJob(null)
           clearJobsError()
         }}
-        title="Schedule New Job"
+        title={editingJob ? 'Edit Job' : 'Schedule New Job'}
         size="xl"
       >
         <JobForm
-          onSubmit={handleCreateJob}
+          job={editingJob || undefined}
+          onSubmit={editingJob ? handleUpdateJob : handleCreateJob}
           onCancel={() => {
             setShowJobForm(false)
+            setEditingJob(null)
             clearJobsError()
           }}
           isLoading={jobsLoading}
@@ -254,6 +262,7 @@ const SchedulingPage = () => {
           isOpen={!!selectedJob}
           onClose={() => setSelectedJob(null)}
           onEdit={() => {
+            setEditingJob(selectedJob)
             setShowJobForm(true)
           }}
           onDelete={handleDeleteJob}

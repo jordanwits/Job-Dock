@@ -1,0 +1,27 @@
+{
+  "region": "us-east-1",
+  "stackName": "JobDockStack-dev",
+  "resources": {
+    "dynamodb": {
+      "aliases": {
+        "jobs": "JobDock-Jobs-Table",
+        "customers": "JobDock-Customers-Table",
+        "invoices": "JobDock-Invoices-Table",
+        "quotes": "JobDock-Quotes-Table"
+      }
+    },
+    "s3": {
+      "buckets": []
+    },
+    "lambda": {
+      "aliases": {
+        "auth": "JobDockStack-dev-AuthLambda6BB8C88C-5XeQt1WlLSlQ",
+        "data": "JobDockStack-dev-DataLambda06623DA9-VGbcKOqBjqbc"
+      }
+    },
+    "ssm": {
+      "allowedPrefixes": ["/jobdock/"]
+    }
+  }
+}
+

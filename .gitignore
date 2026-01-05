@@ -33,6 +33,7 @@ dist-ssr
 # AWS
 .aws-sam/
 samconfig.toml
+*.pem
 
 # Testing
 coverage

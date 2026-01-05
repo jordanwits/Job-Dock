@@ -43,14 +43,20 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const displayValue = selectedOption ? selectedOption.label : placeholder
 
     const handleSelect = (optionValue: string) => {
-      if (selectRef.current && onChange) {
-        // Create a synthetic event for react-hook-form
-        const syntheticEvent = {
-          target: { value: optionValue, name: name || '' },
-          currentTarget: { value: optionValue, name: name || '' },
-        } as React.ChangeEvent<HTMLSelectElement>
+      if (selectRef.current) {
+        // Update the hidden select element's value first
+        selectRef.current.value = optionValue
         
-        onChange(syntheticEvent)
+        if (onChange) {
+          // Create a synthetic event for react-hook-form with the actual select element
+          const syntheticEvent = {
+            target: selectRef.current,
+            currentTarget: selectRef.current,
+            type: 'change',
+          } as React.ChangeEvent<HTMLSelectElement>
+          
+          onChange(syntheticEvent)
+        }
       }
       setIsOpen(false)
     }

@@ -90,12 +90,18 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete }: JobDetailProps) =
         <Card>
           <h3 className="text-sm font-medium text-primary-light/70 mb-2">Contact</h3>
           <div className="space-y-1">
-            <p className="text-primary-light font-medium">{job.contactName}</p>
-            {job.contactEmail && (
-              <p className="text-sm text-primary-light/70">{job.contactEmail}</p>
-            )}
-            {job.contactPhone && (
-              <p className="text-sm text-primary-light/70">{job.contactPhone}</p>
+            {job.contactName ? (
+              <>
+                <p className="text-primary-light font-medium">{job.contactName}</p>
+                {job.contactEmail && (
+                  <p className="text-sm text-primary-light/70">{job.contactEmail}</p>
+                )}
+                {job.contactPhone && (
+                  <p className="text-sm text-primary-light/70">{job.contactPhone}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-primary-light/50 italic">Contact information not available</p>
             )}
           </div>
         </Card>

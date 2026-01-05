@@ -2,6 +2,41 @@ import { create } from 'zustand'
 import { jobsService } from '@/lib/api/services'
 import type { Job, CreateJobData, UpdateJobData } from '../types/job'
 
+// Normalize job data from API response to match the Job interface
+// The backend returns nested contact/service objects, but we need flat fields
+const normalizeJob = (apiJob: any): Job => {
+  // If contact info is already flattened (has contactName), return as-is
+  if (apiJob.contactName) {
+    return apiJob as Job
+  }
+  
+  // Extract contact info from nested contact object if present
+  const contact = apiJob.contact
+  const service = apiJob.service
+  
+  return {
+    id: apiJob.id,
+    title: apiJob.title,
+    description: apiJob.description,
+    contactId: apiJob.contactId,
+    contactName: contact 
+      ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim() 
+      : '',
+    contactEmail: contact?.email,
+    contactPhone: contact?.phone,
+    serviceId: apiJob.serviceId,
+    serviceName: service?.name,
+    startTime: apiJob.startTime,
+    endTime: apiJob.endTime,
+    status: apiJob.status,
+    location: apiJob.location,
+    notes: apiJob.notes,
+    assignedTo: apiJob.assignedTo,
+    createdAt: apiJob.createdAt,
+    updatedAt: apiJob.updatedAt,
+  }
+}
+
 interface JobState {
   jobs: Job[]
   selectedJob: Job | null
@@ -33,7 +68,8 @@ export const useJobStore = create<JobState>((set, get) => ({
   fetchJobs: async (startDate?: Date, endDate?: Date) => {
     set({ isLoading: true, error: null })
     try {
-      const jobs = await jobsService.getAll(startDate, endDate)
+      const apiJobs = await jobsService.getAll(startDate, endDate)
+      const jobs = apiJobs.map(normalizeJob)
       set({ jobs, isLoading: false })
     } catch (error: any) {
       set({
@@ -46,7 +82,8 @@ export const useJobStore = create<JobState>((set, get) => ({
   getJobById: async (id: string) => {
     set({ isLoading: true, error: null })
     try {
-      const job = await jobsService.getById(id)
+      const apiJob = await jobsService.getById(id)
+      const job = normalizeJob(apiJob)
       set({ selectedJob: job, isLoading: false })
     } catch (error: any) {
       set({
@@ -59,7 +96,8 @@ export const useJobStore = create<JobState>((set, get) => ({
   createJob: async (data: CreateJobData) => {
     set({ isLoading: true, error: null })
     try {
-      const newJob = await jobsService.create(data)
+      const apiJob = await jobsService.create(data)
+      const newJob = normalizeJob(apiJob)
       set((state) => ({
         jobs: [...state.jobs, newJob],
         isLoading: false,
@@ -77,7 +115,8 @@ export const useJobStore = create<JobState>((set, get) => ({
   updateJob: async (data: UpdateJobData) => {
     set({ isLoading: true, error: null })
     try {
-      const updatedJob = await jobsService.update(data.id, data)
+      const apiJob = await jobsService.update(data.id, data)
+      const updatedJob = normalizeJob(apiJob)
       set((state) => ({
         jobs: state.jobs.map((j) =>
           j.id === data.id ? updatedJob : j

@@ -12,301 +12,12 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Mock data storage (in-memory)
 const mockStorage = {
-  contacts: [
-    {
-      id: '1',
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john.doe@example.com',
-      phone: '+1-555-0101',
-      company: 'ABC Construction',
-      jobTitle: 'Project Manager',
-      address: '123 Main St',
-      city: 'New York',
-      state: 'NY',
-      zipCode: '10001',
-      country: 'USA',
-      tags: ['contractor', 'premium'],
-      notes: 'Regular client, prefers email communication',
-      status: 'active',
-      createdAt: '2024-01-15T10:00:00Z',
-      updatedAt: '2024-01-15T10:00:00Z',
-    },
-    {
-      id: '2',
-      firstName: 'Jane',
-      lastName: 'Smith',
-      email: 'jane.smith@example.com',
-      phone: '+1-555-0102',
-      company: 'XYZ Builders',
-      jobTitle: 'Owner',
-      address: '456 Oak Ave',
-      city: 'Los Angeles',
-      state: 'CA',
-      zipCode: '90001',
-      country: 'USA',
-      tags: ['builder'],
-      notes: 'Interested in new projects',
-      status: 'lead',
-      createdAt: '2024-01-16T14:30:00Z',
-      updatedAt: '2024-01-16T14:30:00Z',
-    },
-    {
-      id: '3',
-      firstName: 'Mike',
-      lastName: 'Johnson',
-      email: 'mike.j@contractors.com',
-      phone: '+1-555-0103',
-      company: 'Johnson & Sons',
-      jobTitle: 'CEO',
-      address: '789 Pine Rd',
-      city: 'Chicago',
-      state: 'IL',
-      zipCode: '60601',
-      country: 'USA',
-      tags: ['contractor', 'vip'],
-      notes: 'Long-term partner',
-      status: 'active',
-      createdAt: '2024-01-10T08:00:00Z',
-      updatedAt: '2024-01-20T09:00:00Z',
-    },
-  ],
-  quotes: [
-    {
-      id: '1',
-      quoteNumber: 'QT-2024-001',
-      contactId: '1',
-      contactName: 'John Doe',
-      contactEmail: 'john.doe@example.com',
-      contactCompany: 'ABC Construction',
-      lineItems: [
-        {
-          id: '1',
-          description: 'Kitchen Renovation - Labor',
-          quantity: 40,
-          unitPrice: 75,
-          total: 3000,
-        },
-        {
-          id: '2',
-          description: 'Kitchen Renovation - Materials',
-          quantity: 1,
-          unitPrice: 5000,
-          total: 5000,
-        },
-      ],
-      subtotal: 8000,
-      taxRate: 0.08,
-      taxAmount: 640,
-      discount: 0,
-      total: 8640,
-      status: 'sent',
-      notes: 'Valid for 30 days',
-      validUntil: '2024-02-15T00:00:00Z',
-      createdAt: '2024-01-15T10:00:00Z',
-      updatedAt: '2024-01-15T10:00:00Z',
-    },
-    {
-      id: '2',
-      quoteNumber: 'QT-2024-002',
-      contactId: '2',
-      contactName: 'Jane Smith',
-      contactEmail: 'jane.smith@example.com',
-      contactCompany: 'XYZ Builders',
-      lineItems: [
-        {
-          id: '3',
-          description: 'Bathroom Remodel',
-          quantity: 1,
-          unitPrice: 12000,
-          total: 12000,
-        },
-      ],
-      subtotal: 12000,
-      taxRate: 0.08,
-      taxAmount: 960,
-      discount: 500,
-      total: 12460,
-      status: 'draft',
-      notes: 'Pending review',
-      createdAt: '2024-01-20T14:00:00Z',
-      updatedAt: '2024-01-20T14:00:00Z',
-    },
-  ],
-  invoices: [
-    {
-      id: '1',
-      invoiceNumber: 'INV-2024-001',
-      contactId: '1',
-      contactName: 'John Doe',
-      contactEmail: 'john.doe@example.com',
-      contactCompany: 'ABC Construction',
-      lineItems: [
-        {
-          id: '1',
-          description: 'Kitchen Renovation - Labor',
-          quantity: 40,
-          unitPrice: 75,
-          total: 3000,
-        },
-        {
-          id: '2',
-          description: 'Kitchen Renovation - Materials',
-          quantity: 1,
-          unitPrice: 5000,
-          total: 5000,
-        },
-      ],
-      subtotal: 8000,
-      taxRate: 0.08,
-      taxAmount: 640,
-      discount: 0,
-      total: 8640,
-      status: 'sent',
-      paymentStatus: 'pending',
-      notes: 'Payment due within 30 days',
-      dueDate: '2024-02-15T00:00:00Z',
-      paymentTerms: 'Net 30',
-      paidAmount: 0,
-      createdAt: '2024-01-15T10:00:00Z',
-      updatedAt: '2024-01-15T10:00:00Z',
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-2024-002',
-      contactId: '2',
-      contactName: 'Jane Smith',
-      contactEmail: 'jane.smith@example.com',
-      contactCompany: 'XYZ Builders',
-      lineItems: [
-        {
-          id: '3',
-          description: 'Bathroom Remodel',
-          quantity: 1,
-          unitPrice: 12000,
-          total: 12000,
-        },
-      ],
-      subtotal: 12000,
-      taxRate: 0.08,
-      taxAmount: 960,
-      discount: 500,
-      total: 12460,
-      status: 'sent',
-      paymentStatus: 'paid',
-      notes: 'Payment received',
-      dueDate: '2024-01-25T00:00:00Z',
-      paymentTerms: 'Net 30',
-      paidAmount: 12460,
-      createdAt: '2024-01-20T14:00:00Z',
-      updatedAt: '2024-01-22T10:00:00Z',
-    },
-  ],
+  contacts: [],
+  quotes: [],
+  invoices: [],
   schedules: [],
-  jobs: [
-    {
-      id: '1',
-      title: 'Kitchen Renovation Consultation',
-      description: 'Initial consultation for kitchen renovation project',
-      contactId: '1',
-      contactName: 'John Doe',
-      contactEmail: 'john.doe@example.com',
-      contactPhone: '+1-555-0101',
-      serviceId: '1',
-      serviceName: 'Consultation',
-      startTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
-      endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(), // +1 hour
-      status: 'scheduled',
-      location: '123 Main St, New York, NY',
-      notes: 'Customer wants to discuss timeline and budget',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: '2',
-      title: 'Bathroom Remodel - Site Visit',
-      description: 'Site visit to assess bathroom remodeling needs',
-      contactId: '2',
-      contactName: 'Jane Smith',
-      contactEmail: 'jane.smith@example.com',
-      contactPhone: '+1-555-0102',
-      serviceId: '2',
-      serviceName: 'Site Visit',
-      startTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
-      endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000 + 90 * 60 * 1000).toISOString(), // +90 minutes
-      status: 'scheduled',
-      location: '456 Oak Ave, Los Angeles, CA',
-      notes: 'Bring measuring tools',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-  services: [
-    {
-      id: '1',
-      name: 'Consultation',
-      description: 'Initial consultation to discuss project requirements',
-      duration: 60,
-      price: 100,
-      isActive: true,
-      availability: {
-        workingHours: [
-          { dayOfWeek: 1, startTime: '09:00', endTime: '17:00', isWorking: true },
-          { dayOfWeek: 2, startTime: '09:00', endTime: '17:00', isWorking: true },
-          { dayOfWeek: 3, startTime: '09:00', endTime: '17:00', isWorking: true },
-          { dayOfWeek: 4, startTime: '09:00', endTime: '17:00', isWorking: true },
-          { dayOfWeek: 5, startTime: '09:00', endTime: '17:00', isWorking: true },
-          { dayOfWeek: 6, startTime: '09:00', endTime: '17:00', isWorking: false },
-          { dayOfWeek: 0, startTime: '09:00', endTime: '17:00', isWorking: false },
-        ],
-        bufferTime: 15,
-        advanceBookingDays: 30,
-        sameDayBooking: true,
-      },
-      bookingSettings: {
-        requireConfirmation: false,
-        allowCancellation: true,
-        cancellationHours: 24,
-        maxBookingsPerSlot: 1,
-        requireContactInfo: true,
-        bookingFormFields: ['name', 'email', 'phone', 'notes'],
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: '2',
-      name: 'Site Visit',
-      description: 'On-site visit to assess project requirements',
-      duration: 90,
-      price: 150,
-      isActive: true,
-      availability: {
-        workingHours: [
-          { dayOfWeek: 1, startTime: '10:00', endTime: '16:00', isWorking: true },
-          { dayOfWeek: 2, startTime: '10:00', endTime: '16:00', isWorking: true },
-          { dayOfWeek: 3, startTime: '10:00', endTime: '16:00', isWorking: true },
-          { dayOfWeek: 4, startTime: '10:00', endTime: '16:00', isWorking: true },
-          { dayOfWeek: 5, startTime: '10:00', endTime: '16:00', isWorking: true },
-          { dayOfWeek: 6, startTime: '09:00', endTime: '17:00', isWorking: false },
-          { dayOfWeek: 0, startTime: '09:00', endTime: '17:00', isWorking: false },
-        ],
-        bufferTime: 30,
-        advanceBookingDays: 60,
-        sameDayBooking: false,
-      },
-      bookingSettings: {
-        requireConfirmation: true,
-        allowCancellation: true,
-        cancellationHours: 48,
-        maxBookingsPerSlot: 1,
-        requireContactInfo: true,
-        bookingFormFields: ['name', 'email', 'phone', 'address', 'notes'],
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
+  jobs: [],
+  services: [],
 }
 
 // Mock Auth Service
@@ -675,6 +386,12 @@ export const mockJobsService = {
     await delay(400)
     // Get contact info
     const contact = mockStorage.contacts.find((c) => c.id === data.contactId)
+    
+    // Log for debugging
+    if (!contact) {
+      console.warn(`Contact with ID ${data.contactId} not found. Available contacts:`, mockStorage.contacts.map(c => ({ id: c.id, name: `${c.firstName} ${c.lastName}` })))
+    }
+    
     const service = data.serviceId ? mockStorage.services.find((s) => s.id === data.serviceId) : null
     
     const newJob = {
@@ -682,9 +399,9 @@ export const mockJobsService = {
       title: data.title,
       description: data.description || '',
       contactId: data.contactId,
-      contactName: contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown',
-      contactEmail: contact?.email,
-      contactPhone: contact?.phone,
+      contactName: contact ? `${contact.firstName} ${contact.lastName}` : '',
+      contactEmail: contact?.email || '',
+      contactPhone: contact?.phone || '',
       serviceId: data.serviceId,
       serviceName: service?.name,
       startTime: data.startTime,
@@ -716,8 +433,13 @@ export const mockJobsService = {
       const contact = mockStorage.contacts.find((c) => c.id === data.contactId)
       if (contact) {
         updatedJob.contactName = `${contact.firstName} ${contact.lastName}`
-        updatedJob.contactEmail = contact.email
-        updatedJob.contactPhone = contact.phone
+        updatedJob.contactEmail = contact.email || ''
+        updatedJob.contactPhone = contact.phone || ''
+      } else {
+        // If contact not found, clear the contact info
+        updatedJob.contactName = ''
+        updatedJob.contactEmail = ''
+        updatedJob.contactPhone = ''
       }
     }
     

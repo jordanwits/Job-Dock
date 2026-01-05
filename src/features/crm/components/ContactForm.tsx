@@ -16,6 +16,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
     reset,
   } = useForm<ContactFormData>({
@@ -37,6 +38,8 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       status: contact?.status || 'active',
     },
   })
+
+  const statusValue = watch('status')
 
   useEffect(() => {
     if (contact) {
@@ -153,6 +156,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       <Select
         label="Status"
         {...register('status')}
+        value={statusValue}
         error={errors.status?.message}
         options={[
           { value: 'active', label: 'Active' },

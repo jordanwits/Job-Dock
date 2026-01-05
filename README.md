@@ -132,6 +132,35 @@ VITE_DEFAULT_TENANT_ID=demo-tenant
 - **File Storage**: S3
 - **CDN**: CloudFront
 
+## 🤖 AWS MCP Server (AI Debugging Assistant)
+
+The AWS MCP (Model Context Protocol) server allows AI assistants to safely inspect and debug your JobDock AWS infrastructure with read-only access.
+
+### Quick Setup
+
+```bash
+cd tools/aws-mcp
+npm install
+npm run build
+```
+
+Then configure your editor (Cursor/Claude Desktop) to use the MCP server. See **[MCP_AWS_SETUP.md](./MCP_AWS_SETUP.md)** for detailed instructions.
+
+### What It Does
+
+- 🔍 View Lambda logs for debugging
+- 📊 Query DynamoDB tables
+- 🗄️ List and read S3 objects
+- 🔐 Inspect SSM parameters (masked)
+- 🏗️ Check CloudFormation stack status
+- ⚙️ View Lambda configurations
+
+### Security
+
+All operations are **read-only**. No deployments, writes, or deletions are possible. Sensitive values are automatically masked.
+
+For full details, see [`tools/aws-mcp/README.md`](tools/aws-mcp/README.md).
+
 ### Scalability Features
 
 ✅ **Auto-scaling**: Lambda and Aurora Serverless scale automatically  

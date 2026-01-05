@@ -82,19 +82,23 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading }: JobFormProps) => {
   }, [job, reset])
 
   const handleFormSubmit = async (data: JobFormData) => {
-    // Combine date and time
-    if (startDate && startTime) {
-      const startDateTime = new Date(`${startDate}T${startTime}`)
-      const endDateTime = new Date(startDateTime.getTime() + duration * 60000)
-
-      const formData = {
-        ...data,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
-      }
-
-      await onSubmit(formData)
+    // Validate date and time are selected
+    if (!startDate || !startTime) {
+      // You could set form errors here if needed
+      return
     }
+    
+    // Combine date and time
+    const startDateTime = new Date(`${startDate}T${startTime}`)
+    const endDateTime = new Date(startDateTime.getTime() + duration * 60000)
+
+    const formData = {
+      ...data,
+      startTime: startDateTime.toISOString(),
+      endTime: endDateTime.toISOString(),
+    }
+
+    await onSubmit(formData)
   }
 
   return (

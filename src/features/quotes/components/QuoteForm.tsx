@@ -58,6 +58,8 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
   const watchedTaxRatePercent = watch('taxRate') || 0
   const watchedTaxRate = watchedTaxRatePercent / 100 // Convert percentage to decimal
   const watchedDiscount = watch('discount') || 0
+  const contactIdValue = watch('contactId')
+  const statusValue = watch('status')
 
   // Calculate totals
   const subtotal = watchedLineItems.reduce(
@@ -111,6 +113,7 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
       <Select
         label="Contact *"
         {...register('contactId')}
+        value={contactIdValue}
         error={errors.contactId?.message}
         options={[
           { value: '', label: 'Select a contact' },
@@ -276,6 +279,7 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
       <Select
         label="Status"
         {...register('status')}
+        value={statusValue}
         error={errors.status?.message}
         options={[
           { value: 'draft', label: 'Draft' },
