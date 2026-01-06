@@ -272,6 +272,16 @@ export class JobDockStack extends cdk.Stack {
       'cognito-idp:AdminDeleteUser'
     )
 
+    // Grant Lambda access to SES for sending emails
+    lambdaRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'ses:SendEmail',
+        'ses:SendRawEmail',
+      ],
+      resources: ['*'], // Can be restricted to specific verified identities if needed
+    }))
+
     // ============================================
     // 6. API Gateway
     // ============================================
@@ -376,6 +386,10 @@ export class JobDockStack extends cdk.Stack {
           ? `https://${config.domain}`
           : 'http://localhost:5173',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
+        // SES Email configuration
+        SES_ENABLED: 'true', // Enable for all environments to send real emails
+        SES_REGION: this.region,
+        SES_FROM_ADDRESS: config.sesFromAddress || 'jordan@westwavecreative.com',
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
     })
@@ -413,6 +427,10 @@ export class JobDockStack extends cdk.Stack {
           ? `https://${config.domain}`
           : 'http://localhost:5173',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
+        // SES Email configuration
+        SES_ENABLED: 'true', // Enable for all environments to send real emails
+        SES_REGION: this.region,
+        SES_FROM_ADDRESS: config.sesFromAddress || 'jordan@westwavecreative.com',
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
     })

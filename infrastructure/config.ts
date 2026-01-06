@@ -10,6 +10,7 @@ export interface Config {
   domain?: string
   defaultTenantId?: string
   email?: string
+  sesFromAddress?: string
   database: {
     engine: 'aurora-postgresql'
     minCapacity: number // ACU (Aurora Capacity Units)
@@ -35,6 +36,7 @@ export const configs: Record<string, Config> = {
     env: 'dev',
     region: 'us-east-1',
     defaultTenantId: 'demo-tenant',
+    sesFromAddress: 'jordan@westwavecreative.com',
     database: {
       engine: 'aurora-postgresql',
       minCapacity: 0.5, // Minimum for cost savings
@@ -57,6 +59,7 @@ export const configs: Record<string, Config> = {
   staging: {
     env: 'staging',
     region: 'us-east-1',
+    sesFromAddress: 'jordan@westwavecreative.com',
     database: {
       engine: 'aurora-postgresql',
       minCapacity: 1,
@@ -81,6 +84,7 @@ export const configs: Record<string, Config> = {
     region: 'us-east-1',
     // Add your domain here when ready
     // domain: 'jobdock.com',
+    sesFromAddress: 'jordan@westwavecreative.com',
     database: {
       engine: 'aurora-postgresql',
       minCapacity: 2, // Start higher for production
