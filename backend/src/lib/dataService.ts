@@ -145,6 +145,13 @@ export const dataServices = {
     },
     update: async (tenantId: string, id: string, payload: any) => {
       await ensureTenantExists(tenantId)
+      // Verify contact belongs to tenant before updating
+      const contact = await prisma.contact.findFirst({
+        where: { id, tenantId },
+      })
+      if (!contact) {
+        throw new ApiError('Contact not found', 404)
+      }
       return prisma.contact.update({
         where: { id },
         data: {
@@ -277,6 +284,14 @@ export const dataServices = {
     },
     update: async (tenantId: string, id: string, payload: any) => {
       await ensureTenantExists(tenantId)
+      // Verify quote belongs to tenant before updating
+      const existingQuote = await prisma.quote.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existingQuote) {
+        throw new ApiError('Quote not found', 404)
+      }
+
       const lineItems = payload.lineItems
       const subtotal = lineItems
         ? lineItems.reduce(
@@ -323,7 +338,14 @@ export const dataServices = {
       if (!updated) throw new Error('Quote not found')
       return serializeQuote(updated)
     },
-    delete: async (_tenantId: string, id: string) => {
+    delete: async (tenantId: string, id: string) => {
+      // Verify quote belongs to tenant before deleting
+      const quote = await prisma.quote.findFirst({
+        where: { id, tenantId },
+      })
+      if (!quote) {
+        throw new ApiError('Quote not found', 404)
+      }
       await prisma.quote.delete({ where: { id } })
       return { success: true }
     },
@@ -449,6 +471,14 @@ export const dataServices = {
     },
     update: async (tenantId: string, id: string, payload: any) => {
       await ensureTenantExists(tenantId)
+      // Verify invoice belongs to tenant before updating
+      const existingInvoice = await prisma.invoice.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existingInvoice) {
+        throw new ApiError('Invoice not found', 404)
+      }
+
       const lineItems = payload.lineItems
       await prisma.$transaction(async (tx) => {
         if (lineItems) {
@@ -479,7 +509,14 @@ export const dataServices = {
       if (!updated) throw new Error('Invoice not found')
       return serializeInvoice(updated)
     },
-    delete: async (_tenantId: string, id: string) => {
+    delete: async (tenantId: string, id: string) => {
+      // Verify invoice belongs to tenant before deleting
+      const invoice = await prisma.invoice.findFirst({
+        where: { id, tenantId },
+      })
+      if (!invoice) {
+        throw new ApiError('Invoice not found', 404)
+      }
       await prisma.invoice.delete({ where: { id } })
       return { success: true }
     },
@@ -608,7 +645,14 @@ export const dataServices = {
         include: { contact: true, service: true },
       })
     },
-    update: async (_tenantId: string, id: string, payload: any) => {
+    update: async (tenantId: string, id: string, payload: any) => {
+      // Verify job belongs to tenant before updating
+      const existingJob = await prisma.job.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existingJob) {
+        throw new ApiError('Job not found', 404)
+      }
       return prisma.job.update({
         where: { id },
         data: {
@@ -619,7 +663,14 @@ export const dataServices = {
         include: { contact: true, service: true },
       })
     },
-    delete: async (_tenantId: string, id: string) => {
+    delete: async (tenantId: string, id: string) => {
+      // Verify job belongs to tenant before deleting
+      const job = await prisma.job.findFirst({
+        where: { id, tenantId },
+      })
+      if (!job) {
+        throw new ApiError('Job not found', 404)
+      }
       await prisma.job.delete({ where: { id } })
       return { success: true }
     },
@@ -730,19 +781,37 @@ export const dataServices = {
         },
       })
     },
-    update: async (_tenantId: string, id: string, payload: any) => {
+    update: async (tenantId: string, id: string, payload: any) => {
+      // Verify service belongs to tenant before updating
+      const existingService = await prisma.service.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existingService) {
+        throw new ApiError('Service not found', 404)
+      }
       return prisma.service.update({
         where: { id },
         data: payload,
       })
     },
-    delete: async (_tenantId: string, id: string) => {
+    delete: async (tenantId: string, id: string) => {
+      // Verify service belongs to tenant before deleting
+      const service = await prisma.service.findFirst({
+        where: { id, tenantId },
+      })
+      if (!service) {
+        throw new ApiError('Service not found', 404)
+      }
       await prisma.service.delete({ where: { id } })
       return { success: true }
     },
-    getBookingLink: async (_tenantId: string, id: string) => {
-      const service = await prisma.service.findUnique({ where: { id } })
-      if (!service) throw new Error('Service not found')
+    getBookingLink: async (tenantId: string, id: string) => {
+      const service = await prisma.service.findFirst({ 
+        where: { id, tenantId } 
+      })
+      if (!service) {
+        throw new ApiError('Service not found', 404)
+      }
       const baseUrl =
         process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
       return {
