@@ -10,14 +10,17 @@ interface JobDetailProps {
   onClose: () => void
   onEdit?: () => void
   onDelete?: () => void
+  onConfirm?: () => void
+  onDecline?: () => void
 }
 
-const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete }: JobDetailProps) => {
+const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onConfirm, onDecline }: JobDetailProps) => {
   const statusColors = {
     scheduled: 'border-blue-500 bg-blue-500/10 text-blue-300',
     'in-progress': 'border-yellow-500 bg-yellow-500/10 text-yellow-300',
     completed: 'border-green-500 bg-green-500/10 text-green-300',
     cancelled: 'border-red-500 bg-red-500/10 text-red-300',
+    'pending-confirmation': 'border-orange-500 bg-orange-500/10 text-orange-300',
   }
 
   const statusLabels = {
@@ -25,6 +28,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete }: JobDetailProps) =
     'in-progress': 'In Progress',
     completed: 'Completed',
     cancelled: 'Cancelled',
+    'pending-confirmation': 'Pending Confirmation',
   }
 
   return (
@@ -35,15 +39,33 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete }: JobDetailProps) =
       size="lg"
       footer={
         <>
-          {onDelete && (
-            <Button variant="ghost" onClick={onDelete} className="text-red-500 hover:text-red-600">
-              Delete
-            </Button>
+          {job.status === 'pending-confirmation' && (
+            <>
+              {onDecline && (
+                <Button variant="ghost" onClick={onDecline} className="text-red-500 hover:text-red-600">
+                  Decline
+                </Button>
+              )}
+              {onConfirm && (
+                <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white">
+                  Confirm Booking
+                </Button>
+              )}
+            </>
           )}
-          {onEdit && (
-            <Button variant="ghost" onClick={onEdit}>
-              Edit
-            </Button>
+          {job.status !== 'pending-confirmation' && (
+            <>
+              {onDelete && (
+                <Button variant="ghost" onClick={onDelete} className="text-red-500 hover:text-red-600">
+                  Delete
+                </Button>
+              )}
+              {onEdit && (
+                <Button variant="ghost" onClick={onEdit}>
+                  Edit
+                </Button>
+              )}
+            </>
           )}
           <Button onClick={onClose}>Close</Button>
         </>

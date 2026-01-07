@@ -18,6 +18,7 @@ interface InvoiceState {
   createInvoice: (data: CreateInvoiceData) => Promise<void>
   updateInvoice: (data: UpdateInvoiceData) => Promise<void>
   deleteInvoice: (id: string) => Promise<void>
+  sendInvoice: (id: string) => Promise<void>
   convertQuoteToInvoice: (quote: Quote, options?: { paymentTerms?: string; dueDate?: string }) => Promise<Invoice>
   setSelectedInvoice: (invoice: Invoice | null) => void
   setSearchQuery: (query: string) => void
@@ -115,6 +116,29 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     } catch (error: any) {
       set({
         error: error.message || 'Failed to delete invoice',
+        isLoading: false,
+      })
+      throw error
+    }
+  },
+
+  sendInvoice: async (id: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const updatedInvoice = await invoicesService.send(id)
+      set((state) => ({
+        invoices: state.invoices.map((i) =>
+          i.id === id ? updatedInvoice : i
+        ),
+        selectedInvoice:
+          state.selectedInvoice?.id === id
+            ? updatedInvoice
+            : state.selectedInvoice,
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      set({
+        error: error.message || 'Failed to send invoice',
         isLoading: false,
       })
       throw error

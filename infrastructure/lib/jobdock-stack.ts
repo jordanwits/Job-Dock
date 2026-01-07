@@ -133,9 +133,7 @@ export class JobDockStack extends cdk.Stack {
         }),
         serverlessV2MinCapacity: config.database.minCapacity,
         serverlessV2MaxCapacity: config.database.maxCapacity,
-        removalPolicy: config.env === 'prod' 
-          ? cdk.RemovalPolicy.RETAIN 
-          : cdk.RemovalPolicy.DESTROY,
+        removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
         backup: {
           retention: cdk.Duration.days(7),
           preferredWindow: '03:00-04:00',
@@ -165,9 +163,7 @@ export class JobDockStack extends cdk.Stack {
         requireSymbols: config.cognito.passwordPolicy.requireSymbols,
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      removalPolicy: config.env === 'prod' 
-        ? cdk.RemovalPolicy.RETAIN 
-        : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     })
 
     this.userPoolClient = this.userPool.addClient('WebClient', {
@@ -181,11 +177,7 @@ export class JobDockStack extends cdk.Stack {
         flows: {
           authorizationCodeGrant: true,
         },
-        scopes: [
-          cognito.OAuthScope.EMAIL,
-          cognito.OAuthScope.OPENID,
-          cognito.OAuthScope.PROFILE,
-        ],
+        scopes: [cognito.OAuthScope.EMAIL, cognito.OAuthScope.OPENID, cognito.OAuthScope.PROFILE],
         callbackUrls: config.domain
           ? [`https://${config.domain}`, `https://www.${config.domain}`]
           : ['http://localhost:5173'], // Vite default port
@@ -200,9 +192,7 @@ export class JobDockStack extends cdk.Stack {
       bucketName: `jobdock-frontend-${config.env}-${this.account}`,
       publicReadAccess: false,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      removalPolicy: config.env === 'prod' 
-        ? cdk.RemovalPolicy.RETAIN 
-        : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: config.env !== 'prod',
       versioned: config.env === 'prod',
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -213,9 +203,7 @@ export class JobDockStack extends cdk.Stack {
       bucketName: `jobdock-files-${config.env}-${this.account}`,
       publicReadAccess: false,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      removalPolicy: config.env === 'prod' 
-        ? cdk.RemovalPolicy.RETAIN 
-        : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       encryption: s3.BucketEncryption.S3_MANAGED,
       cors: [
         {
@@ -273,14 +261,13 @@ export class JobDockStack extends cdk.Stack {
     )
 
     // Grant Lambda access to SES for sending emails
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'ses:SendEmail',
-        'ses:SendRawEmail',
-      ],
-      resources: ['*'], // Can be restricted to specific verified identities if needed
-    }))
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: ['*'], // Can be restricted to specific verified identities if needed
+      })
+    )
 
     // ============================================
     // 6. API Gateway
@@ -341,11 +328,7 @@ export class JobDockStack extends cdk.Stack {
       tsconfig: path.resolve(backendDir, 'tsconfig.json'),
       commandHooks: {
         beforeBundling(_inputDir: string, outputDir: string) {
-          return [
-            `cd ${backendDir}`,
-            'npx prisma generate',
-            createCopyPrismaCmd(outputDir),
-          ]
+          return [`cd ${backendDir}`, 'npx prisma generate', createCopyPrismaCmd(outputDir)]
         },
         beforeInstall() {
           return []
@@ -382,9 +365,7 @@ export class JobDockStack extends cdk.Stack {
         USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
         FILES_BUCKET: this.filesBucket.bucketName,
         ENVIRONMENT: config.env,
-        PUBLIC_APP_URL: config.domain
-          ? `https://${config.domain}`
-          : 'http://localhost:5173',
+        PUBLIC_APP_URL: config.domain ? `https://${config.domain}` : 'http://localhost:5173',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // SES Email configuration
         SES_ENABLED: 'true', // Enable for all environments to send real emails
@@ -423,9 +404,7 @@ export class JobDockStack extends cdk.Stack {
         USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
         FILES_BUCKET: this.filesBucket.bucketName,
         ENVIRONMENT: config.env,
-        PUBLIC_APP_URL: config.domain
-          ? `https://${config.domain}`
-          : 'http://localhost:5173',
+        PUBLIC_APP_URL: config.domain ? `https://${config.domain}` : 'http://localhost:5173',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // SES Email configuration
         SES_ENABLED: 'true', // Enable for all environments to send real emails
@@ -479,9 +458,10 @@ export class JobDockStack extends cdk.Stack {
     })
 
     new cdk.CfnOutput(this, 'DatabaseEndpoint', {
-      value: this.database instanceof rds.DatabaseInstance
-        ? this.database.instanceEndpoint.hostname
-        : this.database.clusterEndpoint.hostname,
+      value:
+        this.database instanceof rds.DatabaseInstance
+          ? this.database.instanceEndpoint.hostname
+          : this.database.clusterEndpoint.hostname,
       description: 'Database endpoint',
       exportName: `JobDock-${config.env}-DatabaseEndpoint`,
     })
@@ -505,4 +485,3 @@ export class JobDockStack extends cdk.Stack {
     })
   }
 }
-

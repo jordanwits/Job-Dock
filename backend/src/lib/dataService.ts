@@ -16,6 +16,8 @@ import {
   buildContractorNotificationEmail,
   buildClientBookingConfirmedEmail,
   buildClientBookingDeclinedEmail,
+  sendQuoteEmail,
+  sendInvoiceEmail,
 } from './email'
 
 const toNumber = (value: Prisma.Decimal | number | null | undefined) =>
@@ -325,6 +327,56 @@ export const dataServices = {
       await prisma.quote.delete({ where: { id } })
       return { success: true }
     },
+    send: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      
+      // Load quote with contact and line items
+      const quote = await prisma.quote.findFirst({
+        where: { id, tenantId },
+        include: { contact: true, lineItems: true },
+      })
+      
+      if (!quote) {
+        throw new ApiError('Quote not found', 404)
+      }
+      
+      if (!quote.contact.email) {
+        throw new ApiError('Contact does not have an email address', 400)
+      }
+      
+      // Serialize the quote for email
+      const serializedQuote = serializeQuote(quote)
+      
+      // Get tenant name (optional, for branding)
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      })
+      
+      // Send the email with PDF
+      try {
+        await sendQuoteEmail({
+          quoteData: serializedQuote,
+          tenantName: tenant?.name ?? undefined,
+        })
+        console.log(`✅ Quote ${quote.quoteNumber} sent to ${quote.contact.email}`)
+      } catch (emailError) {
+        console.error('❌ Failed to send quote email:', emailError)
+        throw new ApiError(
+          `Failed to send quote email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`,
+          500
+        )
+      }
+      
+      // Update quote status to 'sent'
+      const updatedQuote = await prisma.quote.update({
+        where: { id },
+        data: { status: 'sent' },
+        include: { contact: true, lineItems: true },
+      })
+      
+      return serializeQuote(updatedQuote)
+    },
   },
   invoices: {
     getAll: async (tenantId: string) => {
@@ -430,6 +482,56 @@ export const dataServices = {
     delete: async (_tenantId: string, id: string) => {
       await prisma.invoice.delete({ where: { id } })
       return { success: true }
+    },
+    send: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      
+      // Load invoice with contact and line items
+      const invoice = await prisma.invoice.findFirst({
+        where: { id, tenantId },
+        include: { contact: true, lineItems: true },
+      })
+      
+      if (!invoice) {
+        throw new ApiError('Invoice not found', 404)
+      }
+      
+      if (!invoice.contact.email) {
+        throw new ApiError('Contact does not have an email address', 400)
+      }
+      
+      // Serialize the invoice for email
+      const serializedInvoice = serializeInvoice(invoice)
+      
+      // Get tenant name (optional, for branding)
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      })
+      
+      // Send the email with PDF
+      try {
+        await sendInvoiceEmail({
+          invoiceData: serializedInvoice,
+          tenantName: tenant?.name ?? undefined,
+        })
+        console.log(`✅ Invoice ${invoice.invoiceNumber} sent to ${invoice.contact.email}`)
+      } catch (emailError) {
+        console.error('❌ Failed to send invoice email:', emailError)
+        throw new ApiError(
+          `Failed to send invoice email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`,
+          500
+        )
+      }
+      
+      // Update invoice status to 'sent'
+      const updatedInvoice = await prisma.invoice.update({
+        where: { id },
+        data: { status: 'sent' },
+        include: { contact: true, lineItems: true },
+      })
+      
+      return serializeInvoice(updatedInvoice)
     },
   },
   jobs: {
@@ -934,8 +1036,8 @@ export const dataServices = {
               contractorName: 'Contractor',
               serviceName: service.name,
               clientName,
-              clientEmail: contact.email,
-              clientPhone: contact.phone,
+              clientEmail: contact.email ?? undefined,
+              clientPhone: contact.phone ?? undefined,
               startTime,
               endTime,
               location: payload.location,

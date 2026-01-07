@@ -1,4 +1,5 @@
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
+import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses'
+import { generateQuotePDF, generateInvoicePDF } from './pdf'
 
 // Email configuration from environment variables
 const SES_ENABLED = process.env.SES_ENABLED === 'true'
@@ -16,6 +17,18 @@ export interface EmailPayload {
   subject: string
   htmlBody: string
   textBody?: string
+}
+
+export interface EmailWithAttachment {
+  to: string
+  subject: string
+  htmlBody: string
+  textBody?: string
+  attachments?: Array<{
+    filename: string
+    content: Buffer
+    contentType: string
+  }>
 }
 
 /**
@@ -67,6 +80,89 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
     console.log('---')
     console.log(textBody || htmlBody.replace(/<[^>]*>/g, ''))
     console.log('================================================\n')
+  }
+}
+
+/**
+ * Create MIME message with attachments for raw email sending
+ */
+function createMimeMessage(payload: EmailWithAttachment): string {
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`
+  const { to, subject, htmlBody, textBody, attachments = [] } = payload
+
+  let mime = [
+    `From: ${SES_FROM_ADDRESS}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: multipart/alternative; boundary="alt-boundary"',
+    '',
+    '--alt-boundary',
+    'Content-Type: text/plain; charset=UTF-8',
+    '',
+    textBody || htmlBody.replace(/<[^>]*>/g, ''),
+    '',
+    '--alt-boundary',
+    'Content-Type: text/html; charset=UTF-8',
+    '',
+    htmlBody,
+    '',
+    '--alt-boundary--',
+  ].join('\r\n')
+
+  // Add attachments
+  attachments.forEach((attachment) => {
+    const base64Content = attachment.content.toString('base64')
+    mime += [
+      '',
+      `--${boundary}`,
+      `Content-Type: ${attachment.contentType}; name="${attachment.filename}"`,
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${attachment.filename}"`,
+      '',
+      base64Content,
+    ].join('\r\n')
+  })
+
+  mime += `\r\n--${boundary}--`
+
+  return mime
+}
+
+/**
+ * Send an email with attachments using AWS SES raw email API
+ */
+export async function sendEmailWithAttachments(payload: EmailWithAttachment): Promise<void> {
+  const { to, subject, htmlBody, textBody, attachments = [] } = payload
+
+  if (SES_ENABLED && sesClient) {
+    try {
+      const mimeMessage = createMimeMessage(payload)
+      const command = new SendRawEmailCommand({
+        RawMessage: {
+          Data: Buffer.from(mimeMessage),
+        },
+      })
+
+      await sesClient.send(command)
+      console.log(`✅ Email with attachments sent via SES to ${to}: ${subject}`)
+    } catch (error) {
+      console.error('❌ Failed to send email with attachments via SES:', error)
+      throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  } else {
+    // Log to console in dev mode
+    console.log('\n📧 =============== EMAIL WITH ATTACHMENTS (Dev Mode) ===============')
+    console.log(`To: ${to}`)
+    console.log(`From: ${SES_FROM_ADDRESS}`)
+    console.log(`Subject: ${subject}`)
+    console.log(`Attachments: ${attachments.map(a => a.filename).join(', ')}`)
+    console.log('---')
+    console.log(textBody || htmlBody.replace(/<[^>]*>/g, ''))
+    console.log('===============================================================\n')
   }
 }
 
@@ -430,5 +526,193 @@ We apologize for any inconvenience. Please feel free to try booking a different 
     htmlBody,
     textBody,
   }
+}
+
+/**
+ * Build and send quote email with PDF attachment
+ */
+export async function sendQuoteEmail(data: {
+  quoteData: any
+  tenantName?: string
+}): Promise<void> {
+  const { quoteData, tenantName } = data
+
+  const clientEmail = quoteData.contactEmail
+  if (!clientEmail) {
+    throw new Error('Contact does not have an email address')
+  }
+
+  const clientName = quoteData.contactName || 'Valued Customer'
+  const subject = `Quote ${quoteData.quoteNumber} from ${tenantName || 'JobDock'}`
+
+  const validUntilText = quoteData.validUntil
+    ? new Date(quoteData.validUntil).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'N/A'
+
+  const htmlBody = `
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #D4AF37;">New Quote</h2>
+        <p>Hi ${clientName},</p>
+        <p>Please find your quote attached as a PDF document.</p>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Quote Number:</strong> ${quoteData.quoteNumber}</p>
+          <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${quoteData.total.toFixed(2)}</p>
+          <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${validUntilText}</p>
+        </div>
+        <p>Please review the attached quote and let us know if you have any questions.</p>
+        <p>We look forward to working with you!</p>
+        <p style="color: #666; font-size: 12px; margin-top: 30px;">
+          This quote is valid until ${validUntilText}. Please contact us if you would like to proceed.
+        </p>
+      </body>
+    </html>
+  `
+
+  const textBody = `
+New Quote
+
+Hi ${clientName},
+
+Please find your quote attached as a PDF document.
+
+Quote Number: ${quoteData.quoteNumber}
+Total Amount: $${quoteData.total.toFixed(2)}
+Valid Until: ${validUntilText}
+
+Please review the attached quote and let us know if you have any questions.
+
+We look forward to working with you!
+
+This quote is valid until ${validUntilText}. Please contact us if you would like to proceed.
+  `.trim()
+
+  // Generate PDF
+  const pdfBuffer = await generateQuotePDF(quoteData, tenantName)
+
+  // Send email with PDF attachment
+  await sendEmailWithAttachments({
+    to: clientEmail,
+    subject,
+    htmlBody,
+    textBody,
+    attachments: [
+      {
+        filename: `Quote-${quoteData.quoteNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ],
+  })
+}
+
+/**
+ * Build and send invoice email with PDF attachment
+ */
+export async function sendInvoiceEmail(data: {
+  invoiceData: any
+  tenantName?: string
+}): Promise<void> {
+  const { invoiceData, tenantName } = data
+
+  const clientEmail = invoiceData.contactEmail
+  if (!clientEmail) {
+    throw new Error('Contact does not have an email address')
+  }
+
+  const clientName = invoiceData.contactName || 'Valued Customer'
+  const subject = `Invoice ${invoiceData.invoiceNumber} from ${tenantName || 'JobDock'}`
+
+  const dueDateText = invoiceData.dueDate
+    ? new Date(invoiceData.dueDate).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'Upon Receipt'
+
+  const paymentStatusText =
+    invoiceData.paymentStatus === 'paid'
+      ? 'Paid in Full'
+      : invoiceData.paymentStatus === 'partial'
+      ? 'Partially Paid'
+      : 'Payment Pending'
+
+  const statusColor =
+    invoiceData.paymentStatus === 'paid'
+      ? '#4CAF50'
+      : invoiceData.paymentStatus === 'partial'
+      ? '#FFA500'
+      : '#ff6b6b'
+
+  const balance = invoiceData.total - invoiceData.paidAmount
+
+  const htmlBody = `
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #D4AF37;">New Invoice</h2>
+        <p>Hi ${clientName},</p>
+        <p>Please find your invoice attached as a PDF document.</p>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Invoice Number:</strong> ${invoiceData.invoiceNumber}</p>
+          <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${invoiceData.total.toFixed(2)}</p>
+          ${invoiceData.paidAmount > 0 ? `<p style="margin: 5px 0;"><strong>Paid:</strong> $${invoiceData.paidAmount.toFixed(2)}</p>` : ''}
+          ${balance > 0 ? `<p style="margin: 5px 0;"><strong>Balance Due:</strong> <span style="color: ${statusColor};">$${balance.toFixed(2)}</span></p>` : ''}
+          <p style="margin: 5px 0;"><strong>Due Date:</strong> ${dueDateText}</p>
+          <p style="margin: 5px 0;"><strong>Payment Status:</strong> <span style="color: ${statusColor};">${paymentStatusText}</span></p>
+          ${invoiceData.paymentTerms ? `<p style="margin: 5px 0;"><strong>Payment Terms:</strong> ${invoiceData.paymentTerms}</p>` : ''}
+        </div>
+        ${balance > 0 ? '<p><strong>Please remit payment by the due date.</strong></p>' : '<p style="color: #4CAF50;"><strong>Thank you for your payment!</strong></p>'}
+        <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
+        <p style="color: #666; font-size: 12px; margin-top: 30px;">
+          Thank you for your business!
+        </p>
+      </body>
+    </html>
+  `
+
+  const textBody = `
+New Invoice
+
+Hi ${clientName},
+
+Please find your invoice attached as a PDF document.
+
+Invoice Number: ${invoiceData.invoiceNumber}
+Total Amount: $${invoiceData.total.toFixed(2)}
+${invoiceData.paidAmount > 0 ? `Paid: $${invoiceData.paidAmount.toFixed(2)}` : ''}
+${balance > 0 ? `Balance Due: $${balance.toFixed(2)}` : ''}
+Due Date: ${dueDateText}
+Payment Status: ${paymentStatusText}
+${invoiceData.paymentTerms ? `Payment Terms: ${invoiceData.paymentTerms}` : ''}
+
+${balance > 0 ? 'Please remit payment by the due date.' : 'Thank you for your payment!'}
+
+If you have any questions about this invoice, please don't hesitate to contact us.
+
+Thank you for your business!
+  `.trim()
+
+  // Generate PDF
+  const pdfBuffer = await generateInvoicePDF(invoiceData, tenantName)
+
+  // Send email with PDF attachment
+  await sendEmailWithAttachments({
+    to: clientEmail,
+    subject,
+    htmlBody,
+    textBody,
+    attachments: [
+      {
+        filename: `Invoice-${invoiceData.invoiceNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ],
+  })
 }
 

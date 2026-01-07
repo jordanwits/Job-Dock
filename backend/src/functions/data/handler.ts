@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
+import { successResponse, errorResponse, corsResponse, extractContext } from '../../lib/middleware'
 import { dataServices } from '../../lib/dataService'
 import { extractTenantId } from '../../lib/middleware'
 import { ensureTenantExists, getDefaultTenantId } from '../../lib/tenant'
@@ -38,7 +38,7 @@ export async function handler(
       case 'GET':
         return successResponse(await handleGet(resource, service, tenantId, id, action, event))
       case 'POST':
-        return successResponse(await handlePost(service, tenantId, event))
+        return successResponse(await handlePost(resource, service, tenantId, id, action, event))
       case 'PUT':
       case 'PATCH':
         if (!id) {
@@ -74,6 +74,14 @@ async function handleGet(
     return (service as typeof dataServices.services).getBookingLink(tenantId, id)
   }
 
+  if (resource === 'services' && id && action === 'availability') {
+    const startDateStr = event.queryStringParameters?.startDate
+    const endDateStr = event.queryStringParameters?.endDate
+    const startDate = startDateStr ? new Date(startDateStr) : undefined
+    const endDate = endDateStr ? new Date(endDateStr) : undefined
+    return (service as typeof dataServices.services).getAvailability(tenantId, id, startDate, endDate)
+  }
+
   if (id) {
     return service.getById(tenantId, id)
   }
@@ -90,10 +98,46 @@ async function handleGet(
 }
 
 async function handlePost(
+  resource: ResourceKey,
   service: (typeof dataServices)[ResourceKey],
   tenantId: string,
+  id: string | undefined,
+  action: string | undefined,
   event: APIGatewayProxyEvent
 ) {
+  if (resource === 'services' && id && action === 'book') {
+    const payload = parseBody(event)
+    // Try to extract contractor email from the logged-in user
+    let contractorEmail: string | undefined
+    try {
+      const context = await extractContext(event)
+      contractorEmail = context.userEmail
+    } catch {
+      // If no auth context (public booking), contractorEmail remains undefined
+      // We could fetch tenant owner email here if needed
+    }
+    return (service as typeof dataServices.services).bookSlot(tenantId, id, payload, contractorEmail)
+  }
+
+  if (resource === 'jobs' && id && action === 'confirm') {
+    return (service as typeof dataServices.jobs).confirm(tenantId, id)
+  }
+
+  if (resource === 'jobs' && id && action === 'decline') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices.jobs).decline(tenantId, id, payload.reason)
+  }
+
+  // Send actions don't require a body
+  if (resource === 'quotes' && id && action === 'send') {
+    return (service as typeof dataServices.quotes).send(tenantId, id)
+  }
+
+  if (resource === 'invoices' && id && action === 'send') {
+    return (service as typeof dataServices.invoices).send(tenantId, id)
+  }
+
+  // All other POST actions require a body
   const payload = parseBody(event)
   return service.create(tenantId, payload)
 }

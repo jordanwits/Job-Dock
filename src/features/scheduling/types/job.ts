@@ -10,7 +10,7 @@ export interface Job {
   serviceName?: string
   startTime: string
   endTime: string
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
+  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
   location?: string
   notes?: string
   assignedTo?: string
@@ -25,7 +25,7 @@ export interface CreateJobData {
   serviceId?: string
   startTime: string
   endTime: string
-  status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
+  status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
   location?: string
   notes?: string
   assignedTo?: string
@@ -35,5 +35,5 @@ export interface UpdateJobData extends Partial<CreateJobData> {
   id: string
 }
 
-export type JobStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
+export type JobStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
 

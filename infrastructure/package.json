@@ -21,6 +21,7 @@
     "typescript": "~5.3.0"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.962.0",
     "aws-cdk-lib": "^2.120.0",
     "constructs": "^10.3.0"
   }

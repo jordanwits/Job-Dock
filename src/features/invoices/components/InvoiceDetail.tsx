@@ -12,9 +12,12 @@ interface InvoiceDetailProps {
 }
 
 const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
-  const { updateInvoice, deleteInvoice, isLoading } = useInvoiceStore()
+  const { updateInvoice, deleteInvoice, sendInvoice, isLoading } = useInvoiceStore()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+  const [sendSuccess, setSendSuccess] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   const handleUpdate = async (data: any) => {
     try {
@@ -32,6 +35,28 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
       onClose()
     } catch (error) {
       // Error handled by store
+    }
+  }
+
+  const handleSend = async () => {
+    setIsSending(true)
+    setSendError(null)
+    setSendSuccess(false)
+    try {
+      await sendInvoice(invoice.id)
+      setSendSuccess(true)
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSendSuccess(false)
+      }, 3000)
+    } catch (error: any) {
+      setSendError(error.message || 'Failed to send invoice')
+      // Hide error message after 5 seconds
+      setTimeout(() => {
+        setSendError(null)
+      }, 5000)
+    } finally {
+      setIsSending(false)
     }
   }
 
@@ -91,24 +116,47 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
         title={invoice.invoiceNumber}
         size="lg"
         footer={
-          <div className="flex justify-between w-full">
+          <div className="flex flex-col sm:flex-row justify-between w-full gap-3">
             <Button
               variant="ghost"
               onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-500 hover:text-red-600"
+              className="text-red-500 hover:text-red-600 order-3 sm:order-1"
             >
               Delete
             </Button>
-            <div className="flex gap-3">
-              <Button variant="ghost" onClick={onClose}>
-                Close
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
+              <Button
+                onClick={handleSend}
+                disabled={isSending || !invoice.contactEmail}
+                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto"
+                title={!invoice.contactEmail ? 'Contact does not have an email address' : undefined}
+              >
+                {isSending ? 'Sending...' : invoice.status === 'sent' ? 'Resend Invoice' : 'Send Invoice'}
               </Button>
-              <Button onClick={() => setIsEditing(true)}>Edit</Button>
+              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
+                Edit
+              </Button>
             </div>
           </div>
         }
       >
         <div className="space-y-6">
+          {/* Success/Error Messages */}
+          {sendSuccess && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">
+                ✓ Invoice sent successfully to {invoice.contactEmail}
+              </p>
+            </div>
+          )}
+          {sendError && (
+            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+              <p className="text-sm text-red-400 font-medium">
+                ✗ {sendError}
+              </p>
+            </div>
+          )}
+          
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>

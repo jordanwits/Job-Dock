@@ -15,12 +15,15 @@ interface QuoteDetailProps {
 }
 
 const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
-  const { updateQuote, deleteQuote, isLoading } = useQuoteStore()
+  const { updateQuote, deleteQuote, sendQuote, isLoading } = useQuoteStore()
   const { convertQuoteToInvoice, isLoading: isConverting } = useInvoiceStore()
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+  const [sendSuccess, setSendSuccess] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   const handleUpdate = async (data: any) => {
     try {
@@ -56,6 +59,28 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
       }, 100)
     } catch (error) {
       // Error handled by store
+    }
+  }
+
+  const handleSend = async () => {
+    setIsSending(true)
+    setSendError(null)
+    setSendSuccess(false)
+    try {
+      await sendQuote(quote.id)
+      setSendSuccess(true)
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSendSuccess(false)
+      }, 3000)
+    } catch (error: any) {
+      setSendError(error.message || 'Failed to send quote')
+      // Hide error message after 5 seconds
+      setTimeout(() => {
+        setSendError(null)
+      }, 5000)
+    } finally {
+      setIsSending(false)
     }
   }
 
@@ -112,6 +137,14 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
               Delete
             </Button>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
+              <Button
+                onClick={handleSend}
+                disabled={isSending || !quote.contactEmail}
+                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto"
+                title={!quote.contactEmail ? 'Contact does not have an email address' : undefined}
+              >
+                {isSending ? 'Sending...' : quote.status === 'sent' ? 'Resend Quote' : 'Send Quote'}
+              </Button>
               {quote.status !== 'rejected' && quote.status !== 'expired' && (
                 <Button
                   onClick={() => setShowConvertModal(true)}
@@ -128,6 +161,22 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
         }
       >
         <div className="space-y-6">
+          {/* Success/Error Messages */}
+          {sendSuccess && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">
+                ✓ Quote sent successfully to {quote.contactEmail}
+              </p>
+            </div>
+          )}
+          {sendError && (
+            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+              <p className="text-sm text-red-400 font-medium">
+                ✗ {sendError}
+              </p>
+            </div>
+          )}
+          
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>

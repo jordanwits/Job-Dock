@@ -173,6 +173,11 @@ See [infrastructure/README.md](./infrastructure/README.md) for detailed architec
 
 ## 📚 Documentation
 
+### Features
+- [Public Booking Feature](./PUBLIC_BOOKING_FEATURE.md) - Calendly-style client booking system
+- [Booking Confirmation & Emails](./BOOKING_CONFIRMATION_EMAILS.md) - Email notifications and approval workflow
+
+### Setup & Deployment
 - [Live Data Setup](./LIVE_DATA_SETUP.md) - Connect the app to AWS data sources
 - [AWS Setup Guide](./AWS_SETUP_GUIDE.md) - Deploy AWS infrastructure
 - [Architecture](./ARCHITECTURE.md) - System architecture overview

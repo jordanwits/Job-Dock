@@ -5,6 +5,7 @@ import { CRMPage } from '@/features/crm'
 import { QuotesPage } from '@/features/quotes'
 import { InvoicesPage } from '@/features/invoices'
 import { SchedulingPage } from '@/features/scheduling'
+import { PublicBookingPage } from '@/features/booking'
 import { Card, Button, Input, Modal } from '@/components/ui'
 import { useState } from 'react'
 
@@ -93,6 +94,10 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public Booking Routes - No authentication required */}
+        <Route path="/book" element={<PublicBookingPage />} />
+        <Route path="/book/:serviceId" element={<PublicBookingPage />} />
+
         {/* Auth Routes - Always render, let pages handle redirect */}
         <Route path="/auth/login" element={<LoginPage />} />
         <Route path="/auth/register" element={<RegisterPage />} />

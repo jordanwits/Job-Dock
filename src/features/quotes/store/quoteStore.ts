@@ -16,6 +16,7 @@ interface QuoteState {
   createQuote: (data: CreateQuoteData) => Promise<void>
   updateQuote: (data: UpdateQuoteData) => Promise<void>
   deleteQuote: (id: string) => Promise<void>
+  sendQuote: (id: string) => Promise<void>
   setSelectedQuote: (quote: Quote | null) => void
   setSearchQuery: (query: string) => void
   setStatusFilter: (status: 'all' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired') => void
@@ -110,6 +111,29 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
     } catch (error: any) {
       set({
         error: error.message || 'Failed to delete quote',
+        isLoading: false,
+      })
+      throw error
+    }
+  },
+
+  sendQuote: async (id: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const updatedQuote = await quotesService.send(id)
+      set((state) => ({
+        quotes: state.quotes.map((q) =>
+          q.id === id ? updatedQuote : q
+        ),
+        selectedQuote:
+          state.selectedQuote?.id === id
+            ? updatedQuote
+            : state.selectedQuote,
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      set({
+        error: error.message || 'Failed to send quote',
         isLoading: false,
       })
       throw error

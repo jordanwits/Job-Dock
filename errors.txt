@@ -1,0 +1,8 @@
+﻿aws : 
+At C:\Users\jorda\AppData\Local\Temp\ps-script-5bfde17d-5887-42d4-b04c-467f73e71054.ps1:84 char:32
++ ... NG="utf-8"; aws logs filter-log-events --log-group-name "/aws/lambda/ ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+'charmap' codec can't encode character '\u2192' in position 340: character maps to <undefined>

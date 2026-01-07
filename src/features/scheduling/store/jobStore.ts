@@ -54,6 +54,8 @@ interface JobState {
   setSelectedJob: (job: Job | null) => void
   setViewMode: (mode: 'day' | 'week' | 'month') => void
   setCurrentDate: (date: Date) => void
+  confirmJob: (id: string) => Promise<void>
+  declineJob: (id: string, reason?: string) => Promise<void>
   clearError: () => void
 }
 
@@ -165,6 +167,54 @@ export const useJobStore = create<JobState>((set, get) => ({
 
   setCurrentDate: (date: Date) => {
     set({ currentDate: date })
+  },
+
+  confirmJob: async (id: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const apiJob = await jobsService.confirm(id)
+      const confirmedJob = normalizeJob(apiJob)
+      set((state) => ({
+        jobs: state.jobs.map((j) =>
+          j.id === id ? confirmedJob : j
+        ),
+        selectedJob:
+          state.selectedJob?.id === id
+            ? confirmedJob
+            : state.selectedJob,
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      set({
+        error: error.message || 'Failed to confirm job',
+        isLoading: false,
+      })
+      throw error
+    }
+  },
+
+  declineJob: async (id: string, reason?: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const apiJob = await jobsService.decline(id, { reason })
+      const declinedJob = normalizeJob(apiJob)
+      set((state) => ({
+        jobs: state.jobs.map((j) =>
+          j.id === id ? declinedJob : j
+        ),
+        selectedJob:
+          state.selectedJob?.id === id
+            ? declinedJob
+            : state.selectedJob,
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      set({
+        error: error.message || 'Failed to decline job',
+        isLoading: false,
+      })
+      throw error
+    }
   },
 
   clearError: () => {

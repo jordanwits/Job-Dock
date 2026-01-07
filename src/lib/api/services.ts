@@ -96,6 +96,11 @@ const realQuotesService = {
     const response = await apiClient.delete(`/quotes/${id}`)
     return response.data
   },
+
+  send: async (id: string) => {
+    const response = await apiClient.post(`/quotes/${id}/send`, {})
+    return response.data
+  },
 }
 
 const realInvoicesService = {
@@ -121,6 +126,11 @@ const realInvoicesService = {
 
   delete: async (id: string) => {
     const response = await apiClient.delete(`/invoices/${id}`)
+    return response.data
+  },
+
+  send: async (id: string) => {
+    const response = await apiClient.post(`/invoices/${id}/send`, {})
     return response.data
   },
 }
@@ -153,6 +163,16 @@ const realJobsService = {
     const response = await apiClient.delete(`/jobs/${id}`)
     return response.data
   },
+
+  confirm: async (id: string) => {
+    const response = await apiClient.post(`/jobs/${id}/confirm`)
+    return response.data
+  },
+
+  decline: async (id: string, payload?: { reason?: string }) => {
+    const response = await apiClient.post(`/jobs/${id}/decline`, payload || {})
+    return response.data
+  },
 }
 
 const realServicesService = {
@@ -183,6 +203,19 @@ const realServicesService = {
 
   getBookingLink: async (id: string) => {
     const response = await apiClient.get(`/services/${id}/booking-link`)
+    return response.data
+  },
+
+  getAvailability: async (id: string, startDate?: Date, endDate?: Date) => {
+    const params: any = {}
+    if (startDate) params.startDate = startDate.toISOString()
+    if (endDate) params.endDate = endDate.toISOString()
+    const response = await apiClient.get(`/services/${id}/availability`, { params })
+    return response.data
+  },
+
+  bookSlot: async (id: string, payload: any) => {
+    const response = await apiClient.post(`/services/${id}/book`, payload)
     return response.data
   },
 }

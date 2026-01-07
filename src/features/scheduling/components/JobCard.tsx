@@ -16,6 +16,7 @@ const JobCard = ({ job }: JobCardProps) => {
     'in-progress': 'border-yellow-500 bg-yellow-500/10',
     completed: 'border-green-500 bg-green-500/10',
     cancelled: 'border-red-500 bg-red-500/10',
+    'pending-confirmation': 'border-orange-500 bg-orange-500/10',
   }
 
   const statusLabels = {
@@ -23,6 +24,7 @@ const JobCard = ({ job }: JobCardProps) => {
     'in-progress': 'In Progress',
     completed: 'Completed',
     cancelled: 'Cancelled',
+    'pending-confirmation': 'Pending Confirmation',
   }
 
   return (

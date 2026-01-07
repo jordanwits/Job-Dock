@@ -210,6 +210,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading }: JobFormProps) => {
             onChange={field.onChange}
             options={[
               { value: 'scheduled', label: 'Scheduled' },
+              { value: 'pending-confirmation', label: 'Pending Confirmation' },
               { value: 'in-progress', label: 'In Progress' },
               { value: 'completed', label: 'Completed' },
               { value: 'cancelled', label: 'Cancelled' },

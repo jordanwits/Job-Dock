@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useServiceStore } from '../store/serviceStore'
 import { Card, Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -10,24 +9,11 @@ interface ServiceCardProps {
 }
 
 const ServiceCard = ({ service, onClick }: ServiceCardProps) => {
-  const { toggleServiceActive, getBookingLink } = useServiceStore()
-  const [showLink, setShowLink] = useState(false)
-  const [bookingLink, setBookingLink] = useState<string>('')
+  const { toggleServiceActive } = useServiceStore()
 
   const handleToggleActive = async (e: React.MouseEvent) => {
     e.stopPropagation()
     await toggleServiceActive(service.id)
-  }
-
-  const handleGetLink = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    try {
-      const link = await getBookingLink(service.id)
-      setBookingLink(link.publicLink)
-      setShowLink(true)
-    } catch (error) {
-      // Error handled by store
-    }
   }
 
   return (
@@ -67,42 +53,12 @@ const ServiceCard = ({ service, onClick }: ServiceCardProps) => {
             size="sm"
             variant="ghost"
             onClick={handleToggleActive}
-            className="flex-1 sm:flex-none"
+            className="flex-1 sm:flex-none border border-primary-blue"
           >
             {service.isActive ? 'Deactivate' : 'Activate'}
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleGetLink}
-            className="flex-1 sm:flex-none"
-          >
-            Get Link
-          </Button>
         </div>
       </div>
-      {showLink && bookingLink && (
-        <div className="mt-4 p-3 rounded-lg bg-primary-blue/20 border border-primary-blue">
-          <p className="text-xs text-primary-light/70 mb-2">Booking Link:</p>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={bookingLink}
-              readOnly
-              className="flex-1 rounded border border-primary-blue bg-primary-dark-secondary px-2 py-1 text-sm text-primary-light"
-            />
-            <Button
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(bookingLink)
-                setShowLink(false)
-              }}
-            >
-              Copy
-            </Button>
-          </div>
-        </div>
-      )}
     </Card>
   )
 }
