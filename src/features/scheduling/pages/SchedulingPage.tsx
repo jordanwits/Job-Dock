@@ -7,6 +7,7 @@ import JobForm from '../components/JobForm'
 import JobDetail from '../components/JobDetail'
 import ServiceList from '../components/ServiceList'
 import ServiceForm from '../components/ServiceForm'
+import ServiceDetail from '../components/ServiceDetail'
 import { Button, Modal, Card } from '@/components/ui'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 
@@ -21,6 +22,8 @@ const SchedulingPage = () => {
     createJob,
     updateJob,
     deleteJob,
+    confirmJob,
+    declineJob,
     setSelectedJob,
     setViewMode,
     setCurrentDate,
@@ -35,7 +38,9 @@ const SchedulingPage = () => {
     error: servicesError,
     createService,
     updateService,
+    deleteService,
     setSelectedService,
+    getBookingLink,
     fetchServices,
     clearError: clearServicesError,
   } = useServiceStore()
@@ -43,7 +48,13 @@ const SchedulingPage = () => {
   const [showJobForm, setShowJobForm] = useState(false)
   const [editingJob, setEditingJob] = useState<typeof selectedJob>(null)
   const [showServiceForm, setShowServiceForm] = useState(false)
+  const [showServiceDetail, setShowServiceDetail] = useState(false)
+  const [bookingLink, setBookingLink] = useState<string>('')
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [showDeclineModal, setShowDeclineModal] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
   const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services'>('calendar')
+  const [linkCopied, setLinkCopied] = useState(false)
 
   useEffect(() => {
     // Fetch jobs for current month
@@ -99,7 +110,56 @@ const SchedulingPage = () => {
     if (selectedService) {
       try {
         await updateService({ ...data, id: selectedService.id })
+        setShowServiceForm(false)
         setSelectedService(null)
+      } catch (error) {
+        // Error handled by store
+      }
+    }
+  }
+
+  const handleDeleteService = async () => {
+    if (selectedService) {
+      try {
+        await deleteService(selectedService.id)
+        setShowServiceDetail(false)
+        setSelectedService(null)
+      } catch (error) {
+        // Error handled by store
+      }
+    }
+  }
+
+  const handleGetBookingLink = async () => {
+    if (selectedService) {
+      try {
+        const link = await getBookingLink(selectedService.id)
+        setBookingLink(link.publicLink)
+        setShowLinkModal(true)
+      } catch (error) {
+        // Error handled by store
+      }
+    }
+  }
+
+  const handleConfirmJob = async () => {
+    if (selectedJob) {
+      try {
+        await confirmJob(selectedJob.id)
+        setSelectedJob(null)
+      } catch (error) {
+        // Error handled by store
+      }
+    }
+  }
+
+  const handleDeclineJob = async () => {
+    if (selectedJob) {
+      try {
+        await declineJob(selectedJob.id, declineReason)
+        setShowDeclineModal(false)
+        setDeclineReason('')
+        setSelectedJob(null)
       } catch (error) {
         // Error handled by store
       }
@@ -109,7 +169,7 @@ const SchedulingPage = () => {
   const error = jobsError || servicesError
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
+    <div className="space-y-6 h-full flex flex-col min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -195,9 +255,9 @@ const SchedulingPage = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-w-0">
         {activeTab === 'calendar' && (
-          <div className="h-full">
+          <div className="h-full min-w-0">
             <Calendar
               jobs={jobs}
               viewMode={viewMode}
@@ -224,7 +284,10 @@ const SchedulingPage = () => {
             <ServiceList
               onServiceClick={(id) => {
                 const service = services.find((s) => s.id === id)
-                if (service) setSelectedService(service)
+                if (service) {
+                  setSelectedService(service)
+                  setShowServiceDetail(true)
+                }
               }}
               onCreateClick={() => setShowServiceForm(true)}
             />
@@ -266,12 +329,78 @@ const SchedulingPage = () => {
             setShowJobForm(true)
           }}
           onDelete={handleDeleteJob}
+          onConfirm={handleConfirmJob}
+          onDecline={() => setShowDeclineModal(true)}
+        />
+      )}
+
+      {/* Decline Job Modal */}
+      <Modal
+        isOpen={showDeclineModal}
+        onClose={() => {
+          setShowDeclineModal(false)
+          setDeclineReason('')
+        }}
+        title="Decline Booking"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-primary-light/70">
+            Are you sure you want to decline this booking? The client will be notified via email.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-primary-light mb-2">
+              Reason (Optional)
+            </label>
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+              placeholder="Let the client know why you can't accommodate this booking..."
+            />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowDeclineModal(false)
+                setDeclineReason('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeclineJob}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Decline Booking
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Service Detail Modal */}
+      {selectedService && (
+        <ServiceDetail
+          service={selectedService}
+          isOpen={showServiceDetail}
+          onClose={() => {
+            setShowServiceDetail(false)
+            setSelectedService(null)
+          }}
+          onEdit={() => {
+            setShowServiceDetail(false)
+            setShowServiceForm(true)
+          }}
+          onDelete={handleDeleteService}
+          onGetLink={handleGetBookingLink}
         />
       )}
 
       {/* Service Form Modal */}
       <Modal
-        isOpen={showServiceForm || !!selectedService}
+        isOpen={showServiceForm}
         onClose={() => {
           setShowServiceForm(false)
           setSelectedService(null)
@@ -290,6 +419,64 @@ const SchedulingPage = () => {
           }}
           isLoading={servicesLoading}
         />
+      </Modal>
+
+      {/* Booking Link Modal */}
+      <Modal
+        isOpen={showLinkModal}
+        onClose={() => {
+          setShowLinkModal(false)
+          setBookingLink('')
+        }}
+        title="Booking Link"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-primary-light/70">
+            Share this link with clients so they can book appointments for this service:
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={bookingLink}
+              readOnly
+              className="flex-1 rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light"
+            />
+            <Button
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(bookingLink)
+                setLinkCopied(true)
+                setTimeout(() => setLinkCopied(false), 2000)
+              }}
+              className="relative min-w-[80px]"
+            >
+              {linkCopied ? (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    className="w-4 h-4 animate-scale-in"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span>Copied</span>
+                </span>
+              ) : (
+                'Copy'
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-primary-light/60">
+            Clients can select a time and book without logging in.
+          </p>
+        </div>
       </Modal>
     </div>
   )

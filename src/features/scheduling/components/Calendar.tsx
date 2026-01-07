@@ -107,7 +107,8 @@ const Calendar = ({
                           job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
                           job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
                           job.status === 'completed' && 'bg-green-500/20 border-green-500',
-                          job.status === 'cancelled' && 'bg-red-500/20 border-red-500'
+                          job.status === 'cancelled' && 'bg-red-500/20 border-red-500',
+                          job.status === 'pending-confirmation' && 'bg-orange-500/20 border-orange-500'
                         )}
                         style={{
                           top: `${topOffset * (80 / 60)}px`,
@@ -145,108 +146,126 @@ const Calendar = ({
     const hours = Array.from({ length: 24 }, (_, i) => i)
 
     return (
-      <div className="flex-1 overflow-auto">
-        <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
-          <div className="p-3 md:p-4 text-center">
-            <h2 className="text-base md:text-xl font-semibold text-primary-light">
-              {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
-            </h2>
+      <>
+        <style>{`
+          .week-slot-height {
+            --slot-height: 48px;
+          }
+          @media (min-width: 768px) {
+            .week-slot-height {
+              --slot-height: 80px;
+            }
+          }
+        `}</style>
+        <div className="flex-1 overflow-auto week-slot-height min-w-0">
+          <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
+            <div className="p-3 md:p-4 text-center">
+              <h2 className="text-base md:text-xl font-semibold text-primary-light">
+                {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+              </h2>
+            </div>
           </div>
-        </div>
-        <div className="flex overflow-x-auto">
-          {/* Time column */}
-          <div className="w-12 md:w-20 flex-shrink-0 border-r border-primary-blue/30">
-            <div className="h-10 md:h-12 border-b border-primary-blue/30"></div>
-            {hours.map((hour) => (
-              <div
-                key={hour}
-                className="h-12 md:h-20 border-b border-primary-blue/30 p-1 md:p-2 text-xs text-primary-light/70"
-              >
-                {format(setHours(setMinutes(new Date(), 0), hour), 'h:mm a')}
-              </div>
-            ))}
-          </div>
-
-          {/* Day columns */}
-          {weekDays.map((day) => {
-            const dayJobs = getJobsForDate(day)
-            return (
-              <div key={day.toISOString()} className="flex-1 border-r border-primary-blue/30 last:border-r-0">
-                {/* Day header */}
+          <div className="flex overflow-x-auto min-w-0">
+            {/* Time column */}
+            <div className="w-12 md:w-20 flex-shrink-0 border-r border-primary-blue/30 sticky left-0 bg-primary-dark-secondary z-10">
+              <div className="h-10 md:h-12 border-b border-primary-blue/30"></div>
+              {hours.map((hour) => (
                 <div
-                  className={cn(
-                    'h-10 md:h-12 border-b border-primary-blue/30 p-1 md:p-2 text-center cursor-pointer hover:bg-primary-blue/10 min-w-[60px] md:min-w-0',
-                    isToday(day) && 'bg-primary-gold/20'
-                  )}
-                  onClick={() => onDateClick(day)}
+                  key={hour}
+                  className="h-12 md:h-20 border-b border-primary-blue/30 p-1 md:p-2 text-xs text-primary-light/70"
                 >
-                  <div className="text-xs text-primary-light/70">
-                    {format(day, 'EEE')}
-                  </div>
+                  <span className="hidden sm:inline">{format(setHours(setMinutes(new Date(), 0), hour), 'h:mm a')}</span>
+                  <span className="sm:hidden">{format(setHours(setMinutes(new Date(), 0), hour), 'h a')}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Day columns */}
+            {weekDays.map((day) => {
+              const dayJobs = getJobsForDate(day)
+              return (
+                <div key={day.toISOString()} className="w-[100px] md:flex-1 md:min-w-0 flex-shrink-0 border-r border-primary-blue/30 last:border-r-0">
+                  {/* Day header */}
                   <div
                     className={cn(
-                      'text-xs md:text-sm font-medium',
-                      isToday(day) ? 'text-primary-gold' : 'text-primary-light',
-                      isSameDay(day, selectedDate) && 'ring-2 ring-primary-gold rounded-full w-5 h-5 md:w-6 md:h-6 mx-auto flex items-center justify-center'
+                      'h-10 md:h-12 border-b border-primary-blue/30 p-1 md:p-2 text-center cursor-pointer hover:bg-primary-blue/10',
+                      isToday(day) && 'bg-primary-gold/20'
                     )}
+                    onClick={() => onDateClick(day)}
                   >
-                    {format(day, 'd')}
+                    <div className="text-xs text-primary-light/70">
+                      <span className="hidden sm:inline">{format(day, 'EEE')}</span>
+                      <span className="sm:hidden">{format(day, 'EEEEE')}</span>
+                    </div>
+                    <div
+                      className={cn(
+                        'text-xs md:text-sm font-medium',
+                        isToday(day) ? 'text-primary-gold' : 'text-primary-light',
+                        isSameDay(day, selectedDate) && 'ring-2 ring-primary-gold rounded-full w-5 h-5 md:w-6 md:h-6 mx-auto flex items-center justify-center'
+                      )}
+                    >
+                      {format(day, 'd')}
+                    </div>
+                  </div>
+
+                  {/* Time slots */}
+                  <div className="relative">
+                    {hours.map((hour) => {
+                      const timeSlotJobs = getJobsForTimeSlot(day, hour)
+                      return (
+                        <div
+                          key={hour}
+                          className="h-12 md:h-20 border-b border-primary-blue/30 relative"
+                        >
+                          {timeSlotJobs.map((job) => {
+                            const startTime = new Date(job.startTime)
+                            const endTime = new Date(job.endTime)
+                            const startMinutes = getHours(startTime) * 60 + getMinutes(startTime)
+                            const endMinutes = getHours(endTime) * 60 + getMinutes(endTime)
+                            const duration = endMinutes - startMinutes
+                            const topOffset = getMinutes(startTime)
+                            // Use CSS custom property for responsive height
+                            const height = (duration / 60) * 100
+                            const topPosition = (topOffset / 60) * 100
+
+                            return (
+                              <div
+                                key={job.id}
+                                onClick={() => onJobClick(job)}
+                                className={cn(
+                                  'absolute left-1 right-1 rounded p-1 cursor-pointer transition-all hover:opacity-90 text-xs',
+                                  'border-l-2',
+                                  job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
+                                  job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
+                                  job.status === 'completed' && 'bg-green-500/20 border-green-500',
+                                  job.status === 'cancelled' && 'bg-red-500/20 border-red-500',
+                                  job.status === 'pending-confirmation' && 'bg-orange-500/20 border-orange-500'
+                                )}
+                                style={{
+                                  top: `calc(var(--slot-height) * ${topPosition} / 100)`,
+                                  height: `calc(var(--slot-height) * ${height} / 100)`,
+                                }}
+                              >
+                                <div className="font-medium text-primary-light truncate">
+                                  {job.title}
+                                </div>
+                                <div className="text-primary-light/70 truncate">
+                                  <span className="hidden sm:inline">{format(startTime, 'h:mm a')}</span>
+                                  <span className="sm:hidden">{format(startTime, 'h:mm')}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
-
-                {/* Time slots */}
-                <div className="relative">
-                  {hours.map((hour) => {
-                    const timeSlotJobs = getJobsForTimeSlot(day, hour)
-                    return (
-                      <div
-                        key={hour}
-                        className="h-12 md:h-20 border-b border-primary-blue/30 relative"
-                      >
-                        {timeSlotJobs.map((job) => {
-                          const startTime = new Date(job.startTime)
-                          const endTime = new Date(job.endTime)
-                          const startMinutes = getHours(startTime) * 60 + getMinutes(startTime)
-                          const endMinutes = getHours(endTime) * 60 + getMinutes(endTime)
-                          const duration = endMinutes - startMinutes
-                          const topOffset = getMinutes(startTime)
-                          const height = (duration / 60) * 80
-
-                          return (
-                            <div
-                              key={job.id}
-                              onClick={() => onJobClick(job)}
-                              className={cn(
-                                'absolute left-1 right-1 rounded p-1 cursor-pointer transition-all hover:opacity-90 text-xs',
-                                'border-l-2',
-                                job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
-                                job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
-                                job.status === 'completed' && 'bg-green-500/20 border-green-500',
-                                job.status === 'cancelled' && 'bg-red-500/20 border-red-500'
-                              )}
-                              style={{
-                                top: `${topOffset * (80 / 60)}px`,
-                                height: `${height}px`,
-                              }}
-                            >
-                              <div className="font-medium text-primary-light truncate">
-                                {job.title}
-                              </div>
-                              <div className="text-primary-light/70 truncate">
-                                {format(startTime, 'h:mm a')}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
@@ -322,7 +341,8 @@ const Calendar = ({
                         job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500 text-blue-300',
                         job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500 text-yellow-300',
                         job.status === 'completed' && 'bg-green-500/20 border-green-500 text-green-300',
-                        job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300'
+                        job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300',
+                        job.status === 'pending-confirmation' && 'bg-orange-500/20 border-orange-500 text-orange-300'
                       )}
                       title={job.title}
                     >
