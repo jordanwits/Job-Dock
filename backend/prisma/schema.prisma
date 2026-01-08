@@ -9,17 +9,18 @@ datasource db {
 }
 
 model Tenant {
-  id        String    @id @default(uuid())
-  name      String
-  subdomain String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  contacts  Contact[]
-  invoices  Invoice[]
-  jobs      Job[]
-  quotes    Quote[]
-  services  Service[]
-  users     User[]
+  id             String          @id @default(uuid())
+  name           String
+  subdomain      String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  contacts       Contact[]
+  invoices       Invoice[]
+  jobs           Job[]
+  jobRecurrences JobRecurrence[]
+  quotes         Quote[]
+  services       Service[]
+  users          User[]
 
   @@index([subdomain])
   @@map("tenants")
@@ -43,28 +44,29 @@ model User {
 }
 
 model Contact {
-  id        String    @id @default(uuid())
-  tenantId  String
-  firstName String
-  lastName  String
-  email     String?
-  phone     String?
-  company   String?
-  jobTitle  String?
-  address   String?
-  city      String?
-  state     String?
-  zipCode   String?
-  country   String    @default("USA")
-  tags      String[]  @default([])
-  notes     String?
-  status    String    @default("active")
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoices  Invoice[]
-  jobs      Job[]
-  quotes    Quote[]
+  id             String          @id @default(uuid())
+  tenantId       String
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  company        String?
+  jobTitle       String?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  country        String          @default("USA")
+  tags           String[]        @default([])
+  notes          String?
+  status         String          @default("active")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices       Invoice[]
+  jobs           Job[]
+  jobRecurrences JobRecurrence[]
+  quotes         Quote[]
 
   @@index([tenantId])
   @@index([email])
@@ -176,19 +178,20 @@ model Payment {
 }
 
 model Service {
-  id              String   @id @default(uuid())
+  id              String          @id @default(uuid())
   tenantId        String
   name            String
   description     String?
   duration        Int
-  price           Decimal  @db.Decimal(10, 2)
-  isActive        Boolean  @default(true)
+  price           Decimal         @db.Decimal(10, 2)
+  isActive        Boolean         @default(true)
   availability    Json?
   bookingSettings Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
   jobs            Job[]
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobRecurrences  JobRecurrence[]
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([isActive])
@@ -196,30 +199,65 @@ model Service {
 }
 
 model Job {
+  id           String         @id @default(uuid())
+  tenantId     String
+  title        String
+  description  String?
+  contactId    String
+  serviceId    String?
+  recurrenceId String?
+  startTime    DateTime
+  endTime      DateTime
+  status       String         @default("scheduled")
+  location     String?
+  notes        String?
+  assignedTo   String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  contact      Contact        @relation(fields: [contactId], references: [id])
+  service      Service?       @relation(fields: [serviceId], references: [id])
+  recurrence   JobRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([serviceId])
+  @@index([recurrenceId])
+  @@index([startTime])
+  @@index([status])
+  @@map("jobs")
+}
+
+model JobRecurrence {
   id          String   @id @default(uuid())
   tenantId    String
-  title       String
-  description String?
   contactId   String
   serviceId   String?
-  startTime   DateTime
-  endTime     DateTime
-  status      String   @default("scheduled")
+  title       String
+  description String?
   location    String?
   notes       String?
   assignedTo  String?
+  status      String   @default("active")
+  frequency   String
+  interval    Int
+  count       Int?
+  untilDate   DateTime?
+  startTime   DateTime
+  endTime     DateTime
+  timezone    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   contact     Contact  @relation(fields: [contactId], references: [id])
   service     Service? @relation(fields: [serviceId], references: [id])
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobs        Job[]
 
   @@index([tenantId])
   @@index([contactId])
   @@index([serviceId])
-  @@index([startTime])
   @@index([status])
-  @@map("jobs")
+  @@map("job_recurrences")
 }
 
 model Document {

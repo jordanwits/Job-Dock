@@ -5,6 +5,8 @@ import {
   QuoteLineItem,
   InvoiceLineItem,
   Contact,
+  Job,
+  JobRecurrence,
 } from '@prisma/client'
 import prisma from './db'
 import { ensureTenantExists } from './tenant'
@@ -20,8 +22,202 @@ import {
   sendInvoiceEmail,
 } from './email'
 
+// Recurrence types
+export type RecurrenceFrequency = 'weekly' | 'monthly'
+
+export interface RecurrencePayload {
+  frequency: RecurrenceFrequency
+  interval: number
+  count?: number
+  untilDate?: string
+}
+
 const toNumber = (value: Prisma.Decimal | number | null | undefined) =>
   value ? Number(value) : 0
+
+// Helper to generate recurrence instances
+function generateRecurrenceInstances(params: {
+  startTime: Date
+  endTime: Date
+  recurrence: RecurrencePayload
+}): Array<{ startTime: Date; endTime: Date }> {
+  const { startTime, endTime, recurrence } = params
+  const instances: Array<{ startTime: Date; endTime: Date }> = []
+  
+  const duration = endTime.getTime() - startTime.getTime()
+  
+  // Hard limits for safety
+  const MAX_OCCURRENCES = 50
+  const MAX_MONTHS = 12
+  
+  const maxCount = recurrence.count 
+    ? Math.min(recurrence.count, MAX_OCCURRENCES)
+    : MAX_OCCURRENCES
+  
+  const maxDate = recurrence.untilDate 
+    ? new Date(recurrence.untilDate)
+    : new Date(startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
+  
+  let currentStart = new Date(startTime)
+  let currentEnd = new Date(endTime)
+  
+  for (let i = 0; i < maxCount; i++) {
+    if (currentStart > maxDate) break
+    
+    instances.push({
+      startTime: new Date(currentStart),
+      endTime: new Date(currentEnd),
+    })
+    
+    // Calculate next occurrence
+    if (recurrence.frequency === 'weekly') {
+      currentStart = new Date(currentStart.getTime() + recurrence.interval * 7 * 24 * 60 * 60 * 1000)
+    } else if (recurrence.frequency === 'monthly') {
+      const newStart = new Date(currentStart)
+      newStart.setMonth(newStart.getMonth() + recurrence.interval)
+      currentStart = newStart
+    }
+    
+    currentEnd = new Date(currentStart.getTime() + duration)
+  }
+  
+  return instances
+}
+
+// Helper to create recurring jobs
+async function createRecurringJobs(params: {
+  tenantId: string
+  title: string
+  description?: string
+  contactId: string
+  serviceId?: string
+  startTime: Date
+  endTime: Date
+  status?: string
+  location?: string
+  notes?: string
+  assignedTo?: string
+  recurrence: RecurrencePayload
+}) {
+  const {
+    tenantId,
+    title,
+    description,
+    contactId,
+    serviceId,
+    startTime,
+    endTime,
+    status = 'scheduled',
+    location,
+    notes,
+    assignedTo,
+    recurrence,
+  } = params
+
+  return await prisma.$transaction(async (tx) => {
+    // 1. Create the JobRecurrence record
+    const jobRecurrence = await tx.jobRecurrence.create({
+      data: {
+        tenantId,
+        contactId,
+        serviceId,
+        title,
+        description,
+        location,
+        notes,
+        assignedTo,
+        status: 'active',
+        frequency: recurrence.frequency,
+        interval: recurrence.interval,
+        count: recurrence.count,
+        untilDate: recurrence.untilDate ? new Date(recurrence.untilDate) : null,
+        startTime,
+        endTime,
+      },
+    })
+
+    // 2. Generate all occurrence instances
+    const instances = generateRecurrenceInstances({
+      startTime,
+      endTime,
+      recurrence,
+    })
+
+    // 3. Check for conflicts across all instances
+    const conflicts: Array<{ date: string; time: string; conflictingJob: string }> = []
+    
+    for (const instance of instances) {
+      const overlappingJobs = await tx.job.findMany({
+        where: {
+          tenantId,
+          status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+          startTime: { lt: instance.endTime },
+          endTime: { gt: instance.startTime },
+        },
+        include: { contact: true },
+      })
+      
+      if (overlappingJobs.length > 0) {
+        for (const job of overlappingJobs) {
+          conflicts.push({
+            date: instance.startTime.toISOString().split('T')[0],
+            time: instance.startTime.toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            }),
+            conflictingJob: `${job.title} (${job.contact.firstName} ${job.contact.lastName})`,
+          })
+        }
+      }
+    }
+
+    if (conflicts.length > 0) {
+      const conflictSummary = conflicts
+        .slice(0, 5)
+        .map(c => `${c.date} at ${c.time} conflicts with ${c.conflictingJob}`)
+        .join('; ')
+      const moreText = conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ''
+      
+      throw new ApiError(
+        `Cannot create recurring schedule due to conflicts: ${conflictSummary}${moreText}`,
+        409
+      )
+    }
+
+    // 4. Create all job instances
+    const jobs = await Promise.all(
+      instances.map((instance) =>
+        tx.job.create({
+          data: {
+            tenantId,
+            title,
+            description,
+            contactId,
+            serviceId,
+            recurrenceId: jobRecurrence.id,
+            startTime: instance.startTime,
+            endTime: instance.endTime,
+            status,
+            location,
+            notes,
+            assignedTo,
+          },
+          include: {
+            contact: true,
+            service: true,
+          },
+        })
+      )
+    )
+
+    // Return the first job with recurrence metadata
+    return {
+      ...jobs[0],
+      recurrenceId: jobRecurrence.id,
+      occurrenceCount: jobs.length,
+    }
+  })
+}
 
 const withContactInfo = (
   contact?: Pick<Contact, 'firstName' | 'lastName' | 'email' | 'company'> | null
@@ -607,6 +803,25 @@ export const dataServices = {
       const startTime = new Date(payload.startTime)
       const endTime = new Date(payload.endTime)
       
+      // If recurrence is provided, use the recurring jobs logic
+      if (payload.recurrence) {
+        return createRecurringJobs({
+          tenantId,
+          title: payload.title,
+          description: payload.description,
+          contactId: payload.contactId,
+          serviceId: payload.serviceId,
+          startTime,
+          endTime,
+          status: payload.status || 'scheduled',
+          location: payload.location,
+          notes: payload.notes,
+          assignedTo: payload.assignedTo,
+          recurrence: payload.recurrence,
+        })
+      }
+      
+      // Single job creation (existing logic)
       // Check for overlapping jobs to prevent accidental double-booking
       const overlappingJobs = await prisma.job.findMany({
         where: {
@@ -1043,28 +1258,131 @@ export const dataServices = {
           })
         }
 
-        // 5. Create job
+        // 5. Create job(s)
         // Set status based on whether confirmation is required
         const requireConfirmation = bookingSettings?.requireConfirmation ?? false
         const initialStatus = requireConfirmation ? 'pending-confirmation' : 'scheduled'
         
-        const job = await tx.job.create({
-          data: {
-            tenantId,
-            title: `${service.name} with ${contact.firstName} ${contact.lastName}`.trim(),
-            contactId: contact.id,
-            serviceId: service.id,
+        let job: any
+        
+        // If recurrence is provided, create recurring jobs inline
+        if (payload.recurrence) {
+          const recurrence = payload.recurrence
+          const title = `${service.name} with ${contact.firstName} ${contact.lastName}`.trim()
+          
+          // Create the JobRecurrence record
+          const jobRecurrence = await tx.jobRecurrence.create({
+            data: {
+              tenantId,
+              contactId: contact.id,
+              serviceId: service.id,
+              title,
+              location: payload.location,
+              notes: payload.notes,
+              status: 'active',
+              frequency: recurrence.frequency,
+              interval: recurrence.interval,
+              count: recurrence.count,
+              untilDate: recurrence.untilDate ? new Date(recurrence.untilDate) : null,
+              startTime,
+              endTime,
+            },
+          })
+
+          // Generate all occurrence instances
+          const instances = generateRecurrenceInstances({
             startTime,
             endTime,
-            status: initialStatus,
-            location: payload.location,
-            notes: payload.notes,
-          },
-          include: {
-            contact: true,
-            service: true,
-          },
-        })
+            recurrence,
+          })
+
+          // Check for conflicts across all instances
+          const conflicts: Array<{ date: string; time: string }> = []
+          
+          for (const instance of instances) {
+            const overlappingJobs = await tx.job.count({
+              where: {
+                tenantId,
+                status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+                startTime: { lt: instance.endTime },
+                endTime: { gt: instance.startTime },
+              },
+            })
+            
+            if (overlappingJobs >= maxBookingsPerSlot) {
+              conflicts.push({
+                date: instance.startTime.toISOString().split('T')[0],
+                time: instance.startTime.toLocaleTimeString('en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                }),
+              })
+            }
+          }
+
+          if (conflicts.length > 0) {
+            const conflictSummary = conflicts
+              .slice(0, 5)
+              .map(c => `${c.date} at ${c.time}`)
+              .join('; ')
+            const moreText = conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ''
+            
+            throw new ApiError(
+              `Cannot create recurring schedule due to conflicts: ${conflictSummary}${moreText}`,
+              409
+            )
+          }
+
+          // Create all job instances
+          const jobs = await Promise.all(
+            instances.map((instance) =>
+              tx.job.create({
+                data: {
+                  tenantId,
+                  title,
+                  contactId: contact.id,
+                  serviceId: service.id,
+                  recurrenceId: jobRecurrence.id,
+                  startTime: instance.startTime,
+                  endTime: instance.endTime,
+                  status: initialStatus,
+                  location: payload.location,
+                  notes: payload.notes,
+                },
+                include: {
+                  contact: true,
+                  service: true,
+                },
+              })
+            )
+          )
+
+          // Use the first job for email notifications
+          job = {
+            ...jobs[0],
+            recurrenceId: jobRecurrence.id,
+            occurrenceCount: jobs.length,
+          }
+        } else {
+          // Single job creation (existing logic)
+          job = await tx.job.create({
+            data: {
+              tenantId,
+              title: `${service.name} with ${contact.firstName} ${contact.lastName}`.trim(),
+              contactId: contact.id,
+              serviceId: service.id,
+              startTime,
+              endTime,
+              status: initialStatus,
+              location: payload.location,
+              notes: payload.notes,
+            },
+            include: {
+              contact: true,
+              service: true,
+            },
+          })
+        }
 
         // 6. Send notification emails (after transaction commits)
         // Send emails synchronously to ensure they're sent before Lambda exits

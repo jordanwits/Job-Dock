@@ -1,9 +1,10 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Input, Button, Card } from '@/components/ui'
-import { format } from 'date-fns'
-import type { AvailableSlot } from '../types/booking'
+import { useState } from 'react'
+import { Input, Button, Card, Select } from '@/components/ui'
+import { format, addWeeks, addMonths } from 'date-fns'
+import type { AvailableSlot, RecurrenceFrequency } from '../types/booking'
 import type { Service } from '@/features/scheduling/types/service'
 
 const bookingFormSchema = z.object({
@@ -19,11 +20,14 @@ type BookingFormData = z.infer<typeof bookingFormSchema>
 interface BookingFormProps {
   service: Service | null
   selectedSlot: AvailableSlot | null
-  onSubmit: (data: BookingFormData) => Promise<void>
+  onSubmit: (data: BookingFormData, recurrence?: { frequency: RecurrenceFrequency; interval: number; count: number }) => Promise<void>
   isLoading?: boolean
 }
 
 const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingFormProps) => {
+  const [repeatPattern, setRepeatPattern] = useState<string>('none')
+  const [occurrenceCount, setOccurrenceCount] = useState<number>(6)
+  
   const {
     register,
     handleSubmit,
@@ -31,6 +35,34 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
   } = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
   })
+  
+  const handleFormSubmit = async (data: BookingFormData) => {
+    let recurrence
+    if (repeatPattern !== 'none') {
+      const [frequency, intervalStr] = repeatPattern.split('-') as [RecurrenceFrequency, string]
+      const interval = parseInt(intervalStr) || 1
+      recurrence = { frequency, interval, count: occurrenceCount }
+    }
+    await onSubmit(data, recurrence)
+  }
+  
+  const getRecurrenceEndDate = () => {
+    if (!selectedSlot || repeatPattern === 'none') return null
+    
+    const start = new Date(selectedSlot.start)
+    const [frequency, intervalStr] = repeatPattern.split('-')
+    const interval = parseInt(intervalStr) || 1
+    const count = occurrenceCount - 1
+    
+    let endDate = new Date(start)
+    if (frequency === 'weekly') {
+      endDate = addWeeks(start, interval * count)
+    } else if (frequency === 'monthly') {
+      endDate = addMonths(start, interval * count)
+    }
+    
+    return format(endDate, 'MMM d, yyyy')
+  }
 
   if (!service || !selectedSlot) {
     return (
@@ -72,7 +104,7 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
         <Input
           label="Full Name *"
           {...register('name')}
@@ -113,6 +145,52 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
           />
         )}
 
+        {/* Recurrence Section */}
+        <div className="border-t border-primary-blue pt-3">
+          <label className="block text-sm font-medium text-primary-light mb-2">
+            How often?
+          </label>
+          <Select
+            value={repeatPattern}
+            onChange={(e) => setRepeatPattern(e.target.value)}
+            disabled={isLoading}
+            options={[
+              { value: 'none', label: 'One-time only' },
+              { value: 'weekly-1', label: 'Every week' },
+              { value: 'weekly-2', label: 'Every 2 weeks' },
+              { value: 'weekly-4', label: 'Every 4 weeks' },
+              { value: 'monthly-1', label: 'Every month' },
+            ]}
+          />
+          
+          {repeatPattern !== 'none' && (
+            <div className="mt-3 space-y-3">
+              <Select
+                label="Number of visits"
+                value={occurrenceCount.toString()}
+                onChange={(e) => setOccurrenceCount(Number(e.target.value))}
+                disabled={isLoading}
+                options={[
+                  { value: '2', label: '2 visits' },
+                  { value: '3', label: '3 visits' },
+                  { value: '4', label: '4 visits' },
+                  { value: '6', label: '6 visits' },
+                  { value: '8', label: '8 visits' },
+                  { value: '12', label: '12 visits' },
+                ]}
+              />
+              
+              {getRecurrenceEndDate() && (
+                <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
+                  <p className="text-xs text-primary-light/70">
+                    {occurrenceCount} visits scheduled through {getRecurrenceEndDate()}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {requiredFields.includes('notes') && (
           <div>
             <label className="block text-sm font-medium text-primary-light mb-2">
@@ -133,7 +211,7 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
           disabled={isLoading}
           className="w-full"
         >
-          {isLoading ? 'Booking...' : 'Confirm Booking'}
+          {isLoading ? 'Booking...' : repeatPattern !== 'none' ? `Book ${occurrenceCount} Visits` : 'Confirm Booking'}
         </Button>
 
         {bookingSettings?.requireConfirmation && (

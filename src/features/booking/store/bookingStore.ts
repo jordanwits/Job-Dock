@@ -131,6 +131,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         startTime: job.startTime,
         endTime: job.endTime,
         contactName: job.contactName || payload.contact.name,
+        occurrenceCount: (job as any).occurrenceCount,
       }
 
       set({

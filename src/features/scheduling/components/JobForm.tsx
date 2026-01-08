@@ -2,11 +2,11 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { jobSchema, type JobFormData } from '../schemas/jobSchemas'
-import { Job } from '../types/job'
+import { Job, RecurrenceFrequency } from '../types/job'
 import { Input, Button, Select, DatePicker, TimePicker } from '@/components/ui'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useServiceStore } from '../store/serviceStore'
-import { format } from 'date-fns'
+import { format, addWeeks, addMonths } from 'date-fns'
 
 interface JobFormProps {
   job?: Job
@@ -21,6 +21,8 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading }: JobFormProps) => {
   const [startDate, setStartDate] = useState(job ? format(new Date(job.startTime), 'yyyy-MM-dd') : '')
   const [startTime, setStartTime] = useState(job ? format(new Date(job.startTime), 'HH:mm') : '09:00')
   const [duration, setDuration] = useState(job ? Math.round((new Date(job.endTime).getTime() - new Date(job.startTime).getTime()) / 60000) : 60)
+  const [repeatPattern, setRepeatPattern] = useState<string>('none')
+  const [occurrenceCount, setOccurrenceCount] = useState<number>(12)
 
   useEffect(() => {
     fetchContacts()
@@ -92,13 +94,45 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading }: JobFormProps) => {
     const startDateTime = new Date(`${startDate}T${startTime}`)
     const endDateTime = new Date(startDateTime.getTime() + duration * 60000)
 
-    const formData = {
+    const formData: any = {
       ...data,
       startTime: startDateTime.toISOString(),
       endTime: endDateTime.toISOString(),
     }
 
+    // Add recurrence if selected
+    if (repeatPattern !== 'none') {
+      const [frequency, intervalStr] = repeatPattern.split('-') as [RecurrenceFrequency, string]
+      const interval = parseInt(intervalStr) || 1
+      
+      formData.recurrence = {
+        frequency,
+        interval,
+        count: occurrenceCount,
+      }
+    }
+
     await onSubmit(formData)
+  }
+  
+  // Calculate end date for recurrence preview
+  const getRecurrenceEndDate = () => {
+    if (!startDate || !startTime || repeatPattern === 'none') return null
+    
+    const start = new Date(`${startDate}T${startTime}`)
+    const [frequency, intervalStr] = repeatPattern.split('-')
+    const interval = parseInt(intervalStr) || 1
+    
+    let endDate = new Date(start)
+    const count = occurrenceCount - 1 // -1 because first occurrence is the start date
+    
+    if (frequency === 'weekly') {
+      endDate = addWeeks(start, interval * count)
+    } else if (frequency === 'monthly') {
+      endDate = addMonths(start, interval * count)
+    }
+    
+    return format(endDate, 'MMM d, yyyy')
   }
 
   return (
@@ -199,6 +233,52 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading }: JobFormProps) => {
         {...register('location')}
         placeholder="e.g., 123 Main St, New York, NY"
       />
+
+      {/* Recurrence Section */}
+      <div className="border-t border-primary-blue pt-4">
+        <label className="block text-sm font-medium text-primary-light mb-2">
+          Repeat Schedule
+        </label>
+        <Select
+          value={repeatPattern}
+          onChange={(e) => setRepeatPattern(e.target.value)}
+          options={[
+            { value: 'none', label: 'Does not repeat' },
+            { value: 'weekly-1', label: 'Every week' },
+            { value: 'weekly-2', label: 'Every 2 weeks' },
+            { value: 'weekly-4', label: 'Every 4 weeks' },
+            { value: 'monthly-1', label: 'Every month' },
+          ]}
+        />
+        
+        {repeatPattern !== 'none' && (
+          <div className="mt-3 space-y-3">
+            <Select
+              label="Number of occurrences"
+              value={occurrenceCount.toString()}
+              onChange={(e) => setOccurrenceCount(Number(e.target.value))}
+              options={[
+                { value: '2', label: '2 times' },
+                { value: '3', label: '3 times' },
+                { value: '4', label: '4 times' },
+                { value: '6', label: '6 times' },
+                { value: '8', label: '8 times' },
+                { value: '12', label: '12 times' },
+                { value: '24', label: '24 times' },
+                { value: '50', label: '50 times' },
+              ]}
+            />
+            
+            {getRecurrenceEndDate() && (
+              <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
+                <p className="text-xs text-primary-light/70">
+                  Will create {occurrenceCount} jobs through {getRecurrenceEndDate()}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <Controller
         name="status"

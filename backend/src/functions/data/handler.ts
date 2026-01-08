@@ -20,6 +20,101 @@ export async function handler(
     return corsResponse()
   }
 
+  // Special migration endpoint
+  if (event.path?.includes('/__migrate') && event.httpMethod === 'POST') {
+    try {
+      console.log('Running database migration...')
+      const { default: prisma } = await import('../../lib/db')
+      
+      // Run raw SQL migration
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "recurrenceId" TEXT;
+      `)
+      
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "job_recurrences" (
+          "id" TEXT NOT NULL,
+          "tenantId" TEXT NOT NULL,
+          "contactId" TEXT NOT NULL,
+          "serviceId" TEXT,
+          "title" TEXT NOT NULL,
+          "description" TEXT,
+          "location" TEXT,
+          "notes" TEXT,
+          "assignedTo" TEXT,
+          "status" TEXT NOT NULL DEFAULT 'active',
+          "frequency" TEXT NOT NULL,
+          "interval" INTEGER NOT NULL,
+          "count" INTEGER,
+          "untilDate" TIMESTAMP(3),
+          "startTime" TIMESTAMP(3) NOT NULL,
+          "endTime" TIMESTAMP(3) NOT NULL,
+          "timezone" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL,
+          CONSTRAINT "job_recurrences_pkey" PRIMARY KEY ("id")
+        );
+      `)
+      
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "job_recurrences_tenantId_idx" ON "job_recurrences"("tenantId");`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "job_recurrences_contactId_idx" ON "job_recurrences"("contactId");`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "job_recurrences_serviceId_idx" ON "job_recurrences"("serviceId");`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "job_recurrences_status_idx" ON "job_recurrences"("status");`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "jobs_recurrenceId_idx" ON "jobs"("recurrenceId");`)
+      
+      // Add foreign keys with existence checks
+      await prisma.$executeRawUnsafe(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'jobs_recurrenceId_fkey') THEN
+            ALTER TABLE "jobs" ADD CONSTRAINT "jobs_recurrenceId_fkey" 
+              FOREIGN KEY ("recurrenceId") REFERENCES "job_recurrences"("id") 
+              ON DELETE SET NULL ON UPDATE CASCADE;
+          END IF;
+        END $$;
+      `)
+      
+      await prisma.$executeRawUnsafe(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_recurrences_contactId_fkey') THEN
+            ALTER TABLE "job_recurrences" ADD CONSTRAINT "job_recurrences_contactId_fkey" 
+              FOREIGN KEY ("contactId") REFERENCES "contacts"("id") 
+              ON DELETE RESTRICT ON UPDATE CASCADE;
+          END IF;
+        END $$;
+      `)
+      
+      await prisma.$executeRawUnsafe(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_recurrences_serviceId_fkey') THEN
+            ALTER TABLE "job_recurrences" ADD CONSTRAINT "job_recurrences_serviceId_fkey" 
+              FOREIGN KEY ("serviceId") REFERENCES "services"("id") 
+              ON DELETE SET NULL ON UPDATE CASCADE;
+          END IF;
+        END $$;
+      `)
+      
+      await prisma.$executeRawUnsafe(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_recurrences_tenantId_fkey') THEN
+            ALTER TABLE "job_recurrences" ADD CONSTRAINT "job_recurrences_tenantId_fkey" 
+              FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") 
+              ON DELETE CASCADE ON UPDATE CASCADE;
+          END IF;
+        END $$;
+      `)
+      
+      console.log('✅ Migration completed successfully')
+      return successResponse({ message: 'Migration completed successfully' })
+    } catch (error: any) {
+      console.error('Migration error:', error)
+      return errorResponse(error.message || 'Migration failed', 500)
+    }
+  }
+
   try {
     const { resource, id, action } = parsePath(event)
     const tenantId = await resolveTenantId(event)

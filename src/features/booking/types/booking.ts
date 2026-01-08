@@ -1,3 +1,12 @@
+export type RecurrenceFrequency = 'weekly' | 'monthly'
+
+export interface RecurrencePayload {
+  frequency: RecurrenceFrequency
+  interval: number
+  count?: number
+  untilDate?: string
+}
+
 export interface AvailableSlot {
   start: string
   end: string
@@ -27,6 +36,7 @@ export interface BookingPayload {
   contact: BookingContact
   location?: string
   notes?: string
+  recurrence?: RecurrencePayload
 }
 
 export interface BookingFormValues {
@@ -43,5 +53,6 @@ export interface BookingConfirmation {
   startTime: string
   endTime: string
   contactName: string
+  occurrenceCount?: number
 }
 

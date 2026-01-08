@@ -50,7 +50,10 @@ const PublicBookingPage = () => {
     selectSlot(slot)
   }
 
-  const handleBookingSubmit = async (formData: BookingFormValues) => {
+  const handleBookingSubmit = async (
+    formData: BookingFormValues, 
+    recurrence?: { frequency: 'weekly' | 'monthly'; interval: number; count: number }
+  ) => {
     if (!selectedSlot) return
 
     try {
@@ -63,6 +66,7 @@ const PublicBookingPage = () => {
           company: formData.company,
           notes: formData.notes,
         },
+        recurrence,
       })
       setShowConfirmation(true)
     } catch (error) {
@@ -117,7 +121,9 @@ const PublicBookingPage = () => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-primary-light/70">Date:</span>
+              <span className="text-primary-light/70">
+                {bookingConfirmation.occurrenceCount && bookingConfirmation.occurrenceCount > 1 ? 'First Visit:' : 'Date:'}
+              </span>
               <span className="text-primary-light font-medium">
                 {format(new Date(bookingConfirmation.startTime), 'EEEE, MMMM d, yyyy')}
               </span>
@@ -128,6 +134,14 @@ const PublicBookingPage = () => {
                 {format(new Date(bookingConfirmation.startTime), 'h:mm a')} - {format(new Date(bookingConfirmation.endTime), 'h:mm a')}
               </span>
             </div>
+            {bookingConfirmation.occurrenceCount && bookingConfirmation.occurrenceCount > 1 && (
+              <div className="flex justify-between">
+                <span className="text-primary-light/70">Total Visits:</span>
+                <span className="text-primary-light font-medium">
+                  {bookingConfirmation.occurrenceCount}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-primary-light/70">Name:</span>
               <span className="text-primary-light font-medium">
@@ -139,6 +153,8 @@ const PublicBookingPage = () => {
           <p className="text-sm text-primary-light/70 mb-6">
             {requiresConfirmation
               ? "You'll receive an email once the contractor confirms your request. This typically happens within 24 hours."
+              : bookingConfirmation.occurrenceCount && bookingConfirmation.occurrenceCount > 1
+              ? `You'll receive a confirmation email shortly with details for all ${bookingConfirmation.occurrenceCount} scheduled visits.`
               : "You'll receive a confirmation email shortly with all the details."}
           </p>
 

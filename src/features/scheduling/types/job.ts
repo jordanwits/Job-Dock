@@ -1,3 +1,12 @@
+export type RecurrenceFrequency = 'weekly' | 'monthly'
+
+export interface RecurrencePayload {
+  frequency: RecurrenceFrequency
+  interval: number
+  count?: number
+  untilDate?: string
+}
+
 export interface Job {
   id: string
   title: string
@@ -8,6 +17,7 @@ export interface Job {
   contactPhone?: string
   serviceId?: string
   serviceName?: string
+  recurrenceId?: string
   startTime: string
   endTime: string
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
@@ -16,6 +26,7 @@ export interface Job {
   assignedTo?: string
   createdAt: string
   updatedAt: string
+  occurrenceCount?: number
 }
 
 export interface CreateJobData {
@@ -29,6 +40,7 @@ export interface CreateJobData {
   location?: string
   notes?: string
   assignedTo?: string
+  recurrence?: RecurrencePayload
 }
 
 export interface UpdateJobData extends Partial<CreateJobData> {
