@@ -6,6 +6,7 @@ import { QuotesPage } from '@/features/quotes'
 import { InvoicesPage } from '@/features/invoices'
 import { SchedulingPage } from '@/features/scheduling'
 import { PublicBookingPage } from '@/features/booking'
+import { SettingsPage } from '@/features/settings'
 import { Card, Button, Input, Modal } from '@/components/ui'
 import { useState } from 'react'
 
@@ -19,6 +20,7 @@ function App() {
     { label: 'Quotes', href: '/quotes' },
     { label: 'Invoices', href: '/invoices' },
     { label: 'Scheduling', href: '/scheduling' },
+    { label: 'Settings', href: '/settings' },
   ]
 
   const DashboardContent = () => (
@@ -174,6 +176,21 @@ function App() {
                 onLogout={handleLogout}
               >
                 <SchedulingPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <AppLayout
+                sidebarItems={sidebarItems}
+                user={user ? { name: user.name, email: user.email } : undefined}
+                onLogout={handleLogout}
+              >
+                <SettingsPage />
               </AppLayout>
             </ProtectedRoute>
           }

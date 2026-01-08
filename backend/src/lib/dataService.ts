@@ -21,6 +21,7 @@ import {
   sendQuoteEmail,
   sendInvoiceEmail,
 } from './email'
+import { uploadFile, deleteFile, getFileUrl } from './fileUpload'
 
 // Recurrence types
 export type RecurrenceFrequency = 'weekly' | 'monthly'
@@ -299,6 +300,173 @@ const serializeInvoice = (invoice: Invoice & {
 })
 
 export const dataServices = {
+  settings: {
+    get: async (tenantId: string) => {
+      await ensureTenantExists(tenantId)
+      let settings = await prisma.tenantSettings.findUnique({
+        where: { tenantId },
+      })
+      
+      // If settings don't exist, create default settings
+      if (!settings) {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { name: true },
+        })
+        
+        settings = await prisma.tenantSettings.create({
+          data: {
+            tenantId,
+            companyDisplayName: tenant?.name || 'Your Company',
+          },
+        })
+      }
+      
+      // Generate signed URLs for logo and PDF templates if they exist
+      const result: any = { ...settings }
+      
+      if (settings.logoUrl) {
+        try {
+          result.logoSignedUrl = await getFileUrl(settings.logoUrl, 3600)
+        } catch (error) {
+          console.error('Error generating logo signed URL:', error)
+        }
+      }
+      
+      if (settings.invoicePdfTemplateKey) {
+        try {
+          result.invoicePdfSignedUrl = await getFileUrl(settings.invoicePdfTemplateKey, 3600)
+        } catch (error) {
+          console.error('Error generating invoice PDF signed URL:', error)
+        }
+      }
+      
+      if (settings.quotePdfTemplateKey) {
+        try {
+          result.quotePdfSignedUrl = await getFileUrl(settings.quotePdfTemplateKey, 3600)
+        } catch (error) {
+          console.error('Error generating quote PDF signed URL:', error)
+        }
+      }
+      
+      return result
+    },
+    update: async (tenantId: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+      
+      // Ensure settings exist
+      let settings = await prisma.tenantSettings.findUnique({
+        where: { tenantId },
+      })
+      
+      if (!settings) {
+        settings = await prisma.tenantSettings.create({
+          data: {
+            tenantId,
+            ...payload,
+          },
+        })
+      } else {
+        settings = await prisma.tenantSettings.update({
+          where: { tenantId },
+          data: payload,
+        })
+      }
+      
+      return settings
+    },
+    getUploadUrl: async (tenantId: string, payload: { type: 'logo' | 'invoice-pdf' | 'quote-pdf'; filename: string; contentType: string }) => {
+      await ensureTenantExists(tenantId)
+      
+      const { type, filename, contentType } = payload
+      
+      // Validate file type based on upload type
+      if (type === 'logo') {
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml']
+        if (!allowedTypes.includes(contentType)) {
+          throw new ApiError('Invalid file type. Only PNG, JPEG, and SVG are allowed for logos.', 400)
+        }
+      } else {
+        if (contentType !== 'application/pdf') {
+          throw new ApiError('Invalid file type. Only PDF files are allowed for templates.', 400)
+        }
+      }
+      
+      // Generate unique key
+      const { randomUUID } = await import('crypto')
+      const ext = filename.split('.').pop()
+      const folder = type === 'logo' ? `logos/${tenantId}` : `pdf-templates/${tenantId}/${type.replace('-pdf', 's')}`
+      const key = `${folder}/${randomUUID()}.${ext}`
+      
+      // Generate pre-signed URL for upload
+      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
+      const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner')
+      const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
+      const FILES_BUCKET = process.env.FILES_BUCKET || ''
+      
+      const uploadUrl = await getSignedUrl(
+        s3Client,
+        new PutObjectCommand({
+          Bucket: FILES_BUCKET,
+          Key: key,
+          ContentType: contentType,
+        }),
+        { expiresIn: 300 } // 5 minutes
+      )
+      
+      return {
+        uploadUrl,
+        key,
+        type,
+      }
+    },
+    confirmUpload: async (tenantId: string, payload: { key: string; type: 'logo' | 'invoice-pdf' | 'quote-pdf' }) => {
+      await ensureTenantExists(tenantId)
+      
+      const { key, type } = payload
+      
+      // Get existing settings to delete old file if it exists
+      const settings = await prisma.tenantSettings.findUnique({
+        where: { tenantId },
+      })
+      
+      let oldKey: string | null = null
+      let updateData: any = {}
+      
+      if (type === 'logo') {
+        oldKey = settings?.logoUrl || null
+        updateData.logoUrl = key
+      } else if (type === 'invoice-pdf') {
+        oldKey = settings?.invoicePdfTemplateKey || null
+        updateData.invoicePdfTemplateKey = key
+      } else if (type === 'quote-pdf') {
+        oldKey = settings?.quotePdfTemplateKey || null
+        updateData.quotePdfTemplateKey = key
+      }
+      
+      // Delete old file if it exists
+      if (oldKey) {
+        try {
+          await deleteFile(oldKey)
+        } catch (error) {
+          console.error(`Error deleting old ${type}:`, error)
+        }
+      }
+      
+      // Update settings with new file key
+      const updatedSettings = await dataServices.settings.update(tenantId, updateData)
+      
+      // Generate signed URL for the new file
+      const signedUrl = await getFileUrl(key, 3600)
+      
+      return {
+        ...updatedSettings,
+        ...(type === 'logo' && { logoSignedUrl: signedUrl }),
+        ...(type === 'invoice-pdf' && { invoicePdfSignedUrl: signedUrl }),
+        ...(type === 'quote-pdf' && { quotePdfSignedUrl: signedUrl }),
+      }
+    },
+  },
   contacts: {
     getAll: async (tenantId: string) => {
       await ensureTenantExists(tenantId)
@@ -576,6 +744,7 @@ export const dataServices = {
         await sendQuoteEmail({
           quoteData: serializedQuote,
           tenantName: tenant?.name ?? undefined,
+          tenantId,
         })
         console.log(`✅ Quote ${quote.quoteNumber} sent to ${quote.contact.email}`)
       } catch (emailError) {
@@ -747,6 +916,7 @@ export const dataServices = {
         await sendInvoiceEmail({
           invoiceData: serializedInvoice,
           tenantName: tenant?.name ?? undefined,
+          tenantId,
         })
         console.log(`✅ Invoice ${invoice.invoiceNumber} sent to ${invoice.contact.email}`)
       } catch (emailError) {

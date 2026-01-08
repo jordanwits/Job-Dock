@@ -21,6 +21,7 @@ model Tenant {
   quotes         Quote[]
   services       Service[]
   users          User[]
+  settings       TenantSettings?
 
   @@index([subdomain])
   @@map("tenants")
@@ -275,4 +276,25 @@ model Document {
   @@index([tenantId])
   @@index([entityType, entityId])
   @@map("documents")
+}
+
+model TenantSettings {
+  id                     String   @id @default(uuid())
+  tenantId               String   @unique
+  companyDisplayName     String?
+  companySupportEmail    String?
+  companyPhone           String?
+  logoUrl                String?
+  invoiceEmailSubject    String   @default("Your Invoice from {{company_name}}")
+  invoiceEmailBody       String   @default("Hi {{customer_name}},\n\nPlease find attached invoice {{invoice_number}}.\n\nThank you for your business!")
+  quoteEmailSubject      String   @default("Your Quote from {{company_name}}")
+  quoteEmailBody         String   @default("Hi {{customer_name}},\n\nPlease find attached quote {{quote_number}}.\n\nWe look forward to working with you!")
+  invoicePdfTemplateKey  String?
+  quotePdfTemplateKey    String?
+  updatedAt              DateTime @updatedAt
+  updatedByUserId        String?
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_settings")
 }

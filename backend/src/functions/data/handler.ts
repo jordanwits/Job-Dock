@@ -107,6 +107,49 @@ export async function handler(
         END $$;
       `)
       
+      // Create tenant_settings table
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "tenant_settings" (
+          "id" TEXT NOT NULL,
+          "tenantId" TEXT NOT NULL,
+          "companyDisplayName" TEXT,
+          "companySupportEmail" TEXT,
+          "companyPhone" TEXT,
+          "logoUrl" TEXT,
+          "invoiceEmailSubject" TEXT NOT NULL DEFAULT 'Your Invoice from {{company_name}}',
+          "invoiceEmailBody" TEXT NOT NULL DEFAULT 'Hi {{customer_name}},
+
+Please find attached invoice {{invoice_number}}.
+
+Thank you for your business!',
+          "quoteEmailSubject" TEXT NOT NULL DEFAULT 'Your Quote from {{company_name}}',
+          "quoteEmailBody" TEXT NOT NULL DEFAULT 'Hi {{customer_name}},
+
+Please find attached quote {{quote_number}}.
+
+We look forward to working with you!',
+          "invoicePdfTemplateKey" TEXT,
+          "quotePdfTemplateKey" TEXT,
+          "updatedAt" TIMESTAMP(3) NOT NULL,
+          "updatedByUserId" TEXT,
+          CONSTRAINT "tenant_settings_pkey" PRIMARY KEY ("id")
+        );
+      `)
+      
+      await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "tenant_settings_tenantId_key" ON "tenant_settings"("tenantId");`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tenant_settings_tenantId_idx" ON "tenant_settings"("tenantId");`)
+      
+      await prisma.$executeRawUnsafe(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tenant_settings_tenantId_fkey') THEN
+            ALTER TABLE "tenant_settings" ADD CONSTRAINT "tenant_settings_tenantId_fkey" 
+              FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") 
+              ON DELETE CASCADE ON UPDATE CASCADE;
+          END IF;
+        END $$;
+      `)
+      
       console.log('✅ Migration completed successfully')
       return successResponse({ message: 'Migration completed successfully' })
     } catch (error: any) {
@@ -136,6 +179,10 @@ export async function handler(
         return successResponse(await handlePost(resource, service, tenantId, id, action, event))
       case 'PUT':
       case 'PATCH':
+        // Settings resource doesn't require an ID
+        if (resource === 'settings') {
+          return successResponse(await handlePut(service, tenantId, id, event))
+        }
         if (!id) {
           return errorResponse('Resource ID required', 400)
         }
@@ -144,7 +191,10 @@ export async function handler(
         if (!id) {
           return errorResponse('Resource ID required', 400)
         }
-        return successResponse(await service.delete(tenantId, id))
+        if ('delete' in service) {
+          return successResponse(await service.delete(tenantId, id))
+        }
+        return errorResponse('Delete method not supported', 405)
       default:
         return errorResponse('Method not allowed', 405)
     }
@@ -165,6 +215,10 @@ async function handleGet(
   action: string | undefined,
   event: APIGatewayProxyEvent
 ) {
+  if (resource === 'settings') {
+    return (service as typeof dataServices.settings).get(tenantId)
+  }
+
   if (resource === 'services' && id && action === 'booking-link') {
     return (service as typeof dataServices.services).getBookingLink(tenantId, id)
   }
@@ -177,7 +231,7 @@ async function handleGet(
     return (service as typeof dataServices.services).getAvailability(tenantId, id, startDate, endDate)
   }
 
-  if (id) {
+  if (id && 'getById' in service) {
     return service.getById(tenantId, id)
   }
 
@@ -189,7 +243,11 @@ async function handleGet(
     return (service as typeof dataServices.jobs).getAll(tenantId, startDate, endDate)
   }
 
-  return service.getAll(tenantId)
+  if ('getAll' in service) {
+    return service.getAll(tenantId)
+  }
+
+  throw new Error('Method not supported')
 }
 
 async function handlePost(
@@ -200,6 +258,21 @@ async function handlePost(
   action: string | undefined,
   event: APIGatewayProxyEvent
 ) {
+  // Handle settings actions (id is actually the action for settings routes)
+  if (resource === 'settings' && id) {
+    const payload = parseBody(event)
+    
+    if (id === 'get-upload-url') {
+      return (service as typeof dataServices.settings).getUploadUrl(tenantId, payload)
+    }
+    
+    if (id === 'confirm-upload') {
+      return (service as typeof dataServices.settings).confirmUpload(tenantId, payload)
+    }
+    
+    throw new ApiError('Invalid action for settings', 400)
+  }
+
   if (resource === 'services' && id && action === 'book') {
     const payload = parseBody(event)
     // Try to extract contractor email from the logged-in user
@@ -234,17 +307,30 @@ async function handlePost(
 
   // All other POST actions require a body
   const payload = parseBody(event)
-  return service.create(tenantId, payload)
+  if ('create' in service) {
+    return service.create(tenantId, payload)
+  }
+  throw new Error('Create method not supported')
 }
 
 async function handlePut(
   service: (typeof dataServices)[ResourceKey],
   tenantId: string,
-  id: string,
+  id: string | undefined,
   event: APIGatewayProxyEvent
 ) {
   const payload = parseBody(event)
-  return service.update(tenantId, id, payload)
+  
+  // Settings uses a different signature (no id parameter)
+  if ('update' in service && typeof service.update === 'function') {
+    // Check if it's the settings service (has only 2 params)
+    if (service === dataServices.settings) {
+      return (service as typeof dataServices.settings).update(tenantId, payload)
+    }
+    return service.update(tenantId, id!, payload)
+  }
+  
+  throw new Error('Update method not available')
 }
 
 function parseBody(event: APIGatewayProxyEvent) {

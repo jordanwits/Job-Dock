@@ -534,8 +534,9 @@ We apologize for any inconvenience. Please feel free to try booking a different 
 export async function sendQuoteEmail(data: {
   quoteData: any
   tenantName?: string
+  tenantId: string
 }): Promise<void> {
-  const { quoteData, tenantName } = data
+  const { quoteData, tenantName, tenantId } = data
 
   const clientEmail = quoteData.contactEmail
   if (!clientEmail) {
@@ -543,7 +544,28 @@ export async function sendQuoteEmail(data: {
   }
 
   const clientName = quoteData.contactName || 'Valued Customer'
-  const subject = `Quote ${quoteData.quoteNumber} from ${tenantName || 'JobDock'}`
+  
+  // Get custom email template from settings
+  const prisma = (await import('./db')).default
+  const settings = await prisma.tenantSettings.findUnique({
+    where: { tenantId },
+  })
+  
+  // Use custom template or default
+  let subject = settings?.quoteEmailSubject || `Quote {{quote_number}} from {{company_name}}`
+  let bodyTemplate = settings?.quoteEmailBody || `Hi {{customer_name}},\n\nPlease find attached quote {{quote_number}}.\n\nWe look forward to working with you!`
+  
+  // Replace template variables
+  const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
+  subject = subject
+    .replace(/\{\{company_name\}\}/g, companyName)
+    .replace(/\{\{quote_number\}\}/g, quoteData.quoteNumber)
+    .replace(/\{\{customer_name\}\}/g, clientName)
+  
+  bodyTemplate = bodyTemplate
+    .replace(/\{\{company_name\}\}/g, companyName)
+    .replace(/\{\{quote_number\}\}/g, quoteData.quoteNumber)
+    .replace(/\{\{customer_name\}\}/g, clientName)
 
   const validUntilText = quoteData.validUntil
     ? new Date(quoteData.validUntil).toLocaleDateString('en-US', {
@@ -553,21 +575,23 @@ export async function sendQuoteEmail(data: {
       })
     : 'N/A'
 
+  // Convert body template newlines to HTML
+  const bodyHtml = bodyTemplate.split('\n').map(line => `<p>${line}</p>`).join('')
+  
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
         <h2 style="color: #D4AF37;">New Quote</h2>
-        <p>Hi ${clientName},</p>
-        <p>Please find your quote attached as a PDF document.</p>
+        ${bodyHtml}
         <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>Quote Number:</strong> ${quoteData.quoteNumber}</p>
           <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${quoteData.total.toFixed(2)}</p>
           <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${validUntilText}</p>
         </div>
-        <p>Please review the attached quote and let us know if you have any questions.</p>
-        <p>We look forward to working with you!</p>
-        <p style="color: #666; font-size: 12px; margin-top: 30px;">
-          This quote is valid until ${validUntilText}. Please contact us if you would like to proceed.
+        ${settings?.companySupportEmail ? `<p style="color: #666; font-size: 0.9em;">Questions? Contact us at ${settings.companySupportEmail}</p>` : ''}
+        ${settings?.companyPhone ? `<p style="color: #666; font-size: 0.9em;">Call us at ${settings.companyPhone}</p>` : ''}
+        <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
+          This is an automated message. Please do not reply to this email.
         </p>
       </body>
     </html>
@@ -591,8 +615,13 @@ We look forward to working with you!
 This quote is valid until ${validUntilText}. Please contact us if you would like to proceed.
   `.trim()
 
-  // Generate PDF
-  const pdfBuffer = await generateQuotePDF(quoteData, tenantName)
+  // Generate PDF with company info
+  const pdfBuffer = await generateQuotePDF(quoteData, tenantName, {
+    name: companyName,
+    email: settings?.companySupportEmail || undefined,
+    phone: settings?.companyPhone || undefined,
+    logoKey: settings?.logoUrl || undefined,
+  })
 
   // Send email with PDF attachment
   await sendEmailWithAttachments({
@@ -616,8 +645,9 @@ This quote is valid until ${validUntilText}. Please contact us if you would like
 export async function sendInvoiceEmail(data: {
   invoiceData: any
   tenantName?: string
+  tenantId: string
 }): Promise<void> {
-  const { invoiceData, tenantName } = data
+  const { invoiceData, tenantName, tenantId } = data
 
   const clientEmail = invoiceData.contactEmail
   if (!clientEmail) {
@@ -625,7 +655,28 @@ export async function sendInvoiceEmail(data: {
   }
 
   const clientName = invoiceData.contactName || 'Valued Customer'
-  const subject = `Invoice ${invoiceData.invoiceNumber} from ${tenantName || 'JobDock'}`
+  
+  // Get custom email template from settings
+  const prisma = (await import('./db')).default
+  const settings = await prisma.tenantSettings.findUnique({
+    where: { tenantId },
+  })
+  
+  // Use custom template or default
+  let subject = settings?.invoiceEmailSubject || `Invoice {{invoice_number}} from {{company_name}}`
+  let bodyTemplate = settings?.invoiceEmailBody || `Hi {{customer_name}},\n\nPlease find attached invoice {{invoice_number}}.\n\nThank you for your business!`
+  
+  // Replace template variables
+  const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
+  subject = subject
+    .replace(/\{\{company_name\}\}/g, companyName)
+    .replace(/\{\{invoice_number\}\}/g, invoiceData.invoiceNumber)
+    .replace(/\{\{customer_name\}\}/g, clientName)
+  
+  bodyTemplate = bodyTemplate
+    .replace(/\{\{company_name\}\}/g, companyName)
+    .replace(/\{\{invoice_number\}\}/g, invoiceData.invoiceNumber)
+    .replace(/\{\{customer_name\}\}/g, clientName)
 
   const dueDateText = invoiceData.dueDate
     ? new Date(invoiceData.dueDate).toLocaleDateString('en-US', {
@@ -651,12 +702,14 @@ export async function sendInvoiceEmail(data: {
 
   const balance = invoiceData.total - invoiceData.paidAmount
 
+  // Convert body template newlines to HTML
+  const bodyHtml = bodyTemplate.split('\n').map(line => `<p>${line}</p>`).join('')
+  
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
         <h2 style="color: #D4AF37;">New Invoice</h2>
-        <p>Hi ${clientName},</p>
-        <p>Please find your invoice attached as a PDF document.</p>
+        ${bodyHtml}
         <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>Invoice Number:</strong> ${invoiceData.invoiceNumber}</p>
           <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${invoiceData.total.toFixed(2)}</p>
@@ -666,10 +719,10 @@ export async function sendInvoiceEmail(data: {
           <p style="margin: 5px 0;"><strong>Payment Status:</strong> <span style="color: ${statusColor};">${paymentStatusText}</span></p>
           ${invoiceData.paymentTerms ? `<p style="margin: 5px 0;"><strong>Payment Terms:</strong> ${invoiceData.paymentTerms}</p>` : ''}
         </div>
-        ${balance > 0 ? '<p><strong>Please remit payment by the due date.</strong></p>' : '<p style="color: #4CAF50;"><strong>Thank you for your payment!</strong></p>'}
-        <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
-        <p style="color: #666; font-size: 12px; margin-top: 30px;">
-          Thank you for your business!
+        ${settings?.companySupportEmail ? `<p style="color: #666; font-size: 0.9em;">Questions? Contact us at ${settings.companySupportEmail}</p>` : ''}
+        ${settings?.companyPhone ? `<p style="color: #666; font-size: 0.9em;">Call us at ${settings.companyPhone}</p>` : ''}
+        <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
+          This is an automated message. Please do not reply to this email.
         </p>
       </body>
     </html>
@@ -697,8 +750,13 @@ If you have any questions about this invoice, please don't hesitate to contact u
 Thank you for your business!
   `.trim()
 
-  // Generate PDF
-  const pdfBuffer = await generateInvoicePDF(invoiceData, tenantName)
+  // Generate PDF with company info
+  const pdfBuffer = await generateInvoicePDF(invoiceData, tenantName, {
+    name: companyName,
+    email: settings?.companySupportEmail || undefined,
+    phone: settings?.companyPhone || undefined,
+    logoKey: settings?.logoUrl || undefined,
+  })
 
   // Send email with PDF attachment
   await sendEmailWithAttachments({

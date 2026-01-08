@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 
 interface QuoteData {
   id: string
@@ -70,10 +71,55 @@ const greenColor = rgb(76 / 255, 175 / 255, 80 / 255)
 const redColor = rgb(255 / 255, 107 / 255, 107 / 255)
 const orangeColor = rgb(255 / 255, 165 / 255, 0 / 255)
 
+interface CompanyInfo {
+  name?: string
+  email?: string
+  phone?: string
+  logoKey?: string
+}
+
+/**
+ * Fetch and embed logo from S3
+ */
+async function embedLogoFromS3(pdfDoc: PDFDocument, logoKey: string): Promise<any> {
+  try {
+    const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
+    const FILES_BUCKET = process.env.FILES_BUCKET || ''
+    
+    const command = new GetObjectCommand({
+      Bucket: FILES_BUCKET,
+      Key: logoKey,
+    })
+    
+    const response = await s3Client.send(command)
+    const logoBuffer = await response.Body?.transformToByteArray()
+    
+    if (!logoBuffer) {
+      throw new Error('Failed to fetch logo')
+    }
+    
+    // Determine image type from key
+    const ext = logoKey.split('.').pop()?.toLowerCase()
+    
+    if (ext === 'png') {
+      return await pdfDoc.embedPng(logoBuffer)
+    } else if (ext === 'jpg' || ext === 'jpeg') {
+      return await pdfDoc.embedJpg(logoBuffer)
+    } else {
+      // SVG not directly supported by pdf-lib, skip for now
+      console.warn('SVG logos not yet supported in PDFs')
+      return null
+    }
+  } catch (error) {
+    console.error('Error embedding logo:', error)
+    return null
+  }
+}
+
 /**
  * Generate a PDF buffer for a quote
  */
-export async function generateQuotePDF(quote: QuoteData, tenantName?: string): Promise<Buffer> {
+export async function generateQuotePDF(quote: QuoteData, tenantName?: string, companyInfo?: CompanyInfo): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create()
   const page = pdfDoc.addPage([595, 842]) // A4 size
   const { width, height } = page.getSize()
@@ -82,9 +128,31 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string): P
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
   let y = height - 50
+  let logoHeight = 0
+
+  // Embed and draw logo if available
+  if (companyInfo?.logoKey) {
+    const logo = await embedLogoFromS3(pdfDoc, companyInfo.logoKey)
+    if (logo) {
+      const logoWidth = 80
+      const aspectRatio = logo.height / logo.width
+      logoHeight = logoWidth * aspectRatio
+      
+      // Draw logo at top left
+      page.drawImage(logo, {
+        x: 50,
+        y: y - logoHeight,
+        width: logoWidth,
+        height: logoHeight,
+      })
+      
+      y -= logoHeight + 20
+    }
+  }
 
   // Header - Company name
-  page.drawText(tenantName || 'JobDock', {
+  const companyName = companyInfo?.name || tenantName || 'JobDock'
+  page.drawText(companyName, {
     x: 50,
     y,
     size: 24,
@@ -100,9 +168,36 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string): P
     font: fontRegular,
     color: mediumGray,
   })
+  
+  // Add company contact info if available
+  if (companyInfo?.email || companyInfo?.phone) {
+    y -= 15
+    if (companyInfo.email) {
+      page.drawText(`Email: ${companyInfo.email}`, {
+        x: 50,
+        y,
+        size: 9,
+        font: fontRegular,
+        color: mediumGray,
+      })
+      y -= 12
+    }
+    if (companyInfo.phone) {
+      page.drawText(`Phone: ${companyInfo.phone}`, {
+        x: 50,
+        y,
+        size: 9,
+        font: fontRegular,
+        color: mediumGray,
+      })
+    }
+  }
 
-  // Quote details (right side)
+  // Quote details (right side) - adjust for logo height
   let rightY = height - 50
+  if (logoHeight > 0) {
+    rightY -= logoHeight + 20
+  }
   page.drawText('QUOTE', {
     x: width - 100,
     y: rightY,
@@ -141,7 +236,7 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string): P
   }
 
   // Client information
-  y = height - 140
+  y -= 40  // Space after header
   page.drawText('Bill To:', {
     x: 50,
     y,
@@ -266,7 +361,7 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string): P
 /**
  * Generate a PDF buffer for an invoice
  */
-export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: string): Promise<Buffer> {
+export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: string, companyInfo?: CompanyInfo): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create()
   const page = pdfDoc.addPage([595, 842]) // A4 size
   const { width, height } = page.getSize()
@@ -275,9 +370,31 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
   let y = height - 50
+  let logoHeight = 0
+
+  // Embed and draw logo if available
+  if (companyInfo?.logoKey) {
+    const logo = await embedLogoFromS3(pdfDoc, companyInfo.logoKey)
+    if (logo) {
+      const logoWidth = 80
+      const aspectRatio = logo.height / logo.width
+      logoHeight = logoWidth * aspectRatio
+      
+      // Draw logo at top left
+      page.drawImage(logo, {
+        x: 50,
+        y: y - logoHeight,
+        width: logoWidth,
+        height: logoHeight,
+      })
+      
+      y -= logoHeight + 20
+    }
+  }
 
   // Header - Company name
-  page.drawText(tenantName || 'JobDock', {
+  const companyName = companyInfo?.name || tenantName || 'JobDock'
+  page.drawText(companyName, {
     x: 50,
     y,
     size: 24,
@@ -293,9 +410,36 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
     font: fontRegular,
     color: mediumGray,
   })
+  
+  // Add company contact info if available
+  if (companyInfo?.email || companyInfo?.phone) {
+    y -= 15
+    if (companyInfo.email) {
+      page.drawText(`Email: ${companyInfo.email}`, {
+        x: 50,
+        y,
+        size: 9,
+        font: fontRegular,
+        color: mediumGray,
+      })
+      y -= 12
+    }
+    if (companyInfo.phone) {
+      page.drawText(`Phone: ${companyInfo.phone}`, {
+        x: 50,
+        y,
+        size: 9,
+        font: fontRegular,
+        color: mediumGray,
+      })
+    }
+  }
 
-  // Invoice details (right side)
+  // Invoice details (right side) - adjust for logo height
   let rightY = height - 50
+  if (logoHeight > 0) {
+    rightY -= logoHeight + 20
+  }
   page.drawText('INVOICE', {
     x: width - 120,
     y: rightY,
@@ -367,7 +511,7 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
   })
 
   // Client information
-  y = height - 140
+  y -= 40  // Space after header
   page.drawText('Bill To:', {
     x: 50,
     y,

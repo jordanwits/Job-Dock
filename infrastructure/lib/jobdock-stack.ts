@@ -275,6 +275,7 @@ export class JobDockStack extends cdk.Stack {
     this.api = new apigateway.RestApi(this, 'Api', {
       restApiName: `jobdock-api-${config.env}`,
       description: `JobDock API - ${config.env} environment`,
+      binaryMediaTypes: ['multipart/form-data', 'image/*', 'application/pdf'],
       defaultCorsPreflightOptions: {
         allowOrigins: config.domain
           ? [`https://${config.domain}`, `https://www.${config.domain}`]
