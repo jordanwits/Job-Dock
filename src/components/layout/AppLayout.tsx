@@ -1,7 +1,8 @@
-import { ReactNode, useState } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import Header from './Header'
 import Sidebar from './Sidebar'
 import { DataSourceIndicator } from '@/components/system'
+import { settingsApi } from '@/lib/api/settings'
 
 export interface AppLayoutProps {
   children: ReactNode
@@ -20,11 +21,31 @@ const AppLayout = ({
   onLogout,
 }: AppLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>()
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await settingsApi.getSettings()
+        if (settings.logoSignedUrl) {
+          setCompanyLogoUrl(settings.logoSignedUrl)
+        }
+      } catch (error) {
+        // Silently fail - logo is optional
+        console.error('Failed to fetch company logo:', error)
+      }
+    }
+
+    if (user) {
+      fetchSettings()
+    }
+  }, [user])
 
   return (
     <div className="min-h-screen bg-primary-dark">
       <Header 
         user={user} 
+        companyLogoUrl={companyLogoUrl}
         onLogout={onLogout}
         onMenuClick={() => setSidebarOpen(!sidebarOpen)}
       />

@@ -6,11 +6,12 @@ export interface HeaderProps {
     name: string
     email: string
   }
+  companyLogoUrl?: string
   onLogout?: () => void
   onMenuClick?: () => void
 }
 
-const Header = ({ user, onLogout, onMenuClick }: HeaderProps) => {
+const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-primary-blue bg-primary-dark-secondary/95 backdrop-blur supports-[backdrop-filter]:bg-primary-dark-secondary/60">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -37,6 +38,13 @@ const Header = ({ user, onLogout, onMenuClick }: HeaderProps) => {
           {user ? (
             <>
               <div className="hidden md:flex items-center space-x-3">
+                {companyLogoUrl && (
+                  <img
+                    src={companyLogoUrl}
+                    alt="Company logo"
+                    className="h-8 w-auto max-w-[120px] object-contain"
+                  />
+                )}
                 <div className="text-right">
                   <p className="text-sm font-medium text-primary-light">{user.name}</p>
                   <p className="text-xs text-primary-light/70">{user.email}</p>
@@ -49,6 +57,13 @@ const Header = ({ user, onLogout, onMenuClick }: HeaderProps) => {
               </div>
               {/* Mobile user menu */}
               <div className="md:hidden flex items-center gap-2">
+                {companyLogoUrl && (
+                  <img
+                    src={companyLogoUrl}
+                    alt="Company logo"
+                    className="h-6 w-auto max-w-[80px] object-contain"
+                  />
+                )}
                 <span className="text-sm font-medium text-primary-light truncate max-w-[100px]">
                   {user.name}
                 </span>
