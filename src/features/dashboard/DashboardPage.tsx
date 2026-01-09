@@ -102,7 +102,7 @@ const DashboardPage = () => {
           <Card className="lg:row-span-2">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-primary-light">Upcoming Jobs</h2>
-              <Link to="/scheduling">
+              <Link to="/scheduling?tab=jobs">
                 <Button variant="ghost" size="sm">
                   View All
                 </Button>

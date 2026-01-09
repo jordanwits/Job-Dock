@@ -178,14 +178,14 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
               <Button
                 onClick={() => setShowScheduleJob(true)}
-                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto whitespace-nowrap"
               >
                 Schedule Job
               </Button>
               <Button
                 onClick={handleSend}
                 disabled={isSending || !invoice.contactEmail}
-                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto"
+                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto whitespace-nowrap"
                 title={!invoice.contactEmail ? 'Contact does not have an email address' : undefined}
               >
                 {isSending
@@ -194,7 +194,7 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
                     ? 'Resend Invoice'
                     : 'Send Invoice'}
               </Button>
-              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
+              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto whitespace-nowrap">
                 Edit
               </Button>
             </div>

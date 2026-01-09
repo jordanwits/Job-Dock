@@ -169,8 +169,24 @@ We look forward to working with you!',
 
   try {
     const { resource, id, action } = parsePath(event)
-    const tenantId = await resolveTenantId(event)
-    await ensureTenantExists(tenantId)
+    
+    // Check if this is a public booking endpoint that doesn't require authentication
+    const isPublicBookingEndpoint = 
+      resource === 'services' && (
+        (event.httpMethod === 'GET' && id === 'public') ||
+        (id && id !== 'public' && event.httpMethod === 'GET' && (action === 'availability' || !action)) ||
+        (id && id !== 'public' && event.httpMethod === 'POST' && action === 'book')
+      )
+    
+    // For public booking endpoints, use a placeholder tenant ID
+    // The actual tenant will be determined from the service ID in the dataService
+    const tenantId = isPublicBookingEndpoint 
+      ? 'public-booking-placeholder' 
+      : await resolveTenantId(event)
+    
+    if (!isPublicBookingEndpoint) {
+      await ensureTenantExists(tenantId)
+    }
 
     if (!resource) {
       return successResponse({ status: 'ok' })
@@ -235,6 +251,16 @@ async function handleGet(
     return (service as typeof dataServices.services).getBookingLink(tenantId, id)
   }
 
+  // Get all active services for a tenant (for public booking page)
+  // Path is /services/public?tenantId=xxx
+  if (resource === 'services' && id === 'public') {
+    const tenantIdParam = event.queryStringParameters?.tenantId
+    if (!tenantIdParam) {
+      throw new Error('Tenant ID required for public services endpoint')
+    }
+    return (service as typeof dataServices.services).getAllActiveForTenant(tenantIdParam)
+  }
+  
   if (resource === 'services' && id && action === 'availability') {
     const startDateStr = event.queryStringParameters?.startDate
     const endDateStr = event.queryStringParameters?.endDate

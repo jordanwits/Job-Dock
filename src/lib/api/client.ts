@@ -50,5 +50,18 @@ apiClient.interceptors.response.use(
   }
 )
 
+// Public API client for unauthenticated requests (e.g., public booking)
+// This client does NOT send auth tokens or tenant IDs
+export const publicApiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 30000,
+})
+
+// No auth interceptor for public client - it's completely unauthenticated
+// The backend will determine the tenant from the service ID
+
 export default apiClient
 

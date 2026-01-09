@@ -5,7 +5,7 @@
  * Switch between mock and real services using environment variables.
  */
 
-import apiClient from './client'
+import apiClient, { publicApiClient } from './client'
 import { mockServices } from '../mock/api'
 import { appEnv } from '@/lib/env'
 import type { Quote, CreateQuoteData } from '@/features/quotes/types/quote'
@@ -184,8 +184,15 @@ const realServicesService = {
     return response.data
   },
 
+  // Use public client for getById to support public booking pages
   getById: async (id: string) => {
-    const response = await apiClient.get(`/services/${id}`)
+    const response = await publicApiClient.get(`/services/${id}`)
+    return response.data
+  },
+  
+  // Get all active services for a tenant (for public booking)
+  getAllActiveForTenant: async (tenantId: string) => {
+    const response = await publicApiClient.get(`/services/public?tenantId=${tenantId}`)
     return response.data
   },
 
@@ -209,16 +216,17 @@ const realServicesService = {
     return response.data
   },
 
+  // Public booking endpoints - use publicApiClient to avoid sending auth tokens
   getAvailability: async (id: string, startDate?: Date, endDate?: Date) => {
     const params: any = {}
     if (startDate) params.startDate = startDate.toISOString()
     if (endDate) params.endDate = endDate.toISOString()
-    const response = await apiClient.get(`/services/${id}/availability`, { params })
+    const response = await publicApiClient.get(`/services/${id}/availability`, { params })
     return response.data
   },
 
   bookSlot: async (id: string, payload: any) => {
-    const response = await apiClient.post(`/services/${id}/book`, payload)
+    const response = await publicApiClient.post(`/services/${id}/book`, payload)
     return response.data
   },
 }

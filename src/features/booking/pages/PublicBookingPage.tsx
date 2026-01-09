@@ -12,6 +12,10 @@ import type { BookingFormValues } from '../types/booking'
 const PublicBookingPage = () => {
   const { serviceId } = useParams<{ serviceId?: string }>()
   const [showConfirmation, setShowConfirmation] = useState(false)
+  
+  // Extract tenantId from query params if present (for tenant-level booking links)
+  const searchParams = new URLSearchParams(window.location.search)
+  const tenantId = searchParams.get('tenant')
 
   const {
     services,
@@ -30,17 +34,26 @@ const PublicBookingPage = () => {
   } = useBookingStore()
 
   useEffect(() => {
-    console.log('PublicBookingPage mounted, serviceId from URL:', serviceId)
-    loadServicesForBooking().then(() => {
-      console.log('Services loaded, attempting to select service:', serviceId)
-      // If serviceId is in URL, preselect that service
-      if (serviceId) {
+    console.log('PublicBookingPage mounted', { serviceId, tenantId })
+    
+    // Determine what to load:
+    // - If serviceId in URL path: load that specific service
+    // - If tenantId in query param: load all services for that tenant
+    // - If neither: try to load all services (requires auth)
+    if (serviceId) {
+      loadServicesForBooking(serviceId, false).then(() => {
         selectService(serviceId)
-      } else {
-        console.log('No serviceId in URL')
-      }
-    })
-  }, [loadServicesForBooking, selectService, serviceId])
+      })
+    } else if (tenantId) {
+      loadServicesForBooking(tenantId, true).then(() => {
+        console.log('Loaded all services for tenant')
+      })
+    } else {
+      loadServicesForBooking().then(() => {
+        console.log('Loaded all services (authenticated)')
+      })
+    }
+  }, [loadServicesForBooking, selectService, serviceId, tenantId])
 
   const handleServiceSelect = (id: string) => {
     selectService(id)

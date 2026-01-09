@@ -150,25 +150,25 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
         }
         size="lg"
         footer={
-          <div className="flex flex-col sm:flex-row justify-between w-full gap-3">
+          <div className="flex flex-col sm:flex-row justify-between w-full gap-3 py-1">
             <Button
               variant="ghost"
               onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-500 hover:text-red-600 order-3 sm:order-1"
+              className="text-red-500 hover:text-red-600 order-3 sm:order-1 py-2"
             >
               Delete
             </Button>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
               <Button
                 onClick={() => setShowScheduleJob(true)}
-                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto py-2 whitespace-nowrap"
               >
                 Schedule Job
               </Button>
               <Button
                 onClick={handleSend}
                 disabled={isSending || !quote.contactEmail}
-                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto"
+                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto py-2 whitespace-nowrap"
                 title={!quote.contactEmail ? 'Contact does not have an email address' : undefined}
               >
                 {isSending ? 'Sending...' : quote.status === 'sent' ? 'Resend Quote' : 'Send Quote'}
@@ -176,19 +176,19 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
               {quote.status !== 'rejected' && quote.status !== 'expired' && (
                 <Button
                   onClick={() => setShowConvertModal(true)}
-                  className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto"
+                  className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto py-2 whitespace-nowrap"
                 >
                   Convert to Invoice
                 </Button>
               )}
-              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
+              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto py-2 whitespace-nowrap">
                 Edit
               </Button>
             </div>
           </div>
         }
       >
-        <div className="space-y-6">
+        <div className="space-y-6 pb-2">
           {/* Success/Error Messages */}
           {sendSuccess && (
             <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
@@ -322,7 +322,7 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
           )}
 
           {/* Metadata */}
-          <div className="pt-4 border-t border-primary-blue text-xs text-primary-light/50 space-y-1">
+          <div className="pt-4 pb-2 border-t border-primary-blue text-xs text-primary-light/50 space-y-1">
             <div>Created: {new Date(quote.createdAt).toLocaleDateString()}</div>
             {quote.validUntil && (
               <div>Valid until: {new Date(quote.validUntil).toLocaleDateString()}</div>

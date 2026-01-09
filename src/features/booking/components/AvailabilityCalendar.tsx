@@ -46,6 +46,16 @@ const AvailabilityCalendar = ({
     if (!slots || slots.length === 0) return []
     const dateStr = format(date, 'yyyy-MM-dd')
     const daySlots = slots.find((s) => s.date === dateStr)
+    
+    // Debug logging
+    if (date.getDate() === 9 || date.getDate() === 10 || date.getDate() === 13) {
+      console.log(`🔍 Checking date ${dateStr}:`, {
+        availableDates: slots.map(s => s.date),
+        found: !!daySlots,
+        slotsCount: daySlots?.slots?.length || 0
+      })
+    }
+    
     return daySlots?.slots || []
   }
 

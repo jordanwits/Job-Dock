@@ -1344,9 +1344,21 @@ export const dataServices = {
         orderBy: { createdAt: 'desc' },
       })
     },
+    // Get all active services for a tenant (for public booking)
+    getAllActiveForTenant: async (tenantId: string) => {
+      return prisma.service.findMany({
+        where: { 
+          tenantId,
+          isActive: true 
+        },
+        orderBy: { name: 'asc' },
+      })
+    },
     getById: async (tenantId: string, id: string) => {
-      const service = await prisma.service.findFirst({
-        where: { id, tenantId },
+      // For public booking, look up service by ID only (ignore tenantId parameter)
+      // The service ID is globally unique
+      const service = await prisma.service.findUnique({
+        where: { id },
       })
       if (!service) throw new Error('Service not found')
       return service
@@ -1407,11 +1419,16 @@ export const dataServices = {
       }
     },
     getAvailability: async (tenantId: string, id: string, startDate?: Date, endDate?: Date) => {
-      const service = await prisma.service.findFirst({
-        where: { id, tenantId },
+      // For public booking, look up service by ID only (ignore tenantId parameter)
+      // The service ID is globally unique and determines the tenant
+      const service = await prisma.service.findUnique({
+        where: { id },
       })
       if (!service) throw new Error('Service not found')
       if (!service.isActive) throw new Error('Service is not active')
+      
+      // Use the service's actual tenantId for all subsequent operations
+      const actualTenantId = service.tenantId
       
       const availability = service.availability as any
       if (!availability || !availability.workingHours) {
@@ -1429,6 +1446,19 @@ export const dataServices = {
       const bufferTime = availability.bufferTime || 0
       const duration = service.duration
       const maxBookingsPerSlot = (service.bookingSettings as any)?.maxBookingsPerSlot || 1
+      
+      console.log('🔍 Availability calculation:', {
+        serviceId: id,
+        serviceName: service.name,
+        now: now.toISOString(),
+        nowDayOfWeek: now.getDay(),
+        timezoneOffset,
+        advanceBookingDays,
+        sameDayBooking,
+        bufferTime,
+        duration,
+        workingHoursCount: availability.workingHours?.length
+      })
 
       // Calculate date range
       const rangeStart = startDate || now
@@ -1438,7 +1468,7 @@ export const dataServices = {
       // Include pending-confirmation to prevent double-booking before confirmation
       const jobs = await prisma.job.findMany({
         where: {
-          tenantId,
+          tenantId: actualTenantId,
           status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
           startTime: { lte: rangeEnd },
           endTime: { gte: rangeStart },
@@ -1469,6 +1499,12 @@ export const dataServices = {
       while (currentDay <= rangeEnd) {
         const dayOfWeek = currentDay.getDay()
         const workingHours = availability.workingHours.find((wh: any) => wh.dayOfWeek === dayOfWeek)
+        
+        console.log(`📅 Checking ${currentDay.toISOString().split('T')[0]} (day ${dayOfWeek}):`, {
+          hasWorkingHours: !!workingHours,
+          isWorking: workingHours?.isWorking,
+          hours: workingHours ? `${workingHours.startTime}-${workingHours.endTime}` : 'N/A'
+        })
 
         if (workingHours && workingHours.isWorking) {
           const daySlots: { start: string; end: string }[] = []
@@ -1508,16 +1544,21 @@ export const dataServices = {
           }
 
           if (daySlots.length > 0) {
+            console.log(`  ✅ Added ${daySlots.length} slots for this day`)
             slotsData.push({
               date: currentDay.toISOString().split('T')[0],
               slots: daySlots,
             })
+          } else {
+            console.log(`  ❌ No slots generated for this day`)
           }
         }
 
         currentDay.setDate(currentDay.getDate() + 1)
       }
 
+      console.log(`🎯 Final result: ${slotsData.length} days with availability`)
+      
       return {
         serviceId: id,
         slots: slotsData,
@@ -1526,11 +1567,15 @@ export const dataServices = {
     bookSlot: async (tenantId: string, id: string, payload: any, contractorEmail?: string) => {
       return await prisma.$transaction(async (tx) => {
         // 1. Load and validate service
-        const service = await tx.service.findFirst({
-          where: { id, tenantId },
+        // For public booking, look up service by ID only (ignore tenantId parameter)
+        const service = await tx.service.findUnique({
+          where: { id },
         })
         if (!service) throw new Error('Service not found')
         if (!service.isActive) throw new Error('Service is not active')
+        
+        // Use the service's actual tenantId for all subsequent operations
+        const actualTenantId = service.tenantId
 
         const availability = service.availability as any
         const bookingSettings = service.bookingSettings as any
@@ -1581,7 +1626,7 @@ export const dataServices = {
         const maxBookingsPerSlot = bookingSettings?.maxBookingsPerSlot || 1
         const conflictingJobs = await tx.job.count({
           where: {
-            tenantId,
+            tenantId: actualTenantId,
             status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
             startTime: { lt: endTime },
             endTime: { gt: startTime },
@@ -1598,12 +1643,12 @@ export const dataServices = {
         
         if (contactData.id) {
           contact = await tx.contact.findFirst({
-            where: { id: contactData.id, tenantId },
+            where: { id: contactData.id, tenantId: actualTenantId },
           })
           if (!contact) throw new Error('Contact not found')
         } else if (contactData.email) {
           contact = await tx.contact.findFirst({
-            where: { email: contactData.email, tenantId },
+            where: { email: contactData.email, tenantId: actualTenantId },
           })
         }
 
@@ -1616,7 +1661,7 @@ export const dataServices = {
 
           contact = await tx.contact.create({
             data: {
-              tenantId,
+              tenantId: actualTenantId,
               firstName,
               lastName,
               email: contactData.email,
@@ -1654,7 +1699,7 @@ export const dataServices = {
           // Create the JobRecurrence record
           const jobRecurrence = await tx.jobRecurrence.create({
             data: {
-              tenantId,
+              tenantId: actualTenantId,
               contactId: contact.id,
               serviceId: service.id,
               title,
@@ -1683,7 +1728,7 @@ export const dataServices = {
           for (const instance of instances) {
             const overlappingJobs = await tx.job.count({
               where: {
-                tenantId,
+                tenantId: actualTenantId,
                 status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
                 startTime: { lt: instance.endTime },
                 endTime: { gt: instance.startTime },
@@ -1719,7 +1764,7 @@ export const dataServices = {
             instances.map((instance) =>
               tx.job.create({
                 data: {
-                  tenantId,
+                  tenantId: actualTenantId,
                   title,
                   contactId: contact.id,
                   serviceId: service.id,
@@ -1749,7 +1794,7 @@ export const dataServices = {
           // Single job creation (existing logic)
           job = await tx.job.create({
             data: {
-              tenantId,
+              tenantId: actualTenantId,
               title: `${service.name} with ${contact.firstName} ${contact.lastName}`.trim(),
               contactId: contact.id,
               serviceId: service.id,
@@ -1775,7 +1820,7 @@ export const dataServices = {
           
           // Get tenant settings for company name and reply-to email
           const settings = await tx.tenantSettings.findUnique({
-            where: { tenantId },
+            where: { tenantId: actualTenantId },
           })
           
           const companyName = settings?.companyDisplayName || 'JobDock'

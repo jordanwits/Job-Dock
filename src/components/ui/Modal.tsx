@@ -99,7 +99,7 @@ const Modal = ({
 
         {/* Footer */}
         {footer && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-primary-blue flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-4 sm:py-5 border-t border-primary-blue flex-shrink-0">
             {footer}
           </div>
         )}

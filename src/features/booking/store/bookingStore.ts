@@ -24,7 +24,7 @@ interface BookingState {
   bookingConfirmation: BookingConfirmation | null
   
   // Actions
-  loadServicesForBooking: () => Promise<void>
+  loadServicesForBooking: (id?: string, isTenantId?: boolean) => Promise<void>
   selectService: (serviceId: string) => Promise<void>
   loadAvailability: (serviceId: string, startDate?: Date, endDate?: Date) => Promise<void>
   selectDate: (date: string) => void
@@ -44,15 +44,39 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   error: null,
   bookingConfirmation: null,
 
-  loadServicesForBooking: async () => {
+  loadServicesForBooking: async (id?: string, isTenantId: boolean = false) => {
     set({ isLoading: true, error: null })
     try {
-      console.log('Loading services for booking...')
-      const allServices = await servicesService.getAll()
-      console.log('All services:', allServices)
-      const activeServices = allServices.filter((s: Service) => s.isActive)
-      console.log('Active services:', activeServices)
-      set({ services: activeServices, isLoading: false })
+      console.log('Loading services for booking...', { id, isTenantId })
+      
+      if (id) {
+        if (isTenantId) {
+          // Load all services for this tenant
+          console.log('Loading all services for tenant:', id)
+          const services = await servicesService.getAllActiveForTenant(id)
+          console.log('Loaded services for tenant:', services)
+          if (services.length === 0) {
+            throw new Error('No services are currently available for booking')
+          }
+          set({ services, isLoading: false })
+        } else {
+          // Load specific service by ID
+          console.log('Loading specific service:', id)
+          const service = await servicesService.getById(id)
+          console.log('Loaded specific service:', service)
+          if (!service.isActive) {
+            throw new Error('This service is not currently available for booking')
+          }
+          set({ services: [service], isLoading: false })
+        }
+      } else {
+        // Load all services (requires authentication)
+        const allServices = await servicesService.getAll()
+        console.log('All services:', allServices)
+        const activeServices = allServices.filter((s: Service) => s.isActive)
+        console.log('Active services:', activeServices)
+        set({ services: activeServices, isLoading: false })
+      }
     } catch (error: any) {
       console.error('Failed to load services:', error)
       set({

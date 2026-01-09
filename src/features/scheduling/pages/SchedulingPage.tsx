@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useJobStore } from '../store/jobStore'
 import { useServiceStore } from '../store/serviceStore'
+import { useAuthStore } from '@/features/auth'
 import Calendar from '../components/Calendar'
 import JobList from '../components/JobList'
 import JobForm from '../components/JobForm'
@@ -14,6 +16,9 @@ import { Button, Modal, Card } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, addWeeks } from 'date-fns'
 
 const SchedulingPage = () => {
+  const { user } = useAuthStore()
+  const [searchParams] = useSearchParams()
+  
   const {
     jobs,
     selectedJob,
@@ -55,7 +60,14 @@ const SchedulingPage = () => {
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
-  const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services'>('calendar')
+  
+  // Initialize activeTab from URL query parameter or default to 'calendar'
+  const tabParam = searchParams.get('tab')
+  const initialTab = (tabParam === 'jobs' || tabParam === 'services' || tabParam === 'calendar') 
+    ? tabParam 
+    : 'calendar'
+  const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services'>(initialTab as 'calendar' | 'jobs' | 'services')
+  
   const [linkCopied, setLinkCopied] = useState(false)
   const [showFollowupModal, setShowFollowupModal] = useState(false)
   const [followupDefaults, setFollowupDefaults] = useState<{
@@ -64,6 +76,14 @@ const SchedulingPage = () => {
     notes?: string
   }>({})
   const [showDeleteRecurringModal, setShowDeleteRecurringModal] = useState(false)
+
+  // Set active tab from URL parameter on mount
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam === 'jobs' || tabParam === 'services' || tabParam === 'calendar') {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     // Fetch jobs for current month
@@ -176,16 +196,22 @@ const SchedulingPage = () => {
     }
   }
 
+  const handleOpenBookingLink = () => {
+    // Open unified tenant booking link directly in a new tab
+    const tenantId = user?.tenantId || localStorage.getItem('tenant_id') || ''
+    const baseUrl = import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin
+    const unifiedLink = `${baseUrl}/book?tenant=${tenantId}`
+    window.open(unifiedLink, '_blank')
+  }
+
   const handleGetBookingLink = async () => {
-    if (selectedService) {
-      try {
-        const link = await getBookingLink(selectedService.id)
-        setBookingLink(link.publicLink)
-        setShowLinkModal(true)
-      } catch (error) {
-        // Error handled by store
-      }
-    }
+    // Show unified tenant booking link instead of individual service link
+    // This is used in the service detail modal to show the copy screen
+    const tenantId = user?.tenantId || localStorage.getItem('tenant_id') || ''
+    const baseUrl = import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin
+    const unifiedLink = `${baseUrl}/book?tenant=${tenantId}`
+    setBookingLink(unifiedLink)
+    setShowLinkModal(true)
   }
 
   const handleConfirmJob = async () => {
@@ -237,14 +263,24 @@ const SchedulingPage = () => {
         </div>
         <div className="flex items-center gap-2">
           {activeTab === 'calendar' && (
-            <Button onClick={() => setShowJobForm(true)} className="w-full sm:w-auto">
-              Schedule Job
-            </Button>
+            <>
+              <Button onClick={() => setShowJobForm(true)} className="w-full sm:w-auto">
+                Schedule Job
+              </Button>
+              <Button onClick={handleOpenBookingLink} variant="secondary" className="w-full sm:w-auto">
+                Booking Link
+              </Button>
+            </>
           )}
           {activeTab === 'services' && (
-            <Button onClick={() => setShowServiceForm(true)} className="w-full sm:w-auto">
-              Create Service
-            </Button>
+            <>
+              <Button onClick={() => setShowServiceForm(true)} className="w-full sm:w-auto">
+                Create Service
+              </Button>
+              <Button onClick={handleOpenBookingLink} variant="secondary" className="w-full sm:w-auto">
+                Booking Link
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -519,7 +555,7 @@ const SchedulingPage = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-primary-light/70">
-            Share this link with clients so they can book appointments for this service:
+            Share this link with clients so they can view all your services and book appointments:
           </p>
           <div className="flex items-center gap-2">
             <input
