@@ -5,10 +5,16 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+import { CognitoIdentityProviderClient, AdminConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider'
 import { registerUser, loginUser } from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
 import prisma from '../../lib/db'
 import { randomUUID } from 'crypto'
+
+const cognitoClient = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION || 'us-east-1',
+})
+const USER_POOL_ID = process.env.USER_POOL_ID!
 
 export async function handler(
   event: APIGatewayProxyEvent
@@ -78,6 +84,15 @@ async function handleRegister(
     // 1. Register user in Cognito
     const cognitoResponse = await registerUser(email, password, name)
     const cognitoId = cognitoResponse.UserSub!
+
+    // 1.5. Auto-confirm the user so they can log in immediately
+    // This bypasses the email verification step for a better UX
+    await cognitoClient.send(
+      new AdminConfirmSignUpCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+      })
+    )
 
     // 2. Create tenant and user in database
     const tenantId = randomUUID()

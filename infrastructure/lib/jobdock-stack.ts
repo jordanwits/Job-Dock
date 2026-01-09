@@ -294,7 +294,8 @@ export class JobDockStack extends cdk.Stack {
       'cognito-idp:AdminCreateUser',
       'cognito-idp:AdminGetUser',
       'cognito-idp:AdminUpdateUserAttributes',
-      'cognito-idp:AdminDeleteUser'
+      'cognito-idp:AdminDeleteUser',
+      'cognito-idp:AdminConfirmSignUp'
     )
 
     // Grant Lambda access to SES for sending emails
