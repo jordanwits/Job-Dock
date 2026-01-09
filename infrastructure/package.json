@@ -9,7 +9,7 @@
     "cdk": "cdk",
     "deploy:dev": "cdk deploy JobDockStack-dev --require-approval never",
     "deploy:staging": "cdk deploy JobDockStack-staging --require-approval never",
-    "deploy:prod": "cdk deploy JobDockStack-prod --require-approval always",
+    "deploy:prod": "cdk deploy JobDockStack-prod --context env=prod --require-approval any-change",
     "destroy:dev": "cdk destroy JobDockStack-dev",
     "diff:dev": "cdk diff JobDockStack-dev",
     "synth:dev": "cdk synth JobDockStack-dev"

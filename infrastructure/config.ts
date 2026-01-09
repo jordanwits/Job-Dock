@@ -86,11 +86,8 @@ export const configs: Record<string, Config> = {
   prod: {
     env: 'prod',
     region: 'us-east-1',
-    // Vercel frontend domain (automatically gets *.vercel.app subdomain)
-    vercelDomain: 'jobdock.vercel.app', // Update this after deploying to Vercel
-    // Add custom domain here if you connect one to Vercel later
-    // domain: 'app.yourdomain.com',
-    // cloudfrontCertificateArn: 'arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERTIFICATE_ID',
+    // Custom domain for Vercel deployment
+    domain: 'thejobdock.com',
     sesFromAddress: 'jordan@westwavecreative.com',
     database: {
       engine: 'rds-postgresql',
