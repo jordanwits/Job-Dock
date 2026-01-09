@@ -12,6 +12,7 @@ const bookingFormSchema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   company: z.string().optional(),
+  address: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -144,6 +145,14 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
             disabled={isLoading}
           />
         )}
+
+        <Input
+          label="Address"
+          {...register('address')}
+          error={errors.address?.message}
+          placeholder="123 Main St, City, State ZIP"
+          disabled={isLoading}
+        />
 
         {/* Recurrence Section */}
         <div className="border-t border-primary-blue pt-3">

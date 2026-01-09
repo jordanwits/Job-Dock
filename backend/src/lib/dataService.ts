@@ -1598,10 +1598,21 @@ export const dataServices = {
               email: contactData.email,
               phone: contactData.phone,
               company: contactData.company,
+              address: contactData.address,
               notes: contactData.notes,
               status: 'active',
             },
           })
+        } else {
+          // Update existing contact if address is provided
+          if (contactData.address !== undefined) {
+            contact = await tx.contact.update({
+              where: { id: contact.id },
+              data: {
+                address: contactData.address || null,
+              },
+            })
+          }
         }
 
         // 5. Create job(s)

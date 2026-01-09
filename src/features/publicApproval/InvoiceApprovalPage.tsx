@@ -65,12 +65,12 @@ const InvoiceApprovalPage = () => {
               {action === 'accept' ? '✅' : '⚠️'}
             </div>
             <h2 className="text-2xl font-semibold text-primary-light mb-2">
-              {action === 'accept' ? 'Invoice Approved!' : 'Issue Reported'}
+              {action === 'accept' ? 'Invoice Approved!' : 'Invoice Declined'}
             </h2>
             <p className="text-primary-light/70">
               {action === 'accept' 
                 ? `Thank you for approving invoice ${invoiceNumber}. The contractor has been notified.`
-                : `We've recorded your concern about invoice ${invoiceNumber}. The contractor has been notified and will reach out to you.`
+                : `Invoice ${invoiceNumber} has been declined. The contractor has been notified and will reach out to you.`
               }
             </p>
             {action === 'accept' && (

@@ -64,6 +64,7 @@ const PublicBookingPage = () => {
           email: formData.email,
           phone: formData.phone,
           company: formData.company,
+          address: formData.address,
           notes: formData.notes,
         },
         recurrence,

@@ -77,13 +77,6 @@ const LoginForm = () => {
           Sign up
         </Link>
       </div>
-
-      {/* Demo credentials hint */}
-      <div className="mt-6 p-4 rounded-lg bg-primary-blue/10 border border-primary-blue">
-        <p className="text-xs text-primary-blue text-center">
-          <strong>Demo Mode:</strong> Use demo@jobdock.com / demo123 to test
-        </p>
-      </div>
     </form>
   )
 }

@@ -911,7 +911,7 @@ export async function sendInvoiceEmail(data: {
                 <table cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td style="background-color: #666666; border-radius: 5px; padding: 12px 30px;">
-                      <a href="${declineUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Report Issue</a>
+                      <a href="${declineUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Decline Invoice</a>
                     </td>
                   </tr>
                 </table>
@@ -947,7 +947,7 @@ ${invoiceData.paymentTerms ? `Payment Terms: ${invoiceData.paymentTerms}` : ''}
 
 Approve Invoice: ${acceptUrl}
 
-Report Issue: ${declineUrl}
+Decline Invoice: ${declineUrl}
 
 ${balance > 0 ? 'Please remit payment by the due date.' : 'Thank you for your payment!'}
 

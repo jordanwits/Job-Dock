@@ -28,6 +28,7 @@ export interface BookingContact {
   email: string
   phone: string
   company?: string
+  address?: string
   notes?: string
 }
 
@@ -44,6 +45,7 @@ export interface BookingFormValues {
   email: string
   phone: string
   company?: string
+  address?: string
   notes?: string
 }
 
