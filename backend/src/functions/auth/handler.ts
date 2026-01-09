@@ -7,6 +7,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { registerUser, loginUser } from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
+import prisma from '../../lib/db'
+import { randomUUID } from 'crypto'
 
 export async function handler(
   event: APIGatewayProxyEvent
@@ -72,16 +74,65 @@ async function handleRegister(
     return errorResponse('Missing required fields', 400)
   }
 
-  // Register user in Cognito
-  const cognitoResponse = await registerUser(email, password, name)
+  try {
+    // 1. Register user in Cognito
+    const cognitoResponse = await registerUser(email, password, name)
+    const cognitoId = cognitoResponse.UserSub!
 
-  // TODO: Create user record in database with tenant
-  // This requires creating a tenant first, then user
+    // 2. Create tenant and user in database
+    const tenantId = randomUUID()
+    const tenantName = companyName || `${name}'s Company`
+    const subdomain = slugify(tenantName)
+    
+    // Create tenant
+    const tenant = await prisma.tenant.create({
+      data: {
+        id: tenantId,
+        name: tenantName,
+        subdomain: subdomain,
+      },
+    })
 
-  return successResponse({
-    message: 'User registered successfully',
-    userId: cognitoResponse.UserSub,
-  }, 201)
+    // Create user linked to tenant
+    const user = await prisma.user.create({
+      data: {
+        id: randomUUID(),
+        cognitoId: cognitoId,
+        email: email,
+        name: name,
+        tenantId: tenant.id,
+        role: 'owner',
+      },
+    })
+
+    // 3. Automatically log the user in
+    const tokens = await loginUser(email, password)
+
+    // 4. Return token and user info
+    // Use IdToken (not AccessToken) because it contains user claims like email, sub, etc
+    return successResponse({
+      token: tokens.IdToken,
+      refreshToken: tokens.RefreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        tenantId: user.tenantId,
+      },
+    }, 201)
+  } catch (error: any) {
+    console.error('Registration error:', error)
+    return errorResponse(error.message || 'Registration failed', 500)
+  }
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-zA-Z0-9-]/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50)
 }
 
 async function handleLogin(
@@ -94,18 +145,49 @@ async function handleLogin(
     return errorResponse('Email and password required', 400)
   }
 
-  const tokens = await loginUser(email, password)
+  try {
+    // 1. Authenticate with Cognito
+    const tokens = await loginUser(email, password)
 
-  // TODO: Get user and tenant info from database
+    // 2. Decode the ID token to get Cognito user ID
+    // The token is a JWT, we can use our verifyToken function
+    const { verifyToken } = await import('../../lib/auth')
+    const cognitoUser = await verifyToken(tokens.IdToken!)
 
-  return successResponse({
-    token: tokens.AccessToken,
-    refreshToken: tokens.RefreshToken,
-    user: {
-      email,
-      // Add user and tenant info from database
-    },
-  })
+    // 3. Look up user in database by Cognito ID
+    const user = await prisma.user.findUnique({
+      where: { cognitoId: cognitoUser.sub },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        tenantId: true,
+      },
+    })
+
+    if (!user) {
+      return errorResponse(
+        'User is not provisioned in JobDock. Please contact support.',
+        404
+      )
+    }
+
+    // 4. Return tokens and user info including tenantId
+    // Use IdToken (not AccessToken) because it contains user claims like email, sub, etc
+    return successResponse({
+      token: tokens.IdToken,
+      refreshToken: tokens.RefreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        tenantId: user.tenantId,
+      },
+    })
+  } catch (error: any) {
+    console.error('Login error:', error)
+    return errorResponse(error.message || 'Login failed', 500)
+  }
 }
 
 async function handleRefresh(

@@ -47,8 +47,9 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           })
-          // Store token in localStorage for API client
+          // Store token and tenant_id in localStorage for API client
           localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
           set({
             error: error.message || 'Login failed. Please try again.',
@@ -70,7 +71,9 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           })
+          // Store token and tenant_id in localStorage for API client
           localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
           set({
             error: error.message || 'Registration failed. Please try again.',
@@ -96,7 +99,9 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           })
+          // Clear both auth token and tenant_id
           localStorage.removeItem('auth_token')
+          localStorage.removeItem('tenant_id')
         }
       },
 

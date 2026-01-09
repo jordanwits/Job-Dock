@@ -16,6 +16,8 @@ import {
   ForgotPasswordCommand,
   ConfirmForgotPasswordCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
+import { CognitoJwtVerifier } from 'aws-jwt-verify'
+import prisma from './db'
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -23,6 +25,13 @@ const cognitoClient = new CognitoIdentityProviderClient({
 
 const USER_POOL_ID = process.env.USER_POOL_ID!
 const CLIENT_ID = process.env.USER_POOL_CLIENT_ID!
+
+// JWT Verifier for ID tokens
+const jwtVerifier = CognitoJwtVerifier.create({
+  userPoolId: USER_POOL_ID,
+  tokenUse: 'id',
+  clientId: CLIENT_ID,
+})
 
 export interface CognitoUser {
   sub: string
@@ -107,24 +116,46 @@ export async function loginUser(email: string, password: string) {
  * Verify JWT token from Authorization header
  */
 export async function verifyToken(token: string): Promise<CognitoUser> {
-  // Extract username from token (simplified - in production, use jwt.decode or jwks)
-  // For now, we'll get user from Cognito using the token
-  // In production, decode JWT and verify signature
-  
-  // This is a placeholder - implement proper JWT verification
-  // You can use aws-jwt-verify library for production
-  throw new Error('Token verification not implemented - use aws-jwt-verify')
+  try {
+    // Verify the JWT token using aws-jwt-verify
+    const payload = await jwtVerifier.verify(token)
+    
+    // Extract user information from the verified JWT payload
+    const email = typeof payload.email === 'string' ? payload.email : ''
+    const emailVerified = payload.email_verified === true
+    const username = typeof payload['cognito:username'] === 'string' 
+      ? payload['cognito:username'] 
+      : payload.sub
+    
+    return {
+      sub: payload.sub,
+      email: email,
+      email_verified: emailVerified,
+      'cognito:username': username,
+    }
+  } catch (error) {
+    console.error('Token verification failed:', error)
+    throw new Error('Invalid or expired token')
+  }
 }
 
 /**
  * Extract tenant ID from token or user
  */
 export async function getTenantIdFromToken(token: string): Promise<string> {
-  // Extract tenant_id from JWT token claims
-  // This should be set during user registration
-  // For now, return a placeholder
-  const user = await verifyToken(token)
-  // In production, tenant_id should be in token claims
-  return 'tenant-placeholder' // Replace with actual tenant extraction
+  // Verify the token and extract the Cognito user ID (sub)
+  const cognitoUser = await verifyToken(token)
+  
+  // Look up the application user by their Cognito ID
+  const user = await prisma.user.findUnique({
+    where: { cognitoId: cognitoUser.sub },
+    select: { tenantId: true },
+  })
+  
+  if (!user) {
+    throw new Error('User not found in JobDock database')
+  }
+  
+  return user.tenantId
 }
 

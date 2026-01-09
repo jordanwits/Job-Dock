@@ -15,22 +15,24 @@ export interface LambdaContext {
 
 /**
  * Extract tenant ID from request
- * Priority: X-Tenant-ID header > JWT token > error
+ * Priority: JWT token (if authenticated) > X-Tenant-ID header (for public/unauthenticated) > error
  */
 export async function extractTenantId(
   event: APIGatewayProxyEvent
 ): Promise<string> {
-  // Check header first
-  const tenantIdHeader = event.headers['x-tenant-id'] || event.headers['X-Tenant-ID']
-  if (tenantIdHeader) {
-    return tenantIdHeader
-  }
-
-  // Extract from JWT token
+  // If Authorization header is present, ALWAYS resolve via JWT token
+  // This prevents authenticated users from tampering with X-Tenant-ID
   const authHeader = event.headers.Authorization || event.headers.authorization
   if (authHeader) {
     const token = authHeader.replace('Bearer ', '')
     return await getTenantIdFromToken(token)
+  }
+
+  // For unauthenticated requests (public booking, webhooks, etc.), 
+  // allow X-Tenant-ID header
+  const tenantIdHeader = event.headers['x-tenant-id'] || event.headers['X-Tenant-ID']
+  if (tenantIdHeader) {
+    return tenantIdHeader
   }
 
   throw new Error('Tenant ID not found in request')

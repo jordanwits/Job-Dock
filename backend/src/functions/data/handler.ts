@@ -428,13 +428,28 @@ function normalizePath(event: APIGatewayProxyEvent) {
 }
 
 async function resolveTenantId(event: APIGatewayProxyEvent) {
+  const authHeader = event.headers.Authorization || event.headers.authorization
+  
   try {
     return await extractTenantId(event)
-  } catch {
+  } catch (error) {
+    // For authenticated requests, NEVER fall back to default tenant
+    // This prevents production accounts from accidentally sharing data
+    if (authHeader) {
+      console.error('Failed to resolve tenant for authenticated request:', error)
+      throw new Error('Authentication failed: Unable to determine tenant')
+    }
+    
+    // For unauthenticated requests in development, allow fallback to demo tenant
+    // In production, this should be disabled via environment variable
+    const isDevelopment = process.env.NODE_ENV !== 'production'
     const fallback = getDefaultTenantId()
-    if (!fallback) {
+    
+    if (!fallback || !isDevelopment) {
       throw new Error('Tenant ID not provided')
     }
+    
+    console.warn('Using fallback tenant for unauthenticated request:', fallback)
     return fallback
   }
 }

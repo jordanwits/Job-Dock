@@ -19,10 +19,17 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    const tenantId = localStorage.getItem('tenant_id') || DEFAULT_TENANT_ID
+    
+    // For authenticated requests, prefer tenant_id from localStorage
+    // For unauthenticated requests (public booking), fall back to DEFAULT_TENANT_ID
+    const tenantId = localStorage.getItem('tenant_id')
     if (tenantId) {
       config.headers['X-Tenant-ID'] = tenantId
+    } else if (!token) {
+      // Only use DEFAULT_TENANT_ID for unauthenticated requests
+      config.headers['X-Tenant-ID'] = DEFAULT_TENANT_ID
     }
+    
     return config
   },
   (error) => {
