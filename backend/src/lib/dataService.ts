@@ -232,7 +232,7 @@ async function createRecurringJobs(params: {
             location,
             notes,
             assignedTo,
-            breaks: null, // Recurring jobs don't have breaks initially
+            breaks: undefined, // Recurring jobs don't have breaks initially
           },
           include: {
             contact: true,
@@ -1609,7 +1609,7 @@ export const dataServices = {
             contact = await tx.contact.update({
               where: { id: contact.id },
               data: {
-                address: contactData.address || null,
+                address: contactData.address || undefined,
               },
             })
           }
@@ -1705,7 +1705,7 @@ export const dataServices = {
                   status: initialStatus,
                   location: payload.location,
                   notes: payload.notes,
-                  breaks: null, // Recurring jobs don't have breaks initially
+                  breaks: undefined, // Recurring jobs don't have breaks initially
                 },
                 include: {
                   contact: true,
@@ -1734,7 +1734,7 @@ export const dataServices = {
               status: initialStatus,
               location: payload.location,
               notes: payload.notes,
-              breaks: null, // Public booking jobs don't have breaks initially
+              breaks: undefined, // Public booking jobs don't have breaks initially
             },
             include: {
               contact: true,
