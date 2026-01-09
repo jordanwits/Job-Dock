@@ -1,4 +1,4 @@
-import type { Contact, UpdateContactData, ContactStatus, CreateContactData } from '../types/contact'
+import type { Contact, ContactStatus, CreateContactData } from '../types/contact'
 import { useContactStore } from '../store/contactStore'
 import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
 import { useState } from 'react'

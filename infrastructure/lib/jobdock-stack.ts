@@ -406,7 +406,11 @@ export class JobDockStack extends cdk.Stack {
         USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
         FILES_BUCKET: this.filesBucket.bucketName,
         ENVIRONMENT: config.env,
-        PUBLIC_APP_URL: config.vercelDomain ? `https://${config.vercelDomain}` : config.domain ? `https://${config.domain}` : 'http://localhost:3000',
+        PUBLIC_APP_URL: config.vercelDomain
+          ? `https://${config.vercelDomain}`
+          : config.domain
+            ? `https://${config.domain}`
+            : 'http://localhost:3000',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // SES Email configuration
         SES_ENABLED: 'true', // Enable for all environments to send real emails
@@ -445,7 +449,11 @@ export class JobDockStack extends cdk.Stack {
         USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
         FILES_BUCKET: this.filesBucket.bucketName,
         ENVIRONMENT: config.env,
-        PUBLIC_APP_URL: config.vercelDomain ? `https://${config.vercelDomain}` : config.domain ? `https://${config.domain}` : 'http://localhost:3000',
+        PUBLIC_APP_URL: config.vercelDomain
+          ? `https://${config.vercelDomain}`
+          : config.domain
+            ? `https://${config.domain}`
+            : 'http://localhost:3000',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // SES Email configuration
         SES_ENABLED: 'true', // Enable for all environments to send real emails
