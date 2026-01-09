@@ -18,6 +18,8 @@ export interface EmailPayload {
   subject: string
   htmlBody: string
   textBody?: string
+  fromName?: string // Display name for FROM field (e.g., "John's Plumbing")
+  replyTo?: string // Email address for replies
 }
 
 export interface EmailWithAttachment {
@@ -25,6 +27,8 @@ export interface EmailWithAttachment {
   subject: string
   htmlBody: string
   textBody?: string
+  fromName?: string // Display name for FROM field
+  replyTo?: string // Email address for replies
   attachments?: Array<{
     filename: string
     content: Buffer
@@ -36,13 +40,19 @@ export interface EmailWithAttachment {
  * Send an email using AWS SES or log to console in dev mode
  */
 export async function sendEmail(payload: EmailPayload): Promise<void> {
-  const { to, subject, htmlBody, textBody } = payload
+  const { to, subject, htmlBody, textBody, fromName, replyTo } = payload
 
   if (SES_ENABLED && sesClient) {
     // Send via AWS SES
     try {
+      // Build FROM address with optional display name
+      const sourceAddress = fromName 
+        ? `${fromName} <${SES_FROM_ADDRESS}>`
+        : SES_FROM_ADDRESS
+
       const command = new SendEmailCommand({
-        Source: SES_FROM_ADDRESS,
+        Source: sourceAddress,
+        ...(replyTo && { ReplyToAddresses: [replyTo] }),
         Destination: {
           ToAddresses: [to],
         },
@@ -67,7 +77,7 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
       })
 
       await sesClient.send(command)
-      console.log(`✅ Email sent via SES to ${to}: ${subject}`)
+      console.log(`✅ Email sent via SES to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`)
     } catch (error) {
       console.error('❌ Failed to send email via SES:', error)
       throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -76,7 +86,8 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
     // Log to console in dev mode
     console.log('\n📧 =============== EMAIL (Dev Mode) ===============')
     console.log(`To: ${to}`)
-    console.log(`From: ${SES_FROM_ADDRESS}`)
+    console.log(`From: ${fromName ? `${fromName} <${SES_FROM_ADDRESS}>` : SES_FROM_ADDRESS}`)
+    if (replyTo) console.log(`Reply-To: ${replyTo}`)
     console.log(`Subject: ${subject}`)
     console.log('---')
     console.log(textBody || htmlBody.replace(/<[^>]*>/g, ''))
@@ -89,11 +100,17 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
  */
 function createMimeMessage(payload: EmailWithAttachment): string {
   const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`
-  const { to, subject, htmlBody, textBody, attachments = [] } = payload
+  const { to, subject, htmlBody, textBody, fromName, replyTo, attachments = [] } = payload
+
+  // Build FROM address with optional display name
+  const fromAddress = fromName 
+    ? `${fromName} <${SES_FROM_ADDRESS}>`
+    : SES_FROM_ADDRESS
 
   let mime = [
-    `From: ${SES_FROM_ADDRESS}`,
+    `From: ${fromAddress}`,
     `To: ${to}`,
+    ...(replyTo ? [`Reply-To: ${replyTo}`] : []),
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -137,7 +154,7 @@ function createMimeMessage(payload: EmailWithAttachment): string {
  * Send an email with attachments using AWS SES raw email API
  */
 export async function sendEmailWithAttachments(payload: EmailWithAttachment): Promise<void> {
-  const { to, subject, htmlBody, textBody, attachments = [] } = payload
+  const { to, subject, htmlBody, textBody, fromName, replyTo, attachments = [] } = payload
 
   if (SES_ENABLED && sesClient) {
     try {
@@ -149,7 +166,7 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
       })
 
       await sesClient.send(command)
-      console.log(`✅ Email with attachments sent via SES to ${to}: ${subject}`)
+      console.log(`✅ Email with attachments sent via SES to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`)
     } catch (error) {
       console.error('❌ Failed to send email with attachments via SES:', error)
       throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -158,7 +175,8 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
     // Log to console in dev mode
     console.log('\n📧 =============== EMAIL WITH ATTACHMENTS (Dev Mode) ===============')
     console.log(`To: ${to}`)
-    console.log(`From: ${SES_FROM_ADDRESS}`)
+    console.log(`From: ${fromName ? `${fromName} <${SES_FROM_ADDRESS}>` : SES_FROM_ADDRESS}`)
+    if (replyTo) console.log(`Reply-To: ${replyTo}`)
     console.log(`Subject: ${subject}`)
     console.log(`Attachments: ${attachments.map(a => a.filename).join(', ')}`)
     console.log('---')

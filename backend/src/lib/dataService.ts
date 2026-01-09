@@ -1256,6 +1256,12 @@ export const dataServices = {
       try {
         if (job.contact.email) {
           console.log(`📧 Sending confirmation email to ${job.contact.email}`)
+          
+          // Get tenant settings for company name and reply-to email
+          const settings = await prisma.tenantSettings.findUnique({
+            where: { tenantId },
+          })
+          
           const emailPayload = buildClientBookingConfirmedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             serviceName: job.service?.name || 'Service',
@@ -1263,7 +1269,13 @@ export const dataServices = {
             endTime: new Date(job.endTime),
             location: job.location || undefined,
           })
-          await sendEmail({ ...emailPayload, to: job.contact.email })
+          
+          await sendEmail({ 
+            ...emailPayload, 
+            to: job.contact.email,
+            fromName: settings?.companyDisplayName || 'JobDock',
+            replyTo: settings?.companySupportEmail || undefined,
+          })
           console.log('✅ Confirmation email sent successfully')
         }
       } catch (emailError) {
@@ -1296,13 +1308,25 @@ export const dataServices = {
       try {
         if (job.contact.email) {
           console.log(`📧 Sending decline email to ${job.contact.email}`)
+          
+          // Get tenant settings for company name and reply-to email
+          const settings = await prisma.tenantSettings.findUnique({
+            where: { tenantId },
+          })
+          
           const emailPayload = buildClientBookingDeclinedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             serviceName: job.service?.name || 'Service',
             startTime: new Date(job.startTime),
             reason,
           })
-          await sendEmail({ ...emailPayload, to: job.contact.email })
+          
+          await sendEmail({ 
+            ...emailPayload, 
+            to: job.contact.email,
+            fromName: settings?.companyDisplayName || 'JobDock',
+            replyTo: settings?.companySupportEmail || undefined,
+          })
           console.log('✅ Decline email sent successfully')
         }
       } catch (emailError) {
@@ -1749,6 +1773,14 @@ export const dataServices = {
           const clientEmail = contact.email
           const clientName = `${contact.firstName} ${contact.lastName}`.trim()
           
+          // Get tenant settings for company name and reply-to email
+          const settings = await tx.tenantSettings.findUnique({
+            where: { tenantId },
+          })
+          
+          const companyName = settings?.companyDisplayName || 'JobDock'
+          const replyToEmail = settings?.companySupportEmail || undefined
+          
           if (clientEmail) {
             // Send email to client
             if (requireConfirmation) {
@@ -1759,7 +1791,12 @@ export const dataServices = {
                 startTime,
                 endTime,
               })
-              await sendEmail({ ...emailPayload, to: clientEmail })
+              await sendEmail({ 
+                ...emailPayload, 
+                to: clientEmail,
+                fromName: companyName,
+                replyTo: replyToEmail,
+              })
               console.log('✅ Booking request email sent successfully')
             } else {
               console.log(`📧 Sending instant confirmation email to ${clientEmail}`)
@@ -1770,7 +1807,12 @@ export const dataServices = {
                 endTime,
                 location: payload.location,
               })
-              await sendEmail({ ...emailPayload, to: clientEmail })
+              await sendEmail({ 
+                ...emailPayload, 
+                to: clientEmail,
+                fromName: companyName,
+                replyTo: replyToEmail,
+              })
               console.log('✅ Instant confirmation email sent successfully')
             }
           }
@@ -1789,7 +1831,12 @@ export const dataServices = {
               location: payload.location,
               isPending: requireConfirmation,
             })
-            await sendEmail({ ...emailPayload, to: contractorEmail })
+            await sendEmail({ 
+              ...emailPayload, 
+              to: contractorEmail,
+              fromName: companyName,
+              replyTo: replyToEmail,
+            })
             console.log('✅ Contractor notification email sent successfully')
           }
         } catch (emailError) {
