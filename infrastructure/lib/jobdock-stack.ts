@@ -156,6 +156,7 @@ export class JobDockStack extends cdk.Stack {
     // ============================================
     this.userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: `jobdock-users-${config.env}`,
+      selfSignUpEnabled: true, // Allow users to self-register
       signInAliases: {
         email: true,
       },
