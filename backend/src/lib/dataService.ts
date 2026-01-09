@@ -1760,6 +1760,9 @@ export const dataServices = {
           }
 
           // Create all job instances
+          // Map contact address to job location if provided
+          const jobLocation = payload.location || contactData.address || undefined
+          
           const jobs = await Promise.all(
             instances.map((instance) =>
               tx.job.create({
@@ -1772,7 +1775,7 @@ export const dataServices = {
                   startTime: instance.startTime,
                   endTime: instance.endTime,
                   status: initialStatus,
-                  location: payload.location,
+                  location: jobLocation,
                   notes: payload.notes,
                   breaks: undefined, // Recurring jobs don't have breaks initially
                 },
@@ -1792,6 +1795,9 @@ export const dataServices = {
           }
         } else {
           // Single job creation (existing logic)
+          // Map contact address to job location if provided
+          const jobLocation = payload.location || contactData.address || undefined
+          
           job = await tx.job.create({
             data: {
               tenantId: actualTenantId,
@@ -1801,7 +1807,7 @@ export const dataServices = {
               startTime,
               endTime,
               status: initialStatus,
-              location: payload.location,
+              location: jobLocation,
               notes: payload.notes,
               breaks: undefined, // Public booking jobs don't have breaks initially
             },
