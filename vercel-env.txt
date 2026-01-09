@@ -1,0 +1,10 @@
+# JobDock Vercel Environment Variables
+# Import this file into Vercel: Project Settings > Environment Variables > Bulk Add
+
+VITE_API_URL=https://23sowpoo70.execute-api.us-east-1.amazonaws.com/prod/
+VITE_AWS_REGION=us-east-1
+VITE_COGNITO_USER_POOL_ID=us-east-1_3AMjEj02V
+VITE_COGNITO_CLIENT_ID=2cvj8i6g09362qlo07n1cvg5pa
+VITE_S3_BUCKET=jobdock-files-prod-893918474562
+VITE_DEFAULT_TENANT_ID=demo-tenant
+VITE_USE_MOCK_DATA=false
