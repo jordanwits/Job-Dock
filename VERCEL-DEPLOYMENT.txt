@@ -1,0 +1,347 @@
+================================================================================
+  Deploying JobDock Frontend to Vercel (Recommended)
+================================================================================
+
+Vercel is MUCH simpler than S3+CloudFront for frontend hosting!
+
+Benefits:
+  ✅ Automatic deployments on git push
+  ✅ Free SSL certificates
+  ✅ Global CDN (faster than CloudFront)
+  ✅ Preview deployments for branches
+  ✅ Easy rollbacks
+  ✅ Lower costs (free for hobby, $20/month for Pro)
+
+================================================================================
+STEP 1: PREPARE YOUR AWS BACKEND
+================================================================================
+
+The AWS infrastructure needs to allow requests from Vercel.
+I've already updated the configuration!
+
+Redeploy AWS infrastructure with new CORS settings:
+
+PowerShell:
+  cd infrastructure
+  npm run build
+  npm run deploy:prod
+
+This updates:
+  • API Gateway CORS to allow Vercel domains
+  • Cognito callback URLs for Vercel
+  • Lambda environment variables
+
+Time: ~2-3 minutes (hotswap deploy)
+
+
+================================================================================
+STEP 2: DEPLOY TO VERCEL
+================================================================================
+
+2A. Install Vercel CLI (one-time):
+------------------------------------
+npm install -g vercel
+
+OR use the web interface (easier for first deployment).
+
+
+2B. Deploy via Vercel CLI:
+---------------------------
+PowerShell:
+  vercel
+
+Follow the prompts:
+  ? Set up and deploy? Yes
+  ? Which scope? Your account
+  ? Link to existing project? No
+  ? What's your project's name? jobdock
+  ? In which directory is your code located? ./
+  ? Want to override settings? No
+
+First deployment will give you a URL like:
+  https://jobdock-xxxx.vercel.app
+
+Take note of this URL!
+
+
+2C. OR Deploy via Vercel Dashboard:
+------------------------------------
+1. Go to: https://vercel.com/new
+2. Import your Git repository
+3. Configure:
+   - Framework Preset: Vite
+   - Build Command: npm run build
+   - Output Directory: dist
+4. Add environment variables (see Step 3)
+5. Click "Deploy"
+
+
+================================================================================
+STEP 3: CONFIGURE ENVIRONMENT VARIABLES IN VERCEL
+================================================================================
+
+In Vercel dashboard (vercel.com → your project → Settings → Environment Variables):
+
+Add these variables (use values from your AWS deployment):
+
+Name: VITE_USE_MOCK_DATA
+Value: false
+
+Name: VITE_API_URL
+Value: https://23sowpoo70.execute-api.us-east-1.amazonaws.com/prod
+
+Name: VITE_AWS_REGION
+Value: us-east-1
+
+Name: VITE_COGNITO_USER_POOL_ID
+Value: us-east-1_3AMjEj02V
+
+Name: VITE_COGNITO_CLIENT_ID
+Value: 2cvj8i6g09362qlo07n1cvg5pa
+
+Name: VITE_S3_BUCKET
+Value: jobdock-files-prod-893918474562
+
+Name: VITE_DEFAULT_TENANT_ID
+Value: demo-tenant
+
+Set Environment: Production (and Preview if you want)
+
+
+================================================================================
+STEP 4: UPDATE VERCEL DOMAIN IN AWS CONFIG
+================================================================================
+
+After Vercel deployment, you'll get a URL like:
+  https://jobdock-xxxx.vercel.app
+
+Update infrastructure/config.ts:
+
+  prod: {
+    vercelDomain: 'jobdock-xxxx.vercel.app',  // <-- YOUR VERCEL URL (no https://)
+    ...
+  }
+
+Then redeploy AWS:
+  cd infrastructure
+  npm run deploy:prod
+
+This ensures CORS and Cognito work with your Vercel URL.
+
+
+================================================================================
+STEP 5: TEST YOUR DEPLOYMENT
+================================================================================
+
+1. Visit your Vercel URL: https://jobdock-xxxx.vercel.app
+
+2. Register a new account
+
+3. Test features:
+   - Create a contact
+   - Create a quote
+   - Schedule a job
+   - Generate an invoice
+
+4. Check that everything works!
+
+
+================================================================================
+FUTURE DEPLOYMENTS
+================================================================================
+
+Method 1: Git Push (Automatic - EASIEST):
+  git add .
+  git commit -m "Update frontend"
+  git push
+
+  Vercel automatically deploys on push to main branch!
+
+Method 2: Vercel CLI:
+  vercel --prod
+
+Method 3: Vercel Dashboard:
+  Click "Redeploy" button
+
+That's it! No more S3 sync or CloudFront invalidation needed!
+
+
+================================================================================
+CUSTOM DOMAIN ON VERCEL
+================================================================================
+
+If you want to use your own domain (e.g., app.yourdomain.com):
+
+1. In Vercel dashboard → Settings → Domains
+2. Add your domain
+3. Add DNS records (Vercel provides instructions)
+4. Update infrastructure/config.ts with your custom domain
+5. Redeploy AWS: cd infrastructure; npm run deploy:prod
+
+
+================================================================================
+CLEANUP OLD AWS RESOURCES (Optional Cost Savings)
+================================================================================
+
+Since you're using Vercel for frontend, you can remove:
+  • CloudFront distribution (saves ~$5/month)
+  • Frontend S3 bucket (saves ~$1/month)
+
+To remove them:
+  1. Comment out CloudFront and FrontendBucket in jobdock-stack.ts
+  2. Redeploy: npm run deploy:prod
+
+Keep the Files S3 bucket! It's used for document storage.
+
+
+================================================================================
+COST COMPARISON
+================================================================================
+
+BEFORE (AWS Only):
+  RDS:                $15-20/month
+  NAT Gateway:        $32/month
+  Lambda:             $0-5/month
+  API Gateway:        $0-5/month
+  S3:                 $1-3/month
+  CloudFront:         $1-5/month
+  TOTAL:              $50-70/month
+
+AFTER (Vercel + AWS):
+  Vercel:             $0/month (free tier)
+  RDS:                $15-20/month
+  NAT Gateway:        $32/month
+  Lambda:             $0-5/month
+  API Gateway:        $0-5/month
+  S3 (files only):    $1-2/month
+  TOTAL:              $50-65/month
+
+Savings: ~$5-10/month + much easier deployments!
+
+
+================================================================================
+VERCEL CONFIGURATION FILES CREATED
+================================================================================
+
+✅ vercel.json
+   - Vercel build configuration
+   - SPA routing setup
+   - Cache headers for assets
+   - Already configured and ready to use!
+
+✅ .vercelignore
+   - Excludes backend and infrastructure from Vercel
+   - Keeps deployment fast and clean
+
+
+================================================================================
+QUICK START COMMANDS
+================================================================================
+
+1. Update AWS to allow Vercel:
+   cd infrastructure
+   npm run build
+   npm run deploy:prod
+
+2. Deploy to Vercel:
+   vercel
+
+3. Add environment variables in Vercel dashboard
+
+4. Update config.ts with your Vercel URL
+
+5. Redeploy AWS one more time:
+   cd infrastructure
+   npm run deploy:prod
+
+6. Test your app!
+
+
+================================================================================
+VERCEL FEATURES YOU GET
+================================================================================
+
+✅ Automatic HTTPS
+✅ Global CDN (195+ locations)
+✅ Automatic compression (gzip/brotli)
+✅ Preview deployments for PRs
+✅ Instant rollbacks
+✅ Zero-downtime deployments
+✅ Analytics and monitoring
+✅ Built-in performance optimization
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+"CORS error" in browser:
+  → Make sure Vercel domain is in infrastructure/config.ts
+  → Redeploy AWS infrastructure
+  → Clear browser cache
+
+"Authentication doesn't work":
+  → Check Cognito callback URLs include Vercel domain
+  → Verify environment variables in Vercel dashboard
+  → Check browser console for specific error
+
+Vercel build fails:
+  → Check build logs in Vercel dashboard
+  → Verify all dependencies are in package.json
+  → Ensure vercel.json is correct
+
+"Can't connect to API":
+  → Verify VITE_API_URL is correct in Vercel env vars
+  → Check API Gateway is accessible
+  → Review CORS settings
+
+
+================================================================================
+RECOMMENDED: CONNECT YOUR GIT REPOSITORY
+================================================================================
+
+For the best experience:
+
+1. Push your code to GitHub/GitLab/Bitbucket
+
+2. In Vercel, import from Git:
+   https://vercel.com/new
+
+3. Every git push automatically deploys!
+
+4. Pull requests get preview deployments
+
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+IMMEDIATE:
+  1. Redeploy AWS with Vercel CORS settings
+  2. Deploy to Vercel
+  3. Configure environment variables
+  4. Test the deployment
+
+SOON:
+  5. Connect Git repository for auto-deployments
+  6. Set up Vercel custom domain (if desired)
+  7. Remove CloudFront from AWS (optional cost savings)
+
+LATER:
+  8. Enable Vercel Analytics
+  9. Set up deployment protection
+  10. Configure preview deployments
+
+
+================================================================================
+YOU'RE ALL SET!
+================================================================================
+
+Everything is configured and ready to deploy to Vercel.
+
+Follow the steps above and your frontend will be live on Vercel's
+blazing-fast global CDN in just a few minutes!
+
+Questions? Check Vercel docs: https://vercel.com/docs
+
+================================================================================

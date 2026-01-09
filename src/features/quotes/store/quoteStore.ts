@@ -13,7 +13,7 @@ interface QuoteState {
   // Actions
   fetchQuotes: () => Promise<void>
   getQuoteById: (id: string) => Promise<void>
-  createQuote: (data: CreateQuoteData) => Promise<void>
+  createQuote: (data: CreateQuoteData) => Promise<Quote>
   updateQuote: (data: UpdateQuoteData) => Promise<void>
   deleteQuote: (id: string) => Promise<void>
   sendQuote: (id: string) => Promise<void>
@@ -65,7 +65,7 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
         quotes: [newQuote, ...state.quotes],
         isLoading: false,
       }))
-      return Promise.resolve()
+      return newQuote
     } catch (error: any) {
       set({
         error: error.message || 'Failed to create quote',

@@ -9,6 +9,7 @@ export interface InvoiceLineItem {
 export interface Invoice {
   id: string
   invoiceNumber: string
+  title?: string
   contactId: string
   contactName?: string
   contactEmail?: string
@@ -21,6 +22,8 @@ export interface Invoice {
   total: number
   status: 'draft' | 'sent' | 'overdue' | 'cancelled'
   paymentStatus: 'pending' | 'partial' | 'paid'
+  approvalStatus?: 'none' | 'accepted' | 'declined'
+  approvalAt?: string
   notes?: string
   dueDate?: string
   paymentTerms?: string
@@ -31,6 +34,7 @@ export interface Invoice {
 
 export interface CreateInvoiceData {
   contactId: string
+  title?: string
   lineItems: Omit<InvoiceLineItem, 'id' | 'total'>[]
   taxRate?: number
   discount?: number
@@ -43,8 +47,10 @@ export interface CreateInvoiceData {
 
 export interface UpdateInvoiceData extends Partial<CreateInvoiceData> {
   id: string
+  approvalStatus?: ApprovalStatus
 }
 
 export type InvoiceStatus = 'draft' | 'sent' | 'overdue' | 'cancelled'
 export type PaymentStatus = 'pending' | 'partial' | 'paid'
+export type ApprovalStatus = 'none' | 'accepted' | 'declined'
 

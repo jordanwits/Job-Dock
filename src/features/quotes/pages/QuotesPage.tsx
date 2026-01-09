@@ -9,6 +9,7 @@ const QuotesPage = () => {
   const {
     selectedQuote,
     createQuote,
+    sendQuote,
     isLoading,
     error,
     setSelectedQuote,
@@ -19,6 +20,20 @@ const QuotesPage = () => {
   const handleCreate = async (data: any) => {
     try {
       await createQuote(data)
+      setShowCreateForm(false)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleCreateAndSend = async (data: any) => {
+    try {
+      // Create the quote first
+      const newQuote = await createQuote(data)
+      // Send the quote
+      if (newQuote) {
+        await sendQuote(newQuote.id)
+      }
       setShowCreateForm(false)
     } catch (error) {
       // Error handled by store
@@ -53,7 +68,7 @@ const QuotesPage = () => {
       )}
 
       {/* Quote List */}
-      <QuoteList />
+      <QuoteList onCreateClick={() => setShowCreateForm(true)} />
 
       {/* Create Quote Modal */}
       <Modal
@@ -67,6 +82,7 @@ const QuotesPage = () => {
       >
         <QuoteForm
           onSubmit={handleCreate}
+          onSaveAndSend={handleCreateAndSend}
           onCancel={() => {
             setShowCreateForm(false)
             clearError()

@@ -3,7 +3,11 @@ import { useInvoiceStore } from '../store/invoiceStore'
 import InvoiceCard from './InvoiceCard'
 import { Input, Button, Select } from '@/components/ui'
 
-const InvoiceList = () => {
+interface InvoiceListProps {
+  onCreateClick?: () => void
+}
+
+const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
   const {
     invoices,
     isLoading,
@@ -106,7 +110,7 @@ const InvoiceList = () => {
             }
             options={[
               { value: 'all', label: 'All Payments' },
-              { value: 'pending', label: 'Pending' },
+              { value: 'pending', label: 'Unpaid' },
               { value: 'partial', label: 'Partial' },
               { value: 'paid', label: 'Paid' },
             ]}
@@ -132,8 +136,8 @@ const InvoiceList = () => {
               ? 'No invoices match your filters'
               : 'No invoices yet'}
           </p>
-          {!searchQuery && statusFilter === 'all' && paymentStatusFilter === 'all' && (
-            <Button variant="primary">Create Your First Invoice</Button>
+          {!searchQuery && statusFilter === 'all' && paymentStatusFilter === 'all' && onCreateClick && (
+            <Button variant="primary" onClick={onCreateClick}>Create Your First Invoice</Button>
           )}
         </div>
       ) : (

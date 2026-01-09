@@ -8,13 +8,17 @@ export interface Config {
   env: 'dev' | 'staging' | 'prod'
   region: string
   domain?: string
+  vercelDomain?: string // e.g. 'jobdock.vercel.app' or 'app.yourdomain.com'
   defaultTenantId?: string
   email?: string
   sesFromAddress?: string
+  cloudfrontCertificateArn?: string
   database: {
-    engine: 'aurora-postgresql'
-    minCapacity: number // ACU (Aurora Capacity Units)
-    maxCapacity: number // ACU
+    engine: 'aurora-postgresql' | 'rds-postgresql'
+    minCapacity?: number // ACU (Aurora Capacity Units) - only for Aurora
+    maxCapacity?: number // ACU - only for Aurora
+    instanceClass?: string // e.g. 't3.micro' - only for RDS instance
+    instanceSize?: string // e.g. 'MICRO' - only for RDS instance
   }
   lambda: {
     timeout: number // seconds
@@ -38,9 +42,9 @@ export const configs: Record<string, Config> = {
     defaultTenantId: 'demo-tenant',
     sesFromAddress: 'jordan@westwavecreative.com',
     database: {
-      engine: 'aurora-postgresql',
-      minCapacity: 0.5, // Minimum for cost savings
-      maxCapacity: 2, // Small for dev
+      engine: 'rds-postgresql',
+      instanceClass: 't3',
+      instanceSize: 'MICRO',
     },
     lambda: {
       timeout: 30,
@@ -82,13 +86,16 @@ export const configs: Record<string, Config> = {
   prod: {
     env: 'prod',
     region: 'us-east-1',
-    // Add your domain here when ready
-    // domain: 'jobdock.com',
+    // Vercel frontend domain (automatically gets *.vercel.app subdomain)
+    vercelDomain: 'jobdock.vercel.app', // Update this after deploying to Vercel
+    // Add custom domain here if you connect one to Vercel later
+    // domain: 'app.yourdomain.com',
+    // cloudfrontCertificateArn: 'arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERTIFICATE_ID',
     sesFromAddress: 'jordan@westwavecreative.com',
     database: {
-      engine: 'aurora-postgresql',
-      minCapacity: 2, // Start higher for production
-      maxCapacity: 16, // Auto-scales up to 16 ACU
+      engine: 'rds-postgresql',
+      instanceClass: 't3',
+      instanceSize: 'MICRO', // Free tier eligible
     },
     lambda: {
       timeout: 30,

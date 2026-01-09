@@ -53,7 +53,7 @@ const CRMPage = () => {
       )}
 
       {/* Contact List */}
-      <ContactList />
+      <ContactList onCreateClick={() => setShowCreateForm(true)} />
 
       {/* Create Contact Modal */}
       <Modal

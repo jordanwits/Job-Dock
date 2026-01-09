@@ -9,6 +9,7 @@ const InvoicesPage = () => {
   const {
     selectedInvoice,
     createInvoice,
+    sendInvoice,
     isLoading,
     error,
     setSelectedInvoice,
@@ -19,6 +20,20 @@ const InvoicesPage = () => {
   const handleCreate = async (data: any) => {
     try {
       await createInvoice(data)
+      setShowCreateForm(false)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleCreateAndSend = async (data: any) => {
+    try {
+      // Create the invoice first
+      const newInvoice = await createInvoice(data)
+      // Send the invoice
+      if (newInvoice) {
+        await sendInvoice(newInvoice.id)
+      }
       setShowCreateForm(false)
     } catch (error) {
       // Error handled by store
@@ -53,7 +68,7 @@ const InvoicesPage = () => {
       )}
 
       {/* Invoice List */}
-      <InvoiceList />
+      <InvoiceList onCreateClick={() => setShowCreateForm(true)} />
 
       {/* Create Invoice Modal */}
       <Modal
@@ -67,6 +82,7 @@ const InvoicesPage = () => {
       >
         <InvoiceForm
           onSubmit={handleCreate}
+          onSaveAndSend={handleCreateAndSend}
           onCancel={() => {
             setShowCreateForm(false)
             clearError()

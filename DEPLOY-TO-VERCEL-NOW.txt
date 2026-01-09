@@ -1,0 +1,354 @@
+================================================================================
+  🚀 DEPLOY JOBDOCK TO VERCEL - QUICK START
+================================================================================
+
+Your AWS backend is ready! Now let's get your frontend on Vercel.
+
+✅ AWS backend configured for Vercel (CORS + Cognito updated)
+✅ vercel.json configuration file created
+✅ Ready to deploy!
+
+================================================================================
+OPTION 1: DEPLOY VIA VERCEL DASHBOARD (EASIEST - RECOMMENDED)
+================================================================================
+
+⏱️ Time: 5-10 minutes
+
+STEP 1: Push Your Code to Git (if not already)
+-----------------------------------------------
+If your code isn't on GitHub/GitLab/Bitbucket yet:
+
+PowerShell:
+  git remote add origin https://github.com/YOUR-USERNAME/jobdock.git
+  git push -u origin main
+
+(Create the repo first on GitHub if needed)
+
+
+STEP 2: Import to Vercel
+-------------------------
+1. Go to: https://vercel.com/new
+
+2. Sign in with GitHub (or your Git provider)
+
+3. Click "Import" next to your JobDock repository
+
+4. Configure:
+   Framework Preset: Vite (should auto-detect)
+   Root Directory: ./
+   Build Command: npm run build
+   Output Directory: dist
+   Install Command: npm install
+
+5. DON'T DEPLOY YET - Click "Environment Variables" first
+
+
+STEP 3: Add Environment Variables
+----------------------------------
+Click "+ Add New" for each of these:
+
+Name: VITE_USE_MOCK_DATA
+Value: false
+Environment: Production ✓
+
+Name: VITE_API_URL
+Value: https://23sowpoo70.execute-api.us-east-1.amazonaws.com/prod
+Environment: Production ✓
+
+Name: VITE_AWS_REGION
+Value: us-east-1
+Environment: Production ✓
+
+Name: VITE_COGNITO_USER_POOL_ID
+Value: us-east-1_3AMjEj02V
+Environment: Production ✓
+
+Name: VITE_COGNITO_CLIENT_ID
+Value: 2cvj8i6g09362qlo07n1cvg5pa
+Environment: Production ✓
+
+Name: VITE_S3_BUCKET
+Value: jobdock-files-prod-893918474562
+Environment: Production ✓
+
+Name: VITE_DEFAULT_TENANT_ID
+Value: demo-tenant
+Environment: Production ✓
+
+
+STEP 4: Deploy!
+----------------
+Click "Deploy"
+
+Wait 1-2 minutes for the build to complete.
+
+You'll get a URL like: https://jobdock-xxxx.vercel.app
+
+
+STEP 5: Update AWS with Your Vercel URL
+----------------------------------------
+IMPORTANT! Update infrastructure/config.ts with your actual Vercel URL:
+
+  prod: {
+    vercelDomain: 'jobdock-xxxx.vercel.app',  // <-- REPLACE WITH YOUR URL
+    ...
+  }
+
+Then redeploy AWS (just takes 1 minute):
+
+PowerShell:
+  cd infrastructure
+  npm run deploy:prod
+
+
+STEP 6: Test!
+-------------
+Visit your Vercel URL and test your app!
+
+
+================================================================================
+OPTION 2: DEPLOY VIA VERCEL CLI (FASTER FOR EXPERTS)
+================================================================================
+
+⏱️ Time: 2-3 minutes
+
+STEP 1: Install Vercel CLI
+---------------------------
+npm install -g vercel
+
+
+STEP 2: Deploy
+--------------
+PowerShell:
+  vercel
+
+Follow prompts:
+  ? Set up and deploy? Yes
+  ? Which scope? (Your account)
+  ? Link to existing project? No
+  ? What's your project's name? jobdock
+  ? In which directory is your code located? ./
+  ? Want to override settings? No
+  ? Want to deploy? No (we need to set env vars first)
+
+
+STEP 3: Add Environment Variables
+----------------------------------
+PowerShell:
+  vercel env add VITE_USE_MOCK_DATA
+  > false
+  > Production
+
+  vercel env add VITE_API_URL
+  > https://23sowpoo70.execute-api.us-east-1.amazonaws.com/prod
+  > Production
+
+  vercel env add VITE_AWS_REGION
+  > us-east-1
+  > Production
+
+  vercel env add VITE_COGNITO_USER_POOL_ID
+  > us-east-1_3AMjEj02V
+  > Production
+
+  vercel env add VITE_COGNITO_CLIENT_ID
+  > 2cvj8i6g09362qlo07n1cvg5pa
+  > Production
+
+  vercel env add VITE_S3_BUCKET
+  > jobdock-files-prod-893918474562
+  > Production
+
+  vercel env add VITE_DEFAULT_TENANT_ID
+  > demo-tenant
+  > Production
+
+
+STEP 4: Deploy to Production
+-----------------------------
+PowerShell:
+  vercel --prod
+
+You'll get: https://jobdock-xxxx.vercel.app
+
+
+STEP 5: Update AWS (same as Option 1 Step 5)
+---------------------------------------------
+Update infrastructure/config.ts with your Vercel URL, then:
+
+PowerShell:
+  cd infrastructure
+  npm run deploy:prod
+
+
+================================================================================
+AFTER DEPLOYMENT
+================================================================================
+
+Your app is now live on Vercel!
+
+Frontend: https://jobdock-xxxx.vercel.app (Vercel)
+Backend API: https://23sowpoo70.execute-api.us-east-1.amazonaws.com/prod/ (AWS)
+Database: AWS RDS PostgreSQL (private)
+Auth: AWS Cognito
+Files: AWS S3
+
+
+================================================================================
+FUTURE DEPLOYMENTS
+================================================================================
+
+Frontend updates are now SUPER EASY:
+
+Method 1: Git Push (Automatic):
+  git add .
+  git commit -m "Update"
+  git push
+
+  Vercel auto-deploys! ✨
+
+Method 2: Vercel CLI:
+  vercel --prod
+
+Method 3: Vercel Dashboard:
+  Click "Redeploy" button
+
+No more S3 sync or CloudFront invalidation! 🎉
+
+
+================================================================================
+ADD CUSTOM DOMAIN (OPTIONAL)
+================================================================================
+
+Want to use your own domain (e.g., app.yourdomain.com)?
+
+1. In Vercel Dashboard:
+   Project → Settings → Domains → Add Domain
+
+2. Enter: app.yourdomain.com
+
+3. Add DNS records (Vercel shows you exactly what to add):
+   Type: CNAME
+   Name: app
+   Value: cname.vercel-dns.com
+
+4. Wait for DNS propagation (5-30 minutes)
+
+5. Vercel automatically provisions SSL!
+
+6. Update infrastructure/config.ts:
+   vercelDomain: 'app.yourdomain.com',
+
+7. Redeploy AWS:
+   cd infrastructure
+   npm run deploy:prod
+
+Done! No ACM certificates needed - Vercel handles it all!
+
+
+================================================================================
+COST SAVINGS
+================================================================================
+
+By using Vercel instead of S3+CloudFront:
+
+  REMOVED:
+    - CloudFront: -$1-5/month
+    - Frontend S3: -$1/month
+
+  ADDED:
+    - Vercel: $0/month (free tier)
+
+  NET SAVINGS: $2-6/month + WAY easier deployments!
+
+
+================================================================================
+CLEANUP AWS FRONTEND RESOURCES (OPTIONAL)
+================================================================================
+
+You can now remove the CloudFront and frontend S3 bucket since you're not using them:
+
+1. Edit infrastructure/lib/jobdock-stack.ts
+   Comment out or remove:
+     - this.frontendBucket
+     - this.distribution
+     - Related outputs
+
+2. Redeploy:
+   cd infrastructure
+   npm run deploy:prod
+
+This saves a few dollars and simplifies your AWS stack.
+
+Note: Keep the Files S3 bucket - it's used for document storage!
+
+
+================================================================================
+VERCEL FEATURES YOU NOW HAVE
+================================================================================
+
+✅ Automatic deployments on git push
+✅ Preview deployments for pull requests  
+✅ Instant rollbacks to any deployment
+✅ Built-in analytics
+✅ Performance monitoring
+✅ Zero-config SSL
+✅ Global edge network
+✅ Automatic compression
+✅ DDoS protection
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+"CORS error":
+  → Make sure you updated infrastructure/config.ts with your Vercel URL
+  → Make sure you redeployed AWS: cd infrastructure; npm run deploy:prod
+  → Clear browser cache
+
+"Can't log in":
+  → Check Cognito callback URLs include your Vercel domain
+  → Verify environment variables in Vercel
+  → Check browser console for errors
+
+Build fails on Vercel:
+  → Check build logs in Vercel dashboard
+  → Verify package.json has all dependencies
+  → Make sure vercel.json is correct
+
+"Environment variables not working":
+  → Must redeploy after adding env vars
+  → Check they're set for "Production" environment
+  → Verify names start with VITE_ prefix
+
+
+================================================================================
+SUPPORT
+================================================================================
+
+Vercel Docs: https://vercel.com/docs
+Vercel Support: https://vercel.com/support
+
+AWS Backend (your infrastructure):
+  - CloudWatch Logs
+  - Check-prod-status.ps1
+  - AWS Console
+
+
+================================================================================
+YOU'RE READY TO DEPLOY!
+================================================================================
+
+Choose your method above and deploy to Vercel now!
+
+Your AWS backend is already configured and waiting.
+
+After deployment:
+  1. Update infrastructure/config.ts with your Vercel URL
+  2. Redeploy AWS: cd infrastructure; npm run deploy:prod
+  3. Test your app!
+
+Good luck! 🚀
+
+================================================================================

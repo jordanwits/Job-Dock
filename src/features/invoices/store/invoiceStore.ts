@@ -15,7 +15,7 @@ interface InvoiceState {
   // Actions
   fetchInvoices: () => Promise<void>
   getInvoiceById: (id: string) => Promise<void>
-  createInvoice: (data: CreateInvoiceData) => Promise<void>
+  createInvoice: (data: CreateInvoiceData) => Promise<Invoice>
   updateInvoice: (data: UpdateInvoiceData) => Promise<void>
   deleteInvoice: (id: string) => Promise<void>
   sendInvoice: (id: string) => Promise<void>
@@ -70,7 +70,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         invoices: [newInvoice, ...state.invoices],
         isLoading: false,
       }))
-      return Promise.resolve()
+      return newInvoice
     } catch (error: any) {
       set({
         error: error.message || 'Failed to create invoice',

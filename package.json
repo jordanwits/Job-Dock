@@ -10,7 +10,11 @@
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "type-check": "tsc --noEmit",
-    "sync:aws:env": "tsx scripts/sync-aws-env.ts"
+    "sync:aws:env": "tsx scripts/sync-aws-env.ts",
+    "validate:prereqs": "powershell -ExecutionPolicy Bypass -File .\\validate-prereqs.ps1",
+    "deploy:prod": "powershell -ExecutionPolicy Bypass -File .\\deploy-production.ps1",
+    "deploy:prod:frontend": "powershell -ExecutionPolicy Bypass -File .\\deploy-frontend-prod.ps1",
+    "check:prod": "powershell -ExecutionPolicy Bypass -File .\\check-prod-status.ps1"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",

@@ -1,9 +1,10 @@
-import { Invoice } from '../types/invoice'
+import { Invoice, InvoiceStatus, PaymentStatus, ApprovalStatus } from '../types/invoice'
 import { useInvoiceStore } from '../store/invoiceStore'
-import { Modal, Button } from '@/components/ui'
+import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
 import { useState } from 'react'
 import InvoiceForm from './InvoiceForm'
 import { cn } from '@/lib/utils'
+import { ScheduleJobModal } from '@/features/scheduling'
 
 interface InvoiceDetailProps {
   invoice: Invoice
@@ -15,6 +16,7 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
   const { updateInvoice, deleteInvoice, sendInvoice, isLoading } = useInvoiceStore()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showScheduleJob, setShowScheduleJob] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
@@ -66,14 +68,64 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
     overdue: 'bg-red-500/20 text-red-400 border-red-500/30',
     cancelled: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
   }
-  
+
   // Only show status badge if it's not redundant with paymentStatus
-  const shouldShowStatus = invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
+  const shouldShowStatus =
+    invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
 
   const paymentStatusColors = {
     pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     partial: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
     paid: 'bg-green-500/20 text-green-400 border-green-500/30',
+  }
+
+  const approvalStatusColors = {
+    none: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
+    declined: 'bg-red-500/20 text-red-400 border-red-500/30',
+  }
+
+  const invoiceStatusOptions = [
+    { value: 'draft', label: 'Draft' },
+    { value: 'sent', label: 'Sent' },
+    { value: 'overdue', label: 'Overdue' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ]
+
+  const paymentStatusOptions = [
+    { value: 'pending', label: 'Unpaid' },
+    { value: 'partial', label: 'Partial' },
+    { value: 'paid', label: 'Paid' },
+  ]
+
+  const approvalStatusOptions = [
+    { value: 'none', label: 'No Response' },
+    { value: 'accepted', label: 'Accepted' },
+    { value: 'declined', label: 'Declined' },
+  ]
+
+  const handleInvoiceStatusChange = async (newStatus: string) => {
+    try {
+      await updateInvoice({ id: invoice.id, status: newStatus as InvoiceStatus })
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handlePaymentStatusChange = async (newPaymentStatus: string) => {
+    try {
+      await updateInvoice({ id: invoice.id, paymentStatus: newPaymentStatus as PaymentStatus })
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleApprovalStatusChange = async (newApprovalStatus: string) => {
+    try {
+      await updateInvoice({ id: invoice.id, approvalStatus: newApprovalStatus as ApprovalStatus })
+    } catch (error) {
+      // Error handled by store
+    }
   }
 
   const formatCurrency = (amount: number) => {
@@ -83,9 +135,8 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
     }).format(amount)
   }
 
-  const isOverdue = invoice.dueDate && 
-    new Date(invoice.dueDate) < new Date() && 
-    invoice.paymentStatus !== 'paid'
+  const isOverdue =
+    invoice.dueDate && new Date(invoice.dueDate) < new Date() && invoice.paymentStatus !== 'paid'
 
   if (isEditing) {
     return (
@@ -126,12 +177,22 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
             </Button>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
               <Button
+                onClick={() => setShowScheduleJob(true)}
+                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+              >
+                Schedule Job
+              </Button>
+              <Button
                 onClick={handleSend}
                 disabled={isSending || !invoice.contactEmail}
                 className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto"
                 title={!invoice.contactEmail ? 'Contact does not have an email address' : undefined}
               >
-                {isSending ? 'Sending...' : invoice.status === 'sent' ? 'Resend Invoice' : 'Send Invoice'}
+                {isSending
+                  ? 'Sending...'
+                  : invoice.status === 'sent'
+                    ? 'Resend Invoice'
+                    : 'Send Invoice'}
               </Button>
               <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
                 Edit
@@ -151,18 +212,14 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
           )}
           {sendError && (
             <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">
-                ✗ {sendError}
-              </p>
+              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
             </div>
           )}
-          
+
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-primary-light">
-                {invoice.invoiceNumber}
-              </h2>
+              <h2 className="text-2xl font-bold text-primary-light">{invoice.invoiceNumber}</h2>
               {invoice.contactName && (
                 <p className="text-primary-light/70 mt-1">
                   {invoice.contactName}
@@ -172,23 +229,33 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
             </div>
             <div className="flex flex-col gap-2 items-end">
               {shouldShowStatus && (
-                <span
-                  className={cn(
-                    'px-3 py-1 text-sm font-medium rounded border',
-                    statusColors[invoice.status]
-                  )}
-                >
-                  {invoice.status}
-                </span>
+                <StatusBadgeSelect
+                  value={invoice.status}
+                  options={invoiceStatusOptions}
+                  colorClassesByValue={statusColors}
+                  onChange={handleInvoiceStatusChange}
+                  isLoading={isLoading}
+                  size="md"
+                />
               )}
-              <span
-                className={cn(
-                  'px-3 py-1 text-sm font-medium rounded border',
-                  paymentStatusColors[invoice.paymentStatus]
-                )}
-              >
-                {invoice.paymentStatus}
-              </span>
+              {invoice.approvalStatus && invoice.approvalStatus !== 'none' && (
+                <StatusBadgeSelect
+                  value={invoice.approvalStatus}
+                  options={approvalStatusOptions}
+                  colorClassesByValue={approvalStatusColors}
+                  onChange={handleApprovalStatusChange}
+                  isLoading={isLoading}
+                  size="md"
+                />
+              )}
+              <StatusBadgeSelect
+                value={invoice.paymentStatus}
+                options={paymentStatusOptions}
+                colorClassesByValue={paymentStatusColors}
+                onChange={handlePaymentStatusChange}
+                isLoading={isLoading}
+                size="md"
+              />
             </div>
           </div>
 
@@ -213,9 +280,7 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
           {/* Due Date Warning */}
           {isOverdue && (
             <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">
-                ⚠️ This invoice is overdue
-              </p>
+              <p className="text-sm text-red-400 font-medium">⚠️ This invoice is overdue</p>
               <p className="text-xs text-red-400/70 mt-1">
                 Due date: {new Date(invoice.dueDate!).toLocaleDateString()}
               </p>
@@ -224,9 +289,7 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
 
           {/* Line Items Table */}
           <div>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-3">
-              Line Items
-            </h3>
+            <h3 className="text-sm font-medium text-primary-light/70 mb-3">Line Items</h3>
             <div className="rounded-lg border border-primary-blue overflow-hidden">
               <table className="w-full">
                 <thead className="bg-primary-dark-secondary">
@@ -247,13 +310,8 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
                 </thead>
                 <tbody>
                   {invoice.lineItems.map((item, index) => (
-                    <tr
-                      key={item.id || index}
-                      className="border-t border-primary-blue"
-                    >
-                      <td className="px-4 py-3 text-sm text-primary-light">
-                        {item.description}
-                      </td>
+                    <tr key={item.id || index} className="border-t border-primary-blue">
+                      <td className="px-4 py-3 text-sm text-primary-light">{item.description}</td>
                       <td className="px-4 py-3 text-sm text-primary-light text-right">
                         {item.quantity}
                       </td>
@@ -275,31 +333,21 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
             <div className="w-full max-w-md space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-primary-light/70">Subtotal</span>
-                <span className="text-primary-light">
-                  {formatCurrency(invoice.subtotal)}
-                </span>
+                <span className="text-primary-light">{formatCurrency(invoice.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-primary-light/70">
-                  Tax ({invoice.taxRate * 100}%)
-                </span>
-                <span className="text-primary-light">
-                  {formatCurrency(invoice.taxAmount)}
-                </span>
+                <span className="text-primary-light/70">Tax ({invoice.taxRate * 100}%)</span>
+                <span className="text-primary-light">{formatCurrency(invoice.taxAmount)}</span>
               </div>
               {invoice.discount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-primary-light/70">Discount</span>
-                  <span className="text-primary-light">
-                    -{formatCurrency(invoice.discount)}
-                  </span>
+                  <span className="text-primary-light">-{formatCurrency(invoice.discount)}</span>
                 </div>
               )}
               <div className="flex justify-between pt-2 border-t border-primary-blue text-lg font-bold">
                 <span className="text-primary-light">Total</span>
-                <span className="text-primary-gold">
-                  {formatCurrency(invoice.total)}
-                </span>
+                <span className="text-primary-gold">{formatCurrency(invoice.total)}</span>
               </div>
             </div>
           </div>
@@ -316,10 +364,12 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
               {invoice.dueDate && (
                 <div>
                   <span className="text-xs text-primary-light/50">Due Date</span>
-                  <p className={cn(
-                    "text-sm mt-1",
-                    isOverdue ? "text-red-400 font-medium" : "text-primary-light"
-                  )}>
+                  <p
+                    className={cn(
+                      'text-sm mt-1',
+                      isOverdue ? 'text-red-400 font-medium' : 'text-primary-light'
+                    )}
+                  >
                     {new Date(invoice.dueDate).toLocaleDateString()}
                   </p>
                 </div>
@@ -330,12 +380,8 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
           {/* Notes */}
           {invoice.notes && (
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-2">
-                Notes
-              </h3>
-              <p className="text-sm text-primary-light whitespace-pre-wrap">
-                {invoice.notes}
-              </p>
+              <h3 className="text-sm font-medium text-primary-light/70 mb-2">Notes</h3>
+              <p className="text-sm text-primary-light whitespace-pre-wrap">{invoice.notes}</p>
             </div>
           )}
 
@@ -348,6 +394,18 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
           </div>
         </div>
       </Modal>
+
+      {/* Schedule Job Modal */}
+      <ScheduleJobModal
+        isOpen={showScheduleJob}
+        onClose={() => setShowScheduleJob(false)}
+        defaultContactId={invoice.contactId}
+        defaultTitle={`Job for invoice ${invoice.invoiceNumber}`}
+        defaultNotes={`Created from invoice ${invoice.invoiceNumber}`}
+        sourceContext="invoice"
+        invoiceId={invoice.id}
+        initialInvoiceId={invoice.id}
+      />
 
       {/* Delete Confirmation Modal */}
       <Modal
@@ -371,8 +429,8 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
         }
       >
         <p className="text-primary-light">
-          Are you sure you want to delete invoice <strong>{invoice.invoiceNumber}</strong>?
-          This action cannot be undone.
+          Are you sure you want to delete invoice <strong>{invoice.invoiceNumber}</strong>? This
+          action cannot be undone.
         </p>
       </Modal>
     </>
@@ -380,4 +438,3 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
 }
 
 export default InvoiceDetail
-

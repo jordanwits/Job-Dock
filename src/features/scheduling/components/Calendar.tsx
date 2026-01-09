@@ -47,11 +47,15 @@ const Calendar = ({
     onDateChange(today)
   }
 
-  // Get jobs for a specific date
+  // Get jobs for a specific date (includes multi-day jobs that span this date)
   const getJobsForDate = (date: Date) => {
     return jobs.filter((job) => {
-      const jobDate = startOfDay(new Date(job.startTime))
-      return isSameDay(jobDate, date)
+      const jobStartDate = startOfDay(new Date(job.startTime))
+      const jobEndDate = startOfDay(new Date(job.endTime))
+      const targetDate = startOfDay(date)
+      
+      // Check if the target date falls within the job's date range
+      return targetDate >= jobStartDate && targetDate <= jobEndDate
     })
   }
 

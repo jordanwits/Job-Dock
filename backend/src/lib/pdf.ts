@@ -76,6 +76,34 @@ interface CompanyInfo {
   email?: string
   phone?: string
   logoKey?: string
+  templateKey?: string
+}
+
+/**
+ * Fetch and load a PDF template from S3
+ */
+async function loadTemplateFromS3(templateKey: string): Promise<PDFDocument | null> {
+  try {
+    const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
+    const FILES_BUCKET = process.env.FILES_BUCKET || ''
+    
+    const command = new GetObjectCommand({
+      Bucket: FILES_BUCKET,
+      Key: templateKey,
+    })
+    
+    const response = await s3Client.send(command)
+    const pdfBuffer = await response.Body?.transformToByteArray()
+    
+    if (!pdfBuffer) {
+      throw new Error('Failed to fetch PDF template')
+    }
+    
+    return await PDFDocument.load(pdfBuffer)
+  } catch (error) {
+    console.error('Error loading PDF template:', error)
+    return null
+  }
 }
 
 /**
@@ -120,8 +148,27 @@ async function embedLogoFromS3(pdfDoc: PDFDocument, logoKey: string): Promise<an
  * Generate a PDF buffer for a quote
  */
 export async function generateQuotePDF(quote: QuoteData, tenantName?: string, companyInfo?: CompanyInfo): Promise<Buffer> {
-  const pdfDoc = await PDFDocument.create()
-  const page = pdfDoc.addPage([595, 842]) // A4 size
+  let pdfDoc: PDFDocument
+  let page: any
+  
+  // Load template if available, otherwise create blank PDF
+  if (companyInfo?.templateKey) {
+    const templateDoc = await loadTemplateFromS3(companyInfo.templateKey)
+    if (templateDoc) {
+      pdfDoc = await PDFDocument.create()
+      // Copy first page from template as background
+      const [templatePage] = await pdfDoc.copyPages(templateDoc, [0])
+      page = pdfDoc.addPage(templatePage)
+    } else {
+      // Fallback to blank page if template fails to load
+      pdfDoc = await PDFDocument.create()
+      page = pdfDoc.addPage([595, 842]) // A4 size
+    }
+  } else {
+    pdfDoc = await PDFDocument.create()
+    page = pdfDoc.addPage([595, 842]) // A4 size
+  }
+  
   const { width, height } = page.getSize()
 
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica)
@@ -362,8 +409,27 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
  * Generate a PDF buffer for an invoice
  */
 export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: string, companyInfo?: CompanyInfo): Promise<Buffer> {
-  const pdfDoc = await PDFDocument.create()
-  const page = pdfDoc.addPage([595, 842]) // A4 size
+  let pdfDoc: PDFDocument
+  let page: any
+  
+  // Load template if available, otherwise create blank PDF
+  if (companyInfo?.templateKey) {
+    const templateDoc = await loadTemplateFromS3(companyInfo.templateKey)
+    if (templateDoc) {
+      pdfDoc = await PDFDocument.create()
+      // Copy first page from template as background
+      const [templatePage] = await pdfDoc.copyPages(templateDoc, [0])
+      page = pdfDoc.addPage(templatePage)
+    } else {
+      // Fallback to blank page if template fails to load
+      pdfDoc = await PDFDocument.create()
+      page = pdfDoc.addPage([595, 842]) // A4 size
+    }
+  } else {
+    pdfDoc = await PDFDocument.create()
+    page = pdfDoc.addPage([595, 842]) // A4 size
+  }
+  
   const { width, height } = page.getSize()
 
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica)

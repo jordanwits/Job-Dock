@@ -92,12 +92,15 @@ async function createRecurringJobs(params: {
   description?: string
   contactId: string
   serviceId?: string
+  quoteId?: string
+  invoiceId?: string
   startTime: Date
   endTime: Date
   status?: string
   location?: string
   notes?: string
   assignedTo?: string
+  breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
   recurrence: RecurrencePayload
 }) {
   const {
@@ -106,12 +109,15 @@ async function createRecurringJobs(params: {
     description,
     contactId,
     serviceId,
+    quoteId,
+    invoiceId,
     startTime,
     endTime,
     status = 'scheduled',
     location,
     notes,
     assignedTo,
+    breaks,
     recurrence,
   } = params
 
@@ -138,11 +144,33 @@ async function createRecurringJobs(params: {
     })
 
     // 2. Generate all occurrence instances
-    const instances = generateRecurrenceInstances({
+    let instances = generateRecurrenceInstances({
       startTime,
       endTime,
       recurrence,
     })
+
+    // 2.5. Filter out instances that fall within break periods
+    if (breaks && breaks.length > 0) {
+      instances = instances.filter(instance => {
+        // Check if this instance overlaps with any break period
+        const instanceStart = instance.startTime
+        const instanceEnd = instance.endTime
+        
+        for (const breakPeriod of breaks) {
+          const breakStart = new Date(breakPeriod.startTime)
+          const breakEnd = new Date(breakPeriod.endTime)
+          
+          // Check if instance overlaps with break period
+          if (instanceStart < breakEnd && instanceEnd > breakStart) {
+            console.log(`Skipping instance ${instanceStart.toISOString()} due to break period ${breakStart.toISOString()} - ${breakEnd.toISOString()}`)
+            return false // Skip this instance
+          }
+        }
+        
+        return true // Keep this instance
+      })
+    }
 
     // 3. Check for conflicts across all instances
     const conflicts: Array<{ date: string; time: string; conflictingJob: string }> = []
@@ -195,6 +223,8 @@ async function createRecurringJobs(params: {
             description,
             contactId,
             serviceId,
+            quoteId,
+            invoiceId,
             recurrenceId: jobRecurrence.id,
             startTime: instance.startTime,
             endTime: instance.endTime,
@@ -202,6 +232,7 @@ async function createRecurringJobs(params: {
             location,
             notes,
             assignedTo,
+            breaks: null, // Recurring jobs don't have breaks initially
           },
           include: {
             contact: true,
@@ -248,6 +279,7 @@ const serializeQuote = (quote: Quote & {
 }) => ({
   id: quote.id,
   quoteNumber: quote.quoteNumber,
+  title: quote.title ?? undefined,
   contactId: quote.contactId,
   lineItems: quote.lineItems.map((item: QuoteLineItem) => ({
     id: item.id,
@@ -290,6 +322,8 @@ const serializeInvoice = (invoice: Invoice & {
   total: toNumber(invoice.total),
   status: invoice.status,
   paymentStatus: invoice.paymentStatus,
+  approvalStatus: (invoice as any).approvalStatus ?? 'none',
+  approvalAt: (invoice as any).approvalAt?.toISOString(),
   notes: invoice.notes ?? undefined,
   dueDate: invoice.dueDate?.toISOString(),
   paymentTerms: invoice.paymentTerms,
@@ -557,6 +591,7 @@ export const dataServices = {
           deletedQuotes,
           deletedInvoices,
           deletedJobs,
+          deletedJobRecurrences,
         ] = await Promise.all([
           quoteIdList.length
             ? tx.quoteLineItem.deleteMany({ where: { quoteId: { in: quoteIdList } } })
@@ -570,6 +605,7 @@ export const dataServices = {
           tx.quote.deleteMany({ where: { id: { in: quoteIdList } } }),
           tx.invoice.deleteMany({ where: { id: { in: invoiceIdList } } }),
           tx.job.deleteMany({ where: { contactId: id, tenantId } }),
+          tx.jobRecurrence.deleteMany({ where: { contactId: id, tenantId } }),
         ])
 
         await tx.contact.delete({ where: { id } })
@@ -583,6 +619,7 @@ export const dataServices = {
             payments: deletedPayments.count,
             invoices: deletedInvoices.count,
             jobs: deletedJobs.count,
+            jobRecurrences: deletedJobRecurrences.count,
           },
         }
       })
@@ -623,6 +660,7 @@ export const dataServices = {
         data: {
           tenantId,
           quoteNumber,
+          title: payload.title || null,
           contactId: payload.contactId,
           subtotal,
           taxRate,
@@ -656,7 +694,8 @@ export const dataServices = {
         throw new ApiError('Quote not found', 404)
       }
 
-      const lineItems = payload.lineItems
+      // Destructure to separate lineItems from other fields
+      const { lineItems, ...updateData } = payload
       const subtotal = lineItems
         ? lineItems.reduce(
             (sum: number, item: any) => sum + item.quantity * item.unitPrice,
@@ -683,7 +722,11 @@ export const dataServices = {
         await tx.quote.update({
           where: { id },
           data: {
-            ...payload,
+            contactId: updateData.contactId,
+            title: updateData.title,
+            status: updateData.status,
+            notes: updateData.notes,
+            validUntil: updateData.validUntil ? new Date(updateData.validUntil) : undefined,
             subtotal: subtotal ?? undefined,
             taxRate: taxRate ?? undefined,
             discount: discount ?? undefined,
@@ -761,6 +804,70 @@ export const dataServices = {
         data: { status: 'sent' },
         include: { contact: true, lineItems: true },
       })
+      
+      return serializeQuote(updatedQuote)
+    },
+    approve: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      
+      const quote = await prisma.quote.findFirst({
+        where: { id, tenantId },
+        include: { contact: true, lineItems: true },
+      })
+      
+      if (!quote) {
+        throw new ApiError('Quote not found', 404)
+      }
+      
+      // Only allow approval if quote is in 'sent' status
+      if (quote.status !== 'sent') {
+        if (quote.status === 'accepted') {
+          throw new ApiError('You have already accepted this quote. The contractor has been notified.', 400)
+        } else if (quote.status === 'rejected') {
+          throw new ApiError('You have already declined this quote. Please contact the contractor if you\'ve changed your mind.', 400)
+        }
+        throw new ApiError('This quote can no longer be responded to. Please contact the contractor for assistance.', 400)
+      }
+      
+      const updatedQuote = await prisma.quote.update({
+        where: { id },
+        data: { status: 'accepted' },
+        include: { contact: true, lineItems: true },
+      })
+      
+      console.log(`✅ Quote ${quote.quoteNumber} approved by client`)
+      
+      return serializeQuote(updatedQuote)
+    },
+    decline: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      
+      const quote = await prisma.quote.findFirst({
+        where: { id, tenantId },
+        include: { contact: true, lineItems: true },
+      })
+      
+      if (!quote) {
+        throw new ApiError('Quote not found', 404)
+      }
+      
+      // Only allow declining if quote is in 'sent' status
+      if (quote.status !== 'sent') {
+        if (quote.status === 'accepted') {
+          throw new ApiError('You have already accepted this quote. Please contact the contractor if you need to cancel.', 400)
+        } else if (quote.status === 'rejected') {
+          throw new ApiError('You have already declined this quote. The contractor has been notified.', 400)
+        }
+        throw new ApiError('This quote can no longer be responded to. Please contact the contractor for assistance.', 400)
+      }
+      
+      const updatedQuote = await prisma.quote.update({
+        where: { id },
+        data: { status: 'rejected' },
+        include: { contact: true, lineItems: true },
+      })
+      
+      console.log(`✅ Quote ${quote.quoteNumber} declined by client`)
       
       return serializeQuote(updatedQuote)
     },
@@ -936,6 +1043,43 @@ export const dataServices = {
       
       return serializeInvoice(updatedInvoice)
     },
+    setApprovalStatus: async (tenantId: string, id: string, approvalStatus: 'accepted' | 'declined') => {
+      await ensureTenantExists(tenantId)
+      
+      const invoice = await prisma.invoice.findFirst({
+        where: { id, tenantId },
+        include: { contact: true, lineItems: true },
+      })
+      
+      if (!invoice) {
+        throw new ApiError('Invoice not found', 404)
+      }
+      
+      // Check if invoice has already been responded to
+      const currentStatus = (invoice as any).approvalStatus
+      if (currentStatus && currentStatus !== 'none') {
+        if (currentStatus === approvalStatus) {
+          const action = approvalStatus === 'accepted' ? 'approved' : 'reported an issue with'
+          throw new ApiError(`You have already ${action} this invoice. The contractor has been notified.`, 400)
+        } else {
+          const previousAction = currentStatus === 'accepted' ? 'approved' : 'reported an issue with'
+          throw new ApiError(`You have already ${previousAction} this invoice. Please contact the contractor if you need to make changes.`, 400)
+        }
+      }
+      
+      const updatedInvoice = await prisma.invoice.update({
+        where: { id },
+        data: { 
+          approvalStatus: approvalStatus,
+          approvalAt: new Date(),
+        } as any,
+        include: { contact: true, lineItems: true },
+      })
+      
+      console.log(`✅ Invoice ${invoice.invoiceNumber} ${approvalStatus} by client`)
+      
+      return serializeInvoice(updatedInvoice)
+    },
   },
   jobs: {
     getAll: async (tenantId: string, startDate?: Date, endDate?: Date) => {
@@ -981,12 +1125,15 @@ export const dataServices = {
           description: payload.description,
           contactId: payload.contactId,
           serviceId: payload.serviceId,
+          quoteId: payload.quoteId,
+          invoiceId: payload.invoiceId,
           startTime,
           endTime,
           status: payload.status || 'scheduled',
           location: payload.location,
           notes: payload.notes,
           assignedTo: payload.assignedTo,
+          breaks: payload.breaks,
           recurrence: payload.recurrence,
         })
       }
@@ -1020,12 +1167,15 @@ export const dataServices = {
           description: payload.description,
           contactId: payload.contactId,
           serviceId: payload.serviceId,
+          quoteId: payload.quoteId,
+          invoiceId: payload.invoiceId,
           startTime,
           endTime,
           status: payload.status || 'scheduled',
           location: payload.location,
           notes: payload.notes,
           assignedTo: payload.assignedTo,
+          breaks: payload.breaks || null,
         },
         include: { contact: true, service: true },
       })
@@ -1038,17 +1188,30 @@ export const dataServices = {
       if (!existingJob) {
         throw new ApiError('Job not found', 404)
       }
+      
+      // Extract only the fields that can be directly updated
+      const updateData: any = {}
+      if (payload.title !== undefined) updateData.title = payload.title
+      if (payload.description !== undefined) updateData.description = payload.description
+      if (payload.contactId !== undefined) updateData.contactId = payload.contactId
+      if (payload.serviceId !== undefined) updateData.serviceId = payload.serviceId
+      if (payload.quoteId !== undefined) updateData.quoteId = payload.quoteId
+      if (payload.invoiceId !== undefined) updateData.invoiceId = payload.invoiceId
+      if (payload.status !== undefined) updateData.status = payload.status
+      if (payload.location !== undefined) updateData.location = payload.location
+      if (payload.notes !== undefined) updateData.notes = payload.notes
+      if (payload.assignedTo !== undefined) updateData.assignedTo = payload.assignedTo
+      if (payload.startTime !== undefined) updateData.startTime = new Date(payload.startTime)
+      if (payload.endTime !== undefined) updateData.endTime = new Date(payload.endTime)
+      if (payload.breaks !== undefined) updateData.breaks = payload.breaks
+      
       return prisma.job.update({
         where: { id },
-        data: {
-          ...payload,
-          startTime: payload.startTime ? new Date(payload.startTime) : undefined,
-          endTime: payload.endTime ? new Date(payload.endTime) : undefined,
-        },
+        data: updateData,
         include: { contact: true, service: true },
       })
     },
-    delete: async (tenantId: string, id: string) => {
+    delete: async (tenantId: string, id: string, deleteAll?: boolean) => {
       // Verify job belongs to tenant before deleting
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
@@ -1056,7 +1219,20 @@ export const dataServices = {
       if (!job) {
         throw new ApiError('Job not found', 404)
       }
-      await prisma.job.delete({ where: { id } })
+      
+      if (deleteAll && job.recurrenceId) {
+        // Delete all jobs with the same recurrenceId
+        await prisma.job.deleteMany({
+          where: {
+            recurrenceId: job.recurrenceId,
+            tenantId,
+          },
+        })
+      } else {
+        // Delete only this job
+        await prisma.job.delete({ where: { id } })
+      }
+      
       return { success: true }
     },
     confirm: async (tenantId: string, id: string) => {
@@ -1518,6 +1694,7 @@ export const dataServices = {
                   status: initialStatus,
                   location: payload.location,
                   notes: payload.notes,
+                  breaks: null, // Recurring jobs don't have breaks initially
                 },
                 include: {
                   contact: true,
@@ -1546,6 +1723,7 @@ export const dataServices = {
               status: initialStatus,
               location: payload.location,
               notes: payload.notes,
+              breaks: null, // Public booking jobs don't have breaks initially
             },
             include: {
               contact: true,

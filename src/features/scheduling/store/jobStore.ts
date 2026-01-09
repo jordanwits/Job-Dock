@@ -26,14 +26,19 @@ const normalizeJob = (apiJob: any): Job => {
     contactPhone: contact?.phone,
     serviceId: apiJob.serviceId,
     serviceName: service?.name,
+    quoteId: apiJob.quoteId,
+    invoiceId: apiJob.invoiceId,
+    recurrenceId: apiJob.recurrenceId,
     startTime: apiJob.startTime,
     endTime: apiJob.endTime,
     status: apiJob.status,
     location: apiJob.location,
     notes: apiJob.notes,
     assignedTo: apiJob.assignedTo,
+    breaks: apiJob.breaks || undefined,
     createdAt: apiJob.createdAt,
     updatedAt: apiJob.updatedAt,
+    occurrenceCount: apiJob.occurrenceCount,
   }
 }
 
@@ -50,7 +55,7 @@ interface JobState {
   getJobById: (id: string) => Promise<void>
   createJob: (data: CreateJobData) => Promise<void>
   updateJob: (data: UpdateJobData) => Promise<void>
-  deleteJob: (id: string) => Promise<void>
+  deleteJob: (id: string, deleteAll?: boolean) => Promise<void>
   setSelectedJob: (job: Job | null) => void
   setViewMode: (mode: 'day' | 'week' | 'month') => void
   setCurrentDate: (date: Date) => void
@@ -138,17 +143,42 @@ export const useJobStore = create<JobState>((set, get) => ({
     }
   },
 
-  deleteJob: async (id: string) => {
+  deleteJob: async (id: string, deleteAll?: boolean) => {
     set({ isLoading: true, error: null })
     try {
-      await jobsService.delete(id)
-      set((state) => ({
-        jobs: state.jobs.filter((j) => j.id !== id),
-        selectedJob:
-          state.selectedJob?.id === id ? null : state.selectedJob,
-        isLoading: false,
-      }))
+      console.log('Store: deleteJob called with id:', id, 'deleteAll:', deleteAll)
+      await jobsService.delete(id, deleteAll)
+      
+      if (deleteAll) {
+        // If deleting all, find the recurrenceId and remove all jobs with that recurrenceId
+        const job = get().jobs.find(j => j.id === id)
+        const recurrenceId = job?.recurrenceId
+        console.log('Store: Found job with recurrenceId:', recurrenceId)
+        console.log('Store: Jobs before filter:', get().jobs.length)
+        
+        set((state) => {
+          const filteredJobs = recurrenceId 
+            ? state.jobs.filter((j) => j.recurrenceId !== recurrenceId)
+            : state.jobs.filter((j) => j.id !== id)
+          console.log('Store: Jobs after filter:', filteredJobs.length)
+          return {
+            jobs: filteredJobs,
+            selectedJob: state.selectedJob?.id === id ? null : state.selectedJob,
+            isLoading: false,
+          }
+        })
+      } else {
+        // Delete only the single job
+        console.log('Store: Deleting single job')
+        set((state) => ({
+          jobs: state.jobs.filter((j) => j.id !== id),
+          selectedJob:
+            state.selectedJob?.id === id ? null : state.selectedJob,
+          isLoading: false,
+        }))
+      }
     } catch (error: any) {
+      console.error('Store: Error deleting job:', error)
       set({
         error: error.message || 'Failed to delete job',
         isLoading: false,

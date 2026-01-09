@@ -22,11 +22,26 @@ const InvoiceCard = ({ invoice }: InvoiceCardProps) => {
     partial: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
     paid: 'bg-green-500/20 text-green-400 border-green-500/30',
   }
+
+  const paymentStatusLabels = {
+    pending: 'Unpaid',
+    partial: 'Partial',
+    paid: 'Paid',
+  }
+
+  const approvalStatusColors = {
+    none: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
+    declined: 'bg-red-500/20 text-red-400 border-red-500/30',
+  }
   
   // Only show status badge if it's not redundant with paymentStatus
   // Show status for: draft, overdue, cancelled
   // Hide status for: sent (since paymentStatus already shows pending/partial/paid)
   const shouldShowStatus = invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
+
+  // Show approval status for sent invoices
+  const shouldShowApproval = invoice.status === 'sent' && invoice.approvalStatus && invoice.approvalStatus !== 'none'
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -69,13 +84,23 @@ const InvoiceCard = ({ invoice }: InvoiceCardProps) => {
                 {invoice.status}
               </span>
             )}
+            {shouldShowApproval && (
+              <span
+                className={cn(
+                  'px-2 py-1 text-xs font-medium rounded border',
+                  approvalStatusColors[invoice.approvalStatus!]
+                )}
+              >
+                Client {invoice.approvalStatus}
+              </span>
+            )}
             <span
               className={cn(
                 'px-2 py-1 text-xs font-medium rounded border',
                 paymentStatusColors[invoice.paymentStatus]
               )}
             >
-              {invoice.paymentStatus}
+              {paymentStatusLabels[invoice.paymentStatus]}
             </span>
           </div>
         </div>

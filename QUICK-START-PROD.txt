@@ -1,0 +1,172 @@
+================================================================================
+  JobDock Production Deployment - Quick Start
+================================================================================
+
+PREREQUISITES CHECKLIST:
+------------------------
+□ AWS CLI installed and configured (run: aws configure)
+□ AWS account with billing enabled
+□ (Optional) Custom domain registered
+□ (Optional) ACM certificate created in us-east-1
+
+================================================================================
+DEPLOYMENT COMMANDS
+================================================================================
+
+FULL INITIAL DEPLOYMENT:
+  npm run deploy:prod
+  
+  This will:
+  - Deploy all AWS infrastructure
+  - Run database migrations  
+  - Build and deploy frontend
+  - Provide DNS setup instructions
+  
+  Time: ~15-20 minutes
+  
+  ⚠️  You will be prompted to:
+  - Enter your custom domain (optional - press Enter to skip)
+  - Enter ACM certificate ARN (optional - press Enter to skip)
+  - Confirm AWS deployment
+  - Confirm SES email verification
+
+
+FRONTEND-ONLY UPDATE (after initial deployment):
+  npm run deploy:prod:frontend
+  
+  Use this for quick frontend changes.
+  Time: ~1-2 minutes
+
+
+CHECK DEPLOYMENT STATUS:
+  npm run check:prod
+  
+  Shows:
+  - Infrastructure status
+  - Frontend deployment
+  - Database and migrations
+  - DNS configuration
+
+
+RUN MIGRATIONS ONLY:
+  .\migrate.ps1 -Env prod -Action deploy
+
+
+================================================================================
+STEP-BY-STEP FOR CUSTOM DOMAIN
+================================================================================
+
+1. Create ACM Certificate:
+   → https://console.aws.amazon.com/acm/home?region=us-east-1
+   → Request certificate for your domain
+   → Add DNS validation records to your DNS provider
+   → Wait for "Issued" status
+   → Copy the certificate ARN
+
+2. Update infrastructure/config.ts:
+   
+   prod: {
+     domain: 'app.yourdomain.com',
+     cloudfrontCertificateArn: 'arn:aws:acm:us-east-1:...',
+     ...
+   }
+
+3. Deploy:
+   npm run deploy:prod
+
+4. Add DNS CNAME (you'll get exact instructions from deploy script):
+   Type: CNAME
+   Name: app.yourdomain.com
+   Value: d1234abcd5678.cloudfront.net
+   TTL: 300
+
+5. Wait 5-30 minutes for DNS propagation
+
+6. Access your app at: https://app.yourdomain.com
+
+
+================================================================================
+DEPLOYING WITHOUT CUSTOM DOMAIN
+================================================================================
+
+If you want to skip custom domain setup:
+
+1. Just run:
+   npm run deploy:prod
+
+2. Press Enter when prompted for domain and certificate
+
+3. Your app will be available at the CloudFront URL
+   (shown at end of deployment)
+
+4. You can add a custom domain later by:
+   - Creating ACM certificate
+   - Updating infrastructure/config.ts
+   - Re-running: npm run deploy:prod
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+"Stack does not exist":
+  → First time deployment - this is normal, script will create it
+
+"Certificate not found":
+  → Make sure certificate is in us-east-1 region
+  → Verify ARN is correct in config.ts
+  → Certificate must be in "Issued" status
+
+"Build failed":
+  → Check that Node.js and npm are installed
+  → Run: npm install
+  → Try again
+
+"AWS credentials not configured":
+  → Run: aws configure
+  → Enter your AWS Access Key ID and Secret Access Key
+
+"Permission denied" on PowerShell scripts:
+  → Run: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  → Then run the script again
+
+
+================================================================================
+COST ESTIMATES
+================================================================================
+
+Expected monthly costs (after free tier):
+  
+  RDS PostgreSQL t3.micro:  $15-20/month
+  NAT Gateway:              $32/month
+  Lambda:                   $0-5/month
+  API Gateway:              $0-5/month  
+  S3:                       $1-3/month
+  CloudFront:               $1-5/month
+  
+  TOTAL: ~$50-70/month
+
+Set up billing alerts:
+  → https://console.aws.amazon.com/billing/
+  → Budgets → Create budget
+
+
+================================================================================
+NEED MORE HELP?
+================================================================================
+
+Read the full guide:
+  PRODUCTION-SETUP-GUIDE.txt
+
+Check AWS Console:
+  CloudFormation: https://console.aws.amazon.com/cloudformation/
+  RDS: https://console.aws.amazon.com/rds/
+  CloudFront: https://console.aws.amazon.com/cloudfront/
+  S3: https://console.aws.amazon.com/s3/
+  Lambda: https://console.aws.amazon.com/lambda/
+  
+Check deployment logs:
+  CloudWatch Logs: https://console.aws.amazon.com/cloudwatch/
+
+
+================================================================================

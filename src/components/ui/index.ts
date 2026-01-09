@@ -28,3 +28,6 @@ export type { CheckboxProps } from './Checkbox'
 
 export { default as Textarea } from './Textarea'
 export type { TextareaProps } from './Textarea'
+
+export { default as StatusBadgeSelect } from './StatusBadgeSelect'
+export type { StatusBadgeSelectProps, StatusOption } from './StatusBadgeSelect'

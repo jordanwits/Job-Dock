@@ -1,12 +1,13 @@
-import { Quote } from '../types/quote'
+import { Quote, QuoteStatus } from '../types/quote'
 import { useQuoteStore } from '../store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
-import { Modal, Button } from '@/components/ui'
+import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
 import { useState } from 'react'
 import QuoteForm from './QuoteForm'
 import ConvertQuoteToInvoiceModal from './ConvertQuoteToInvoiceModal'
 import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
+import { ScheduleJobModal } from '@/features/scheduling'
 
 interface QuoteDetailProps {
   quote: Quote
@@ -21,6 +22,7 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
+  const [showScheduleJob, setShowScheduleJob] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
@@ -92,6 +94,22 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
     expired: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
   }
 
+  const statusOptions = [
+    { value: 'draft', label: 'Draft' },
+    { value: 'sent', label: 'Sent' },
+    { value: 'accepted', label: 'Accepted' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'expired', label: 'Expired' },
+  ]
+
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      await updateQuote({ id: quote.id, status: newStatus as QuoteStatus })
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -125,7 +143,11 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={quote.quoteNumber}
+        title={
+          quote.contactName && quote.title
+            ? `${quote.quoteNumber} — ${quote.contactName} ${quote.title}`
+            : quote.quoteNumber
+        }
         size="lg"
         footer={
           <div className="flex flex-col sm:flex-row justify-between w-full gap-3">
@@ -137,6 +159,12 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
               Delete
             </Button>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
+              <Button
+                onClick={() => setShowScheduleJob(true)}
+                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+              >
+                Schedule Job
+              </Button>
               <Button
                 onClick={handleSend}
                 disabled={isSending || !quote.contactEmail}
@@ -171,18 +199,14 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
           )}
           {sendError && (
             <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">
-                ✗ {sendError}
-              </p>
+              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
             </div>
           )}
-          
+
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-primary-light">
-                {quote.quoteNumber}
-              </h2>
+              <h2 className="text-2xl font-bold text-primary-light">{quote.quoteNumber}</h2>
               {quote.contactName && (
                 <p className="text-primary-light/70 mt-1">
                   {quote.contactName}
@@ -190,21 +214,19 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
                 </p>
               )}
             </div>
-            <span
-              className={cn(
-                'px-3 py-1 text-sm font-medium rounded border',
-                statusColors[quote.status]
-              )}
-            >
-              {quote.status}
-            </span>
+            <StatusBadgeSelect
+              value={quote.status}
+              options={statusOptions}
+              colorClassesByValue={statusColors}
+              onChange={handleStatusChange}
+              isLoading={isLoading}
+              size="md"
+            />
           </div>
 
           {/* Line Items Table */}
           <div>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-3">
-              Line Items
-            </h3>
+            <h3 className="text-sm font-medium text-primary-light/70 mb-3">Line Items</h3>
             {/* Desktop Table View */}
             <div className="hidden sm:block rounded-lg border border-primary-blue overflow-hidden">
               <table className="w-full">
@@ -226,13 +248,8 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
                 </thead>
                 <tbody>
                   {quote.lineItems.map((item, index) => (
-                    <tr
-                      key={item.id || index}
-                      className="border-t border-primary-blue"
-                    >
-                      <td className="px-4 py-3 text-sm text-primary-light">
-                        {item.description}
-                      </td>
+                    <tr key={item.id || index} className="border-t border-primary-blue">
+                      <td className="px-4 py-3 text-sm text-primary-light">{item.description}</td>
                       <td className="px-4 py-3 text-sm text-primary-light text-right">
                         {item.quantity}
                       </td>
@@ -254,9 +271,7 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
                   key={item.id || index}
                   className="rounded-lg border border-primary-blue bg-primary-dark-secondary p-4 space-y-2"
                 >
-                  <div className="text-sm font-medium text-primary-light">
-                    {item.description}
-                  </div>
+                  <div className="text-sm font-medium text-primary-light">{item.description}</div>
                   <div className="flex justify-between text-sm">
                     <span className="text-primary-light/70">Quantity:</span>
                     <span className="text-primary-light">{item.quantity}</span>
@@ -279,31 +294,21 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
             <div className="w-full max-w-md space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-primary-light/70">Subtotal</span>
-                <span className="text-primary-light">
-                  {formatCurrency(quote.subtotal)}
-                </span>
+                <span className="text-primary-light">{formatCurrency(quote.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-primary-light/70">
-                  Tax ({quote.taxRate * 100}%)
-                </span>
-                <span className="text-primary-light">
-                  {formatCurrency(quote.taxAmount)}
-                </span>
+                <span className="text-primary-light/70">Tax ({quote.taxRate * 100}%)</span>
+                <span className="text-primary-light">{formatCurrency(quote.taxAmount)}</span>
               </div>
               {quote.discount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-primary-light/70">Discount</span>
-                  <span className="text-primary-light">
-                    -{formatCurrency(quote.discount)}
-                  </span>
+                  <span className="text-primary-light">-{formatCurrency(quote.discount)}</span>
                 </div>
               )}
               <div className="flex justify-between pt-2 border-t border-primary-blue text-lg font-bold">
                 <span className="text-primary-light">Total</span>
-                <span className="text-primary-gold">
-                  {formatCurrency(quote.total)}
-                </span>
+                <span className="text-primary-gold">{formatCurrency(quote.total)}</span>
               </div>
             </div>
           </div>
@@ -311,12 +316,8 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
           {/* Notes */}
           {quote.notes && (
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-2">
-                Notes
-              </h3>
-              <p className="text-sm text-primary-light whitespace-pre-wrap">
-                {quote.notes}
-              </p>
+              <h3 className="text-sm font-medium text-primary-light/70 mb-2">Notes</h3>
+              <p className="text-sm text-primary-light whitespace-pre-wrap">{quote.notes}</p>
             </div>
           )}
 
@@ -324,9 +325,7 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
           <div className="pt-4 border-t border-primary-blue text-xs text-primary-light/50 space-y-1">
             <div>Created: {new Date(quote.createdAt).toLocaleDateString()}</div>
             {quote.validUntil && (
-              <div>
-                Valid until: {new Date(quote.validUntil).toLocaleDateString()}
-              </div>
+              <div>Valid until: {new Date(quote.validUntil).toLocaleDateString()}</div>
             )}
             {quote.updatedAt !== quote.createdAt && (
               <div>Updated: {new Date(quote.updatedAt).toLocaleDateString()}</div>
@@ -334,6 +333,18 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
           </div>
         </div>
       </Modal>
+
+      {/* Schedule Job Modal */}
+      <ScheduleJobModal
+        isOpen={showScheduleJob}
+        onClose={() => setShowScheduleJob(false)}
+        defaultContactId={quote.contactId}
+        defaultTitle={`Job for quote ${quote.quoteNumber}`}
+        defaultNotes={`Created from quote ${quote.quoteNumber}`}
+        sourceContext="quote"
+        quoteId={quote.id}
+        initialQuoteId={quote.id}
+      />
 
       {/* Convert to Invoice Modal */}
       <ConvertQuoteToInvoiceModal
@@ -366,8 +377,8 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
         }
       >
         <p className="text-primary-light">
-          Are you sure you want to delete quote <strong>{quote.quoteNumber}</strong>?
-          This action cannot be undone.
+          Are you sure you want to delete quote <strong>{quote.quoteNumber}</strong>? This action
+          cannot be undone.
         </p>
       </Modal>
     </>
@@ -375,4 +386,3 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
 }
 
 export default QuoteDetail
-

@@ -44,7 +44,9 @@ export const PdfTemplatesSection = ({
 
       <p className="text-sm text-primary-light/70 mb-6">
         Upload custom PDF backgrounds or letterheads for your invoices and quotes.
-        The system will overlay dynamic content (line items, totals, etc.) on your template.
+        The system will use your template as the background and automatically overlay dynamic content
+        (invoice/quote numbers, customer details, line items, totals, etc.) on top of it.
+        This allows you to use your professionally designed letterhead while keeping all data up-to-date.
         Max size: 10MB per file.
       </p>
 

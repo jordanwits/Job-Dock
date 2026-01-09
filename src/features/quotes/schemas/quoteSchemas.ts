@@ -8,6 +8,7 @@ export const lineItemSchema = z.object({
 
 export const quoteSchema = z.object({
   contactId: z.string().min(1, 'Contact is required'),
+  title: z.string().optional(),
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
   taxRate: z.number().min(0).max(100).optional(),
   discount: z.number().min(0).optional(),

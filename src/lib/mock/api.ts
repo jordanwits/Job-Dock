@@ -648,11 +648,28 @@ export const mockJobsService = {
     return updatedJob
   },
 
-  delete: async (id: string) => {
+  delete: async (id: string, deleteAll?: boolean) => {
     await delay(300)
-    const index = mockStorage.jobs.findIndex((j) => j.id === id)
-    if (index === -1) throw new Error('Job not found')
-    mockStorage.jobs.splice(index, 1)
+    console.log('Mock API: delete called with id:', id, 'deleteAll:', deleteAll)
+    const jobIndex = mockStorage.jobs.findIndex((j) => j.id === id)
+    if (jobIndex === -1) throw new Error('Job not found')
+    
+    const job = mockStorage.jobs[jobIndex]
+    console.log('Mock API: Found job:', job.title, 'recurrenceId:', job.recurrenceId)
+    console.log('Mock API: Total jobs before delete:', mockStorage.jobs.length)
+    
+    if (deleteAll && job.recurrenceId) {
+      // Delete all jobs with the same recurrenceId
+      const jobsWithSameRecurrence = mockStorage.jobs.filter((j) => j.recurrenceId === job.recurrenceId)
+      console.log('Mock API: Found', jobsWithSameRecurrence.length, 'jobs with same recurrenceId')
+      mockStorage.jobs = mockStorage.jobs.filter((j) => j.recurrenceId !== job.recurrenceId)
+    } else {
+      console.log('Mock API: Deleting single job only')
+      // Delete only this job
+      mockStorage.jobs.splice(jobIndex, 1)
+    }
+    
+    console.log('Mock API: Total jobs after delete:', mockStorage.jobs.length)
     saveMockStorage()
     return { success: true }
   },

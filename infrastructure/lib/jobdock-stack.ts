@@ -8,6 +8,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
 import * as cloudfrontOrigins from 'aws-cdk-lib/aws-cloudfront-origins'
+import * as acm from 'aws-cdk-lib/aws-certificatemanager'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as logs from 'aws-cdk-lib/aws-logs'
 import * as path from 'path'
@@ -76,7 +77,7 @@ export class JobDockStack extends cdk.Stack {
     )
 
     // ============================================
-    // 2. Database (Aurora Serverless v2 for prod, RDS PostgreSQL for dev)
+    // 2. Database (RDS PostgreSQL or Aurora Serverless v2)
     // ============================================
     const databaseSubnetGroup = new rds.SubnetGroup(this, 'DatabaseSubnetGroup', {
       vpc: this.vpc,
@@ -86,10 +87,13 @@ export class JobDockStack extends cdk.Stack {
       },
     })
 
-    // Use regular RDS PostgreSQL for dev (Free Tier eligible)
-    // Use Aurora Serverless v2 for staging/prod (auto-scaling)
-    if (config.env === 'dev') {
-      // Regular RDS PostgreSQL instance (Free Tier: db.t2.micro or db.t3.micro)
+    // Use regular RDS PostgreSQL for dev/prod (Free Tier eligible)
+    // Use Aurora Serverless v2 for staging (auto-scaling)
+    if (config.database.engine === 'rds-postgresql') {
+      // Regular RDS PostgreSQL instance (Free Tier: db.t3.micro)
+      const instanceClass = config.database.instanceClass || 't3'
+      const instanceSize = config.database.instanceSize || 'MICRO'
+
       this.database = new rds.DatabaseInstance(this, 'Database', {
         engine: rds.DatabaseInstanceEngine.postgres({
           version: rds.PostgresEngineVersion.VER_16_3, // Use widely available Postgres 16.x build
@@ -97,7 +101,10 @@ export class JobDockStack extends cdk.Stack {
         credentials: rds.Credentials.fromGeneratedSecret('dbadmin', {
           secretName: `jobdock-db-credentials-${config.env}`,
         }),
-        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO), // Free Tier eligible
+        instanceType: ec2.InstanceType.of(
+          ec2.InstanceClass[instanceClass.toUpperCase() as keyof typeof ec2.InstanceClass],
+          ec2.InstanceSize[instanceSize as keyof typeof ec2.InstanceSize]
+        ),
         vpc: this.vpc,
         vpcSubnets: {
           subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
@@ -105,15 +112,15 @@ export class JobDockStack extends cdk.Stack {
         subnetGroup: databaseSubnetGroup,
         securityGroups: [dbSecurityGroup],
         databaseName: 'jobdock',
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
         backupRetention: cdk.Duration.days(1), // Free tier limit
-        deleteAutomatedBackups: true,
+        deleteAutomatedBackups: config.env !== 'prod',
         storageEncrypted: true,
         monitoringInterval: cdk.Duration.seconds(60),
         enablePerformanceInsights: false, // Not available on t3.micro
       })
     } else {
-      // Aurora Serverless v2 for staging/prod
+      // Aurora Serverless v2 for staging
       this.database = new rds.DatabaseCluster(this, 'Database', {
         engine: rds.DatabaseClusterEngine.auroraPostgres({
           version: rds.AuroraPostgresEngineVersion.VER_15_3,
@@ -131,8 +138,8 @@ export class JobDockStack extends cdk.Stack {
         writer: rds.ClusterInstance.serverlessV2('writer', {
           scaleWithWriter: true,
         }),
-        serverlessV2MinCapacity: config.database.minCapacity,
-        serverlessV2MaxCapacity: config.database.maxCapacity,
+        serverlessV2MinCapacity: config.database.minCapacity!,
+        serverlessV2MaxCapacity: config.database.maxCapacity!,
         removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
         backup: {
           retention: cdk.Duration.days(7),
@@ -178,9 +185,11 @@ export class JobDockStack extends cdk.Stack {
           authorizationCodeGrant: true,
         },
         scopes: [cognito.OAuthScope.EMAIL, cognito.OAuthScope.OPENID, cognito.OAuthScope.PROFILE],
-        callbackUrls: config.domain
-          ? [`https://${config.domain}`, `https://www.${config.domain}`]
-          : ['http://localhost:5173'], // Vite default port
+        callbackUrls: [
+          'http://localhost:5173', // Local development
+          ...(config.vercelDomain ? [`https://${config.vercelDomain}`] : []),
+          ...(config.domain ? [`https://${config.domain}`, `https://www.${config.domain}`] : []),
+        ].filter(Boolean),
       },
     })
 
@@ -216,7 +225,7 @@ export class JobDockStack extends cdk.Stack {
     })
 
     // CloudFront Distribution for Frontend
-    this.distribution = new cloudfront.Distribution(this, 'FrontendDistribution', {
+    const distributionProps: cloudfront.DistributionProps = {
       defaultBehavior: {
         origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(this.frontendBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -232,7 +241,35 @@ export class JobDockStack extends cdk.Stack {
           ttl: cdk.Duration.seconds(0),
         },
       ],
-    })
+    }
+
+    // Add custom domain and certificate if configured
+    if (config.domain && config.cloudfrontCertificateArn) {
+      const certificate = acm.Certificate.fromCertificateArn(
+        this,
+        'CloudFrontCertificate',
+        config.cloudfrontCertificateArn
+      )
+
+      const domainNames = [config.domain]
+
+      // Optionally add www subdomain if domain doesn't start with a subdomain
+      if (!config.domain.includes('.') || config.domain.split('.').length === 2) {
+        domainNames.push(`www.${config.domain}`)
+      }
+
+      this.distribution = new cloudfront.Distribution(this, 'FrontendDistribution', {
+        ...distributionProps,
+        domainNames,
+        certificate,
+      })
+    } else {
+      this.distribution = new cloudfront.Distribution(
+        this,
+        'FrontendDistribution',
+        distributionProps
+      )
+    }
 
     // ============================================
     // 5. Lambda Execution Role
@@ -277,9 +314,12 @@ export class JobDockStack extends cdk.Stack {
       description: `JobDock API - ${config.env} environment`,
       binaryMediaTypes: ['multipart/form-data', 'image/*', 'application/pdf'],
       defaultCorsPreflightOptions: {
-        allowOrigins: config.domain
-          ? [`https://${config.domain}`, `https://www.${config.domain}`]
-          : ['http://localhost:5173', 'http://localhost:3000'],
+        allowOrigins: [
+          'http://localhost:5173', // Local dev
+          'http://localhost:3000',
+          ...(config.vercelDomain ? [`https://${config.vercelDomain}`] : []),
+          ...(config.domain ? [`https://${config.domain}`, `https://www.${config.domain}`] : []),
+        ].filter(Boolean),
         allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
         maxAge: cdk.Duration.seconds(3600),
@@ -366,7 +406,7 @@ export class JobDockStack extends cdk.Stack {
         USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
         FILES_BUCKET: this.filesBucket.bucketName,
         ENVIRONMENT: config.env,
-        PUBLIC_APP_URL: config.domain ? `https://${config.domain}` : 'http://localhost:5173',
+        PUBLIC_APP_URL: config.vercelDomain ? `https://${config.vercelDomain}` : config.domain ? `https://${config.domain}` : 'http://localhost:3000',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // SES Email configuration
         SES_ENABLED: 'true', // Enable for all environments to send real emails
@@ -405,7 +445,7 @@ export class JobDockStack extends cdk.Stack {
         USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
         FILES_BUCKET: this.filesBucket.bucketName,
         ENVIRONMENT: config.env,
-        PUBLIC_APP_URL: config.domain ? `https://${config.domain}` : 'http://localhost:5173',
+        PUBLIC_APP_URL: config.vercelDomain ? `https://${config.vercelDomain}` : config.domain ? `https://${config.domain}` : 'http://localhost:3000',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // SES Email configuration
         SES_ENABLED: 'true', // Enable for all environments to send real emails
@@ -416,6 +456,38 @@ export class JobDockStack extends cdk.Stack {
     })
 
     const dataIntegration = new apigateway.LambdaIntegration(dataLambda)
+
+    // Migration lambda for running database migrations
+    const migrationLambda = new lambdaNodejs.NodejsFunction(this, 'MigrationLambda', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.resolve(backendDir, 'src', 'functions', 'migrate', 'handler.ts'),
+      handler: 'handler',
+      bundling: commonBundlingOptions,
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: [lambdaSecurityGroup],
+      timeout: cdk.Duration.seconds(300), // 5 minutes for migrations
+      memorySize: 1024, // More memory for Prisma
+      environment: {
+        DATABASE_URL: `postgresql://${databaseUserSecret.unsafeUnwrap()}:${databasePasswordSecret.unsafeUnwrap()}@${databaseHost}:5432/jobdock?schema=public`,
+        DATABASE_SECRET_ARN: this.database.secret?.secretArn ?? '',
+        DATABASE_HOST: databaseHost,
+        DATABASE_USER: databaseUserSecret.toString(),
+        DATABASE_PASSWORD: databasePasswordSecret.toString(),
+        DATABASE_PORT: '5432',
+        DATABASE_NAME: 'jobdock',
+        ENV: config.env,
+        ENVIRONMENT: config.env,
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      description: 'Runs Prisma database migrations',
+    })
+
+    // Grant migration lambda database access
+    this.database.secret?.grantRead(migrationLambda)
+    this.database.grantConnect(migrationLambda, 'jobdock')
 
     const authResource = this.api.root.addResource('auth')
     authResource.addResource('register').addMethod('POST', authIntegration)
@@ -483,6 +555,12 @@ export class JobDockStack extends cdk.Stack {
       value: `https://${this.distribution.distributionDomainName}`,
       description: 'CloudFront distribution URL',
       exportName: `JobDock-${config.env}-CloudFrontUrl`,
+    })
+
+    new cdk.CfnOutput(this, 'MigrationLambdaName', {
+      value: migrationLambda.functionName,
+      description: 'Migration Lambda function name for running database migrations',
+      exportName: `JobDock-${config.env}-MigrationLambdaName`,
     })
   }
 }

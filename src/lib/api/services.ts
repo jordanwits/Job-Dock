@@ -159,8 +159,11 @@ const realJobsService = {
     return response.data
   },
 
-  delete: async (id: string) => {
-    const response = await apiClient.delete(`/jobs/${id}`)
+  delete: async (id: string, deleteAll?: boolean) => {
+    const params = deleteAll ? { deleteAll: 'true' } : {}
+    console.log('API: Deleting job', id, 'with params:', params)
+    const response = await apiClient.delete(`/jobs/${id}`, { params })
+    console.log('API: Delete response:', response.data)
     return response.data
   },
 

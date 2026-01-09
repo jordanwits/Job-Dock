@@ -1,5 +1,6 @@
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses'
 import { generateQuotePDF, generateInvoicePDF } from './pdf'
+import { generateApprovalToken } from './approvalTokens'
 
 // Email configuration from environment variables
 const SES_ENABLED = process.env.SES_ENABLED === 'true'
@@ -176,10 +177,21 @@ export function buildClientConfirmationEmail(data: {
   endTime: Date
   location?: string
   tenantName?: string
+  breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location, tenantName } = data
+  const { clientName, serviceName, startTime, endTime, location, tenantName, breaks } = data
+  
+  // Detect if this is a multi-day job
+  const durationMs = endTime.getTime() - startTime.getTime()
+  const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
   
   const dateStr = startTime.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  const endDateStr = endTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -196,6 +208,31 @@ export function buildClientConfirmationEmail(data: {
 
   const subject = `Your booking is confirmed - ${serviceName}`
   
+  // Build breaks section if present
+  let breaksHtml = ''
+  if (breaks && breaks.length > 0) {
+    const breaksList = breaks.map(b => {
+      const bStart = new Date(b.startTime)
+      const bEnd = new Date(b.endTime)
+      const reason = b.reason ? ` (${b.reason})` : ''
+      if (isMultiDay) {
+        return `<li style="margin: 5px 0;">${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}</li>`
+      } else {
+        return `<li style="margin: 5px 0;">${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}</li>`
+      }
+    }).join('')
+    breaksHtml = `
+      <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+        <p style="margin: 5px 0 10px 0;"><strong>📅 Schedule Notes:</strong></p>
+        <p style="margin: 5px 0;">This job includes planned pauses:</p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          ${breaksList}
+        </ul>
+        <p style="margin: 5px 0; font-size: 0.9em;">We'll return to work after each pause as scheduled.</p>
+      </div>
+    `
+  }
+
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -204,11 +241,15 @@ export function buildClientConfirmationEmail(data: {
         <p>Your booking has been confirmed! Here are the details:</p>
         <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          <p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
-          <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>
+          ${isMultiDay 
+            ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${dateStr} through ${endDateStr}</p>`
+            : `<p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
+               <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>`
+          }
           ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
           ${tenantName ? `<p style="margin: 5px 0;"><strong>Provider:</strong> ${tenantName}</p>` : ''}
         </div>
+        ${breaksHtml}
         <p>We look forward to seeing you!</p>
         <p style="color: #666; font-size: 12px; margin-top: 30px;">
           If you need to cancel or reschedule, please contact us as soon as possible.
@@ -216,6 +257,27 @@ export function buildClientConfirmationEmail(data: {
       </body>
     </html>
   `
+
+  // Build breaks section for text version
+  let breaksText = ''
+  if (breaks && breaks.length > 0) {
+    const breaksList = breaks.map(b => {
+      const bStart = new Date(b.startTime)
+      const bEnd = new Date(b.endTime)
+      const reason = b.reason ? ` (${b.reason})` : ''
+      if (isMultiDay) {
+        return `  - ${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}`
+      } else {
+        return `  - ${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}`
+      }
+    }).join('\n')
+    breaksText = `
+
+Schedule Notes:
+This job includes planned pauses:
+${breaksList}
+We'll return to work after each pause as scheduled.`
+  }
 
   const textBody = `
 Booking Confirmed
@@ -225,10 +287,14 @@ Hi ${clientName},
 Your booking has been confirmed! Here are the details:
 
 Service: ${serviceName}
-Date: ${dateStr}
-Time: ${startTimeStr} - ${endTimeStr}
+${isMultiDay 
+  ? `Duration: ${dateStr} through ${endDateStr}`
+  : `Date: ${dateStr}
+Time: ${startTimeStr} - ${endTimeStr}`
+}
 ${location ? `Location: ${location}` : ''}
 ${tenantName ? `Provider: ${tenantName}` : ''}
+${breaksText}
 
 We look forward to seeing you!
 
@@ -402,10 +468,21 @@ export function buildClientBookingConfirmedEmail(data: {
   startTime: Date
   endTime: Date
   location?: string
+  breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location } = data
+  const { clientName, serviceName, startTime, endTime, location, breaks } = data
+  
+  // Detect if this is a multi-day job
+  const durationMs = endTime.getTime() - startTime.getTime()
+  const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
   
   const dateStr = startTime.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  const endDateStr = endTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -423,6 +500,31 @@ export function buildClientBookingConfirmedEmail(data: {
   const bookingId = `#${Date.now().toString().slice(-6)}`
   const subject = `Your booking has been confirmed ${bookingId} - ${serviceName}`
   
+  // Build breaks section if present
+  let breaksHtml = ''
+  if (breaks && breaks.length > 0) {
+    const breaksList = breaks.map(b => {
+      const bStart = new Date(b.startTime)
+      const bEnd = new Date(b.endTime)
+      const reason = b.reason ? ` (${b.reason})` : ''
+      if (isMultiDay) {
+        return `<li style="margin: 5px 0;">${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}</li>`
+      } else {
+        return `<li style="margin: 5px 0;">${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}</li>`
+      }
+    }).join('')
+    breaksHtml = `
+      <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+        <p style="margin: 5px 0 10px 0;"><strong>📅 Schedule Notes:</strong></p>
+        <p style="margin: 5px 0;">This job includes planned pauses:</p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          ${breaksList}
+        </ul>
+        <p style="margin: 5px 0; font-size: 0.9em;">We'll return to work after each pause as scheduled.</p>
+      </div>
+    `
+  }
+
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -431,14 +533,39 @@ export function buildClientBookingConfirmedEmail(data: {
         <p>Great news! Your booking request has been confirmed.</p>
         <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          <p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
-          <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>
+          ${isMultiDay 
+            ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${dateStr} through ${endDateStr}</p>`
+            : `<p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
+               <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>`
+          }
           ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
         </div>
+        ${breaksHtml}
         <p>We look forward to seeing you!</p>
       </body>
     </html>
   `
+
+  // Build breaks section for text version
+  let breaksText = ''
+  if (breaks && breaks.length > 0) {
+    const breaksList = breaks.map(b => {
+      const bStart = new Date(b.startTime)
+      const bEnd = new Date(b.endTime)
+      const reason = b.reason ? ` (${b.reason})` : ''
+      if (isMultiDay) {
+        return `  - ${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}`
+      } else {
+        return `  - ${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}`
+      }
+    }).join('\n')
+    breaksText = `
+
+Schedule Notes:
+This job includes planned pauses:
+${breaksList}
+We'll return to work after each pause as scheduled.`
+  }
 
   const textBody = `
 ✓ Booking Confirmed
@@ -448,9 +575,13 @@ Hi ${clientName},
 Great news! Your booking request has been confirmed.
 
 Service: ${serviceName}
-Date: ${dateStr}
-Time: ${startTimeStr} - ${endTimeStr}
+${isMultiDay 
+  ? `Duration: ${dateStr} through ${endDateStr}`
+  : `Date: ${dateStr}
+Time: ${startTimeStr} - ${endTimeStr}`
+}
 ${location ? `Location: ${location}` : ''}
+${breaksText}
 
 We look forward to seeing you!
   `.trim()
@@ -578,6 +709,12 @@ export async function sendQuoteEmail(data: {
   // Convert body template newlines to HTML
   const bodyHtml = bodyTemplate.split('\n').map(line => `<p>${line}</p>`).join('')
   
+  // Generate approval token and URLs
+  const approvalToken = generateApprovalToken('quote', quoteData.id, tenantId)
+  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+  const acceptUrl = `${publicAppUrl}/public/quote/${quoteData.id}/accept?token=${approvalToken}`
+  const declineUrl = `${publicAppUrl}/public/quote/${quoteData.id}/decline?token=${approvalToken}`
+  
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -587,6 +724,31 @@ export async function sendQuoteEmail(data: {
           <p style="margin: 5px 0;"><strong>Quote Number:</strong> ${quoteData.quoteNumber}</p>
           <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${quoteData.total.toFixed(2)}</p>
           <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${validUntilText}</p>
+        </div>
+        <div style="margin: 30px 0; text-align: center;">
+          <p style="margin-bottom: 15px;"><strong>Please review and respond to this quote:</strong></p>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+            <tr>
+              <td style="padding: 0 5px;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color: #D4AF37; border-radius: 5px; padding: 12px 30px;">
+                      <a href="${acceptUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Accept Quote</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td style="padding: 0 5px;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color: #666666; border-radius: 5px; padding: 12px 30px;">
+                      <a href="${declineUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Decline Quote</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
         </div>
         ${settings?.companySupportEmail ? `<p style="color: #666; font-size: 0.9em;">Questions? Contact us at ${settings.companySupportEmail}</p>` : ''}
         ${settings?.companyPhone ? `<p style="color: #666; font-size: 0.9em;">Call us at ${settings.companyPhone}</p>` : ''}
@@ -608,6 +770,12 @@ Quote Number: ${quoteData.quoteNumber}
 Total Amount: $${quoteData.total.toFixed(2)}
 Valid Until: ${validUntilText}
 
+**PLEASE RESPOND TO THIS QUOTE:**
+
+Accept Quote: ${acceptUrl}
+
+Decline Quote: ${declineUrl}
+
 Please review the attached quote and let us know if you have any questions.
 
 We look forward to working with you!
@@ -621,6 +789,7 @@ This quote is valid until ${validUntilText}. Please contact us if you would like
     email: settings?.companySupportEmail || undefined,
     phone: settings?.companyPhone || undefined,
     logoKey: settings?.logoUrl || undefined,
+    templateKey: settings?.quotePdfTemplateKey || undefined,
   })
 
   // Send email with PDF attachment
@@ -705,6 +874,12 @@ export async function sendInvoiceEmail(data: {
   // Convert body template newlines to HTML
   const bodyHtml = bodyTemplate.split('\n').map(line => `<p>${line}</p>`).join('')
   
+  // Generate approval token and URLs
+  const approvalToken = generateApprovalToken('invoice', invoiceData.id, tenantId)
+  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+  const acceptUrl = `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}`
+  const declineUrl = `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}`
+  
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -718,6 +893,31 @@ export async function sendInvoiceEmail(data: {
           <p style="margin: 5px 0;"><strong>Due Date:</strong> ${dueDateText}</p>
           <p style="margin: 5px 0;"><strong>Payment Status:</strong> <span style="color: ${statusColor};">${paymentStatusText}</span></p>
           ${invoiceData.paymentTerms ? `<p style="margin: 5px 0;"><strong>Payment Terms:</strong> ${invoiceData.paymentTerms}</p>` : ''}
+        </div>
+        <div style="margin: 30px 0; text-align: center;">
+          <p style="margin-bottom: 15px;"><strong>Please confirm receipt and acceptance of this invoice:</strong></p>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+            <tr>
+              <td style="padding: 0 5px;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color: #D4AF37; border-radius: 5px; padding: 12px 30px;">
+                      <a href="${acceptUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Approve Invoice</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td style="padding: 0 5px;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color: #666666; border-radius: 5px; padding: 12px 30px;">
+                      <a href="${declineUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Report Issue</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
         </div>
         ${settings?.companySupportEmail ? `<p style="color: #666; font-size: 0.9em;">Questions? Contact us at ${settings.companySupportEmail}</p>` : ''}
         ${settings?.companyPhone ? `<p style="color: #666; font-size: 0.9em;">Call us at ${settings.companyPhone}</p>` : ''}
@@ -743,6 +943,12 @@ Due Date: ${dueDateText}
 Payment Status: ${paymentStatusText}
 ${invoiceData.paymentTerms ? `Payment Terms: ${invoiceData.paymentTerms}` : ''}
 
+**PLEASE CONFIRM RECEIPT:**
+
+Approve Invoice: ${acceptUrl}
+
+Report Issue: ${declineUrl}
+
 ${balance > 0 ? 'Please remit payment by the due date.' : 'Thank you for your payment!'}
 
 If you have any questions about this invoice, please don't hesitate to contact us.
@@ -756,6 +962,7 @@ Thank you for your business!
     email: settings?.companySupportEmail || undefined,
     phone: settings?.companyPhone || undefined,
     logoKey: settings?.logoUrl || undefined,
+    templateKey: settings?.invoicePdfTemplateKey || undefined,
   })
 
   // Send email with PDF attachment

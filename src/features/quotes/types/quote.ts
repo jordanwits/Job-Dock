@@ -9,6 +9,7 @@ export interface QuoteLineItem {
 export interface Quote {
   id: string
   quoteNumber: string
+  title?: string
   contactId: string
   contactName?: string
   contactEmail?: string
@@ -28,6 +29,7 @@ export interface Quote {
 
 export interface CreateQuoteData {
   contactId: string
+  title?: string
   lineItems: Omit<QuoteLineItem, 'id' | 'total'>[]
   taxRate?: number
   discount?: number

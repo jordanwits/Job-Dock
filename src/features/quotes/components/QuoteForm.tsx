@@ -9,11 +9,13 @@ import { useContactStore } from '@/features/crm/store/contactStore'
 interface QuoteFormProps {
   quote?: Quote
   onSubmit: (data: QuoteFormData) => Promise<void>
+  onSaveAndSend?: (data: QuoteFormData) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
+  defaultContactId?: string
 }
 
-const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => {
+const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaultContactId }: QuoteFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
 
   useEffect(() => {
@@ -33,7 +35,8 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
   } = useForm<QuoteFormData>({
     resolver: zodResolver(quoteSchema),
     defaultValues: {
-      contactId: quote?.contactId || '',
+      contactId: quote?.contactId || defaultContactId || '',
+      title: quote?.title || '',
       lineItems: quote?.lineItems.map((item) => ({
         description: item.description,
         quantity: item.quantity,
@@ -73,6 +76,7 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
     if (quote) {
       reset({
         contactId: quote.contactId,
+        title: quote.title || '',
         lineItems: quote.lineItems.map((item) => ({
           description: item.description,
           quantity: item.quantity,
@@ -96,7 +100,7 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
     }).format(amount)
   }
 
-  const handleFormSubmit = async (data: QuoteFormData) => {
+  const handleFormSubmit = async (data: QuoteFormData, shouldSend: boolean = false) => {
     // Convert tax rate from percentage to decimal
     const cleanedData = {
       ...data,
@@ -104,11 +108,26 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
       notes: data.notes || undefined,
       validUntil: data.validUntil || undefined,
     }
-    await onSubmit(cleanedData)
+    
+    if (shouldSend && onSaveAndSend) {
+      await onSaveAndSend(cleanedData)
+    } else {
+      await onSubmit(cleanedData)
+    }
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await handleSubmit((data) => handleFormSubmit(data, false))()
+  }
+
+  const handleSaveAndSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await handleSubmit((data) => handleFormSubmit(data, true))()
   }
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+    <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
       {/* Contact Selection */}
       <Select
         label="Contact *"
@@ -122,6 +141,15 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
             label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
           })),
         ]}
+      />
+
+      {/* Project Title */}
+      <Input
+        label="Project Title"
+        placeholder="e.g., Kitchen Remodel, Office Renovation"
+        error={errors.title?.message}
+        {...register('title')}
+        helperText="Optional: Add a descriptive title for this quote"
       />
 
       {/* Line Items */}
@@ -294,9 +322,14 @@ const QuoteForm = ({ quote, onSubmit, onCancel, isLoading }: QuoteFormProps) => 
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : quote ? 'Update Quote' : 'Create Quote'}
+        <Button type="button" onClick={handleSave} disabled={isLoading}>
+          {isLoading ? 'Saving...' : 'Save'}
         </Button>
+        {!quote && onSaveAndSend && (
+          <Button type="button" onClick={handleSaveAndSend} disabled={isLoading}>
+            {isLoading ? 'Saving...' : 'Create and Send'}
+          </Button>
+        )}
       </div>
     </form>
   )

@@ -1,9 +1,11 @@
-import type { Contact, UpdateContactData } from '../types/contact'
+import type { Contact, UpdateContactData, ContactStatus, CreateContactData } from '../types/contact'
 import { useContactStore } from '../store/contactStore'
-import { Modal, Button } from '@/components/ui'
+import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
 import { useState } from 'react'
 import ContactForm from './ContactForm'
-import { cn } from '@/lib/utils'
+import { ScheduleJobModal } from '@/features/scheduling'
+import QuoteForm from '@/features/quotes/components/QuoteForm'
+import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 
 interface ContactDetailProps {
   contact: Contact
@@ -13,10 +15,13 @@ interface ContactDetailProps {
 
 const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
   const { updateContact, deleteContact, isLoading } = useContactStore()
+  const { createQuote, isLoading: quoteLoading } = useQuoteStore()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showScheduleJob, setShowScheduleJob] = useState(false)
+  const [showCreateQuote, setShowCreateQuote] = useState(false)
 
-  const handleUpdate = async (data: UpdateContactData) => {
+  const handleUpdate = async (data: Partial<CreateContactData>) => {
     try {
       await updateContact({ id: contact.id, ...data })
       setIsEditing(false)
@@ -39,6 +44,29 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
     active: 'bg-green-500/20 text-green-400 border-green-500/30',
     inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
     lead: 'bg-primary-gold/20 text-primary-gold border-primary-gold/30',
+  }
+
+  const statusOptions = [
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+    { value: 'lead', label: 'Lead' },
+  ]
+
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      await updateContact({ id: contact.id, status: newStatus as ContactStatus })
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleCreateQuote = async (data: any) => {
+    try {
+      await createQuote(data)
+      setShowCreateQuote(false)
+    } catch (error) {
+      // Error handled by store
+    }
   }
 
   if (isEditing) {
@@ -67,50 +95,72 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={`${contact.firstName} ${contact.lastName}`}
+        title="Contact Details"
         size="lg"
         footer={
-          <div className="flex justify-between w-full">
+          <div className="flex flex-col sm:flex-row justify-between w-full gap-3">
             <Button
               variant="ghost"
               onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-500 hover:text-red-600"
+              className="text-red-500 hover:text-red-600 order-3 sm:order-1"
             >
               Delete
             </Button>
-            <div className="flex gap-3">
-              <Button variant="ghost" onClick={onClose}>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
+              <Button
+                onClick={() => setShowCreateQuote(true)}
+                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto"
+              >
+                Create Quote
+              </Button>
+              <Button
+                onClick={() => setShowScheduleJob(true)}
+                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto"
+              >
+                Schedule Job
+              </Button>
+              <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">
                 Close
               </Button>
-              <Button onClick={() => setIsEditing(true)}>Edit</Button>
+              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">Edit</Button>
             </div>
           </div>
         }
       >
         <div className="space-y-6">
-          {/* Status Badge */}
-          <div className="flex items-center gap-3">
-            <span
-              className={cn(
-                'px-3 py-1 text-sm font-medium rounded border',
-                statusColors[contact.status]
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-primary-light">
+                {contact.firstName} {contact.lastName}
+              </h2>
+              {contact.company && (
+                <p className="text-primary-light/70 mt-1">{contact.company}</p>
               )}
-            >
-              {contact.status}
-            </span>
-            {contact.tags && contact.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {contact.tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="px-2 py-1 text-xs bg-primary-blue/20 text-primary-blue rounded"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
+            </div>
+            <StatusBadgeSelect
+              value={contact.status}
+              options={statusOptions}
+              colorClassesByValue={statusColors}
+              onChange={handleStatusChange}
+              isLoading={isLoading}
+              size="md"
+            />
           </div>
+
+          {/* Tags */}
+          {contact.tags && contact.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {contact.tags.map((tag, index) => (
+                <span
+                  key={index}
+                  className="px-2 py-1 text-xs bg-primary-blue/20 text-primary-blue rounded"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Contact Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -242,6 +292,30 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
             information you might need later.
           </p>
         </div>
+      </Modal>
+
+      {/* Schedule Job Modal */}
+      <ScheduleJobModal
+        isOpen={showScheduleJob}
+        onClose={() => setShowScheduleJob(false)}
+        defaultContactId={contact.id}
+        defaultTitle={`Job for ${contact.firstName} ${contact.lastName}`}
+        sourceContext="contact"
+      />
+
+      {/* Create Quote Modal */}
+      <Modal
+        isOpen={showCreateQuote}
+        onClose={() => setShowCreateQuote(false)}
+        title="Create Quote"
+        size="xl"
+      >
+        <QuoteForm
+          onSubmit={handleCreateQuote}
+          onCancel={() => setShowCreateQuote(false)}
+          isLoading={quoteLoading}
+          defaultContactId={contact.id}
+        />
       </Modal>
     </>
   )

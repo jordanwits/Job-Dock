@@ -4,6 +4,7 @@ import { dataServices } from '../../lib/dataService'
 import { extractTenantId } from '../../lib/middleware'
 import { ensureTenantExists, getDefaultTenantId } from '../../lib/tenant'
 import { ApiError } from '../../lib/errors'
+import { verifyApprovalToken } from '../../lib/approvalTokens'
 
 type ResourceKey = keyof typeof dataServices
 
@@ -150,6 +151,14 @@ We look forward to working with you!',
         END $$;
       `)
       
+      // Add invoice approval status columns
+      await prisma.$executeRawUnsafe(`ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "approvalStatus" TEXT DEFAULT 'none';`)
+      await prisma.$executeRawUnsafe(`ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "approvalAt" TIMESTAMP(3);`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "invoices_approvalStatus_idx" ON "invoices"("approvalStatus");`)
+      
+      // Add title column to quotes table
+      await prisma.$executeRawUnsafe(`ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "title" TEXT;`)
+      
       console.log('✅ Migration completed successfully')
       return successResponse({ message: 'Migration completed successfully' })
     } catch (error: any) {
@@ -192,7 +201,10 @@ We look forward to working with you!',
           return errorResponse('Resource ID required', 400)
         }
         if ('delete' in service) {
-          return successResponse(await service.delete(tenantId, id))
+          // For jobs, check if deleteAll query parameter is present
+          const deleteAll = event.queryStringParameters?.deleteAll === 'true'
+          // Pass deleteAll for jobs delete, regular services won't use it
+          return successResponse(await service.delete(tenantId, id, deleteAll))
         }
         return errorResponse('Delete method not supported', 405)
       default:
@@ -303,6 +315,51 @@ async function handlePost(
 
   if (resource === 'invoices' && id && action === 'send') {
     return (service as typeof dataServices.invoices).send(tenantId, id)
+  }
+
+  // Public approval actions - verify token first
+  if (resource === 'quotes' && id && action === 'approve-public') {
+    const token = event.queryStringParameters?.token
+    if (!token) {
+      throw new ApiError('Approval token required', 400)
+    }
+    if (!verifyApprovalToken('quote', id, tenantId, token)) {
+      throw new ApiError('Invalid or expired approval token', 403)
+    }
+    return (service as typeof dataServices.quotes).approve(tenantId, id)
+  }
+
+  if (resource === 'quotes' && id && action === 'decline-public') {
+    const token = event.queryStringParameters?.token
+    if (!token) {
+      throw new ApiError('Approval token required', 400)
+    }
+    if (!verifyApprovalToken('quote', id, tenantId, token)) {
+      throw new ApiError('Invalid or expired approval token', 403)
+    }
+    return (service as typeof dataServices.quotes).decline(tenantId, id)
+  }
+
+  if (resource === 'invoices' && id && action === 'approve-public') {
+    const token = event.queryStringParameters?.token
+    if (!token) {
+      throw new ApiError('Approval token required', 400)
+    }
+    if (!verifyApprovalToken('invoice', id, tenantId, token)) {
+      throw new ApiError('Invalid or expired approval token', 403)
+    }
+    return (service as typeof dataServices.invoices).setApprovalStatus(tenantId, id, 'accepted')
+  }
+
+  if (resource === 'invoices' && id && action === 'decline-public') {
+    const token = event.queryStringParameters?.token
+    if (!token) {
+      throw new ApiError('Approval token required', 400)
+    }
+    if (!verifyApprovalToken('invoice', id, tenantId, token)) {
+      throw new ApiError('Invalid or expired approval token', 403)
+    }
+    return (service as typeof dataServices.invoices).setApprovalStatus(tenantId, id, 'declined')
   }
 
   // All other POST actions require a body

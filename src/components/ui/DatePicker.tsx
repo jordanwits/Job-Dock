@@ -15,6 +15,12 @@ export interface DatePickerProps {
   className?: string
 }
 
+// Helper to parse date string as local date (not UTC)
+const parseDateStringAsLocal = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
 const DatePicker = ({
   value,
   onChange,
@@ -28,7 +34,7 @@ const DatePicker = ({
   className,
 }: DatePickerProps) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState(value ? new Date(value) : new Date())
+  const [currentMonth, setCurrentMonth] = useState(value ? parseDateStringAsLocal(value) : new Date())
   const containerRef = useRef<HTMLDivElement>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
 
@@ -59,9 +65,9 @@ const DatePicker = ({
     }
   }, [isOpen])
 
-  const selectedDate = value ? new Date(value) : null
-  const min = minDate ? new Date(minDate) : null
-  const max = maxDate ? new Date(maxDate) : null
+  const selectedDate = value ? parseDateStringAsLocal(value) : null
+  const min = minDate ? parseDateStringAsLocal(minDate) : null
+  const max = maxDate ? parseDateStringAsLocal(maxDate) : null
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
@@ -90,7 +96,7 @@ const DatePicker = ({
   const formatDisplayDate = (dateString?: string) => {
     if (!dateString) return ''
     try {
-      return format(new Date(dateString), 'MMM dd, yyyy')
+      return format(parseDateStringAsLocal(dateString), 'MMM dd, yyyy')
     } catch {
       return dateString
     }

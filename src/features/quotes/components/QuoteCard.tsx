@@ -33,20 +33,20 @@ const QuoteCard = ({ quote }: QuoteCardProps) => {
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1 min-w-0 pr-2">
             <h3 className="text-lg font-semibold text-primary-light">
               {quote.quoteNumber}
+              {quote.contactName && quote.title && (
+                <span className="text-primary-light/90"> — {quote.contactName} {quote.title}</span>
+              )}
             </h3>
-            {quote.contactName && (
-              <p className="text-sm text-primary-light/70">{quote.contactName}</p>
-            )}
             {quote.contactCompany && (
-              <p className="text-xs text-primary-light/50">{quote.contactCompany}</p>
+              <p className="text-xs text-primary-light/50 mt-1">{quote.contactCompany}</p>
             )}
           </div>
           <span
             className={cn(
-              'px-2 py-1 text-xs font-medium rounded border',
+              'px-2 py-1 text-xs font-medium rounded border flex-shrink-0',
               statusColors[quote.status]
             )}
           >

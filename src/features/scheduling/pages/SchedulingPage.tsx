@@ -8,8 +8,10 @@ import JobDetail from '../components/JobDetail'
 import ServiceList from '../components/ServiceList'
 import ServiceForm from '../components/ServiceForm'
 import ServiceDetail from '../components/ServiceDetail'
+import ScheduleJobModal from '../components/ScheduleJobModal'
+import DeleteRecurringJobModal from '../components/DeleteRecurringJobModal'
 import { Button, Modal, Card } from '@/components/ui'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { format, startOfMonth, endOfMonth, addWeeks } from 'date-fns'
 
 const SchedulingPage = () => {
   const {
@@ -55,6 +57,13 @@ const SchedulingPage = () => {
   const [declineReason, setDeclineReason] = useState('')
   const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services'>('calendar')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [showFollowupModal, setShowFollowupModal] = useState(false)
+  const [followupDefaults, setFollowupDefaults] = useState<{
+    contactId?: string
+    title?: string
+    notes?: string
+  }>({})
+  const [showDeleteRecurringModal, setShowDeleteRecurringModal] = useState(false)
 
   useEffect(() => {
     // Fetch jobs for current month
@@ -86,12 +95,49 @@ const SchedulingPage = () => {
     }
   }
 
-  const handleDeleteJob = async () => {
+  const handleDeleteJob = () => {
+    if (selectedJob) {
+      // Check if this is a recurring job
+      if (selectedJob.recurrenceId) {
+        setShowDeleteRecurringModal(true)
+      } else {
+        // Non-recurring job - delete directly
+        handleDeleteSingleJob()
+      }
+    }
+  }
+
+  const handleDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
-        await deleteJob(selectedJob.id)
+        console.log('Deleting single job:', selectedJob.id)
+        await deleteJob(selectedJob.id, false)
         setSelectedJob(null)
+        setShowDeleteRecurringModal(false)
+        // Refresh jobs list
+        const startDate = startOfMonth(currentDate)
+        const endDate = endOfMonth(currentDate)
+        await fetchJobs(startDate, endDate)
       } catch (error) {
+        console.error('Error deleting single job:', error)
+        // Error handled by store
+      }
+    }
+  }
+
+  const handleDeleteAllJobs = async () => {
+    if (selectedJob) {
+      try {
+        console.log('Deleting all jobs with recurrenceId:', selectedJob.recurrenceId)
+        await deleteJob(selectedJob.id, true)
+        setSelectedJob(null)
+        setShowDeleteRecurringModal(false)
+        // Refresh jobs list
+        const startDate = startOfMonth(currentDate)
+        const endDate = endOfMonth(currentDate)
+        await fetchJobs(startDate, endDate)
+      } catch (error) {
+        console.error('Error deleting all jobs:', error)
         // Error handled by store
       }
     }
@@ -163,6 +209,17 @@ const SchedulingPage = () => {
       } catch (error) {
         // Error handled by store
       }
+    }
+  }
+
+  const handleScheduleFollowup = () => {
+    if (selectedJob) {
+      setFollowupDefaults({
+        contactId: selectedJob.contactId,
+        title: `Follow-up: ${selectedJob.title}`,
+        notes: `Follow-up job for original job on ${format(new Date(selectedJob.startTime), 'MMM d, yyyy')}`,
+      })
+      setShowFollowupModal(true)
     }
   }
 
@@ -331,8 +388,25 @@ const SchedulingPage = () => {
           onDelete={handleDeleteJob}
           onConfirm={handleConfirmJob}
           onDecline={() => setShowDeclineModal(true)}
+          onScheduleFollowup={handleScheduleFollowup}
         />
       )}
+
+      {/* Follow-up Job Modal */}
+      <ScheduleJobModal
+        isOpen={showFollowupModal}
+        onClose={() => {
+          setShowFollowupModal(false)
+          setFollowupDefaults({})
+        }}
+        defaultContactId={followupDefaults.contactId}
+        defaultTitle={followupDefaults.title}
+        defaultNotes={followupDefaults.notes}
+        sourceContext="job-followup"
+        onSuccess={() => {
+          setSelectedJob(null)
+        }}
+      />
 
       {/* Decline Job Modal */}
       <Modal
@@ -420,6 +494,18 @@ const SchedulingPage = () => {
           isLoading={servicesLoading}
         />
       </Modal>
+
+      {/* Delete Recurring Job Modal */}
+      {selectedJob && (
+        <DeleteRecurringJobModal
+          isOpen={showDeleteRecurringModal}
+          onClose={() => setShowDeleteRecurringModal(false)}
+          onDeleteOne={handleDeleteSingleJob}
+          onDeleteAll={handleDeleteAllJobs}
+          jobTitle={selectedJob.title}
+          occurrenceCount={selectedJob.occurrenceCount}
+        />
+      )}
 
       {/* Booking Link Modal */}
       <Modal

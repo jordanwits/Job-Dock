@@ -9,11 +9,13 @@ import { useContactStore } from '@/features/crm/store/contactStore'
 interface InvoiceFormProps {
   invoice?: Invoice
   onSubmit: (data: InvoiceFormData) => Promise<void>
+  onSaveAndSend?: (data: InvoiceFormData) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
+  defaultContactId?: string
 }
 
-const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProps) => {
+const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, defaultContactId }: InvoiceFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
 
   useEffect(() => {
@@ -33,7 +35,7 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
   } = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      contactId: invoice?.contactId || '',
+      contactId: invoice?.contactId || defaultContactId || '',
       lineItems: invoice?.lineItems.map((item) => ({
         description: item.description,
         quantity: item.quantity,
@@ -101,7 +103,7 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
     }).format(amount)
   }
 
-  const handleFormSubmit = async (data: InvoiceFormData) => {
+  const handleFormSubmit = async (data: InvoiceFormData, shouldSend: boolean = false) => {
     const cleanedData = {
       ...data,
       taxRate: data.taxRate ? data.taxRate / 100 : 0,
@@ -109,11 +111,26 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
       dueDate: data.dueDate || undefined,
       paymentTerms: data.paymentTerms || undefined,
     }
-    await onSubmit(cleanedData)
+    
+    if (shouldSend && onSaveAndSend) {
+      await onSaveAndSend(cleanedData)
+    } else {
+      await onSubmit(cleanedData)
+    }
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await handleSubmit((data) => handleFormSubmit(data, false))()
+  }
+
+  const handleSaveAndSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await handleSubmit((data) => handleFormSubmit(data, true))()
   }
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+    <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
       {/* Contact Selection */}
       <Select
         label="Contact *"
@@ -309,7 +326,7 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
           value={paymentStatusValue}
           error={errors.paymentStatus?.message}
           options={[
-            { value: 'pending', label: 'Pending' },
+            { value: 'pending', label: 'Unpaid' },
             { value: 'partial', label: 'Partial' },
             { value: 'paid', label: 'Paid' },
           ]}
@@ -320,9 +337,14 @@ const InvoiceForm = ({ invoice, onSubmit, onCancel, isLoading }: InvoiceFormProp
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : invoice ? 'Update Invoice' : 'Create Invoice'}
+        <Button type="button" onClick={handleSave} disabled={isLoading}>
+          {isLoading ? 'Saving...' : 'Save'}
         </Button>
+        {!invoice && onSaveAndSend && (
+          <Button type="button" onClick={handleSaveAndSend} disabled={isLoading}>
+            {isLoading ? 'Saving...' : 'Create and Send'}
+          </Button>
+        )}
       </div>
     </form>
   )

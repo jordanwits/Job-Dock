@@ -3,7 +3,11 @@ import { useQuoteStore } from '../store/quoteStore'
 import QuoteCard from './QuoteCard'
 import { Input, Button, Select } from '@/components/ui'
 
-const QuoteList = () => {
+interface QuoteListProps {
+  onCreateClick?: () => void
+}
+
+const QuoteList = ({ onCreateClick }: QuoteListProps) => {
   const {
     quotes,
     isLoading,
@@ -35,6 +39,7 @@ const QuoteList = () => {
       filtered = filtered.filter(
         (quote) =>
           quote.quoteNumber.toLowerCase().includes(query) ||
+          quote.title?.toLowerCase().includes(query) ||
           quote.contactName?.toLowerCase().includes(query) ||
           quote.contactCompany?.toLowerCase().includes(query)
       )
@@ -111,8 +116,8 @@ const QuoteList = () => {
               ? 'No quotes match your filters'
               : 'No quotes yet'}
           </p>
-          {!searchQuery && statusFilter === 'all' && (
-            <Button variant="primary">Create Your First Quote</Button>
+          {!searchQuery && statusFilter === 'all' && onCreateClick && (
+            <Button variant="primary" onClick={onCreateClick}>Create Your First Quote</Button>
           )}
         </div>
       ) : (
