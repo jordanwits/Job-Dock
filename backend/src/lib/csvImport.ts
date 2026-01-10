@@ -205,17 +205,30 @@ export async function processImportSession(
       // Map CSV fields to contact fields
       const contactData = mapRowToContact(row, session.fieldMapping)
 
+      console.log('Processing row', i, 'with field mapping:', session.fieldMapping)
+      console.log('Row data:', row)
+      console.log('Mapped contact data:', contactData)
+
       // Validate required fields
-      if (!contactData.firstName || !contactData.lastName) {
+      const firstName = contactData.firstName?.trim()
+      const lastName = contactData.lastName?.trim()
+      
+      if (!firstName || !lastName) {
+        const errorMsg = `Missing required fields: ${!firstName ? 'firstName' : ''} ${!lastName ? 'lastName' : ''}`.trim()
+        console.log('Validation error:', errorMsg, 'for row:', row)
         session.errors.push({
           rowIndex: i,
-          message: 'Missing required fields: firstName and lastName are required',
+          message: errorMsg,
           data: row,
         })
         session.failedCount++
         session.processedRows++
         continue
       }
+      
+      // Update contactData with trimmed values
+      contactData.firstName = firstName
+      contactData.lastName = lastName
 
       // Check for duplicate by email
       if (contactData.email) {
@@ -299,13 +312,16 @@ function mapRowToContact(
   for (const [csvField, contactField] of Object.entries(fieldMapping)) {
     const value = row[csvField]
     if (value !== undefined && value !== null && value !== '') {
-      contact[contactField] = String(value).trim()
+      const trimmedValue = String(value).trim()
+      if (trimmedValue) {
+        contact[contactField] = trimmedValue
+      }
     }
   }
 
   // Handle tags if present (comma-separated)
   if (contact.tags && typeof contact.tags === 'string') {
-    contact.tags = contact.tags.split(',').map((t: string) => t.trim())
+    contact.tags = contact.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t)
   }
 
   return contact
