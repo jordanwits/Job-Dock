@@ -69,6 +69,40 @@ const realContactsService = {
     const response = await apiClient.delete(`/contacts/${id}`)
     return response.data
   },
+
+  // CSV Import methods
+  importPreview: async (csvContent: string) => {
+    const response = await apiClient.post('/contacts/import/preview', { csvContent })
+    return response.data
+  },
+
+  importInit: async (fileName: string, csvContent: string, fieldMapping: Record<string, string>) => {
+    const response = await apiClient.post('/contacts/import/init', {
+      fileName,
+      csvContent,
+      fieldMapping,
+    })
+    return response.data
+  },
+
+  importProcess: async (sessionId: string) => {
+    const response = await apiClient.post('/contacts/import/process', { sessionId })
+    return response.data
+  },
+
+  importStatus: async (sessionId: string) => {
+    const response = await apiClient.get(`/contacts/import/status?sessionId=${sessionId}`)
+    return response.data
+  },
+
+  importResolveConflict: async (sessionId: string, conflictId: string, resolution: 'update' | 'skip') => {
+    const response = await apiClient.post('/contacts/import/resolve-conflict', {
+      sessionId,
+      conflictId,
+      resolution,
+    })
+    return response.data
+  },
 }
 
 const realQuotesService = {

@@ -269,6 +269,15 @@ async function handleGet(
     return (service as typeof dataServices.services).getAvailability(tenantId, id, startDate, endDate)
   }
 
+  // Contacts import status endpoint
+  if (resource === 'contacts' && id === 'import' && action === 'status') {
+    const sessionId = event.queryStringParameters?.sessionId
+    if (!sessionId) {
+      throw new ApiError('Session ID required', 400)
+    }
+    return (service as typeof dataServices.contacts).importStatus(tenantId, sessionId)
+  }
+
   if (id && 'getById' in service) {
     return service.getById(tenantId, id)
   }
@@ -332,6 +341,27 @@ async function handlePost(
   if (resource === 'jobs' && id && action === 'decline') {
     const payload = parseBody(event)
     return (service as typeof dataServices.jobs).decline(tenantId, id, payload.reason)
+  }
+
+  // Contacts import endpoints
+  if (resource === 'contacts' && id === 'import' && action === 'preview') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices.contacts).importPreview(tenantId, payload)
+  }
+
+  if (resource === 'contacts' && id === 'import' && action === 'init') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices.contacts).importInit(tenantId, payload)
+  }
+
+  if (resource === 'contacts' && id === 'import' && action === 'process') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices.contacts).importProcess(tenantId, payload.sessionId)
+  }
+
+  if (resource === 'contacts' && id === 'import' && action === 'resolve-conflict') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices.contacts).importResolveConflict(tenantId, payload)
   }
 
   // Send actions don't require a body

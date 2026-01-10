@@ -22,6 +22,14 @@ import {
   sendInvoiceEmail,
 } from './email'
 import { uploadFile, deleteFile, getFileUrl } from './fileUpload'
+import {
+  createImportSession,
+  getImportSession,
+  processImportSession,
+  resolveConflict,
+  getImportSessionData,
+  parseCSVPreview,
+} from './csvImport'
 
 // Recurrence types
 export type RecurrenceFrequency = 'weekly' | 'monthly'
@@ -623,6 +631,61 @@ export const dataServices = {
           },
         }
       })
+    },
+    // CSV Import methods
+    importPreview: async (tenantId: string, payload: { csvContent: string }) => {
+      await ensureTenantExists(tenantId)
+      return parseCSVPreview(payload.csvContent)
+    },
+    importInit: async (
+      tenantId: string,
+      payload: { fileName: string; csvContent: string; fieldMapping: Record<string, string> }
+    ) => {
+      await ensureTenantExists(tenantId)
+      const session = createImportSession(
+        tenantId,
+        payload.fileName,
+        payload.csvContent,
+        payload.fieldMapping
+      )
+      return { sessionId: session.id }
+    },
+    importProcess: async (tenantId: string, sessionId: string) => {
+      await ensureTenantExists(tenantId)
+      const session = getImportSession(sessionId)
+      if (!session) {
+        throw new ApiError('Import session not found', 404)
+      }
+      if (session.tenantId !== tenantId) {
+        throw new ApiError('Unauthorized', 403)
+      }
+      return await processImportSession(sessionId)
+    },
+    importStatus: async (tenantId: string, sessionId: string) => {
+      await ensureTenantExists(tenantId)
+      const session = getImportSession(sessionId)
+      if (!session) {
+        throw new ApiError('Import session not found', 404)
+      }
+      if (session.tenantId !== tenantId) {
+        throw new ApiError('Unauthorized', 403)
+      }
+      return getImportSessionData(sessionId)
+    },
+    importResolveConflict: async (
+      tenantId: string,
+      payload: { sessionId: string; conflictId: string; resolution: 'update' | 'skip' }
+    ) => {
+      await ensureTenantExists(tenantId)
+      const session = getImportSession(payload.sessionId)
+      if (!session) {
+        throw new ApiError('Import session not found', 404)
+      }
+      if (session.tenantId !== tenantId) {
+        throw new ApiError('Unauthorized', 403)
+      }
+      await resolveConflict(payload.sessionId, payload.conflictId, payload.resolution)
+      return getImportSessionData(payload.sessionId)
     },
   },
   quotes: {

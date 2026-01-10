@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { authService } from '@/lib/api/services'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
 
 export interface User {
   id: string
@@ -51,8 +52,9 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem('auth_token', response.token)
           localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
+          const friendlyMessage = getErrorMessage(error, 'Login failed. Please try again.')
           set({
-            error: error.message || 'Login failed. Please try again.',
+            error: friendlyMessage,
             isLoading: false,
             isAuthenticated: false,
           })
@@ -75,8 +77,9 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem('auth_token', response.token)
           localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
+          const friendlyMessage = getErrorMessage(error, 'Registration failed. Please try again.')
           set({
-            error: error.message || 'Registration failed. Please try again.',
+            error: friendlyMessage,
             isLoading: false,
             isAuthenticated: false,
           })
@@ -111,8 +114,9 @@ export const useAuthStore = create<AuthState>()(
           await authService.resetPassword(email)
           set({ isLoading: false })
         } catch (error: any) {
+          const friendlyMessage = getErrorMessage(error, 'Failed to send reset email. Please try again.')
           set({
-            error: error.message || 'Failed to send reset email.',
+            error: friendlyMessage,
             isLoading: false,
           })
           throw error

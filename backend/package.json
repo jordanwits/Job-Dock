@@ -23,8 +23,10 @@
     "@aws-sdk/client-ses": "^3.962.0",
     "@aws-sdk/s3-request-presigner": "^3.965.0",
     "@prisma/client": "^5.7.1",
+    "@types/papaparse": "^5.5.2",
     "aws-jwt-verify": "^5.1.1",
     "aws-lambda": "^1.0.7",
+    "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
     "zod": "^3.22.4"
   },
