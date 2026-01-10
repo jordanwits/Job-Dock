@@ -169,6 +169,7 @@ We look forward to working with you!',
 
   try {
     const { resource, id, action } = parsePath(event)
+    console.log('[HANDLER v2.1] Parsed path:', { resource, id, action, method: event.httpMethod, path: event.path })
     
     // Check if this is a public booking endpoint that doesn't require authentication
     const isPublicBookingEndpoint = 
@@ -345,7 +346,9 @@ async function handlePost(
 
   // Contacts import endpoints
   if (resource === 'contacts' && id === 'import' && action === 'preview') {
+    console.log('[HANDLER v2.1] Matched import preview route')
     const payload = parseBody(event)
+    console.log('[HANDLER v2.1] Calling importPreview with payload keys:', Object.keys(payload))
     return (service as typeof dataServices.contacts).importPreview(tenantId, payload)
   }
 

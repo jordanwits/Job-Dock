@@ -18,7 +18,7 @@ function App() {
     { label: 'CRM', href: '/crm' },
     { label: 'Quotes', href: '/quotes' },
     { label: 'Invoices', href: '/invoices' },
-    { label: 'Scheduling', href: '/scheduling' },
+    { label: 'Calendar', href: '/scheduling' },
     { label: 'Settings', href: '/settings' },
   ]
 

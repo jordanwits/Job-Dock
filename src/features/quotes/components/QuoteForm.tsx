@@ -58,9 +58,9 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
   })
 
   const watchedLineItems = watch('lineItems')
-  const watchedTaxRatePercent = watch('taxRate') || 0
+  const watchedTaxRatePercent = Number(watch('taxRate')) || 0
   const watchedTaxRate = watchedTaxRatePercent / 100 // Convert percentage to decimal
-  const watchedDiscount = watch('discount') || 0
+  const watchedDiscount = Number(watch('discount')) || 0
   const contactIdValue = watch('contactId')
   const statusValue = watch('status')
 
@@ -101,10 +101,11 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
   }
 
   const handleFormSubmit = async (data: QuoteFormData, shouldSend: boolean = false) => {
-    // Convert tax rate from percentage to decimal
+    // Convert tax rate from percentage to decimal, auto-zero if empty
     const cleanedData = {
       ...data,
-      taxRate: data.taxRate ? data.taxRate / 100 : 0,
+      taxRate: data.taxRate ? Number(data.taxRate) / 100 : 0,
+      discount: data.discount ? Number(data.discount) : 0,
       notes: data.notes || undefined,
       validUntil: data.validUntil || undefined,
     }
@@ -322,14 +323,14 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>
-        <Button type="button" onClick={handleSave} disabled={isLoading}>
-          {isLoading ? 'Saving...' : 'Save'}
-        </Button>
-        {!quote && onSaveAndSend && (
+        {onSaveAndSend && (
           <Button type="button" onClick={handleSaveAndSend} disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Create and Send'}
+            {isLoading ? 'Saving...' : 'Save & Send'}
           </Button>
         )}
+        <Button type="button" onClick={handleSave} disabled={isLoading}>
+          {isLoading ? 'Saving...' : 'Save & Send Later'}
+        </Button>
       </div>
     </form>
   )

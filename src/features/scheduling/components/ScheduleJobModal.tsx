@@ -42,6 +42,7 @@ const ScheduleJobModal = ({
       }
       await createJob(jobData)
       onClose()
+      // Call onSuccess which should show confirmation in parent component
       if (onSuccess) {
         onSuccess()
       }

@@ -14,7 +14,7 @@ export const contactSchema = z.object({
   country: z.string().optional(),
   tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
-  status: z.enum(['active', 'inactive', 'lead']).optional(),
+  status: z.enum(['lead', 'prospect', 'customer', 'inactive', 'contact']).optional(),
 })
 
 export type ContactFormData = z.infer<typeof contactSchema>

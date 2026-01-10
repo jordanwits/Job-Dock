@@ -16,11 +16,16 @@ const QuotesPage = () => {
     clearError,
   } = useQuoteStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [confirmationMessage, setConfirmationMessage] = useState('')
 
   const handleCreate = async (data: any) => {
     try {
       await createQuote(data)
       setShowCreateForm(false)
+      setConfirmationMessage('Quote Saved')
+      setShowConfirmation(true)
+      setTimeout(() => setShowConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -35,6 +40,9 @@ const QuotesPage = () => {
         await sendQuote(newQuote.id)
       }
       setShowCreateForm(false)
+      setConfirmationMessage('Quote Sent')
+      setShowConfirmation(true)
+      setTimeout(() => setShowConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -61,6 +69,18 @@ const QuotesPage = () => {
           <div className="flex items-center justify-between">
             <p className="text-sm text-red-500">{error}</p>
             <Button variant="ghost" size="sm" onClick={clearError}>
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Confirmation Display */}
+      {showConfirmation && (
+        <Card className="bg-green-500/10 border-green-500">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-green-500">✓ {confirmationMessage}</p>
+            <Button variant="ghost" size="sm" onClick={() => setShowConfirmation(false)}>
               Dismiss
             </Button>
           </div>

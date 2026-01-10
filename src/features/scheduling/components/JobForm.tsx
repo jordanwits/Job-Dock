@@ -30,6 +30,8 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   const [startDate, setStartDate] = useState(job ? format(new Date(job.startTime), 'yyyy-MM-dd') : '')
   const [startTime, setStartTime] = useState(job ? format(new Date(job.startTime), 'HH:mm') : '09:00')
   const [repeatPattern, setRepeatPattern] = useState<string>('none')
+  const [endRepeatMode, setEndRepeatMode] = useState<'never' | 'on-date'>('never')
+  const [endRepeatDate, setEndRepeatDate] = useState<string>('')
   const [occurrenceCount, setOccurrenceCount] = useState<number>(12)
   
   // Duration unit and value state
@@ -96,6 +98,10 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   
   // Custom title entry state
   const [isCustomTitle, setIsCustomTitle] = useState(false)
+  
+  // Location state
+  const [locationMode, setLocationMode] = useState<'contact' | 'custom'>('contact')
+  const [customLocation, setCustomLocation] = useState('')
 
   useEffect(() => {
     fetchContacts()
@@ -136,6 +142,25 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   })
 
   const selectedServiceId = watch('serviceId')
+  const selectedContactId = watch('contactId')
+  
+  // Auto-populate location when contact changes
+  useEffect(() => {
+    if (locationMode === 'contact' && selectedContactId) {
+      const contact = contacts.find(c => c.id === selectedContactId)
+      if (contact && contact.address) {
+        const fullAddress = [
+          contact.address,
+          contact.city,
+          contact.state,
+          contact.zipCode
+        ].filter(Boolean).join(', ')
+        setValue('location', fullAddress)
+      } else {
+        setValue('location', '')
+      }
+    }
+  }, [selectedContactId, locationMode, contacts, setValue])
 
   // Auto-populate fields when job source is selected
   useEffect(() => {
@@ -252,10 +277,33 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       const [frequency, intervalStr] = repeatPattern.split('-') as [RecurrenceFrequency, string]
       const interval = parseInt(intervalStr) || 1
       
-      formData.recurrence = {
-        frequency,
-        interval,
-        count: occurrenceCount,
+      if (endRepeatMode === 'never') {
+        formData.recurrence = {
+          frequency,
+          interval,
+          count: occurrenceCount,
+        }
+      } else if (endRepeatMode === 'on-date' && endRepeatDate) {
+        // Calculate count based on end date
+        const start = new Date(`${startDate}T${startTime || '09:00'}`)
+        const end = new Date(endRepeatDate)
+        let count = 1
+        let currentDate = new Date(start)
+        
+        while (currentDate <= end) {
+          if (frequency === 'weekly') {
+            currentDate = addWeeks(currentDate, interval)
+          } else if (frequency === 'monthly') {
+            currentDate = addMonths(currentDate, interval)
+          }
+          if (currentDate <= end) count++
+        }
+        
+        formData.recurrence = {
+          frequency,
+          interval,
+          count: count,
+        }
       }
     }
 
@@ -282,11 +330,19 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
     return format(endDate, 'MMM d, yyyy')
   }
 
-  // Prepare job title options
+  // Prepare job title options - include services, quotes, and invoices
   const approvedQuotes = quotes.filter(q => q.status === 'draft' || q.status === 'sent' || q.status === 'accepted')
   const approvedInvoices = invoices.filter(i => i.status === 'draft' || i.status === 'sent' || i.approvalStatus === 'accepted')
+  const activeServices = services.filter(s => s.isActive)
   
   const jobTitleOptions = [
+    // Add services as job title options
+    ...activeServices.map(s => ({
+      value: `service:${s.id}`,
+      label: `${s.name} (Service)`,
+      title: s.name
+    })),
+    // Add quotes
     ...approvedQuotes.map(q => {
       const title = q.title || `Job for quote ${q.quoteNumber}`
       const parts = [title, q.quoteNumber, q.contactName].filter(Boolean)
@@ -296,6 +352,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         title: title
       }
     }),
+    // Add invoices
     ...approvedInvoices.map(i => {
       const title = i.title || `Job for invoice ${i.invoiceNumber}`
       const parts = [title, i.invoiceNumber, i.contactName].filter(Boolean)
@@ -305,7 +362,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         title: title
       }
     }),
-    { value: 'custom', label: 'Other (custom job title)', title: '' }
+    { value: 'custom', label: 'Enter Custom Job Title', title: '' }
   ]
   
   const handleTitleChange = (value: string) => {
@@ -313,6 +370,16 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       setIsCustomTitle(true)
       setSelectedSource({ type: 'none' })
       setValue('title', defaultTitle || '')
+      setValue('serviceId', '') // Clear service when custom
+    } else if (value.startsWith('service:')) {
+      const id = value.replace('service:', '')
+      setIsCustomTitle(false)
+      setSelectedSource({ type: 'none' })
+      const service = services.find((s) => s.id === id)
+      if (service) {
+        setValue('title', service.name)
+        setValue('serviceId', service.id) // Auto-populate service
+      }
     } else if (value.startsWith('quote:')) {
       const id = value.replace('quote:', '')
       setIsCustomTitle(false)
@@ -336,6 +403,8 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   
   const titleValue = isCustomTitle 
     ? 'custom' 
+    : selectedServiceId && !selectedSource.id
+    ? `service:${selectedServiceId}`
     : selectedSource.type === 'quote' 
     ? `quote:${selectedSource.id}` 
     : selectedSource.type === 'invoice'
@@ -380,7 +449,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           </div>
         )}
         <p className="text-xs text-primary-light/50 mt-1">
-          Select from approved quotes/invoices or choose "Other" for custom entry
+          Select a service, quote, invoice, or enter a custom job title
         </p>
       </div>
 
@@ -416,24 +485,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         )}
       />
 
-      <Controller
-        name="serviceId"
-        control={control}
-        render={({ field }) => (
-          <Select
-            label="Service (Optional)"
-            value={field.value || ''}
-            onChange={field.onChange}
-            options={[
-              { value: '', label: 'No service' },
-              ...services.filter((s) => s.isActive).map((service) => ({
-                value: service.id,
-                label: `${service.name} (${service.duration} min)`,
-              })),
-            ]}
-          />
-        )}
-      />
+      {/* Service field is now integrated into Job Title dropdown above */}
 
       {/* Duration Unit Selector */}
       <div className="grid grid-cols-2 gap-4">
@@ -460,8 +512,8 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
             type="number"
             value={durationValue}
             onChange={(e) => setDurationValue(Number(e.target.value))}
-            min={1}
-            step={1}
+            min={0.1}
+            step={0.1}
             className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
           />
         </div>
@@ -508,11 +560,60 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         </div>
       )}
 
-      <Input
-        label="Location"
-        {...register('location')}
-        placeholder="e.g., 123 Main St, New York, NY"
-      />
+      <div>
+        <label className="block text-sm font-medium text-primary-light mb-2">
+          Location
+        </label>
+        <Select
+          value={locationMode}
+          onChange={(e) => {
+            const mode = e.target.value as 'contact' | 'custom'
+            setLocationMode(mode)
+            if (mode === 'contact') {
+              const contactId = watch('contactId')
+              const contact = contacts.find(c => c.id === contactId)
+              if (contact && contact.address) {
+                const fullAddress = [
+                  contact.address,
+                  contact.city,
+                  contact.state,
+                  contact.zipCode
+                ].filter(Boolean).join(', ')
+                setValue('location', fullAddress)
+              }
+            } else {
+              setValue('location', customLocation)
+            }
+          }}
+          options={[
+            { value: 'contact', label: 'Contact Address' },
+            { value: 'custom', label: 'Add Other Address' },
+          ]}
+        />
+        {locationMode === 'custom' && (
+          <input
+            type="text"
+            value={customLocation}
+            onChange={(e) => {
+              setCustomLocation(e.target.value)
+              setValue('location', e.target.value)
+            }}
+            placeholder="e.g., 123 Main St, New York, NY"
+            className="mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+          />
+        )}
+        {locationMode === 'contact' && watch('contactId') && (
+          <p className="mt-2 text-xs text-primary-light/50">
+            {(() => {
+              const contact = contacts.find(c => c.id === watch('contactId'))
+              if (contact && contact.address) {
+                return [contact.address, contact.city, contact.state, contact.zipCode].filter(Boolean).join(', ')
+              }
+              return 'No address available for this contact'
+            })()}
+          </p>
+        )}
+      </div>
 
       {/* Job Timeline & Breaks */}
       <div className="border-t border-primary-blue pt-4">
@@ -651,25 +752,45 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         {repeatPattern !== 'none' && (
           <div className="mt-3 space-y-3">
             <Select
-              label="Number of occurrences"
-              value={occurrenceCount.toString()}
-              onChange={(e) => setOccurrenceCount(Number(e.target.value))}
+              label="End Repeat"
+              value={endRepeatMode}
+              onChange={(e) => {
+                const mode = e.target.value as 'never' | 'on-date'
+                setEndRepeatMode(mode)
+                if (mode === 'on-date' && !endRepeatDate && startDate) {
+                  // Set default end date to 3 months from start
+                  const defaultEnd = new Date(startDate)
+                  defaultEnd.setMonth(defaultEnd.getMonth() + 3)
+                  setEndRepeatDate(format(defaultEnd, 'yyyy-MM-dd'))
+                }
+              }}
               options={[
-                { value: '2', label: '2 times' },
-                { value: '3', label: '3 times' },
-                { value: '4', label: '4 times' },
-                { value: '6', label: '6 times' },
-                { value: '8', label: '8 times' },
-                { value: '12', label: '12 times' },
-                { value: '24', label: '24 times' },
-                { value: '50', label: '50 times' },
+                { value: 'never', label: 'Never' },
+                { value: 'on-date', label: 'On Date' },
               ]}
             />
             
-            {getRecurrenceEndDate() && (
+            {endRepeatMode === 'on-date' && (
+              <DatePicker
+                label="End Date"
+                value={endRepeatDate}
+                onChange={setEndRepeatDate}
+                minDate={startDate || new Date().toISOString().split('T')[0]}
+              />
+            )}
+            
+            {endRepeatMode === 'never' && getRecurrenceEndDate() && (
               <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
                 <p className="text-xs text-primary-light/70">
                   Will create {occurrenceCount} jobs through {getRecurrenceEndDate()}
+                </p>
+              </div>
+            )}
+            
+            {endRepeatMode === 'on-date' && endRepeatDate && (
+              <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
+                <p className="text-xs text-primary-light/70">
+                  Will repeat until {format(new Date(endRepeatDate), 'MMM d, yyyy')}
                 </p>
               </div>
             )}

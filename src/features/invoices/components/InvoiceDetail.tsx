@@ -20,11 +20,17 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
   const [isSending, setIsSending] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [confirmationMessage, setConfirmationMessage] = useState('')
+  const [showJobConfirmation, setShowJobConfirmation] = useState(false)
 
   const handleUpdate = async (data: any) => {
     try {
       await updateInvoice({ id: invoice.id, ...data })
       setIsEditing(false)
+      setConfirmationMessage('Invoice Updated Successfully')
+      setShowConfirmation(true)
+      setTimeout(() => setShowConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -213,6 +219,16 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
           {sendError && (
             <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
               <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
+            </div>
+          )}
+          {showConfirmation && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">✓ {confirmationMessage}</p>
+            </div>
+          )}
+          {showJobConfirmation && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">✓ Job has been created</p>
             </div>
           )}
 
@@ -405,6 +421,10 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
         sourceContext="invoice"
         invoiceId={invoice.id}
         initialInvoiceId={invoice.id}
+        onSuccess={() => {
+          setShowJobConfirmation(true)
+          setTimeout(() => setShowJobConfirmation(false), 3000)
+        }}
       />
 
       {/* Delete Confirmation Modal */}

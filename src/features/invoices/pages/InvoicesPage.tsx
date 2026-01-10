@@ -16,11 +16,16 @@ const InvoicesPage = () => {
     clearError,
   } = useInvoiceStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [confirmationMessage, setConfirmationMessage] = useState('')
 
   const handleCreate = async (data: any) => {
     try {
       await createInvoice(data)
       setShowCreateForm(false)
+      setConfirmationMessage('Invoice Saved')
+      setShowConfirmation(true)
+      setTimeout(() => setShowConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -35,6 +40,9 @@ const InvoicesPage = () => {
         await sendInvoice(newInvoice.id)
       }
       setShowCreateForm(false)
+      setConfirmationMessage('Invoice Sent')
+      setShowConfirmation(true)
+      setTimeout(() => setShowConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -61,6 +69,18 @@ const InvoicesPage = () => {
           <div className="flex items-center justify-between">
             <p className="text-sm text-red-500">{error}</p>
             <Button variant="ghost" size="sm" onClick={clearError}>
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Confirmation Display */}
+      {showConfirmation && (
+        <Card className="bg-green-500/10 border-green-500">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-green-500">✓ {confirmationMessage}</p>
+            <Button variant="ghost" size="sm" onClick={() => setShowConfirmation(false)}>
               Dismiss
             </Button>
           </div>

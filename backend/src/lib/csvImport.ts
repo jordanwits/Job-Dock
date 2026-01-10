@@ -72,13 +72,17 @@ const importSessions = new Map<string, ImportSession>()
  * Parse CSV and generate preview
  */
 export function parseCSVPreview(csvContent: string): CSVPreview {
+  console.log('[parseCSVPreview] Starting, content length:', csvContent?.length)
   const parsed = Papa.parse(csvContent, {
     header: true,
     skipEmptyLines: true,
     transformHeader: (header) => header.trim(),
   })
 
+  console.log('[parseCSVPreview] Parsed:', { errorCount: parsed.errors.length, dataLength: parsed.data?.length, fields: parsed.meta?.fields })
+
   if (parsed.errors.length > 0) {
+    console.error('[parseCSVPreview] Parse errors:', parsed.errors)
     throw new Error(`CSV parsing error: ${parsed.errors[0].message}`)
   }
 
@@ -86,8 +90,13 @@ export function parseCSVPreview(csvContent: string): CSVPreview {
   const rows = parsed.data.slice(0, 5) // Preview first 5 rows
   const totalRows = parsed.data.length
 
+  console.log('[parseCSVPreview] Headers:', headers)
+  console.log('[parseCSVPreview] First row sample:', rows[0])
+
   // Suggest field mappings based on common column names
   const suggestedMapping = generateFieldMapping(headers)
+
+  console.log('[parseCSVPreview] Generated mapping:', suggestedMapping)
 
   return {
     headers,

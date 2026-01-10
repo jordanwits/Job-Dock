@@ -26,11 +26,17 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
   const [isSending, setIsSending] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [confirmationMessage, setConfirmationMessage] = useState('')
+  const [showJobConfirmation, setShowJobConfirmation] = useState(false)
 
   const handleUpdate = async (data: any) => {
     try {
       await updateQuote({ id: quote.id, ...data })
       setIsEditing(false)
+      setConfirmationMessage('Quote Updated Successfully')
+      setShowConfirmation(true)
+      setTimeout(() => setShowConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -52,13 +58,14 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
       // Update quote status to accepted
       await updateQuote({ id: quote.id, status: 'accepted' })
       setShowConvertModal(false)
-      onClose()
-      // Navigate to the new invoice
-      navigate(`/invoices`)
-      // Optionally select the new invoice
+      setConfirmationMessage('Quote Converted to Invoice')
+      setShowConfirmation(true)
       setTimeout(() => {
-        // The invoice will be in the list, user can find it
-      }, 100)
+        setShowConfirmation(false)
+        onClose()
+        // Navigate to the new invoice
+        navigate(`/invoices`)
+      }, 2000)
     } catch (error) {
       // Error handled by store
     }
@@ -200,6 +207,16 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
           {sendError && (
             <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
               <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
+            </div>
+          )}
+          {showConfirmation && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">✓ {confirmationMessage}</p>
+            </div>
+          )}
+          {showJobConfirmation && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">✓ Job has been created</p>
             </div>
           )}
 
@@ -344,6 +361,10 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
         sourceContext="quote"
         quoteId={quote.id}
         initialQuoteId={quote.id}
+        onSuccess={() => {
+          setShowJobConfirmation(true)
+          setTimeout(() => setShowJobConfirmation(false), 3000)
+        }}
       />
 
       {/* Convert to Invoice Modal */}

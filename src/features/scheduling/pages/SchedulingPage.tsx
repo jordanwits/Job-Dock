@@ -76,6 +76,9 @@ const SchedulingPage = () => {
     notes?: string
   }>({})
   const [showDeleteRecurringModal, setShowDeleteRecurringModal] = useState(false)
+  const [showJobConfirmation, setShowJobConfirmation] = useState(false)
+  const [showServiceConfirmation, setShowServiceConfirmation] = useState(false)
+  const [serviceConfirmationMessage, setServiceConfirmationMessage] = useState('')
 
   // Set active tab from URL parameter on mount
   useEffect(() => {
@@ -97,6 +100,8 @@ const SchedulingPage = () => {
     try {
       await createJob(data)
       setShowJobForm(false)
+      setShowJobConfirmation(true)
+      setTimeout(() => setShowJobConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -109,6 +114,8 @@ const SchedulingPage = () => {
         setEditingJob(null)
         setShowJobForm(false)
         setSelectedJob(null)
+        setShowJobConfirmation(true)
+        setTimeout(() => setShowJobConfirmation(false), 3000)
       }
     } catch (error) {
       // Error handled by store
@@ -167,6 +174,9 @@ const SchedulingPage = () => {
     try {
       await createService(data)
       setShowServiceForm(false)
+      setServiceConfirmationMessage('Service Created Successfully')
+      setShowServiceConfirmation(true)
+      setTimeout(() => setShowServiceConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -178,6 +188,9 @@ const SchedulingPage = () => {
         await updateService({ ...data, id: selectedService.id })
         setShowServiceForm(false)
         setSelectedService(null)
+        setServiceConfirmationMessage('Service Updated Successfully')
+        setShowServiceConfirmation(true)
+        setTimeout(() => setShowServiceConfirmation(false), 3000)
       } catch (error) {
         // Error handled by store
       }
@@ -190,6 +203,9 @@ const SchedulingPage = () => {
         await deleteService(selectedService.id)
         setShowServiceDetail(false)
         setSelectedService(null)
+        setServiceConfirmationMessage('Service Deleted Successfully')
+        setShowServiceConfirmation(true)
+        setTimeout(() => setShowServiceConfirmation(false), 3000)
       } catch (error) {
         // Error handled by store
       }
@@ -297,6 +313,38 @@ const SchedulingPage = () => {
                 clearJobsError()
                 clearServicesError()
               }}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Job Confirmation Display */}
+      {showJobConfirmation && (
+        <Card className="bg-green-500/10 border-green-500">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-green-500">✓ Job has been created</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowJobConfirmation(false)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Service Confirmation Display */}
+      {showServiceConfirmation && (
+        <Card className="bg-green-500/10 border-green-500">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-green-500">✓ {serviceConfirmationMessage}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowServiceConfirmation(false)}
             >
               Dismiss
             </Button>

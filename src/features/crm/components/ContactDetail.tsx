@@ -20,11 +20,17 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showScheduleJob, setShowScheduleJob] = useState(false)
   const [showCreateQuote, setShowCreateQuote] = useState(false)
+  const [showJobConfirmation, setShowJobConfirmation] = useState(false)
+  const [showContactConfirmation, setShowContactConfirmation] = useState(false)
+  const [contactConfirmationMessage, setContactConfirmationMessage] = useState('')
 
   const handleUpdate = async (data: Partial<CreateContactData>) => {
     try {
       await updateContact({ id: contact.id, ...data })
       setIsEditing(false)
+      setContactConfirmationMessage('Contact Updated Successfully')
+      setShowContactConfirmation(true)
+      setTimeout(() => setShowContactConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -41,15 +47,19 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
   }
 
   const statusColors = {
-    active: 'bg-green-500/20 text-green-400 border-green-500/30',
+    lead: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    prospect: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    customer: 'bg-green-500/20 text-green-400 border-green-500/30',
     inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    lead: 'bg-primary-gold/20 text-primary-gold border-primary-gold/30',
+    contact: 'bg-primary-gold/20 text-primary-gold border-primary-gold/30',
   }
 
   const statusOptions = [
-    { value: 'active', label: 'Active' },
-    { value: 'inactive', label: 'Inactive' },
     { value: 'lead', label: 'Lead' },
+    { value: 'prospect', label: 'Prospect' },
+    { value: 'customer', label: 'Customer' },
+    { value: 'inactive', label: 'Inactive' },
+    { value: 'contact', label: 'Contact' },
   ]
 
   const handleStatusChange = async (newStatus: string) => {
@@ -64,6 +74,9 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
     try {
       await createQuote(data)
       setShowCreateQuote(false)
+      setContactConfirmationMessage('Quote Created Successfully')
+      setShowContactConfirmation(true)
+      setTimeout(() => setShowContactConfirmation(false), 3000)
     } catch (error) {
       // Error handled by store
     }
@@ -128,6 +141,20 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
         }
       >
         <div className="space-y-6">
+          {/* Job Confirmation */}
+          {showJobConfirmation && (
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
+              <p className="text-sm text-green-500">✓ Job has been created</p>
+            </div>
+          )}
+          
+          {/* Contact Confirmation */}
+          {showContactConfirmation && (
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
+              <p className="text-sm text-green-500">✓ {contactConfirmationMessage}</p>
+            </div>
+          )}
+          
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
@@ -301,6 +328,10 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
         defaultContactId={contact.id}
         defaultTitle={`Job for ${contact.firstName} ${contact.lastName}`}
         sourceContext="contact"
+        onSuccess={() => {
+          setShowJobConfirmation(true)
+          setTimeout(() => setShowJobConfirmation(false), 3000)
+        }}
       />
 
       {/* Create Quote Modal */}

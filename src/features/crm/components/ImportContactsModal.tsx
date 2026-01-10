@@ -42,6 +42,10 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
     const file = e.target.files?.[0]
     if (!file) return
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImportContactsModal.tsx:44',message:'File selected',data:{fileName:file.name,fileSize:file.size,fileType:file.type},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
+
     if (!file.name.endsWith('.csv')) {
       setError('Please select a CSV file')
       return
@@ -60,13 +64,31 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
       const content = event.target?.result as string
       setCsvContent(content)
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImportContactsModal.tsx:66',message:'File content read',data:{contentLength:content?.length,firstChars:content?.substring(0,100)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
+
       try {
         setIsLoading(true)
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImportContactsModal.tsx:73',message:'Calling importPreview',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
+        
         const previewData = await contactsService.importPreview(content)
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImportContactsModal.tsx:79',message:'importPreview success',data:{previewData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
+        
         setPreview(previewData)
         setFieldMapping(previewData.suggestedMapping)
         setStep('preview')
       } catch (err: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImportContactsModal.tsx:88',message:'importPreview error',data:{error:err.message,errorStack:err.stack},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
+        
         setError(err.message || 'Failed to parse CSV file')
       } finally {
         setIsLoading(false)

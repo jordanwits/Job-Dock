@@ -634,8 +634,12 @@ export const dataServices = {
     },
     // CSV Import methods
     importPreview: async (tenantId: string, payload: { csvContent: string }) => {
+      console.log('[CSV IMPORT v2.0] importPreview called', { tenantId, contentLength: payload?.csvContent?.length })
       await ensureTenantExists(tenantId)
-      return parseCSVPreview(payload.csvContent)
+      console.log('[CSV IMPORT v2.0] Tenant exists, calling parseCSVPreview')
+      const result = parseCSVPreview(payload.csvContent)
+      console.log('[CSV IMPORT v2.0] parseCSVPreview result:', { headers: result.headers, totalRows: result.totalRows, suggestedMapping: result.suggestedMapping })
+      return result
     },
     importInit: async (
       tenantId: string,

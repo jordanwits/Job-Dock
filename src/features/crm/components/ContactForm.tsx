@@ -39,7 +39,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       country: contact?.country || '',
       tags: contact?.tags || [],
       notes: contact?.notes || '',
-      status: contact?.status || 'active',
+      status: contact?.status || 'lead',
     },
   })
 
@@ -120,7 +120,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
         country: parsedContact.country || '',
         tags: [],
         notes: '',
-        status: 'active',
+        status: 'lead',
       })
 
       setShowImportMessage(true)
@@ -209,7 +209,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
           country,
           tags: [],
           notes: '',
-          status: 'active',
+          status: 'lead',
         })
 
         setShowImportMessage(true)
@@ -421,9 +421,11 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
         value={statusValue}
         error={errors.status?.message}
         options={[
-          { value: 'active', label: 'Active' },
-          { value: 'inactive', label: 'Inactive' },
           { value: 'lead', label: 'Lead' },
+          { value: 'prospect', label: 'Prospect' },
+          { value: 'customer', label: 'Customer' },
+          { value: 'inactive', label: 'Inactive' },
+          { value: 'contact', label: 'Contact' },
         ]}
       />
 
