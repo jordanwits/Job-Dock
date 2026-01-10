@@ -104,18 +104,18 @@ function generateFieldMapping(headers: string[]): Record<string, string> {
   const mapping: Record<string, string> = {}
 
   const fieldMappings: Record<string, string[]> = {
-    firstName: ['first name', 'firstname', 'first', 'given name', 'fname'],
+    firstName: ['first name', 'firstname', 'first', 'given name', 'fname', 'client name', 'name', 'full name'],
     lastName: ['last name', 'lastname', 'last', 'surname', 'family name', 'lname'],
     email: ['email', 'email address', 'e-mail', 'mail'],
-    phone: ['phone', 'phone number', 'telephone', 'mobile', 'cell'],
+    phone: ['phone', 'phone number', 'telephone', 'mobile', 'cell', 'contact'],
     company: ['company', 'company name', 'organization', 'business'],
     jobTitle: ['job title', 'title', 'position', 'role'],
-    address: ['address', 'street', 'street address', 'address line 1'],
+    address: ['address', 'street', 'street address', 'address line 1', 'location'],
     city: ['city', 'town'],
     state: ['state', 'province', 'region'],
     zipCode: ['zip', 'zip code', 'zipcode', 'postal code', 'postcode'],
     country: ['country'],
-    notes: ['notes', 'note', 'comments', 'description'],
+    notes: ['notes', 'note', 'comments', 'description', 'special notes', 'info'],
   }
 
   headers.forEach((header) => {
@@ -319,6 +319,28 @@ export async function processImportSession(
 }
 
 /**
+ * Split a full name into first and last names
+ */
+function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim()
+  const parts = trimmed.split(/\s+/)
+  
+  if (parts.length === 0 || trimmed === '') {
+    return { firstName: '', lastName: '' }
+  }
+  
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' }
+  }
+  
+  // First word is firstName, rest is lastName
+  const firstName = parts[0]
+  const lastName = parts.slice(1).join(' ')
+  
+  return { firstName, lastName }
+}
+
+/**
  * Map CSV row to contact data
  */
 function mapRowToContact(
@@ -337,9 +359,48 @@ function mapRowToContact(
     }
   }
 
+  // Auto-split full name if we have a field mapped to 'fullName' or similar
+  // but no firstName/lastName
+  const hasFirstName = contact.firstName
+  const hasLastName = contact.lastName
+  
+  // Check if any field looks like a full name field
+  for (const [csvField, value] of Object.entries(row)) {
+    if (!value || typeof value !== 'string') continue
+    
+    const trimmedValue = value.trim()
+    if (!trimmedValue) continue
+    
+    const csvFieldLower = csvField.toLowerCase()
+    const isNameField = csvFieldLower.includes('name') || 
+                       csvFieldLower.includes('client') ||
+                       csvField === 'Client Name'
+    
+    // If we found a name-like field and don't have firstName/lastName yet
+    if (isNameField && (!hasFirstName || !hasLastName)) {
+      const { firstName, lastName } = splitFullName(trimmedValue)
+      if (!hasFirstName && firstName) {
+        contact.firstName = firstName
+      }
+      if (!hasLastName && lastName) {
+        contact.lastName = lastName || firstName // Use firstName as lastName if no last name
+      }
+    }
+  }
+
   // Handle tags if present (comma-separated)
   if (contact.tags && typeof contact.tags === 'string') {
     contact.tags = contact.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t)
+  }
+
+  // Also handle the phone/contact field mapping
+  if (!contact.phone && row['Contact']) {
+    contact.phone = String(row['Contact']).trim()
+  }
+  
+  // Handle address field
+  if (!contact.address && row['Address']) {
+    contact.address = String(row['Address']).trim()
   }
 
   return contact
