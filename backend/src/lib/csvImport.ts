@@ -104,7 +104,8 @@ function generateFieldMapping(headers: string[]): Record<string, string> {
   const mapping: Record<string, string> = {}
 
   const fieldMappings: Record<string, string[]> = {
-    firstName: ['first name', 'firstname', 'first', 'given name', 'fname', 'client name', 'name', 'full name'],
+    // Note: 'client name', 'full name', 'name' are handled specially via name splitting
+    firstName: ['first name', 'firstname', 'first', 'given name', 'fname'],
     lastName: ['last name', 'lastname', 'last', 'surname', 'family name', 'lname'],
     email: ['email', 'email address', 'e-mail', 'mail'],
     phone: ['phone', 'phone number', 'telephone', 'mobile', 'cell', 'contact'],
@@ -341,6 +342,18 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
 }
 
 /**
+ * Check if a CSV header is a "full name" type field
+ */
+function isFullNameField(header: string): boolean {
+  const lowerHeader = header.toLowerCase().trim()
+  return lowerHeader === 'client name' ||
+         lowerHeader === 'full name' ||
+         lowerHeader === 'name' ||
+         lowerHeader === 'customer name' ||
+         lowerHeader === 'contact name'
+}
+
+/**
  * Map CSV row to contact data
  */
 function mapRowToContact(
@@ -349,41 +362,43 @@ function mapRowToContact(
 ): Partial<Contact> {
   const contact: any = {}
 
-  for (const [csvField, contactField] of Object.entries(fieldMapping)) {
-    const value = row[csvField]
-    if (value !== undefined && value !== null && value !== '') {
-      const trimmedValue = String(value).trim()
-      if (trimmedValue) {
-        contact[contactField] = trimmedValue
-      }
-    }
-  }
-
-  // Auto-split full name if we have a field mapped to 'fullName' or similar
-  // but no firstName/lastName
-  const hasFirstName = contact.firstName
-  const hasLastName = contact.lastName
-  
-  // Check if any field looks like a full name field
+  // First, look for full name fields and split them
   for (const [csvField, value] of Object.entries(row)) {
     if (!value || typeof value !== 'string') continue
     
     const trimmedValue = value.trim()
     if (!trimmedValue) continue
     
-    const csvFieldLower = csvField.toLowerCase()
-    const isNameField = csvFieldLower.includes('name') || 
-                       csvFieldLower.includes('client') ||
-                       csvField === 'Client Name'
-    
-    // If we found a name-like field and don't have firstName/lastName yet
-    if (isNameField && (!hasFirstName || !hasLastName)) {
+    // Check if this is a "full name" type field
+    if (isFullNameField(csvField)) {
       const { firstName, lastName } = splitFullName(trimmedValue)
-      if (!hasFirstName && firstName) {
+      if (firstName) {
         contact.firstName = firstName
       }
-      if (!hasLastName && lastName) {
-        contact.lastName = lastName || firstName // Use firstName as lastName if no last name
+      // Use firstName as lastName fallback if no lastName
+      if (lastName) {
+        contact.lastName = lastName
+      } else if (firstName) {
+        contact.lastName = firstName
+      }
+      console.log(`Split full name from "${csvField}": "${trimmedValue}" -> firstName: "${firstName}", lastName: "${lastName || firstName}"`)
+    }
+  }
+
+  // Then apply the field mapping for other fields (but don't overwrite firstName/lastName if already set)
+  for (const [csvField, contactField] of Object.entries(fieldMapping)) {
+    // Skip if this is a full name field (already processed above)
+    if (isFullNameField(csvField)) continue
+    
+    const value = row[csvField]
+    if (value !== undefined && value !== null && value !== '') {
+      const trimmedValue = String(value).trim()
+      if (trimmedValue) {
+        // Don't overwrite firstName/lastName if already set from full name split
+        if ((contactField === 'firstName' || contactField === 'lastName') && contact[contactField]) {
+          continue
+        }
+        contact[contactField] = trimmedValue
       }
     }
   }
@@ -402,7 +417,16 @@ function mapRowToContact(
   if (!contact.address && row['Address']) {
     contact.address = String(row['Address']).trim()
   }
+  
+  // Handle notes from Info or Special Notes fields
+  if (!contact.notes) {
+    const infoValue = row['Info'] || row['Special Notes']
+    if (infoValue && typeof infoValue === 'string') {
+      contact.notes = String(infoValue).trim()
+    }
+  }
 
+  console.log('Mapped contact:', contact)
   return contact
 }
 
