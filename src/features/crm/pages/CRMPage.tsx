@@ -3,7 +3,6 @@ import { useContactStore } from '../store/contactStore'
 import ContactList from '../components/ContactList'
 import ContactForm from '../components/ContactForm'
 import ContactDetail from '../components/ContactDetail'
-import ImportContactsModal from '../components/ImportContactsModal'
 import { Button, Modal, Card } from '@/components/ui'
 
 const CRMPage = () => {
@@ -17,7 +16,6 @@ const CRMPage = () => {
     fetchContacts,
   } = useContactStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [showImportModal, setShowImportModal] = useState(false)
 
   const handleCreate = async (data: any) => {
     try {
@@ -39,13 +37,6 @@ const CRMPage = () => {
           </p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button 
-            onClick={() => setShowImportModal(true)} 
-            variant="ghost"
-            className="flex-1 sm:flex-initial"
-          >
-            Import CSV
-          </Button>
           <Button 
             onClick={() => setShowCreateForm(true)} 
             className="flex-1 sm:flex-initial"
@@ -99,15 +90,6 @@ const CRMPage = () => {
         />
       )}
 
-      {/* Import Contacts Modal */}
-      <ImportContactsModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onImportComplete={() => {
-          setShowImportModal(false)
-          fetchContacts()
-        }}
-      />
     </div>
   )
 }
