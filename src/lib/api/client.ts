@@ -78,9 +78,15 @@ apiClient.interceptors.response.use(
     }
     // #endregion
     
-    if (error.response?.status === 401) {
-      // Handle unauthorized - redirect to login
+    // Check for authentication errors
+    const isAuthError = error.response?.status === 401 ||
+      (error.response?.status === 500 && 
+       error.response?.data?.error?.message?.toLowerCase().includes('token'))
+    
+    if (isAuthError) {
+      // Handle unauthorized - clear auth and redirect to login
       localStorage.removeItem('auth_token')
+      localStorage.removeItem('tenant_id')
       window.location.href = '/login'
     }
     return Promise.reject(error)

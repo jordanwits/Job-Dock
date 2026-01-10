@@ -135,7 +135,9 @@ export async function verifyToken(token: string): Promise<CognitoUser> {
     }
   } catch (error) {
     console.error('Token verification failed:', error)
-    throw new Error('Invalid or expired token')
+    // Import ApiError to throw proper authentication error
+    const { ApiError } = await import('./errors')
+    throw new ApiError('Invalid or expired token', 401)
   }
 }
 
@@ -153,7 +155,8 @@ export async function getTenantIdFromToken(token: string): Promise<string> {
   })
   
   if (!user) {
-    throw new Error('User not found in JobDock database')
+    const { ApiError } = await import('./errors')
+    throw new ApiError('User not found in JobDock database', 401)
   }
   
   return user.tenantId

@@ -46,14 +46,14 @@ export async function extractContext(
 ): Promise<LambdaContext> {
   const authHeader = event.headers.Authorization || event.headers.authorization
   if (!authHeader) {
-    throw new Error('Authorization header required')
+    const { ApiError } = await import('./errors')
+    throw new ApiError('Authorization header required', 401)
   }
 
   const token = authHeader.replace('Bearer ', '')
   const tenantId = await extractTenantId(event)
 
   // Verify token and extract user info
-  // This is simplified - implement proper JWT verification
   const user = await verifyToken(token)
 
   return {
