@@ -256,12 +256,30 @@ export async function processImportSession(
         }
       }
 
+      // Ensure we have valid firstName and lastName
+      if (!firstName || !lastName) {
+        console.error('ERROR: firstName or lastName is missing after validation!', {
+          firstName,
+          lastName,
+          contactData,
+          row
+        })
+        session.errors.push({
+          rowIndex: i,
+          message: 'Internal error: firstName or lastName missing after validation',
+          data: row,
+        })
+        session.failedCount++
+        session.processedRows++
+        continue
+      }
+
       // Insert new contact
       await prisma.contact.create({
         data: {
           tenantId: session.tenantId,
-          firstName: contactData.firstName!,
-          lastName: contactData.lastName!,
+          firstName: firstName,
+          lastName: lastName,
           email: contactData.email || null,
           phone: contactData.phone || null,
           company: contactData.company || null,
@@ -353,10 +371,19 @@ export async function resolveConflict(
   conflict.resolution = resolution
 
   if (resolution === 'update') {
-    // Update existing contact
+    // Update existing contact - filter out undefined values
+    const updateData: any = {}
+    for (const [key, value] of Object.entries(conflict.incomingData)) {
+      if (value !== undefined && value !== null) {
+        updateData[key] = value
+      }
+    }
+    
+    console.log('Updating contact', conflict.existingContact.id, 'with data:', updateData)
+    
     await prisma.contact.update({
       where: { id: conflict.existingContact.id },
-      data: conflict.incomingData,
+      data: updateData,
     })
     session.updatedCount++
   } else {
