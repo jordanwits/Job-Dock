@@ -14,6 +14,8 @@ const ContactCard = ({ contact }: ContactCardProps) => {
     active: 'bg-green-500/20 text-green-400 border-green-500/30',
     inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
     lead: 'bg-primary-gold/20 text-primary-gold border-primary-gold/30',
+    prospect: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    contact: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
   }
 
   const fullName = `${contact.firstName} ${contact.lastName}`

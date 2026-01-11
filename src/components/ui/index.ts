@@ -31,3 +31,6 @@ export type { TextareaProps } from './Textarea'
 
 export { default as StatusBadgeSelect } from './StatusBadgeSelect'
 export type { StatusBadgeSelectProps, StatusOption } from './StatusBadgeSelect'
+
+export { default as PhoneInput } from './PhoneInput'
+export type { PhoneInputProps } from './PhoneInput'

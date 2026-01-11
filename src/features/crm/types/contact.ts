@@ -13,7 +13,7 @@ export interface Contact {
   country?: string
   tags?: string[]
   notes?: string
-  status: 'lead' | 'prospect' | 'customer' | 'inactive' | 'contact'
+  status: 'lead' | 'prospect' | 'inactive' | 'contact' | 'active'
   createdAt: string
   updatedAt: string
 }
@@ -32,12 +32,12 @@ export interface CreateContactData {
   country?: string
   tags?: string[]
   notes?: string
-  status?: 'lead' | 'prospect' | 'customer' | 'inactive' | 'contact'
+  status?: 'lead' | 'prospect' | 'inactive' | 'contact' | 'active'
 }
 
 export interface UpdateContactData extends Partial<CreateContactData> {
   id: string
 }
 
-export type ContactStatus = 'lead' | 'prospect' | 'customer' | 'inactive' | 'contact'
+export type ContactStatus = 'lead' | 'prospect' | 'inactive' | 'contact' | 'active'
 

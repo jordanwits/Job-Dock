@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
-import { Input, Button, Card, Select } from '@/components/ui'
+import { Input, Button, Card, Select, PhoneInput } from '@/components/ui'
 import { format, addWeeks, addMonths } from 'date-fns'
 import type { AvailableSlot, RecurrenceFrequency } from '../types/booking'
 import type { Service } from '@/features/scheduling/types/service'
@@ -126,12 +126,11 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
         )}
 
         {requiredFields.includes('phone') && (
-          <Input
+          <PhoneInput
             label="Phone *"
-            type="tel"
             {...register('phone')}
             error={errors.phone?.message}
-            placeholder="(555) 123-4567"
+            placeholder="123-456-7890"
             disabled={isLoading}
           />
         )}

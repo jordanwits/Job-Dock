@@ -8,6 +8,7 @@ export const invoiceLineItemSchema = z.object({
 
 export const invoiceSchema = z.object({
   contactId: z.string().min(1, 'Contact is required'),
+  title: z.string().optional(),
   lineItems: z.array(invoiceLineItemSchema).min(1, 'At least one line item is required'),
   taxRate: z.number().min(0).max(100).optional(),
   discount: z.number().min(0).optional(),

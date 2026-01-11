@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useContactStore } from '../store/contactStore'
 import ContactCard from './ContactCard'
 import { Button, Input, Select } from '@/components/ui'
+import { phoneMatches } from '@/lib/utils/phone'
 
 interface ContactListProps {
   onCreateClick?: () => void
@@ -40,7 +41,7 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
           contact.firstName.toLowerCase().includes(query) ||
           contact.lastName.toLowerCase().includes(query) ||
           contact.email?.toLowerCase().includes(query) ||
-          contact.phone?.includes(query) ||
+          phoneMatches(searchQuery, contact.phone) ||
           contact.company?.toLowerCase().includes(query)
       )
     }
@@ -86,7 +87,7 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
           contact.firstName.toLowerCase().includes(query) ||
           contact.lastName.toLowerCase().includes(query) ||
           contact.email?.toLowerCase().includes(query) ||
-          contact.phone?.includes(query) ||
+          phoneMatches(searchQuery, contact.phone) ||
           contact.company?.toLowerCase().includes(query)
       )
     }
@@ -148,15 +149,17 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             value={statusFilter}
             onChange={(e) =>
               setStatusFilter(
-                e.target.value as 'all' | 'active' | 'inactive' | 'lead'
+                e.target.value as 'all' | 'active' | 'inactive' | 'lead' | 'prospect' | 'contact'
               )
             }
             disabled={viewMode === 'status'}
             options={[
               { value: 'all', label: 'All Status' },
               { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
               { value: 'lead', label: 'Lead' },
+              { value: 'prospect', label: 'Prospect' },
+              { value: 'inactive', label: 'Inactive' },
+              { value: 'contact', label: 'Contact' },
             ]}
             helperText={viewMode === 'status' ? 'Status filter is not available in status board view' : undefined}
             className="w-full sm:w-auto min-w-[140px]"

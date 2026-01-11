@@ -33,7 +33,7 @@ interface ContactState {
   isLoading: boolean
   error: string | null
   searchQuery: string
-  statusFilter: 'all' | 'active' | 'inactive' | 'lead'
+  statusFilter: 'all' | 'active' | 'inactive' | 'lead' | 'prospect' | 'contact'
   
   // Actions
   fetchContacts: () => Promise<void>
@@ -43,7 +43,7 @@ interface ContactState {
   deleteContact: (id: string) => Promise<void>
   setSelectedContact: (contact: Contact | null) => void
   setSearchQuery: (query: string) => void
-  setStatusFilter: (status: 'all' | 'active' | 'inactive' | 'lead') => void
+  setStatusFilter: (status: 'all' | 'active' | 'inactive' | 'lead' | 'prospect' | 'contact') => void
   clearError: () => void
 }
 
@@ -154,7 +154,7 @@ export const useContactStore = create<ContactState>((set, _get) => ({
     set({ searchQuery: query })
   },
 
-  setStatusFilter: (status: 'all' | 'active' | 'inactive' | 'lead') => {
+  setStatusFilter: (status: 'all' | 'active' | 'inactive' | 'lead' | 'prospect' | 'contact') => {
     set({ statusFilter: status })
   },
 

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Card, Input, Button } from '@/components/ui'
+import { Card, Input, Button, PhoneInput } from '@/components/ui'
 import { TenantSettings } from '@/lib/api/settings'
 
 interface CompanyBrandingSectionProps {
@@ -78,12 +78,11 @@ export const CompanyBrandingSection = ({
           helperText="Displayed in email footers and on invoices/quotes"
         />
 
-        <Input
+        <PhoneInput
           label="Phone Number"
-          type="tel"
           value={formData.companyPhone}
           onChange={(e) => onFieldChange('companyPhone', e.target.value)}
-          placeholder="+1 (555) 123-4567"
+          placeholder="123-456-7890"
           helperText="Displayed on invoices and quotes for customer contact"
         />
 

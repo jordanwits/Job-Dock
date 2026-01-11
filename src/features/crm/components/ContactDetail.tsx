@@ -47,17 +47,17 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
   }
 
   const statusColors = {
+    active: 'bg-green-500/20 text-green-400 border-green-500/30',
     lead: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     prospect: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    customer: 'bg-green-500/20 text-green-400 border-green-500/30',
     inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
     contact: 'bg-primary-gold/20 text-primary-gold border-primary-gold/30',
   }
 
   const statusOptions = [
+    { value: 'active', label: 'Active' },
     { value: 'lead', label: 'Lead' },
     { value: 'prospect', label: 'Prospect' },
-    { value: 'customer', label: 'Customer' },
     { value: 'inactive', label: 'Inactive' },
     { value: 'contact', label: 'Contact' },
   ]

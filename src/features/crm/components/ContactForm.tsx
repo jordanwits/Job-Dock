@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { contactSchema, type ContactFormData } from '../schemas/contactSchemas'
 import { Contact } from '../types/contact'
-import { Input, Button, Select } from '@/components/ui'
+import { Input, Button, Select, PhoneInput } from '@/components/ui'
 
 interface ContactFormProps {
   contact?: Contact
@@ -364,9 +364,8 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
           error={errors.email?.message}
           {...register('email')}
         />
-        <Input
+        <PhoneInput
           label="Phone"
-          type="tel"
           error={errors.phone?.message}
           {...register('phone')}
         />
@@ -421,9 +420,9 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
         value={statusValue}
         error={errors.status?.message}
         options={[
+          { value: 'active', label: 'Active' },
           { value: 'lead', label: 'Lead' },
           { value: 'prospect', label: 'Prospect' },
-          { value: 'customer', label: 'Customer' },
           { value: 'inactive', label: 'Inactive' },
           { value: 'contact', label: 'Contact' },
         ]}

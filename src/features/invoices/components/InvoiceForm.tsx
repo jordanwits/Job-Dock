@@ -36,6 +36,7 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       contactId: invoice?.contactId || defaultContactId || '',
+      title: invoice?.title || '',
       lineItems: invoice?.lineItems.map((item) => ({
         description: item.description,
         quantity: item.quantity,
@@ -78,6 +79,7 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
     if (invoice) {
       reset({
         contactId: invoice.contactId,
+        title: invoice.title || '',
         lineItems: invoice.lineItems.map((item) => ({
           description: item.description,
           quantity: item.quantity,
@@ -144,6 +146,14 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
             label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
           })),
         ]}
+      />
+
+      {/* Project Title */}
+      <Input
+        label="Project Title"
+        placeholder="e.g., Kitchen Remodel, Office Renovation"
+        error={errors.title?.message}
+        {...register('title')}
       />
 
       {/* Line Items */}

@@ -315,6 +315,7 @@ const serializeInvoice = (invoice: Invoice & {
 }) => ({
   id: invoice.id,
   invoiceNumber: invoice.invoiceNumber,
+  title: invoice.title ?? undefined,
   contactId: invoice.contactId,
   lineItems: invoice.lineItems.map((item: InvoiceLineItem) => ({
     id: item.id,
@@ -982,6 +983,7 @@ export const dataServices = {
         data: {
           tenantId,
           invoiceNumber,
+          title: payload.title || null,
           contactId: payload.contactId,
           subtotal,
           taxRate,
