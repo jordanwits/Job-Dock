@@ -45,11 +45,12 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
 
   const statusValue = watch('status')
 
-  // Check if Contact Picker API is available
-  const isContactPickerSupported = 'contacts' in navigator && 'ContactsManager' in window
+  // Check if Contact Picker API is available (mainly Android Chrome)
+  const isContactPickerSupported = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof (navigator as any).contacts?.select === 'function'
   
-  // Detect iOS for alternative import method
+  // Detect mobile platforms
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+  const isAndroid = /Android/.test(navigator.userAgent)
 
   // Parse vCard data
   const parseVCard = (vcardText: string) => {
@@ -127,8 +128,14 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       setTimeout(() => setShowImportMessage(false), 3000)
     } catch (error: any) {
       console.error('vCard import error:', error)
-      setImportError('Failed to read contact file. Please use the "Share Contact" option from your Contacts app.')
-      setTimeout(() => setImportError(null), 5000)
+      if (isIOS) {
+        setImportError('Could not read contact file. Please make sure you exported the contact as a vCard (.vcf) file from the Contacts app.')
+      } else if (isAndroid) {
+        setImportError('Could not read contact file. Please make sure you shared the contact as a vCard (.vcf) file.')
+      } else {
+        setImportError('Failed to read contact file. Please make sure it is a valid vCard (.vcf) file.')
+      }
+      setTimeout(() => setImportError(null), 8000)
     } finally {
       setIsImporting(false)
       // Reset file input
@@ -219,8 +226,11 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       console.error('Contact import error:', error)
       if (error.name === 'AbortError') {
         // User cancelled - no error message needed
+      } else if (error.name === 'NotSupportedError' || error.name === 'NotAllowedError') {
+        setImportError('Contact access was denied. Please check your browser permissions and try again.')
+        setTimeout(() => setImportError(null), 6000)
       } else {
-        setImportError('Failed to import contact. Please try again or enter manually.')
+        setImportError('Failed to import contact. Please try again or enter the information manually.')
         setTimeout(() => setImportError(null), 5000)
       }
     } finally {
@@ -277,9 +287,11 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
               <h3 className="text-sm font-medium text-primary-light mb-1">Quick Import</h3>
               <p className="text-xs text-primary-light/60">
                 {isContactPickerSupported 
-                  ? 'Import contact details from your phone contacts to save time'
+                  ? 'Tap below to select a contact from your phone'
                   : isIOS
-                  ? 'Import a contact from your Contacts app (tap Share Contact to get the file)'
+                  ? 'To import: Open Contacts app → Select contact → Share Contact → Choose vCard → Select this app'
+                  : isAndroid
+                  ? 'Import a contact by selecting a vCard file from your phone'
                   : 'Import a contact by uploading a vCard file (.vcf)'}
               </p>
             </div>
@@ -291,7 +303,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
                 disabled={isImporting}
                 className="w-full sm:w-auto border border-primary-blue hover:bg-primary-blue/10"
               >
-                {isImporting ? 'Importing...' : 'Import from Phone Contacts'}
+                {isImporting ? 'Importing...' : 'Select from Contacts'}
               </Button>
             ) : (
               <div className="w-full sm:w-auto">
@@ -313,23 +325,46 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
                     ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}
                   `}
                 >
-                  {isImporting ? 'Importing...' : 'Import from Contacts'}
+                  {isImporting ? 'Importing...' : isIOS ? 'Import vCard' : 'Import from Contacts'}
                 </label>
               </div>
             )}
           </div>
           
+          {/* Instructions for first-time users */}
+          {!showImportMessage && !importError && isIOS && !isContactPickerSupported && (
+            <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+              <p className="text-xs text-blue-400 font-medium mb-1">📱 How to import from iPhone Contacts:</p>
+              <ol className="text-xs text-blue-400/80 space-y-1 ml-4 list-decimal">
+                <li>Open the Contacts app on your iPhone</li>
+                <li>Select the contact you want to import</li>
+                <li>Scroll down and tap "Share Contact"</li>
+                <li>Tap "Save to Files" or "More" to find file options</li>
+                <li>Save the vCard (.vcf file) and then upload it here</li>
+              </ol>
+            </div>
+          )}
+
+          {/* Instructions for Android without Contact Picker */}
+          {!showImportMessage && !importError && isAndroid && !isContactPickerSupported && (
+            <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+              <p className="text-xs text-blue-400 font-medium mb-1">📱 How to import from Android Contacts:</p>
+              <ol className="text-xs text-blue-400/80 space-y-1 ml-4 list-decimal">
+                <li>Open your Contacts app</li>
+                <li>Select the contact you want to import</li>
+                <li>Tap the menu (⋮) and select "Share"</li>
+                <li>Choose to export as vCard (.vcf file)</li>
+                <li>Save and then upload the file here</li>
+              </ol>
+            </div>
+          )}
+          
           {/* Success message */}
           {showImportMessage && !importError && (
             <div className="mt-3 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
               <p className="text-xs text-green-400">
-                ✓ Contact imported! Review the details below and make any changes before saving.
+                ✓ Contact imported successfully! Review the details below and make any changes before saving.
               </p>
-              {isIOS && (
-                <p className="text-xs text-green-400/70 mt-1">
-                  Tip: In Contacts app → Select contact → Scroll down → Tap "Share Contact"
-                </p>
-              )}
             </div>
           )}
           
@@ -339,6 +374,11 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
               <p className="text-xs text-orange-400">
                 {importError}
               </p>
+              {isIOS && (
+                <p className="text-xs text-orange-400/70 mt-2">
+                  Make sure you're using the "Share Contact" feature from the Contacts app, not a screenshot or other file.
+                </p>
+              )}
             </div>
           )}
         </div>
