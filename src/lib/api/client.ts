@@ -61,6 +61,9 @@ apiClient.interceptors.request.use(
   }
 )
 
+// Track if we're already handling a session timeout to prevent multiple redirects
+let isHandlingSessionTimeout = false
+
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => {
@@ -78,17 +81,49 @@ apiClient.interceptors.response.use(
     }
     // #endregion
     
-    // Check for authentication errors
-    const isAuthError = error.response?.status === 401 ||
-      (error.response?.status === 500 && 
-       error.response?.data?.error?.message?.toLowerCase().includes('token'))
+    // Check for authentication errors - improved detection
+    const errorMessage = error.response?.data?.error?.message?.toLowerCase() || 
+                        error.response?.data?.message?.toLowerCase() || 
+                        error.message?.toLowerCase() || ''
     
-    if (isAuthError) {
-      // Handle unauthorized - clear auth and redirect to login
+    const isTokenError = errorMessage.includes('token') || 
+                         errorMessage.includes('jwt') || 
+                         errorMessage.includes('expired') ||
+                         errorMessage.includes('invalid token') ||
+                         errorMessage.includes('malformed')
+    
+    const isAuthError = error.response?.status === 401 ||
+                       error.response?.status === 403 ||
+                       (error.response?.status === 500 && isTokenError)
+    
+    if (isAuthError && !isHandlingSessionTimeout) {
+      isHandlingSessionTimeout = true
+      
+      // Show user-friendly message
+      const message = isTokenError 
+        ? 'Your session has expired. Please log in again.' 
+        : 'Authentication failed. Please log in again.'
+      
+      console.warn('Session timeout:', message)
+      
+      // Clear auth state
       localStorage.removeItem('auth_token')
       localStorage.removeItem('tenant_id')
-      window.location.href = '/login'
+      
+      // Also clear zustand persist storage
+      try {
+        localStorage.removeItem('auth-storage')
+      } catch (e) {
+        console.error('Failed to clear auth storage:', e)
+      }
+      
+      // Small delay to allow error to be logged
+      setTimeout(() => {
+        // Redirect to login with a message
+        window.location.href = `/auth/login?session=expired&message=${encodeURIComponent(message)}`
+      }, 100)
     }
+    
     return Promise.reject(error)
   }
 )

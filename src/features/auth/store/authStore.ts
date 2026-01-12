@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { authService } from '@/lib/api/services'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
+import { isTokenExpired } from '@/lib/utils/tokenUtils'
 
 export interface User {
   id: string
@@ -26,6 +27,8 @@ interface AuthState {
   logout: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
   clearError: () => void
+  clearSession: () => void
+  checkTokenValidity: () => boolean
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -124,6 +127,34 @@ export const useAuthStore = create<AuthState>()(
       },
 
       clearError: () => set({ error: null }),
+
+      clearSession: () => {
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+        })
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('tenant_id')
+      },
+
+      checkTokenValidity: () => {
+        const token = localStorage.getItem('auth_token')
+        if (!token) {
+          return false
+        }
+
+        // Check if token is expired (with 60 second buffer)
+        if (isTokenExpired(token, 60)) {
+          // Token is expired, clear session
+          useAuthStore.getState().clearSession()
+          return false
+        }
+
+        return true
+      },
     }),
     {
       name: 'auth-storage',

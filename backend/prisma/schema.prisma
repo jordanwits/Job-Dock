@@ -220,6 +220,7 @@ model Job {
   endTime      DateTime
   status       String         @default("scheduled")
   location     String?
+  price        Decimal?       @db.Decimal(10, 2)
   notes        String?
   assignedTo   String?
   breaks       Json?
@@ -258,6 +259,7 @@ model JobRecurrence {
   interval    Int
   count       Int?
   untilDate   DateTime?
+  daysOfWeek  Int[]    @default([])
   startTime   DateTime
   endTime     DateTime
   timezone    String?

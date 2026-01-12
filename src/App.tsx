@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout, ProtectedRoute } from '@/components'
+import SessionMonitor from '@/components/SessionMonitor'
 import { LoginPage, RegisterPage, ResetPasswordPage, useAuthStore } from '@/features/auth'
 import { DashboardPage } from '@/features/dashboard'
 import { CRMPage } from '@/features/crm'
@@ -28,6 +29,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <SessionMonitor />
       <Routes>
         {/* Public Booking Routes - No authentication required */}
         <Route path="/book" element={<PublicBookingPage />} />

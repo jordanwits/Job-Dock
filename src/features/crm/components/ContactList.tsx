@@ -72,9 +72,9 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
   }, [baseFilteredContacts, viewMode])
 
   // Grouped contacts for status board view
-  const { leadContacts, activeContacts, inactiveContacts } = useMemo(() => {
+  const { leadContacts, customerContacts, inactiveContacts } = useMemo(() => {
     if (viewMode !== 'status') {
-      return { leadContacts: [], activeContacts: [], inactiveContacts: [] }
+      return { leadContacts: [], customerContacts: [], inactiveContacts: [] }
     }
 
     // For status view, apply only search filter (not statusFilter)
@@ -94,14 +94,14 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
 
     return {
       leadContacts: searchFiltered.filter((c) => c.status === 'lead'),
-      activeContacts: searchFiltered.filter((c) => c.status === 'active'),
+      customerContacts: searchFiltered.filter((c) => c.status === 'customer'),
       inactiveContacts: searchFiltered.filter((c) => c.status === 'inactive'),
     }
   }, [contacts, searchQuery, viewMode])
 
   // Get the appropriate list for display based on view mode
   const displayContacts = viewMode === 'status' 
-    ? [...leadContacts, ...activeContacts, ...inactiveContacts]
+    ? [...leadContacts, ...customerContacts, ...inactiveContacts]
     : sortedContacts
 
   if (error) {
@@ -141,7 +141,7 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             options={[
               { value: 'dateEntered', label: 'Date entered (newest first)' },
               { value: 'alphabetical', label: 'Alphabetical (A–Z)' },
-              { value: 'status', label: 'By status (Lead / Active / Inactive)' },
+              { value: 'status', label: 'By status (Lead / Customer / Inactive)' },
             ]}
             className="w-full sm:w-auto min-w-[200px]"
           />
@@ -149,15 +149,15 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             value={statusFilter}
             onChange={(e) =>
               setStatusFilter(
-                e.target.value as 'all' | 'active' | 'inactive' | 'lead' | 'prospect' | 'contact'
+                e.target.value as 'all' | 'customer' | 'inactive' | 'lead' | 'prospect' | 'contact'
               )
             }
             disabled={viewMode === 'status'}
             options={[
               { value: 'all', label: 'All Status' },
-              { value: 'active', label: 'Active' },
               { value: 'lead', label: 'Lead' },
               { value: 'prospect', label: 'Prospect' },
+              { value: 'customer', label: 'Customer' },
               { value: 'inactive', label: 'Inactive' },
               { value: 'contact', label: 'Contact' },
             ]}
@@ -210,19 +210,19 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             )}
           </div>
 
-          {/* Active Column */}
+          {/* Customer Column */}
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-green-500/30">
-              <h3 className="text-lg font-semibold text-green-400">Active</h3>
-              <span className="text-sm text-primary-light/70">{activeContacts.length}</span>
+              <h3 className="text-lg font-semibold text-green-400">Customer</h3>
+              <span className="text-sm text-primary-light/70">{customerContacts.length}</span>
             </div>
-            {activeContacts.length === 0 ? (
+            {customerContacts.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-primary-light/50">No active contacts</p>
+                <p className="text-sm text-primary-light/50">No customers</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {activeContacts.map((contact) => (
+                {customerContacts.map((contact) => (
                   <ContactCard key={contact.id} contact={contact} />
                 ))}
               </div>

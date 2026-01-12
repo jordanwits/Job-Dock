@@ -45,6 +45,27 @@ const TimePicker = ({
     }
   }, [isOpen])
 
+  // Scroll to 5am when dropdown opens
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      // Small delay to ensure the dropdown is rendered
+      setTimeout(() => {
+        if (dropdownRef.current) {
+          // Find the 05:00 time slot (5am)
+          // Each time slot is approximately 40px high (including padding)
+          // We want to scroll to 5am (hour 5), which is at index (5 * 60/step)
+          const hourToScrollTo = 5
+          const slotsPerHour = 60 / step
+          const indexToScrollTo = hourToScrollTo * slotsPerHour
+          const pixelsPerSlot = 40 // approximate height of each time slot button
+          const scrollPosition = indexToScrollTo * pixelsPerSlot
+          
+          dropdownRef.current.scrollTop = scrollPosition
+        }
+      }, 0)
+    }
+  }, [isOpen, step])
+
   const parseTime = (timeString?: string): { hour: number; minute: number } | null => {
     if (!timeString) return null
     const [hour, minute] = timeString.split(':').map(Number)

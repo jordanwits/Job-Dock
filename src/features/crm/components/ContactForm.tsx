@@ -7,7 +7,7 @@ import { Input, Button, Select, PhoneInput } from '@/components/ui'
 
 interface ContactFormProps {
   contact?: Contact
-  onSubmit: (data: ContactFormData) => Promise<void>
+  onSubmit: (data: ContactFormData, scheduleJob?: boolean) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
 }
@@ -16,6 +16,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
   const [importError, setImportError] = useState<string | null>(null)
   const [isImporting, setIsImporting] = useState(false)
   const [showImportMessage, setShowImportMessage] = useState(false)
+  const [scheduleJobAfterCreate, setScheduleJobAfterCreate] = useState(false)
   
   const {
     register,
@@ -254,7 +255,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
         country: contact.country || '',
         tags: contact.tags || [],
         notes: contact.notes || '',
-        status: contact.status || 'active',
+        status: contact.status || 'lead',
       })
     }
   }, [contact, reset])
@@ -274,7 +275,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       country: data.country || undefined,
       notes: data.notes || undefined,
     }
-    await onSubmit(cleanedData)
+    await onSubmit(cleanedData, scheduleJobAfterCreate)
   }
 
   return (
@@ -460,9 +461,9 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
         value={statusValue}
         error={errors.status?.message}
         options={[
-          { value: 'active', label: 'Active' },
           { value: 'lead', label: 'Lead' },
           { value: 'prospect', label: 'Prospect' },
+          { value: 'customer', label: 'Customer' },
           { value: 'inactive', label: 'Inactive' },
           { value: 'contact', label: 'Contact' },
         ]}
@@ -481,6 +482,28 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
           <p className="mt-1 text-sm text-red-500">{errors.notes.message}</p>
         )}
       </div>
+
+      {/* Schedule job option - only show when creating new contact */}
+      {!contact && (
+        <div className="border-t border-primary-blue pt-4">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={scheduleJobAfterCreate}
+              onChange={(e) => setScheduleJobAfterCreate(e.target.checked)}
+              className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0"
+            />
+            <div className="flex-1">
+              <span className="text-sm font-medium text-primary-light">
+                Schedule a job for this contact
+              </span>
+              <p className="text-xs text-primary-light/50 mt-0.5">
+                After creating this contact, open the job scheduling form
+              </p>
+            </div>
+          </label>
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-4">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>

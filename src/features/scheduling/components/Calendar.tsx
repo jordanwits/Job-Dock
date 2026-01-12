@@ -23,6 +23,7 @@ const Calendar = ({
   onDateClick,
 }: CalendarProps) => {
   const [selectedDate, setSelectedDate] = useState(currentDate)
+  const [calendarScale, setCalendarScale] = useState<number>(100)
 
   useEffect(() => {
     setSelectedDate(currentDate)
@@ -281,6 +282,19 @@ const Calendar = ({
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    
+    // Calculate visible items and cell height based on scale
+    const getScaleSettings = () => {
+      switch(calendarScale) {
+        case 75: return { maxItems: 1, minHeight: 'min-h-[75px] md:min-h-[90px]' }
+        case 100: return { maxItems: 2, minHeight: 'min-h-[90px] md:min-h-[120px]' }
+        case 125: return { maxItems: 3, minHeight: 'min-h-[120px] md:min-h-[160px]' }
+        case 150: return { maxItems: 4, minHeight: 'min-h-[150px] md:min-h-[200px]' }
+        default: return { maxItems: 2, minHeight: 'min-h-[90px] md:min-h-[120px]' }
+      }
+    }
+    
+    const scaleSettings = getScaleSettings()
 
     return (
       <div className="flex-1 overflow-auto">
@@ -313,7 +327,8 @@ const Calendar = ({
               <div
                 key={day.toISOString()}
                 className={cn(
-                  'min-h-[60px] md:min-h-[100px] border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors',
+                  scaleSettings.minHeight,
+                  'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors',
                   !isCurrentMonth && 'opacity-40',
                   isToday(day) && 'bg-primary-gold/10',
                   isSelected && 'ring-2 ring-primary-gold'
@@ -332,7 +347,7 @@ const Calendar = ({
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5 md:space-y-1">
-                  {dayJobs.slice(0, 1).map((job) => (
+                  {dayJobs.slice(0, scaleSettings.maxItems).map((job) => (
                     <div
                       key={job.id}
                       onClick={(e) => {
@@ -354,9 +369,9 @@ const Calendar = ({
                       <span className="sm:hidden">{format(new Date(job.startTime), 'h:mm')}</span>
                     </div>
                   ))}
-                  {dayJobs.length > 1 && (
+                  {dayJobs.length > scaleSettings.maxItems && (
                     <div className="text-[10px] md:text-xs text-primary-light/50">
-                      +{dayJobs.length - 1} more
+                      +{dayJobs.length - scaleSettings.maxItems} more
                     </div>
                   )}
                 </div>
@@ -399,40 +414,63 @@ const Calendar = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-1 md:gap-2">
-          <button
-            onClick={() => onViewModeChange('day')}
-            className={cn(
-              'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
-              viewMode === 'day'
-                ? 'bg-primary-gold text-primary-dark'
-                : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
-            )}
-          >
-            Day
-          </button>
-          <button
-            onClick={() => onViewModeChange('week')}
-            className={cn(
-              'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
-              viewMode === 'week'
-                ? 'bg-primary-gold text-primary-dark'
-                : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
-            )}
-          >
-            Week
-          </button>
-          <button
-            onClick={() => onViewModeChange('month')}
-            className={cn(
-              'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
-              viewMode === 'month'
-                ? 'bg-primary-gold text-primary-dark'
-                : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
-            )}
-          >
-            Month
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 md:gap-2">
+            <button
+              onClick={() => onViewModeChange('day')}
+              className={cn(
+                'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
+                viewMode === 'day'
+                  ? 'bg-primary-gold text-primary-dark'
+                  : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+              )}
+            >
+              Day
+            </button>
+            <button
+              onClick={() => onViewModeChange('week')}
+              className={cn(
+                'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
+                viewMode === 'week'
+                  ? 'bg-primary-gold text-primary-dark'
+                  : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+              )}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => onViewModeChange('month')}
+              className={cn(
+                'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
+                viewMode === 'month'
+                  ? 'bg-primary-gold text-primary-dark'
+                  : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+              )}
+            >
+              Month
+            </button>
+          </div>
+          
+          {/* Zoom Control - Only show in month view */}
+          {viewMode === 'month' && (
+            <div className="flex items-center gap-1 border-l border-primary-blue/50 pl-2">
+              <span className="text-xs text-primary-light/70 hidden md:inline mr-1">Zoom:</span>
+              {[75, 100, 125, 150].map((scale) => (
+                <button
+                  key={scale}
+                  onClick={() => setCalendarScale(scale)}
+                  className={cn(
+                    'px-2 py-1 rounded text-xs font-medium transition-colors',
+                    calendarScale === scale
+                      ? 'bg-primary-gold text-primary-dark'
+                      : 'bg-primary-blue/10 text-primary-light/70 hover:bg-primary-blue/20'
+                  )}
+                >
+                  {scale}%
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuoteStore } from '../store/quoteStore'
 import QuoteList from '../components/QuoteList'
 import QuoteForm from '../components/QuoteForm'
@@ -48,6 +48,21 @@ const QuotesPage = () => {
     }
   }
 
+  // Keyboard shortcut: CMD+N / CTRL+N to create new quote
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'n') {
+        event.preventDefault()
+        if (!showCreateForm && !selectedQuote) {
+          setShowCreateForm(true)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showCreateForm, selectedQuote])
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -58,7 +73,11 @@ const QuotesPage = () => {
             Create and manage quotes for your projects
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)} className="w-full sm:w-auto">
+        <Button 
+          onClick={() => setShowCreateForm(true)} 
+          className="w-full sm:w-auto"
+          title="Keyboard shortcut: Ctrl+N or ⌘N"
+        >
           Create Quote
         </Button>
       </div>
@@ -117,6 +136,14 @@ const QuotesPage = () => {
           quote={selectedQuote}
           isOpen={!!selectedQuote}
           onClose={() => setSelectedQuote(null)}
+          onJobCreated={() => {
+            setConfirmationMessage('Job created successfully')
+            setShowConfirmation(true)
+            setTimeout(() => setShowConfirmation(false), 3000)
+          }}
+          onJobCreateFailed={(error) => {
+            // Error is already displayed by the job store
+          }}
         />
       )}
     </div>

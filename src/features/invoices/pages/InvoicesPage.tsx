@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useInvoiceStore } from '../store/invoiceStore'
 import InvoiceList from '../components/InvoiceList'
 import InvoiceForm from '../components/InvoiceForm'
@@ -48,6 +48,21 @@ const InvoicesPage = () => {
     }
   }
 
+  // Keyboard shortcut: CMD+N / CTRL+N to create new invoice
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'n') {
+        event.preventDefault()
+        if (!showCreateForm && !selectedInvoice) {
+          setShowCreateForm(true)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showCreateForm, selectedInvoice])
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -58,7 +73,11 @@ const InvoicesPage = () => {
             Create and manage invoices for your clients
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)} className="w-full sm:w-auto">
+        <Button 
+          onClick={() => setShowCreateForm(true)} 
+          className="w-full sm:w-auto"
+          title="Keyboard shortcut: Ctrl+N or ⌘N"
+        >
           Create Invoice
         </Button>
       </div>
@@ -117,6 +136,14 @@ const InvoicesPage = () => {
           invoice={selectedInvoice}
           isOpen={!!selectedInvoice}
           onClose={() => setSelectedInvoice(null)}
+          onJobCreated={() => {
+            setConfirmationMessage('Job created successfully')
+            setShowConfirmation(true)
+            setTimeout(() => setShowConfirmation(false), 3000)
+          }}
+          onJobCreateFailed={(error) => {
+            // Error is already displayed by the job store
+          }}
         />
       )}
     </div>

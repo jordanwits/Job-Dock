@@ -32,13 +32,14 @@ import {
 } from './csvImport'
 
 // Recurrence types
-export type RecurrenceFrequency = 'weekly' | 'monthly'
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly'
 
 export interface RecurrencePayload {
   frequency: RecurrenceFrequency
   interval: number
   count?: number
   untilDate?: string
+  daysOfWeek?: number[]
 }
 
 const toNumber = (value: Prisma.Decimal | number | null | undefined) =>
@@ -67,6 +68,33 @@ function generateRecurrenceInstances(params: {
     ? new Date(recurrence.untilDate)
     : new Date(startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
   
+  // Custom weekly pattern (specific days of week)
+  if (recurrence.frequency === 'weekly' && recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0) {
+    let currentDate = new Date(startTime)
+    let instanceCount = 0
+    
+    // Generate instances for up to MAX_MONTHS
+    const endSearchDate = new Date(Math.min(maxDate.getTime(), startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000))
+    
+    while (instanceCount < maxCount && currentDate <= endSearchDate) {
+      const dayOfWeek = currentDate.getDay()
+      
+      if (recurrence.daysOfWeek.includes(dayOfWeek)) {
+        instances.push({
+          startTime: new Date(currentDate),
+          endTime: new Date(currentDate.getTime() + duration),
+        })
+        instanceCount++
+      }
+      
+      // Move to next day
+      currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000)
+    }
+    
+    return instances
+  }
+  
+  // Standard patterns
   let currentStart = new Date(startTime)
   let currentEnd = new Date(endTime)
   
@@ -79,7 +107,9 @@ function generateRecurrenceInstances(params: {
     })
     
     // Calculate next occurrence
-    if (recurrence.frequency === 'weekly') {
+    if (recurrence.frequency === 'daily') {
+      currentStart = new Date(currentStart.getTime() + recurrence.interval * 24 * 60 * 60 * 1000)
+    } else if (recurrence.frequency === 'weekly') {
       currentStart = new Date(currentStart.getTime() + recurrence.interval * 7 * 24 * 60 * 60 * 1000)
     } else if (recurrence.frequency === 'monthly') {
       const newStart = new Date(currentStart)
@@ -106,6 +136,7 @@ async function createRecurringJobs(params: {
   endTime: Date
   status?: string
   location?: string
+  price?: number
   notes?: string
   assignedTo?: string
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
@@ -123,6 +154,7 @@ async function createRecurringJobs(params: {
     endTime,
     status = 'scheduled',
     location,
+    price,
     notes,
     assignedTo,
     breaks,
@@ -146,6 +178,7 @@ async function createRecurringJobs(params: {
         interval: recurrence.interval,
         count: recurrence.count,
         untilDate: recurrence.untilDate ? new Date(recurrence.untilDate) : null,
+        daysOfWeek: recurrence.daysOfWeek || [],
         startTime,
         endTime,
       },
@@ -238,6 +271,7 @@ async function createRecurringJobs(params: {
             endTime: instance.endTime,
             status,
             location,
+            price: price !== undefined ? price : null,
             notes,
             assignedTo,
             breaks: undefined, // Recurring jobs don't have breaks initially
@@ -1200,6 +1234,7 @@ export const dataServices = {
           endTime,
           status: payload.status || 'scheduled',
           location: payload.location,
+          price: payload.price,
           notes: payload.notes,
           assignedTo: payload.assignedTo,
           breaks: payload.breaks,
@@ -1242,6 +1277,7 @@ export const dataServices = {
           endTime,
           status: payload.status || 'scheduled',
           location: payload.location,
+          price: payload.price !== undefined ? payload.price : null,
           notes: payload.notes,
           assignedTo: payload.assignedTo,
           breaks: payload.breaks || null,
@@ -1268,6 +1304,7 @@ export const dataServices = {
       if (payload.invoiceId !== undefined) updateData.invoiceId = payload.invoiceId
       if (payload.status !== undefined) updateData.status = payload.status
       if (payload.location !== undefined) updateData.location = payload.location
+      if (payload.price !== undefined) updateData.price = payload.price
       if (payload.notes !== undefined) updateData.notes = payload.notes
       if (payload.assignedTo !== undefined) updateData.assignedTo = payload.assignedTo
       if (payload.startTime !== undefined) updateData.startTime = new Date(payload.startTime)
@@ -1779,6 +1816,7 @@ export const dataServices = {
               interval: recurrence.interval,
               count: recurrence.count,
               untilDate: recurrence.untilDate ? new Date(recurrence.untilDate) : null,
+              daysOfWeek: recurrence.daysOfWeek || [],
               startTime,
               endTime,
             },

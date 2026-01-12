@@ -11,9 +11,11 @@ interface ContactDetailProps {
   contact: Contact
   isOpen: boolean
   onClose: () => void
+  onJobCreated?: () => void
+  onJobCreateFailed?: (error: string) => void
 }
 
-const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
+const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFailed }: ContactDetailProps) => {
   const { updateContact, deleteContact, isLoading } = useContactStore()
   const { createQuote, isLoading: quoteLoading } = useQuoteStore()
   const [isEditing, setIsEditing] = useState(false)
@@ -47,7 +49,7 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
   }
 
   const statusColors = {
-    active: 'bg-green-500/20 text-green-400 border-green-500/30',
+    customer: 'bg-green-500/20 text-green-400 border-green-500/30',
     lead: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     prospect: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
     inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
@@ -55,9 +57,9 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
   }
 
   const statusOptions = [
-    { value: 'active', label: 'Active' },
     { value: 'lead', label: 'Lead' },
     { value: 'prospect', label: 'Prospect' },
+    { value: 'customer', label: 'Customer' },
     { value: 'inactive', label: 'Inactive' },
     { value: 'contact', label: 'Contact' },
   ]
@@ -329,8 +331,11 @@ const ContactDetail = ({ contact, isOpen, onClose }: ContactDetailProps) => {
         defaultTitle={`Job for ${contact.firstName} ${contact.lastName}`}
         sourceContext="contact"
         onSuccess={() => {
-          setShowJobConfirmation(true)
-          setTimeout(() => setShowJobConfirmation(false), 3000)
+          setShowScheduleJob(false)
+          onClose()
+          if (onJobCreated) {
+            onJobCreated()
+          }
         }}
       />
 

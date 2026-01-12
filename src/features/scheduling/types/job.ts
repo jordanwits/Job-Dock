@@ -1,10 +1,11 @@
-export type RecurrenceFrequency = 'weekly' | 'monthly'
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly'
 
 export interface RecurrencePayload {
   frequency: RecurrenceFrequency
   interval: number
   count?: number
   untilDate?: string
+  daysOfWeek?: number[] // 0 = Sunday, 1 = Monday, etc. (for custom weekly patterns)
 }
 
 export interface JobBreak {
@@ -31,6 +32,7 @@ export interface Job {
   endTime: string
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
   location?: string
+  price?: number
   notes?: string
   assignedTo?: string
   breaks?: JobBreak[]
@@ -50,6 +52,7 @@ export interface CreateJobData {
   endTime: string
   status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
   location?: string
+  price?: number
   notes?: string
   assignedTo?: string
   breaks?: JobBreak[]

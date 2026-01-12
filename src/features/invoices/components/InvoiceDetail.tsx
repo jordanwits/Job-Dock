@@ -10,9 +10,11 @@ interface InvoiceDetailProps {
   invoice: Invoice
   isOpen: boolean
   onClose: () => void
+  onJobCreated?: () => void
+  onJobCreateFailed?: (error: string) => void
 }
 
-const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
+const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFailed }: InvoiceDetailProps) => {
   const { updateInvoice, deleteInvoice, sendInvoice, isLoading } = useInvoiceStore()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -422,8 +424,11 @@ const InvoiceDetail = ({ invoice, isOpen, onClose }: InvoiceDetailProps) => {
         invoiceId={invoice.id}
         initialInvoiceId={invoice.id}
         onSuccess={() => {
-          setShowJobConfirmation(true)
-          setTimeout(() => setShowJobConfirmation(false), 3000)
+          setShowScheduleJob(false)
+          onClose()
+          if (onJobCreated) {
+            onJobCreated()
+          }
         }}
       />
 

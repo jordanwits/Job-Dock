@@ -33,17 +33,17 @@ interface ContactState {
   isLoading: boolean
   error: string | null
   searchQuery: string
-  statusFilter: 'all' | 'active' | 'inactive' | 'lead' | 'prospect' | 'contact'
+  statusFilter: 'all' | 'customer' | 'inactive' | 'lead' | 'prospect' | 'contact'
   
   // Actions
   fetchContacts: () => Promise<void>
   getContactById: (id: string) => Promise<void>
-  createContact: (data: CreateContactData) => Promise<void>
+  createContact: (data: CreateContactData) => Promise<Contact>
   updateContact: (data: UpdateContactData) => Promise<void>
   deleteContact: (id: string) => Promise<void>
   setSelectedContact: (contact: Contact | null) => void
   setSearchQuery: (query: string) => void
-  setStatusFilter: (status: 'all' | 'active' | 'inactive' | 'lead' | 'prospect' | 'contact') => void
+  setStatusFilter: (status: 'all' | 'customer' | 'inactive' | 'lead' | 'prospect' | 'contact') => void
   clearError: () => void
 }
 
@@ -91,7 +91,7 @@ export const useContactStore = create<ContactState>((set, _get) => ({
         contacts: [newContact, ...state.contacts],
         isLoading: false,
       }))
-      return Promise.resolve()
+      return newContact
     } catch (error: unknown) {
       const message = resolveErrorMessage(error, 'Failed to create contact')
       set({
@@ -154,7 +154,7 @@ export const useContactStore = create<ContactState>((set, _get) => ({
     set({ searchQuery: query })
   },
 
-  setStatusFilter: (status: 'all' | 'active' | 'inactive' | 'lead' | 'prospect' | 'contact') => {
+  setStatusFilter: (status: 'all' | 'customer' | 'inactive' | 'lead' | 'prospect' | 'contact') => {
     set({ statusFilter: status })
   },
 

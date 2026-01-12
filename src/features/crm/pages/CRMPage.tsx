@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useContactStore } from '../store/contactStore'
 import ContactList from '../components/ContactList'
 import ContactForm from '../components/ContactForm'
 import ContactDetail from '../components/ContactDetail'
+import { ScheduleJobModal } from '@/features/scheduling'
 import { Button, Modal, Card } from '@/components/ui'
 
 const CRMPage = () => {
@@ -18,18 +19,44 @@ const CRMPage = () => {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
+  const [showScheduleJob, setShowScheduleJob] = useState(false)
+  const [newContactId, setNewContactId] = useState<string | null>(null)
+  const [newContactName, setNewContactName] = useState<string>('')
 
-  const handleCreate = async (data: any) => {
+  const handleCreate = async (data: any, scheduleJob?: boolean) => {
     try {
-      await createContact(data)
+      const newContact = await createContact(data)
       setShowCreateForm(false)
-      setConfirmationMessage('Contact Created Successfully')
-      setShowConfirmation(true)
-      setTimeout(() => setShowConfirmation(false), 3000)
+      
+      if (scheduleJob && newContact) {
+        // Store the new contact info and open job scheduling modal
+        setNewContactId(newContact.id)
+        setNewContactName(`${newContact.firstName} ${newContact.lastName}`)
+        setShowScheduleJob(true)
+      } else {
+        setConfirmationMessage('Contact Created Successfully')
+        setShowConfirmation(true)
+        setTimeout(() => setShowConfirmation(false), 3000)
+      }
     } catch (error) {
       // Error handled by store
     }
   }
+
+  // Keyboard shortcut: CMD+N / CTRL+N to create new contact
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'n') {
+        event.preventDefault()
+        if (!showCreateForm && !selectedContact) {
+          setShowCreateForm(true)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showCreateForm, selectedContact])
 
   return (
     <div className="space-y-6">
@@ -45,6 +72,7 @@ const CRMPage = () => {
           <Button 
             onClick={() => setShowCreateForm(true)} 
             className="flex-1 sm:flex-initial"
+            title="Keyboard shortcut: Ctrl+N or ⌘N"
           >
             Add Contact
           </Button>
@@ -104,8 +132,37 @@ const CRMPage = () => {
           contact={selectedContact}
           isOpen={!!selectedContact}
           onClose={() => setSelectedContact(null)}
+          onJobCreated={() => {
+            setConfirmationMessage('Job created successfully')
+            setShowConfirmation(true)
+            setTimeout(() => setShowConfirmation(false), 3000)
+          }}
+          onJobCreateFailed={(error) => {
+            // Error is already displayed by the job store
+          }}
         />
       )}
+
+      {/* Schedule Job Modal - for newly created contacts */}
+      <ScheduleJobModal
+        isOpen={showScheduleJob}
+        onClose={() => {
+          setShowScheduleJob(false)
+          setNewContactId(null)
+          setNewContactName('')
+        }}
+        defaultContactId={newContactId || undefined}
+        defaultTitle={newContactName ? `Job for ${newContactName}` : undefined}
+        sourceContext="contact"
+        onSuccess={() => {
+          setShowScheduleJob(false)
+          setNewContactId(null)
+          setNewContactName('')
+          setConfirmationMessage('Contact created and job scheduled successfully')
+          setShowConfirmation(true)
+          setTimeout(() => setShowConfirmation(false), 3000)
+        }}
+      />
 
     </div>
   )

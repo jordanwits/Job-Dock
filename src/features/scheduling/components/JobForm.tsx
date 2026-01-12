@@ -20,9 +20,10 @@ interface JobFormProps {
   defaultNotes?: string
   initialQuoteId?: string
   initialInvoiceId?: string
+  error?: string | null
 }
 
-const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, defaultTitle, defaultNotes, initialQuoteId, initialInvoiceId }: JobFormProps) => {
+const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, defaultTitle, defaultNotes, initialQuoteId, initialInvoiceId, error }: JobFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { services, fetchServices } = useServiceStore()
   const { quotes, fetchQuotes } = useQuoteStore()
@@ -33,6 +34,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   const [endRepeatMode, setEndRepeatMode] = useState<'never' | 'on-date'>('never')
   const [endRepeatDate, setEndRepeatDate] = useState<string>('')
   const [occurrenceCount, setOccurrenceCount] = useState<number>(12)
+  const [customDaysOfWeek, setCustomDaysOfWeek] = useState<number[]>([]) // For custom weekly repeat
   
   // Duration unit and value state
   const inferDurationUnit = (startTime: string, endTime: string): { unit: 'minutes' | 'hours' | 'days' | 'weeks', value: number } => {
@@ -136,6 +138,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       endTime: job?.endTime || '',
       status: job?.status || 'scheduled',
       location: job?.location || '',
+      price: job?.price?.toString() || '',
       notes: job?.notes || defaultNotes || '',
       assignedTo: job?.assignedTo || '',
     },
@@ -270,6 +273,8 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       quoteId: data.quoteId || undefined,
       invoiceId: data.invoiceId || undefined,
       serviceId: data.serviceId || undefined,
+      // Convert price string to number, or undefined if empty
+      price: data.price ? parseFloat(data.price.toString()) : undefined,
     }
 
     // Add recurrence if selected
@@ -282,6 +287,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           frequency,
           interval,
           count: occurrenceCount,
+          ...(repeatPattern === 'custom-weekly' && customDaysOfWeek.length > 0 && { daysOfWeek: customDaysOfWeek }),
         }
       } else if (endRepeatMode === 'on-date' && endRepeatDate) {
         // Calculate count based on end date
@@ -291,7 +297,9 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         let currentDate = new Date(start)
         
         while (currentDate <= end) {
-          if (frequency === 'weekly') {
+          if (frequency === 'daily') {
+            currentDate.setDate(currentDate.getDate() + interval)
+          } else if (frequency === 'weekly') {
             currentDate = addWeeks(currentDate, interval)
           } else if (frequency === 'monthly') {
             currentDate = addMonths(currentDate, interval)
@@ -303,6 +311,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           frequency,
           interval,
           count: count,
+          ...(repeatPattern === 'custom-weekly' && customDaysOfWeek.length > 0 && { daysOfWeek: customDaysOfWeek }),
         }
       }
     }
@@ -321,13 +330,31 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
     let endDate = new Date(start)
     const count = occurrenceCount - 1 // -1 because first occurrence is the start date
     
-    if (frequency === 'weekly') {
+    if (frequency === 'daily') {
+      endDate.setDate(endDate.getDate() + (interval * count))
+    } else if (frequency === 'weekly') {
       endDate = addWeeks(start, interval * count)
     } else if (frequency === 'monthly') {
       endDate = addMonths(start, interval * count)
     }
     
     return format(endDate, 'MMM d, yyyy')
+  }
+
+  // Toggle day of week for custom repeat
+  const toggleDayOfWeek = (day: number) => {
+    setCustomDaysOfWeek(prev => 
+      prev.includes(day) 
+        ? prev.filter(d => d !== day)
+        : [...prev, day].sort()
+    )
+  }
+
+  // Get custom days label
+  const getCustomDaysLabel = () => {
+    if (customDaysOfWeek.length === 0) return 'Select days'
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    return customDaysOfWeek.map(d => dayNames[d]).join(', ')
   }
 
   // Prepare job title options - include services, quotes, and invoices
@@ -413,6 +440,22 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+      {/* Error Display */}
+      {error && (
+        <div className="rounded-lg border border-red-500 bg-red-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-red-500 text-xl flex-shrink-0">✗</span>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-500 mb-1">Failed to create job</p>
+              <p className="text-sm text-red-400">{error}</p>
+              <p className="text-xs text-red-400/80 mt-2">
+                Please check for scheduling conflicts or adjust the job details and try again.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Job Title Selector */}
       <div>
         <label className="block text-sm font-medium text-primary-light mb-2">
@@ -487,12 +530,20 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
 
       {/* Service field is now integrated into Job Title dropdown above */}
 
-      {/* Duration Unit Selector */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-primary-light mb-2">
-            Duration Unit *
-          </label>
+      {/* Job Time */}
+      <div>
+        <label className="block text-sm font-medium text-primary-light mb-2">
+          Job Time *
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={durationValue}
+            onChange={(e) => setDurationValue(Number(e.target.value))}
+            min={0.1}
+            step={0.1}
+            className="w-24 rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+          />
           <Select
             value={durationUnit}
             onChange={(e) => handleDurationUnitChange(e.target.value as 'minutes' | 'hours' | 'days' | 'weeks')}
@@ -502,19 +553,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
               { value: 'days', label: 'Days' },
               { value: 'weeks', label: 'Weeks' },
             ]}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-primary-light mb-2">
-            Duration *
-          </label>
-          <input
-            type="number"
-            value={durationValue}
-            onChange={(e) => setDurationValue(Number(e.target.value))}
-            min={0.1}
-            step={0.1}
-            className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+            className="w-32"
           />
         </div>
       </div>
@@ -613,6 +652,28 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
             })()}
           </p>
         )}
+      </div>
+
+      {/* Price Field */}
+      <div>
+        <label className="block text-sm font-medium text-primary-light mb-2">
+          Price
+        </label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70">$</span>
+          <Input
+            {...register('price')}
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="0.00"
+            className="pl-7"
+            error={errors.price?.message}
+          />
+        </div>
+        <p className="text-xs text-primary-light/50 mt-1">
+          Optional job price or estimated cost
+        </p>
       </div>
 
       {/* Job Timeline & Breaks */}
@@ -739,17 +800,62 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         </label>
         <Select
           value={repeatPattern}
-          onChange={(e) => setRepeatPattern(e.target.value)}
+          onChange={(e) => {
+            setRepeatPattern(e.target.value)
+            // Reset custom days when changing away from custom
+            if (e.target.value !== 'custom-weekly') {
+              setCustomDaysOfWeek([])
+            }
+          }}
           options={[
             { value: 'none', label: 'Does not repeat' },
+            { value: 'daily-1', label: 'Every day' },
             { value: 'weekly-1', label: 'Every week' },
             { value: 'weekly-2', label: 'Every 2 weeks' },
             { value: 'weekly-4', label: 'Every 4 weeks' },
             { value: 'monthly-1', label: 'Every month' },
+            { value: 'custom-weekly', label: 'Custom...' },
           ]}
         />
         
-        {repeatPattern !== 'none' && (
+        {/* Custom Days of Week Selector */}
+        {repeatPattern === 'custom-weekly' && (
+          <div className="mt-3 space-y-2">
+            <label className="block text-xs font-medium text-primary-light/70">
+              Repeat on
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleDayOfWeek(index)}
+                  className={`
+                    px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${customDaysOfWeek.includes(index)
+                      ? 'bg-primary-gold text-primary-dark'
+                      : 'bg-primary-dark-secondary text-primary-light border border-primary-blue hover:border-primary-gold'
+                    }
+                  `}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+            {customDaysOfWeek.length > 0 && (
+              <p className="text-xs text-primary-light/50">
+                Repeats every {getCustomDaysLabel()}
+              </p>
+            )}
+            {customDaysOfWeek.length === 0 && (
+              <p className="text-xs text-red-400">
+                Please select at least one day
+              </p>
+            )}
+          </div>
+        )}
+        
+        {repeatPattern !== 'none' && repeatPattern !== 'custom-weekly' && (
           <div className="mt-3 space-y-3">
             <Select
               label="End Repeat"
@@ -791,6 +897,54 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
               <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
                 <p className="text-xs text-primary-light/70">
                   Will repeat until {format(new Date(endRepeatDate), 'MMM d, yyyy')}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {repeatPattern === 'custom-weekly' && customDaysOfWeek.length > 0 && (
+          <div className="mt-3 space-y-3">
+            <Select
+              label="End Repeat"
+              value={endRepeatMode}
+              onChange={(e) => {
+                const mode = e.target.value as 'never' | 'on-date'
+                setEndRepeatMode(mode)
+                if (mode === 'on-date' && !endRepeatDate && startDate) {
+                  // Set default end date to 3 months from start
+                  const defaultEnd = new Date(startDate)
+                  defaultEnd.setMonth(defaultEnd.getMonth() + 3)
+                  setEndRepeatDate(format(defaultEnd, 'yyyy-MM-dd'))
+                }
+              }}
+              options={[
+                { value: 'never', label: 'Never' },
+                { value: 'on-date', label: 'On Date' },
+              ]}
+            />
+            
+            {endRepeatMode === 'on-date' && (
+              <DatePicker
+                label="End Date"
+                value={endRepeatDate}
+                onChange={setEndRepeatDate}
+                minDate={startDate || new Date().toISOString().split('T')[0]}
+              />
+            )}
+            
+            {endRepeatMode === 'never' && (
+              <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
+                <p className="text-xs text-primary-light/70">
+                  Will create {occurrenceCount} occurrences on {getCustomDaysLabel()}
+                </p>
+              </div>
+            )}
+            
+            {endRepeatMode === 'on-date' && endRepeatDate && (
+              <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
+                <p className="text-xs text-primary-light/70">
+                  Will repeat on {getCustomDaysLabel()} until {format(new Date(endRepeatDate), 'MMM d, yyyy')}
                 </p>
               </div>
             )}

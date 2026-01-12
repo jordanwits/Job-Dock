@@ -11,7 +11,7 @@ const ContactCard = ({ contact }: ContactCardProps) => {
   const { setSelectedContact } = useContactStore()
 
   const statusColors = {
-    active: 'bg-green-500/20 text-green-400 border-green-500/30',
+    customer: 'bg-green-500/20 text-green-400 border-green-500/30',
     inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
     lead: 'bg-primary-gold/20 text-primary-gold border-primary-gold/30',
     prospect: 'bg-blue-500/20 text-blue-400 border-blue-500/30',

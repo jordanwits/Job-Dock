@@ -77,6 +77,9 @@ const SchedulingPage = () => {
   }>({})
   const [showDeleteRecurringModal, setShowDeleteRecurringModal] = useState(false)
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
+  const [jobConfirmationMessage, setJobConfirmationMessage] = useState('')
+  const [showJobError, setShowJobError] = useState(false)
+  const [jobErrorMessage, setJobErrorMessage] = useState('')
   const [showServiceConfirmation, setShowServiceConfirmation] = useState(false)
   const [serviceConfirmationMessage, setServiceConfirmationMessage] = useState('')
 
@@ -96,14 +99,38 @@ const SchedulingPage = () => {
     fetchServices()
   }, [currentDate, fetchJobs, fetchServices])
 
+  // Keyboard shortcut: CMD+N / CTRL+N to create new job or service based on active tab
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'n') {
+        event.preventDefault()
+        // Only trigger if no modals are open and no job/service is selected
+        if (!showJobForm && !showServiceForm && !selectedJob && !selectedService) {
+          if (activeTab === 'services') {
+            setShowServiceForm(true)
+          } else {
+            // For both 'calendar' and 'jobs' tabs, create a job
+            setShowJobForm(true)
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showJobForm, showServiceForm, selectedJob, selectedService, activeTab])
+
   const handleCreateJob = async (data: any) => {
     try {
       await createJob(data)
       setShowJobForm(false)
+      clearJobsError()
+      setJobConfirmationMessage('Job created successfully')
       setShowJobConfirmation(true)
       setTimeout(() => setShowJobConfirmation(false), 3000)
-    } catch (error) {
-      // Error handled by store
+    } catch (error: any) {
+      // Error will be displayed in the modal via jobsError
+      // Keep the modal open so user can fix the issue
     }
   }
 
@@ -114,11 +141,14 @@ const SchedulingPage = () => {
         setEditingJob(null)
         setShowJobForm(false)
         setSelectedJob(null)
+        clearJobsError()
+        setJobConfirmationMessage('Job updated successfully')
         setShowJobConfirmation(true)
         setTimeout(() => setShowJobConfirmation(false), 3000)
       }
-    } catch (error) {
-      // Error handled by store
+    } catch (error: any) {
+      // Error will be displayed in the modal via jobsError
+      // Keep the modal open so user can fix the issue
     }
   }
 
@@ -280,7 +310,11 @@ const SchedulingPage = () => {
         <div className="flex items-center gap-2">
           {activeTab === 'calendar' && (
             <>
-              <Button onClick={() => setShowJobForm(true)} className="w-full sm:w-auto">
+              <Button 
+                onClick={() => setShowJobForm(true)} 
+                className="w-full sm:w-auto"
+                title="Keyboard shortcut: Ctrl+N or ⌘N"
+              >
                 Schedule Job
               </Button>
               <Button onClick={handleOpenBookingLink} variant="secondary" className="w-full sm:w-auto">
@@ -290,7 +324,11 @@ const SchedulingPage = () => {
           )}
           {activeTab === 'services' && (
             <>
-              <Button onClick={() => setShowServiceForm(true)} className="w-full sm:w-auto">
+              <Button 
+                onClick={() => setShowServiceForm(true)} 
+                className="w-full sm:w-auto"
+                title="Keyboard shortcut: Ctrl+N or ⌘N"
+              >
                 Create Service
               </Button>
               <Button onClick={handleOpenBookingLink} variant="secondary" className="w-full sm:w-auto">
@@ -324,11 +362,27 @@ const SchedulingPage = () => {
       {showJobConfirmation && (
         <Card className="bg-green-500/10 border-green-500">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-green-500">✓ Job has been created</p>
+            <p className="text-sm text-green-500">✓ {jobConfirmationMessage}</p>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowJobConfirmation(false)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Job Error Display */}
+      {showJobError && (
+        <Card className="bg-red-500/10 border-red-500">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-red-500">✗ {jobErrorMessage}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowJobError(false)}
             >
               Dismiss
             </Button>
@@ -456,6 +510,7 @@ const SchedulingPage = () => {
             clearJobsError()
           }}
           isLoading={jobsLoading}
+          error={jobsError}
         />
       </Modal>
 

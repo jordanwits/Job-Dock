@@ -219,6 +219,15 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onConfirm, onDeclin
           </Card>
         )}
 
+        {job.price && (
+          <Card>
+            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Price</h3>
+            <p className="text-primary-light text-lg font-semibold">
+              ${job.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </Card>
+        )}
+
         {/* Job Timeline with Breaks */}
         {job.breaks && job.breaks.length > 0 && (
           <Card>

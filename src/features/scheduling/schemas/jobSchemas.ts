@@ -8,10 +8,11 @@ export const jobBreakSchema = z.object({
 })
 
 export const recurrenceSchema = z.object({
-  frequency: z.enum(['weekly', 'monthly']),
+  frequency: z.enum(['daily', 'weekly', 'monthly']),
   interval: z.number().int().min(1).max(4),
   count: z.number().int().min(2).max(50).optional(),
   untilDate: z.string().optional(),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
 })
 
 export const jobSchema = z.object({
@@ -25,6 +26,7 @@ export const jobSchema = z.object({
   endTime: z.string().optional(), // Computed from date/time pickers
   status: z.enum(['scheduled', 'in-progress', 'completed', 'cancelled', 'pending-confirmation']).optional(),
   location: z.string().optional(),
+  price: z.string().optional().or(z.number().optional()),
   notes: z.string().optional(),
   assignedTo: z.string().optional(),
   breaks: z.array(jobBreakSchema).optional(),

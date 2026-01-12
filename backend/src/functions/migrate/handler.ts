@@ -391,6 +391,20 @@ const PENDING_MIGRATIONS = [
       `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "title" TEXT`
     ],
     description: 'Add optional title field to invoices'
+  },
+  {
+    name: '20260112000000_add_job_price',
+    statements: [
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "price" DECIMAL(10,2)`
+    ],
+    description: 'Add optional price field to jobs'
+  },
+  {
+    name: '20260112000001_add_custom_recurrence_days',
+    statements: [
+      `ALTER TABLE "job_recurrences" ADD COLUMN IF NOT EXISTS "daysOfWeek" INTEGER[] DEFAULT ARRAY[]::INTEGER[]`
+    ],
+    description: 'Add custom days of week selection for job recurrence (for patterns like every Tue and Thu)'
   }
 ]
 

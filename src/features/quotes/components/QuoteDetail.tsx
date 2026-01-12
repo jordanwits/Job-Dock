@@ -13,9 +13,11 @@ interface QuoteDetailProps {
   quote: Quote
   isOpen: boolean
   onClose: () => void
+  onJobCreated?: () => void
+  onJobCreateFailed?: (error: string) => void
 }
 
-const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
+const QuoteDetail = ({ quote, isOpen, onClose, onJobCreated, onJobCreateFailed }: QuoteDetailProps) => {
   const { updateQuote, deleteQuote, sendQuote, isLoading } = useQuoteStore()
   const { convertQuoteToInvoice, isLoading: isConverting } = useInvoiceStore()
   const navigate = useNavigate()
@@ -362,8 +364,11 @@ const QuoteDetail = ({ quote, isOpen, onClose }: QuoteDetailProps) => {
         quoteId={quote.id}
         initialQuoteId={quote.id}
         onSuccess={() => {
-          setShowJobConfirmation(true)
-          setTimeout(() => setShowJobConfirmation(false), 3000)
+          setShowScheduleJob(false)
+          onClose()
+          if (onJobCreated) {
+            onJobCreated()
+          }
         }}
       />
 

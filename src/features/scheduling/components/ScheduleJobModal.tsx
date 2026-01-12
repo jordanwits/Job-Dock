@@ -30,7 +30,7 @@ const ScheduleJobModal = ({
   initialInvoiceId,
   onSuccess,
 }: ScheduleJobModalProps) => {
-  const { createJob, isLoading, clearError } = useJobStore()
+  const { createJob, isLoading, error, clearError } = useJobStore()
 
   const handleSubmit = async (data: CreateJobData) => {
     try {
@@ -41,13 +41,15 @@ const ScheduleJobModal = ({
         ...(invoiceId && { invoiceId }),
       }
       await createJob(jobData)
+      clearError()
       onClose()
       // Call onSuccess which should show confirmation in parent component
       if (onSuccess) {
         onSuccess()
       }
     } catch (error) {
-      // Error handled by store
+      // Error will be displayed in the modal via error prop
+      // Keep the modal open so user can fix the issue
     }
   }
 
@@ -67,6 +69,7 @@ const ScheduleJobModal = ({
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         isLoading={isLoading}
+        error={error}
         defaultContactId={defaultContactId}
         defaultTitle={defaultTitle}
         defaultNotes={defaultNotes}
