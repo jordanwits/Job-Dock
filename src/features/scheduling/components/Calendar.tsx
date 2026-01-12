@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, addWeeks, subWeeks, addMonths, subMonths, addDays, subDays, startOfDay, getHours, getMinutes, setHours, setMinutes } from 'date-fns'
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, addWeeks, subWeeks, addMonths, subMonths, addDays, subDays, startOfDay, getHours, getMinutes, setHours, setMinutes, addMinutes } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { Job } from '../types/job'
+import { useJobStore } from '../store/jobStore'
 
 interface CalendarProps {
   jobs: Job[]
@@ -11,6 +12,14 @@ interface CalendarProps {
   onViewModeChange: (mode: 'day' | 'week' | 'month') => void
   onJobClick: (job: Job) => void
   onDateClick: (date: Date) => void
+}
+
+interface DragState {
+  job: Job | null
+  type: 'move' | 'resize' | null
+  startY: number
+  originalStartTime: Date | null
+  originalEndTime: Date | null
 }
 
 const Calendar = ({
@@ -24,6 +33,25 @@ const Calendar = ({
 }: CalendarProps) => {
   const [selectedDate, setSelectedDate] = useState(currentDate)
   const [calendarScale, setCalendarScale] = useState<number>(100)
+  const [dragState, setDragState] = useState<DragState>({
+    job: null,
+    type: null,
+    startY: 0,
+    originalStartTime: null,
+    originalEndTime: null,
+  })
+  const [dragOverDate, setDragOverDate] = useState<Date | null>(null)
+  const [dragOverHour, setDragOverHour] = useState<number | null>(null)
+  const [previewEndTime, setPreviewEndTime] = useState<Date | null>(null)
+  
+  const { updateJob } = useJobStore()
+
+  // Helper function to snap to 15-minute increments
+  const snapTo15Minutes = (date: Date): Date => {
+    const minutes = getMinutes(date)
+    const snappedMinutes = Math.round(minutes / 15) * 15
+    return setMinutes(date, snappedMinutes)
+  }
 
   useEffect(() => {
     setSelectedDate(currentDate)
@@ -68,6 +96,184 @@ const Calendar = ({
     })
   }
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.MouseEvent, job: Job, type: 'move' | 'resize') => {
+    e.stopPropagation()
+    setDragState({
+      job,
+      type,
+      startY: e.clientY,
+      originalStartTime: new Date(job.startTime),
+      originalEndTime: new Date(job.endTime),
+    })
+  }
+
+  const handleDragMove = (e: React.MouseEvent) => {
+    if (!dragState.job || !dragState.type) return
+    
+    // Visual feedback handled by CSS
+    const deltaY = e.clientY - dragState.startY
+    // We'll calculate the actual time change on drop
+  }
+
+  const handleDrop = async (date: Date, hour: number) => {
+    if (!dragState.job || !dragState.type) return
+
+    const { job, type, originalStartTime, originalEndTime } = dragState
+
+    try {
+      if (type === 'move') {
+        // Calculate new start and end times
+        const originalStart = new Date(originalStartTime!)
+        const originalEnd = new Date(originalEndTime!)
+        const duration = originalEnd.getTime() - originalStart.getTime()
+        
+        // Set new start time to the dropped hour, keeping original minutes, then snap to 15 minutes
+        let newStartTime = setHours(setMinutes(date, getMinutes(originalStart)), hour)
+        newStartTime = snapTo15Minutes(newStartTime)
+        const newEndTime = new Date(newStartTime.getTime() + duration)
+
+        await updateJob({
+          id: job.id,
+          startTime: newStartTime.toISOString(),
+          endTime: newEndTime.toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error('Failed to update job:', error)
+    }
+
+    // Clear drag state
+    setDragState({
+      job: null,
+      type: null,
+      startY: 0,
+      originalStartTime: null,
+      originalEndTime: null,
+    })
+    setDragOverDate(null)
+    setDragOverHour(null)
+  }
+
+  // Handle drop on a day (for month view - keeps same time, changes date)
+  const handleDropOnDay = async (date: Date) => {
+    if (!dragState.job || dragState.type !== 'move') return
+
+    const { job, originalStartTime, originalEndTime } = dragState
+
+    try {
+      // Calculate new start and end times - same time of day, different date
+      const originalStart = new Date(originalStartTime!)
+      const originalEnd = new Date(originalEndTime!)
+      const duration = originalEnd.getTime() - originalStart.getTime()
+      
+      // Keep the same time of day, but change the date, then snap to 15 minutes
+      let newStartTime = setHours(setMinutes(date, getMinutes(originalStart)), getHours(originalStart))
+      newStartTime = snapTo15Minutes(newStartTime)
+      const newEndTime = new Date(newStartTime.getTime() + duration)
+
+      await updateJob({
+        id: job.id,
+        startTime: newStartTime.toISOString(),
+        endTime: newEndTime.toISOString(),
+      })
+    } catch (error) {
+      console.error('Failed to update job:', error)
+    }
+
+    // Clear drag state
+    setDragState({
+      job: null,
+      type: null,
+      startY: 0,
+      originalStartTime: null,
+      originalEndTime: null,
+    })
+    setDragOverDate(null)
+    setDragOverHour(null)
+  }
+
+  const handleResizeDrop = async (minutesChange: number) => {
+    if (!dragState.job || dragState.type !== 'resize') return
+
+    const { job, originalEndTime } = dragState
+
+    try {
+      // Snap to 15-minute increments
+      const snappedMinutesChange = Math.round(minutesChange / 15) * 15
+      const newEndTime = addMinutes(new Date(originalEndTime!), snappedMinutesChange)
+      
+      // Ensure end time is after start time (at least 15 minutes)
+      const startTime = new Date(job.startTime)
+      if (newEndTime <= startTime) return
+
+      await updateJob({
+        id: job.id,
+        endTime: newEndTime.toISOString(),
+      })
+    } catch (error) {
+      console.error('Failed to resize job:', error)
+    }
+
+    // Clear drag state and preview
+    setDragState({
+      job: null,
+      type: null,
+      startY: 0,
+      originalStartTime: null,
+      originalEndTime: null,
+    })
+    setPreviewEndTime(null)
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (dragState.type === 'resize' && dragState.job && dragState.originalEndTime) {
+        // Calculate real-time preview with 15-minute snapping
+        const deltaY = e.clientY - dragState.startY
+        const pixelsPerHour = viewMode === 'day' ? 80 : 80 // Can adjust for different views
+        const minutesChange = Math.round((deltaY / pixelsPerHour) * 60)
+        const snappedMinutesChange = Math.round(minutesChange / 15) * 15
+        
+        const newEndTime = addMinutes(new Date(dragState.originalEndTime), snappedMinutesChange)
+        const startTime = new Date(dragState.job.startTime)
+        
+        // Only update preview if end time is after start time
+        if (newEndTime > startTime) {
+          setPreviewEndTime(newEndTime)
+        }
+      }
+    }
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (dragState.type === 'resize' && dragState.job) {
+        const deltaY = e.clientY - dragState.startY
+        const pixelsPerHour = viewMode === 'day' ? 80 : 80
+        const minutesChange = Math.round((deltaY / pixelsPerHour) * 60)
+        handleResizeDrop(minutesChange)
+      } else if (dragState.type === 'move') {
+        // Drag move handled by drop zone
+        setDragState({
+          job: null,
+          type: null,
+          startY: 0,
+          originalStartTime: null,
+          originalEndTime: null,
+        })
+        setPreviewEndTime(null)
+      }
+    }
+
+    if (dragState.job) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [dragState, viewMode])
+
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i)
     const dayJobs = getJobsForDate(selectedDate)
@@ -87,7 +293,21 @@ const Calendar = ({
             return (
               <div
                 key={hour}
-                className="border-b border-primary-blue/30 min-h-[60px] md:min-h-[80px] relative"
+                className={cn(
+                  "border-b border-primary-blue/30 min-h-[60px] md:min-h-[80px] relative",
+                  dragOverHour === hour && dragOverDate && isSameDay(dragOverDate, selectedDate) && "bg-primary-gold/10"
+                )}
+                onMouseEnter={() => {
+                  if (dragState.type === 'move') {
+                    setDragOverDate(selectedDate)
+                    setDragOverHour(hour)
+                  }
+                }}
+                onMouseUp={() => {
+                  if (dragState.type === 'move' && dragOverHour === hour) {
+                    handleDrop(selectedDate, hour)
+                  }
+                }}
               >
                 <div className="absolute left-0 top-0 w-12 md:w-20 p-1 md:p-2 text-xs md:text-sm text-primary-light/70">
                   {format(setHours(setMinutes(new Date(), 0), hour), 'h:mm a')}
@@ -95,7 +315,12 @@ const Calendar = ({
                 <div className="ml-12 md:ml-20 p-1 md:p-2">
                   {timeSlotJobs.map((job) => {
                     const startTime = new Date(job.startTime)
-                    const endTime = new Date(job.endTime)
+                    const isDragging = dragState.job?.id === job.id
+                    const isResizing = isDragging && dragState.type === 'resize'
+                    
+                    // Use preview end time if resizing, otherwise use actual end time
+                    const endTime = isResizing && previewEndTime ? previewEndTime : new Date(job.endTime)
+                    
                     const startMinutes = getHours(startTime) * 60 + getMinutes(startTime)
                     const endMinutes = getHours(endTime) * 60 + getMinutes(endTime)
                     const duration = endMinutes - startMinutes
@@ -105,10 +330,9 @@ const Calendar = ({
                     return (
                       <div
                         key={job.id}
-                        onClick={() => onJobClick(job)}
                         className={cn(
-                          'absolute rounded-lg p-2 cursor-pointer transition-all hover:opacity-90',
-                          'border-l-4',
+                          'absolute rounded-lg border-l-4 select-none group transition-all',
+                          isDragging && dragState.type === 'move' && 'opacity-50',
                           job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
                           job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
                           job.status === 'completed' && 'bg-green-500/20 border-green-500',
@@ -121,17 +345,48 @@ const Calendar = ({
                           width: 'calc(100% - 1rem)',
                         }}
                       >
-                        <div className="text-sm font-medium text-primary-light">
-                          {job.title}
-                        </div>
-                        <div className="text-xs text-primary-light/70">
-                          {format(startTime, 'h:mm a')} - {format(endTime, 'h:mm a')}
-                        </div>
-                        {job.contactName && (
-                          <div className="text-xs text-primary-light/60">
-                            {job.contactName}
+                        {/* Main content area - draggable */}
+                        <div
+                          className="absolute top-0 left-0 right-0 p-2 cursor-move hover:opacity-90 transition-all overflow-hidden"
+                          style={{ bottom: '24px' }}
+                          onMouseDown={(e) => handleDragStart(e, job, 'move')}
+                          onClick={(e) => {
+                            if (!dragState.job) {
+                              onJobClick(job)
+                            }
+                          }}
+                        >
+                          <div className="text-sm font-medium text-primary-light">
+                            {job.title}
                           </div>
-                        )}
+                          <div className="text-xs text-primary-light/70">
+                            {format(startTime, 'h:mm a')} - {format(endTime, 'h:mm a')}
+                            {isResizing && ' (resizing...)'}
+                          </div>
+                          {job.contactName && (
+                            <div className="text-xs text-primary-light/60">
+                              {job.contactName}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Resize handle - bottom 24px always accessible */}
+                        <div
+                          className="absolute bottom-0 left-0 right-0 cursor-ns-resize group-hover:bg-white/5 hover:!bg-white/10 transition-colors flex items-center justify-center z-10"
+                          style={{ height: '24px' }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            handleDragStart(e, job, 'resize')
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (!dragState.job) {
+                              onJobClick(job)
+                            }
+                          }}
+                        >
+                          <div className="w-8 h-1 bg-primary-light/30 group-hover:bg-primary-light/50 rounded-full pointer-events-none"></div>
+                        </div>
                       </div>
                     )
                   })}
@@ -220,11 +475,30 @@ const Calendar = ({
                       return (
                         <div
                           key={hour}
-                          className="h-12 md:h-20 border-b border-primary-blue/30 relative"
+                          className={cn(
+                            "h-12 md:h-20 border-b border-primary-blue/30 relative",
+                            dragOverHour === hour && dragOverDate && isSameDay(dragOverDate, day) && "bg-primary-gold/10"
+                          )}
+                          onMouseEnter={() => {
+                            if (dragState.type === 'move') {
+                              setDragOverDate(day)
+                              setDragOverHour(hour)
+                            }
+                          }}
+                          onMouseUp={() => {
+                            if (dragState.type === 'move' && dragOverHour === hour && dragOverDate && isSameDay(dragOverDate, day)) {
+                              handleDrop(day, hour)
+                            }
+                          }}
                         >
                           {timeSlotJobs.map((job) => {
                             const startTime = new Date(job.startTime)
-                            const endTime = new Date(job.endTime)
+                            const isDragging = dragState.job?.id === job.id
+                            const isResizing = isDragging && dragState.type === 'resize'
+                            
+                            // Use preview end time if resizing, otherwise use actual end time
+                            const endTime = isResizing && previewEndTime ? previewEndTime : new Date(job.endTime)
+                            
                             const startMinutes = getHours(startTime) * 60 + getMinutes(startTime)
                             const endMinutes = getHours(endTime) * 60 + getMinutes(endTime)
                             const duration = endMinutes - startMinutes
@@ -236,10 +510,9 @@ const Calendar = ({
                             return (
                               <div
                                 key={job.id}
-                                onClick={() => onJobClick(job)}
                                 className={cn(
-                                  'absolute left-1 right-1 rounded p-1 cursor-pointer transition-all hover:opacity-90 text-xs',
-                                  'border-l-2',
+                                  'absolute left-1 right-1 rounded text-xs border-l-2 select-none group transition-all',
+                                  isDragging && dragState.type === 'move' && 'opacity-50',
                                   job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
                                   job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
                                   job.status === 'completed' && 'bg-green-500/20 border-green-500',
@@ -251,12 +524,43 @@ const Calendar = ({
                                   height: `calc(var(--slot-height) * ${height} / 100)`,
                                 }}
                               >
-                                <div className="font-medium text-primary-light truncate">
-                                  {job.title}
+                                {/* Main content area - draggable */}
+                                <div
+                                  className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden"
+                                  style={{ bottom: '16px' }}
+                                  onMouseDown={(e) => handleDragStart(e, job, 'move')}
+                                  onClick={(e) => {
+                                    if (!dragState.job) {
+                                      onJobClick(job)
+                                    }
+                                  }}
+                                >
+                                  <div className="font-medium text-primary-light truncate">
+                                    {job.title}
+                                  </div>
+                                  <div className="text-primary-light/70 truncate">
+                                    <span className="hidden sm:inline">{format(startTime, 'h:mm a')}</span>
+                                    <span className="sm:hidden">{format(startTime, 'h:mm')}</span>
+                                    {isResizing && <span className="hidden sm:inline"> - {format(endTime, 'h:mm a')}</span>}
+                                  </div>
                                 </div>
-                                <div className="text-primary-light/70 truncate">
-                                  <span className="hidden sm:inline">{format(startTime, 'h:mm a')}</span>
-                                  <span className="sm:hidden">{format(startTime, 'h:mm')}</span>
+                                
+                                {/* Resize handle - bottom 16px always accessible */}
+                                <div
+                                  className="absolute bottom-0 left-0 right-0 cursor-ns-resize group-hover:bg-white/5 hover:!bg-white/10 transition-colors flex items-center justify-center z-10"
+                                  style={{ height: '16px' }}
+                                  onMouseDown={(e) => {
+                                    e.stopPropagation()
+                                    handleDragStart(e, job, 'resize')
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (!dragState.job) {
+                                      onJobClick(job)
+                                    }
+                                  }}
+                                >
+                                  <div className="w-6 h-0.5 bg-primary-light/30 group-hover:bg-primary-light/50 rounded-full pointer-events-none"></div>
                                 </div>
                               </div>
                             )
@@ -322,6 +626,7 @@ const Calendar = ({
             const dayJobs = getJobsForDate(day)
             const isCurrentMonth = isSameMonth(day, selectedDate)
             const isSelected = isSameDay(day, selectedDate)
+            const isDropTarget = dragOverDate && isSameDay(dragOverDate, day) && dragState.type === 'move'
 
             return (
               <div
@@ -331,11 +636,24 @@ const Calendar = ({
                   'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors',
                   !isCurrentMonth && 'opacity-40',
                   isToday(day) && 'bg-primary-gold/10',
-                  isSelected && 'ring-2 ring-primary-gold'
+                  isSelected && 'ring-2 ring-primary-gold',
+                  isDropTarget && 'bg-primary-gold/20 ring-2 ring-primary-gold'
                 )}
-                onClick={() => {
-                  setSelectedDate(day)
-                  onDateClick(day)
+                onClick={(e) => {
+                  if (!dragState.job) {
+                    setSelectedDate(day)
+                    onDateClick(day)
+                  }
+                }}
+                onMouseEnter={() => {
+                  if (dragState.type === 'move') {
+                    setDragOverDate(day)
+                  }
+                }}
+                onMouseUp={() => {
+                  if (dragState.type === 'move' && isDropTarget) {
+                    handleDropOnDay(day)
+                  }
                 }}
               >
                 <div
@@ -347,28 +665,38 @@ const Calendar = ({
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5 md:space-y-1">
-                  {dayJobs.slice(0, scaleSettings.maxItems).map((job) => (
-                    <div
-                      key={job.id}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onJobClick(job)
-                      }}
-                      className={cn(
-                        'text-[10px] md:text-xs p-0.5 md:p-1 rounded truncate cursor-pointer hover:opacity-80',
-                        'border-l-2',
-                        job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500 text-blue-300',
-                        job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500 text-yellow-300',
-                        job.status === 'completed' && 'bg-green-500/20 border-green-500 text-green-300',
-                        job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300',
-                        job.status === 'pending-confirmation' && 'bg-orange-500/20 border-orange-500 text-orange-300'
-                      )}
-                      title={job.title}
-                    >
-                      <span className="hidden sm:inline">{format(new Date(job.startTime), 'h:mm a')} {job.title}</span>
-                      <span className="sm:hidden">{format(new Date(job.startTime), 'h:mm')}</span>
-                    </div>
-                  ))}
+                  {dayJobs.slice(0, scaleSettings.maxItems).map((job) => {
+                    const isDragging = dragState.job?.id === job.id
+                    return (
+                      <div
+                        key={job.id}
+                        onMouseDown={(e) => {
+                          e.stopPropagation()
+                          handleDragStart(e, job, 'move')
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!dragState.job) {
+                            onJobClick(job)
+                          }
+                        }}
+                        className={cn(
+                          'text-[10px] md:text-xs p-0.5 md:p-1 rounded truncate cursor-move hover:opacity-80 select-none',
+                          'border-l-2',
+                          isDragging && 'opacity-50',
+                          job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500 text-blue-300',
+                          job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500 text-yellow-300',
+                          job.status === 'completed' && 'bg-green-500/20 border-green-500 text-green-300',
+                          job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300',
+                          job.status === 'pending-confirmation' && 'bg-orange-500/20 border-orange-500 text-orange-300'
+                        )}
+                        title={job.title}
+                      >
+                        <span className="hidden sm:inline">{format(new Date(job.startTime), 'h:mm a')} {job.title}</span>
+                        <span className="sm:hidden">{format(new Date(job.startTime), 'h:mm')}</span>
+                      </div>
+                    )
+                  })}
                   {dayJobs.length > scaleSettings.maxItems && (
                     <div className="text-[10px] md:text-xs text-primary-light/50">
                       +{dayJobs.length - scaleSettings.maxItems} more

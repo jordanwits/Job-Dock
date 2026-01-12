@@ -9,6 +9,7 @@ interface ContactListProps {
 }
 
 type ViewMode = 'status' | 'alphabetical' | 'dateEntered'
+type DisplayMode = 'cards' | 'list'
 
 const ContactList = ({ onCreateClick }: ContactListProps) => {
   const {
@@ -20,10 +21,12 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
     fetchContacts,
     setSearchQuery,
     setStatusFilter,
+    setSelectedContact,
     clearError,
   } = useContactStore()
 
-  const [viewMode, setViewMode] = useState<ViewMode>('dateEntered')
+  const [viewMode, setViewMode] = useState<ViewMode>('alphabetical')
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('cards')
 
   useEffect(() => {
     fetchContacts()
@@ -164,6 +167,36 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             helperText={viewMode === 'status' ? 'Status filter is not available in status board view' : undefined}
             className="w-full sm:w-auto min-w-[140px]"
           />
+          {viewMode !== 'status' && (
+            <div className="flex gap-1 border border-primary-blue rounded-lg p-1">
+              <button
+                onClick={() => setDisplayMode('cards')}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  displayMode === 'cards'
+                    ? 'bg-primary-gold text-primary-dark'
+                    : 'text-primary-light hover:bg-primary-blue/20'
+                }`}
+                title="Card View"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setDisplayMode('list')}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  displayMode === 'list'
+                    ? 'bg-primary-gold text-primary-dark'
+                    : 'text-primary-light hover:bg-primary-blue/20'
+                }`}
+                title="List View"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -248,12 +281,85 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             )}
           </div>
         </div>
-      ) : (
-        // Alphabetical and Date Entered Views - Grid Layout
+      ) : displayMode === 'cards' ? (
+        // Card Grid Layout
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {displayContacts.map((contact) => (
             <ContactCard key={contact.id} contact={contact} />
           ))}
+        </div>
+      ) : (
+        // List Layout
+        <div className="rounded-lg border border-primary-blue overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                    Company
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    Email
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    Phone
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-primary-blue">
+                {displayContacts.map((contact) => {
+                  const statusColors = {
+                    lead: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                    prospect: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                    customer: 'bg-green-500/20 text-green-400 border-green-500/30',
+                    inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+                    contact: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                  }
+                  
+                  return (
+                    <tr 
+                      key={contact.id} 
+                      className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedContact(contact)}
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 rounded-full bg-primary-blue flex items-center justify-center text-primary-gold font-semibold">
+                            {contact.firstName.charAt(0)}{contact.lastName.charAt(0)}
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-primary-light">
+                              {contact.firstName} {contact.lastName}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
+                        {contact.company || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
+                        <div className="truncate max-w-[200px]">{contact.email || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                        {contact.phone || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${statusColors[contact.status]}`}>
+                          {contact.status}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

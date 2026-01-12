@@ -15,6 +15,9 @@ import type { Service, CreateServiceData } from '@/features/scheduling/types/ser
 
 // Determine which services to use
 const useMockData = appEnv.isMock
+// #region agent log
+console.log('[DEBUG] API services initialized - useMockData:', useMockData, 'appEnv.dataMode:', appEnv.dataMode);
+// #endregion
 
 // Real API implementations
 const realAuthService = {
@@ -184,7 +187,15 @@ const realJobsService = {
   },
 
   create: async (data: CreateJobData) => {
+    // #region agent log
+    console.log('[DEBUG] API: Creating job with data:', JSON.stringify(data));
+    fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services.ts:187',message:'API create job called',data:{recurrence:data.recurrence,hasRecurrence:!!data.recurrence},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
     const response = await apiClient.post('/jobs', data)
+    // #region agent log
+    console.log('[DEBUG] API: Job created, response:', JSON.stringify(response.data));
+    fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services.ts:191',message:'API create job response',data:{responseData:response.data,occurrenceCount:response.data?.occurrenceCount},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
     return response.data
   },
 

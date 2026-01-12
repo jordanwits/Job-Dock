@@ -104,11 +104,23 @@ export const useJobStore = create<JobState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const apiJob = await jobsService.create(data)
-      const newJob = normalizeJob(apiJob)
-      set((state) => ({
-        jobs: [...state.jobs, newJob],
-        isLoading: false,
-      }))
+      
+      // If this is a recurring job (has occurrenceCount > 1), refresh all jobs
+      // to get all the created instances. Otherwise just add the single job.
+      if (apiJob.occurrenceCount && apiJob.occurrenceCount > 1) {
+        // Recurring job - refresh the entire job list to get all instances
+        const { currentDate } = get()
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+        await get().fetchJobs(startDate, endDate)
+      } else {
+        // Single job - just add it to the state
+        const newJob = normalizeJob(apiJob)
+        set((state) => ({
+          jobs: [...state.jobs, newJob],
+          isLoading: false,
+        }))
+      }
       return Promise.resolve()
     } catch (error: any) {
       set({

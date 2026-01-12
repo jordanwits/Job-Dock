@@ -1,10 +1,11 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { invoiceSchema, type InvoiceFormData } from '../schemas/invoiceSchemas'
 import { Invoice } from '../types/invoice'
-import { Input, Button, DatePicker, Select } from '@/components/ui'
+import { Input, Button, DatePicker, Select, Modal } from '@/components/ui'
 import { useContactStore } from '@/features/crm/store/contactStore'
+import ContactForm from '@/features/crm/components/ContactForm'
 
 interface InvoiceFormProps {
   invoice?: Invoice
@@ -16,7 +17,9 @@ interface InvoiceFormProps {
 }
 
 const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, defaultContactId }: InvoiceFormProps) => {
-  const { contacts, fetchContacts } = useContactStore()
+  const { contacts, fetchContacts, createContact } = useContactStore()
+  const [showCreateContact, setShowCreateContact] = useState(false)
+  const [isCreatingContact, setIsCreatingContact] = useState(false)
 
   useEffect(() => {
     if (contacts.length === 0) {
@@ -131,22 +134,49 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
     await handleSubmit((data) => handleFormSubmit(data, true))()
   }
 
+  const handleCreateContact = async (data: any) => {
+    setIsCreatingContact(true)
+    try {
+      const newContact = await createContact(data)
+      if (newContact) {
+        setValue('contactId', newContact.id)
+        setShowCreateContact(false)
+        await fetchContacts() // Refresh contacts list
+      }
+    } catch (error) {
+      // Error handled by store
+    } finally {
+      setIsCreatingContact(false)
+    }
+  }
+
   return (
-    <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+    <>
+      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
       {/* Contact Selection */}
-      <Select
-        label="Contact *"
-        {...register('contactId')}
-        value={contactIdValue}
-        error={errors.contactId?.message}
-        options={[
-          { value: '', label: 'Select a contact' },
-          ...contacts.map((contact) => ({
-            value: contact.id,
-            label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
-          })),
-        ]}
-      />
+      <div>
+        <Select
+          label="Contact *"
+          {...register('contactId')}
+          value={contactIdValue}
+          error={errors.contactId?.message}
+          onChange={(e) => {
+            if (e.target.value === '__create_new__') {
+              setShowCreateContact(true)
+            } else {
+              setValue('contactId', e.target.value)
+            }
+          }}
+          options={[
+            { value: '', label: 'Select a contact' },
+            { value: '__create_new__', label: '+ Create New Contact' },
+            ...contacts.map((contact) => ({
+              value: contact.id,
+              label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
+            })),
+          ]}
+        />
+      </div>
 
       {/* Project Title */}
       <Input
@@ -357,6 +387,21 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
         )}
       </div>
     </form>
+
+    {/* Create Contact Modal */}
+    <Modal
+      isOpen={showCreateContact}
+      onClose={() => setShowCreateContact(false)}
+      title="Create New Contact"
+      size="lg"
+    >
+      <ContactForm
+        onSubmit={handleCreateContact}
+        onCancel={() => setShowCreateContact(false)}
+        isLoading={isCreatingContact}
+      />
+    </Modal>
+    </>
   )
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
@@ -7,12 +7,15 @@ import { useAuthStore } from '@/features/auth'
 import { Card, Button } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
+import JobDetail from '@/features/scheduling/components/JobDetail'
 
 const DashboardPage = () => {
   const { user } = useAuthStore()
-  const { jobs, fetchJobs, isLoading: jobsLoading } = useJobStore()
+  const { jobs, fetchJobs, isLoading: jobsLoading, setSelectedJob, selectedJob } = useJobStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
   const { invoices, fetchInvoices, isLoading: invoicesLoading } = useInvoiceStore()
+  
+  const [editingJob, setEditingJob] = useState<typeof selectedJob>(null)
 
   // Fetch all data on mount
   useEffect(() => {
@@ -126,6 +129,7 @@ const DashboardPage = () => {
                   return (
                     <div
                       key={job.id}
+                      onClick={() => setSelectedJob(job)}
                       className="p-3 rounded-lg bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -277,6 +281,24 @@ const DashboardPage = () => {
             )}
           </Card>
         </div>
+      )}
+
+      {/* Job Detail Modal */}
+      {selectedJob && (
+        <JobDetail
+          job={selectedJob}
+          isOpen={!!selectedJob}
+          onClose={() => setSelectedJob(null)}
+          onEdit={() => {
+            setEditingJob(selectedJob)
+            // Navigate to scheduling page to edit
+            window.location.href = '/scheduling'
+          }}
+          onDelete={() => {
+            // Navigate to scheduling page to delete
+            window.location.href = '/scheduling'
+          }}
+        />
       )}
     </div>
   )

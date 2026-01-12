@@ -68,8 +68,15 @@ function generateRecurrenceInstances(params: {
     ? new Date(recurrence.untilDate)
     : new Date(startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
   
+  // #region agent log
+  console.log('[DEBUG] generateRecurrenceInstances entry:', JSON.stringify({startTimeISO:startTime.toISOString(),endTimeISO:endTime.toISOString(),recurrence,maxCount,durationMs:duration}));
+  // #endregion
+  
   // Custom weekly pattern (specific days of week)
   if (recurrence.frequency === 'weekly' && recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0) {
+    // #region agent log
+    console.log('[DEBUG] Using custom weekly pattern:', JSON.stringify({daysOfWeek:recurrence.daysOfWeek,maxCount}));
+    // #endregion
     let currentDate = new Date(startTime)
     let instanceCount = 0
     
@@ -90,11 +97,24 @@ function generateRecurrenceInstances(params: {
       // Move to next day
       currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000)
     }
+    // #region agent log
+    console.log('[DEBUG] Custom weekly instances generated:', JSON.stringify({instanceCount,firstDateISO:instances[0]?.startTime.toISOString(),lastDateISO:instances[instances.length-1]?.startTime.toISOString()}));
+    // #endregion
     
     return instances
   }
   
-  // Standard patterns
+  // Standard patterns - FIXED 2026-01-12T22:20:00
+  // Normalize frequency to lowercase string for comparison safety
+  const freq = String(recurrence.frequency).toLowerCase().trim()
+  const interval = recurrence.interval || 1
+  // DEBUG: Log frequency detection
+  console.log('RECURRENCE_DEBUG_V3:', { freq, interval, originalFreq: recurrence.frequency, maxCount })
+  
+  // #region agent log
+  console.log('[DEBUG] Using standard pattern:', JSON.stringify({freq,originalFrequency:recurrence.frequency,interval,maxCount}));
+  // #endregion
+  
   let currentStart = new Date(startTime)
   let currentEnd = new Date(endTime)
   
@@ -106,19 +126,34 @@ function generateRecurrenceInstances(params: {
       endTime: new Date(currentEnd),
     })
     
-    // Calculate next occurrence
-    if (recurrence.frequency === 'daily') {
-      currentStart = new Date(currentStart.getTime() + recurrence.interval * 24 * 60 * 60 * 1000)
-    } else if (recurrence.frequency === 'weekly') {
-      currentStart = new Date(currentStart.getTime() + recurrence.interval * 7 * 24 * 60 * 60 * 1000)
-    } else if (recurrence.frequency === 'monthly') {
+    // Calculate next occurrence based on frequency
+    // Use normalized freq for comparison
+    if (freq === 'daily') {
+      currentStart = new Date(currentStart.getTime() + interval * 24 * 60 * 60 * 1000)
+    } else if (freq === 'weekly') {
+      currentStart = new Date(currentStart.getTime() + interval * 7 * 24 * 60 * 60 * 1000)
+    } else if (freq === 'monthly') {
       const newStart = new Date(currentStart)
-      newStart.setMonth(newStart.getMonth() + recurrence.interval)
+      newStart.setMonth(newStart.getMonth() + interval)
       currentStart = newStart
+    } else {
+      // Fallback: if frequency doesn't match any pattern, default to daily
+      // This ensures dates always increment
+      console.log('[DEBUG] Unknown frequency, defaulting to daily:', freq);
+      currentStart = new Date(currentStart.getTime() + interval * 24 * 60 * 60 * 1000)
     }
     
     currentEnd = new Date(currentStart.getTime() + duration)
   }
+  
+  // #region agent log
+  console.log('[DEBUG] Standard pattern instances generated:', JSON.stringify({
+    totalInstances: instances.length,
+    firstDateISO: instances[0]?.startTime.toISOString(),
+    secondDateISO: instances[1]?.startTime.toISOString(),
+    lastDateISO: instances[instances.length-1]?.startTime.toISOString()
+  }));
+  // #endregion
   
   return instances
 }
@@ -190,6 +225,14 @@ async function createRecurringJobs(params: {
       endTime,
       recurrence,
     })
+    
+    // #region agent log
+    console.log('[DEBUG] Generated instances:', JSON.stringify({
+      count: instances.length,
+      first3: instances.slice(0, 3).map(i => ({start: i.startTime.toISOString(), end: i.endTime.toISOString()})),
+      allStartTimes: instances.map(i => i.startTime.toISOString())
+    }));
+    // #endregion
 
     // 2.5. Filter out instances that fall within break periods
     if (breaks && breaks.length > 0) {

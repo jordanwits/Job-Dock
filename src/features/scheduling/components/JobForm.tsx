@@ -30,11 +30,11 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   const { invoices, fetchInvoices } = useInvoiceStore()
   const [startDate, setStartDate] = useState(job ? format(new Date(job.startTime), 'yyyy-MM-dd') : '')
   const [startTime, setStartTime] = useState(job ? format(new Date(job.startTime), 'HH:mm') : '09:00')
+  const [isAllDay, setIsAllDay] = useState(false)
   const [repeatPattern, setRepeatPattern] = useState<string>('none')
   const [endRepeatMode, setEndRepeatMode] = useState<'never' | 'on-date'>('never')
   const [endRepeatDate, setEndRepeatDate] = useState<string>('')
   const [occurrenceCount, setOccurrenceCount] = useState<number>(12)
-  const [customDaysOfWeek, setCustomDaysOfWeek] = useState<number[]>([]) // For custom weekly repeat
   
   // Duration unit and value state
   const inferDurationUnit = (startTime: string, endTime: string): { unit: 'minutes' | 'hours' | 'days' | 'weeks', value: number } => {
@@ -246,22 +246,31 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
     let startDateTime: Date
     let endDateTime: Date
     
-    // Use provided time or default to 9:00 AM if not specified
-    const effectiveStartTime = startTime || '09:00'
-    
-    if (durationUnit === 'minutes') {
-      // Use specific time for minute-based jobs
-      startDateTime = new Date(`${startDate}T${effectiveStartTime}`)
-      endDateTime = new Date(startDateTime.getTime() + durationValue * 60000)
-    } else if (durationUnit === 'hours') {
-      // Use specific time for hour-based jobs
-      startDateTime = new Date(`${startDate}T${effectiveStartTime}`)
-      endDateTime = new Date(startDateTime.getTime() + durationValue * 60 * 60000)
-    } else {
-      // For day/week jobs, use a fixed time (9 AM) and compute end date
-      startDateTime = new Date(`${startDate}T09:00:00`)
+    if (isAllDay) {
+      // All-day event: starts at 00:00 and ends at 23:59
+      startDateTime = new Date(`${startDate}T00:00:00`)
       const totalDays = durationUnit === 'days' ? durationValue : durationValue * 7
-      endDateTime = new Date(startDateTime.getTime() + totalDays * 24 * 60 * 60 * 1000)
+      endDateTime = new Date(startDateTime.getTime() + (totalDays - 1) * 24 * 60 * 60 * 1000)
+      // Set to end of last day (23:59:59)
+      endDateTime.setHours(23, 59, 59, 999)
+    } else {
+      // Use provided time or default to 9:00 AM if not specified
+      const effectiveStartTime = startTime || '09:00'
+      
+      if (durationUnit === 'minutes') {
+        // Use specific time for minute-based jobs
+        startDateTime = new Date(`${startDate}T${effectiveStartTime}`)
+        endDateTime = new Date(startDateTime.getTime() + durationValue * 60000)
+      } else if (durationUnit === 'hours') {
+        // Use specific time for hour-based jobs
+        startDateTime = new Date(`${startDate}T${effectiveStartTime}`)
+        endDateTime = new Date(startDateTime.getTime() + durationValue * 60 * 60000)
+      } else {
+        // For day/week jobs, use a fixed time (9 AM) and compute end date
+        startDateTime = new Date(`${startDate}T09:00:00`)
+        const totalDays = durationUnit === 'days' ? durationValue : durationValue * 7
+        endDateTime = new Date(startDateTime.getTime() + totalDays * 24 * 60 * 60 * 1000)
+      }
     }
 
     const formData: any = {
@@ -279,22 +288,33 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
 
     // Add recurrence if selected
     if (repeatPattern !== 'none') {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:282',message:'Parsing repeatPattern',data:{repeatPattern,startDate,startTime},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
       const [frequency, intervalStr] = repeatPattern.split('-') as [RecurrenceFrequency, string]
       const interval = parseInt(intervalStr) || 1
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:285',message:'Parsed frequency and interval',data:{frequency,interval,intervalStr},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
       
       if (endRepeatMode === 'never') {
         formData.recurrence = {
           frequency,
           interval,
           count: occurrenceCount,
-          ...(repeatPattern === 'custom-weekly' && customDaysOfWeek.length > 0 && { daysOfWeek: customDaysOfWeek }),
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:293',message:'Created recurrence payload (never mode)',data:{recurrence:formData.recurrence},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
       } else if (endRepeatMode === 'on-date' && endRepeatDate) {
         // Calculate count based on end date
         const start = new Date(`${startDate}T${startTime || '09:00'}`)
         const end = new Date(endRepeatDate)
         let count = 1
         let currentDate = new Date(start)
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:299',message:'Calculating count with end date',data:{startISO:start.toISOString(),endISO:end.toISOString(),frequency,interval},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
         
         while (currentDate <= end) {
           if (frequency === 'daily') {
@@ -306,13 +326,18 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           }
           if (currentDate <= end) count++
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:313',message:'Finished count calculation',data:{count,finalDateISO:currentDate.toISOString()},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
         
         formData.recurrence = {
           frequency,
           interval,
           count: count,
-          ...(repeatPattern === 'custom-weekly' && customDaysOfWeek.length > 0 && { daysOfWeek: customDaysOfWeek }),
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:322',message:'Created recurrence payload (on-date mode)',data:{recurrence:formData.recurrence},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
       }
     }
 
@@ -341,21 +366,6 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
     return format(endDate, 'MMM d, yyyy')
   }
 
-  // Toggle day of week for custom repeat
-  const toggleDayOfWeek = (day: number) => {
-    setCustomDaysOfWeek(prev => 
-      prev.includes(day) 
-        ? prev.filter(d => d !== day)
-        : [...prev, day].sort()
-    )
-  }
-
-  // Get custom days label
-  const getCustomDaysLabel = () => {
-    if (customDaysOfWeek.length === 0) return 'Select days'
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    return customDaysOfWeek.map(d => dayNames[d]).join(', ')
-  }
 
   // Prepare job title options - include services, quotes, and invoices
   const approvedQuotes = quotes.filter(q => q.status === 'draft' || q.status === 'sent' || q.status === 'accepted')
@@ -531,70 +541,108 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       {/* Service field is now integrated into Job Title dropdown above */}
 
       {/* Job Time */}
-      <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">
-          Job Time *
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            value={durationValue}
-            onChange={(e) => setDurationValue(Number(e.target.value))}
-            min={0.1}
-            step={0.1}
-            className="w-24 rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
-          />
-          <Select
-            value={durationUnit}
-            onChange={(e) => handleDurationUnitChange(e.target.value as 'minutes' | 'hours' | 'days' | 'weeks')}
-            options={[
-              { value: 'minutes', label: 'Minutes' },
-              { value: 'hours', label: 'Hours' },
-              { value: 'days', label: 'Days' },
-              { value: 'weeks', label: 'Weeks' },
-            ]}
-            className="w-32"
-          />
+      {!isAllDay && (
+        <div>
+          <label className="block text-sm font-medium text-primary-light mb-2">
+            Job Time *
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={durationValue}
+              onChange={(e) => setDurationValue(Number(e.target.value))}
+              min={0.1}
+              step={0.1}
+              className="w-24 rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+            />
+            <Select
+              value={durationUnit}
+              onChange={(e) => handleDurationUnitChange(e.target.value as 'minutes' | 'hours' | 'days' | 'weeks')}
+              options={[
+                { value: 'minutes', label: 'Minutes' },
+                { value: 'hours', label: 'Hours' },
+                { value: 'days', label: 'Days' },
+                { value: 'weeks', label: 'Weeks' },
+              ]}
+              className="w-32"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Date and Time Selection */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DatePicker
-          label={(durationUnit === 'minutes' || durationUnit === 'hours') ? 'Date *' : 'Start Date *'}
-          value={startDate}
-          onChange={setStartDate}
-          minDate={new Date().toISOString().split('T')[0]}
-        />
-
-        {(durationUnit === 'minutes' || durationUnit === 'hours') && (
-          <TimePicker
-            label="Start Time"
-            value={startTime}
-            onChange={setStartTime}
-            placeholder="9:00 AM (default)"
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="isAllDay"
+            checked={isAllDay}
+            onChange={(e) => {
+              setIsAllDay(e.target.checked)
+              if (e.target.checked) {
+                setStartTime('00:00')
+                setDurationUnit('days')
+                setDurationValue(1)
+              }
+            }}
+            className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer"
           />
-        )}
+          <label htmlFor="isAllDay" className="text-sm font-medium text-primary-light cursor-pointer">
+            All Day Event
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <DatePicker
+            label={isAllDay ? 'Start Date *' : (durationUnit === 'minutes' || durationUnit === 'hours') ? 'Date *' : 'Start Date *'}
+            value={startDate}
+            onChange={setStartDate}
+            minDate={new Date().toISOString().split('T')[0]}
+          />
+
+          {!isAllDay && (durationUnit === 'minutes' || durationUnit === 'hours') && (
+            <TimePicker
+              label="Start Time"
+              value={startTime}
+              onChange={setStartTime}
+              placeholder="9:00 AM (default)"
+            />
+          )}
+        </div>
       </div>
 
       {/* End time/date preview */}
       {startDate && (
         <div className="text-xs text-primary-light/50">
-          {durationUnit === 'minutes' && startTime && (
-            <p>End time: {format(new Date(`${startDate}T${startTime}`).getTime() + durationValue * 60000, 'h:mm a')}</p>
-          )}
-          {durationUnit === 'hours' && startTime && (
-            <p>End time: {format(new Date(`${startDate}T${startTime}`).getTime() + durationValue * 60 * 60000, 'MMM d, h:mm a')}</p>
-          )}
-          {(durationUnit === 'days' || durationUnit === 'weeks') && (
+          {isAllDay ? (
             <p>
-              End date: {format(
-                new Date(`${startDate}T09:00:00`).getTime() + 
-                (durationUnit === 'days' ? durationValue : durationValue * 7) * 24 * 60 * 60 * 1000, 
-                'MMM d, yyyy'
+              All-day event: {format(new Date(startDate), 'MMM d, yyyy')}
+              {durationValue > 1 && (
+                <> through {format(
+                  new Date(new Date(startDate).getTime() + (durationValue - 1) * 24 * 60 * 60 * 1000), 
+                  'MMM d, yyyy'
+                )}</>
               )}
-              {' '}(All-day job)
             </p>
+          ) : (
+            <>
+              {durationUnit === 'minutes' && startTime && (
+                <p>End time: {format(new Date(`${startDate}T${startTime}`).getTime() + durationValue * 60000, 'h:mm a')}</p>
+              )}
+              {durationUnit === 'hours' && startTime && (
+                <p>End time: {format(new Date(`${startDate}T${startTime}`).getTime() + durationValue * 60 * 60000, 'MMM d, h:mm a')}</p>
+              )}
+              {(durationUnit === 'days' || durationUnit === 'weeks') && (
+                <p>
+                  End date: {format(
+                    new Date(`${startDate}T09:00:00`).getTime() + 
+                    (durationUnit === 'days' ? durationValue : durationValue * 7) * 24 * 60 * 60 * 1000, 
+                    'MMM d, yyyy'
+                  )}
+                  {' '}(All-day job)
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -802,60 +850,17 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           value={repeatPattern}
           onChange={(e) => {
             setRepeatPattern(e.target.value)
-            // Reset custom days when changing away from custom
-            if (e.target.value !== 'custom-weekly') {
-              setCustomDaysOfWeek([])
-            }
           }}
           options={[
             { value: 'none', label: 'Does not repeat' },
-            { value: 'daily-1', label: 'Every day' },
             { value: 'weekly-1', label: 'Every week' },
             { value: 'weekly-2', label: 'Every 2 weeks' },
             { value: 'weekly-4', label: 'Every 4 weeks' },
             { value: 'monthly-1', label: 'Every month' },
-            { value: 'custom-weekly', label: 'Custom...' },
           ]}
         />
         
-        {/* Custom Days of Week Selector */}
-        {repeatPattern === 'custom-weekly' && (
-          <div className="mt-3 space-y-2">
-            <label className="block text-xs font-medium text-primary-light/70">
-              Repeat on
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => toggleDayOfWeek(index)}
-                  className={`
-                    px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                    ${customDaysOfWeek.includes(index)
-                      ? 'bg-primary-gold text-primary-dark'
-                      : 'bg-primary-dark-secondary text-primary-light border border-primary-blue hover:border-primary-gold'
-                    }
-                  `}
-                >
-                  {day}
-                </button>
-              ))}
-            </div>
-            {customDaysOfWeek.length > 0 && (
-              <p className="text-xs text-primary-light/50">
-                Repeats every {getCustomDaysLabel()}
-              </p>
-            )}
-            {customDaysOfWeek.length === 0 && (
-              <p className="text-xs text-red-400">
-                Please select at least one day
-              </p>
-            )}
-          </div>
-        )}
-        
-        {repeatPattern !== 'none' && repeatPattern !== 'custom-weekly' && (
+        {repeatPattern !== 'none' && (
           <div className="mt-3 space-y-3">
             <Select
               label="End Repeat"
@@ -897,54 +902,6 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
               <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
                 <p className="text-xs text-primary-light/70">
                   Will repeat until {format(new Date(endRepeatDate), 'MMM d, yyyy')}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {repeatPattern === 'custom-weekly' && customDaysOfWeek.length > 0 && (
-          <div className="mt-3 space-y-3">
-            <Select
-              label="End Repeat"
-              value={endRepeatMode}
-              onChange={(e) => {
-                const mode = e.target.value as 'never' | 'on-date'
-                setEndRepeatMode(mode)
-                if (mode === 'on-date' && !endRepeatDate && startDate) {
-                  // Set default end date to 3 months from start
-                  const defaultEnd = new Date(startDate)
-                  defaultEnd.setMonth(defaultEnd.getMonth() + 3)
-                  setEndRepeatDate(format(defaultEnd, 'yyyy-MM-dd'))
-                }
-              }}
-              options={[
-                { value: 'never', label: 'Never' },
-                { value: 'on-date', label: 'On Date' },
-              ]}
-            />
-            
-            {endRepeatMode === 'on-date' && (
-              <DatePicker
-                label="End Date"
-                value={endRepeatDate}
-                onChange={setEndRepeatDate}
-                minDate={startDate || new Date().toISOString().split('T')[0]}
-              />
-            )}
-            
-            {endRepeatMode === 'never' && (
-              <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
-                <p className="text-xs text-primary-light/70">
-                  Will create {occurrenceCount} occurrences on {getCustomDaysLabel()}
-                </p>
-              </div>
-            )}
-            
-            {endRepeatMode === 'on-date' && endRepeatDate && (
-              <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
-                <p className="text-xs text-primary-light/70">
-                  Will repeat on {getCustomDaysLabel()} until {format(new Date(endRepeatDate), 'MMM d, yyyy')}
                 </p>
               </div>
             )}
