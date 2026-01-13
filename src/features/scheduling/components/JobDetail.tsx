@@ -55,7 +55,6 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
     'pending-confirmation': 'Pending Confirmation',
   }
   
-  const isDeleted = !!job.deletedAt
   const isArchived = !!job.archivedAt
   
   // Detect if this is a multi-day job
@@ -73,8 +72,8 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
       footer={
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
-            {isDeleted ? (
-              // Deleted job actions
+            {isArchived ? (
+              // Archived job actions
               <>
                 {onRestore && (
                   <Button onClick={onRestore} className="bg-green-600 hover:bg-green-700 text-white">
@@ -139,10 +138,10 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                               className="w-full text-left px-4 py-3 text-sm text-primary-light hover:bg-primary-light/10 transition-colors flex items-start gap-3 group"
                             >
                               <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-primary-light/70 group-hover:text-primary-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4m14 4a2 2 0 100-4m-9 4v12m4-12v12" />
                               </svg>
                               <div>
-                                <div className="font-medium text-primary-light">Move to Trash</div>
+                                <div className="font-medium text-primary-light">Archive</div>
                                 <div className="text-xs text-primary-light/60 mt-0.5">Can be restored later</div>
                               </div>
                             </button>
@@ -181,7 +180,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
             )}
           </div>
           <div className="flex items-center gap-2">
-            {onScheduleFollowup && !isDeleted && job.status !== 'pending-confirmation' && (
+            {onScheduleFollowup && !isArchived && job.status !== 'pending-confirmation' && (
               <Button 
                 onClick={onScheduleFollowup}
                 className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark"
@@ -207,12 +206,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               >
                 {statusLabels[job.status]}
               </span>
-              {isDeleted && (
-                <span className="inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-red-100 text-red-800">
-                  🗑️ In Trash
-                </span>
-              )}
-              {isArchived && !isDeleted && (
+              {isArchived && (
                 <span className="inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-gray-200 text-gray-700">
                   📦 Archived {format(new Date(job.archivedAt!), 'MMM d, yyyy')}
                 </span>

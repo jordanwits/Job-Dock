@@ -30,30 +30,6 @@ apiClient.interceptors.request.use(
       config.headers['X-Tenant-ID'] = DEFAULT_TENANT_ID
     }
     
-    // #region agent log
-    if (config.url?.includes('/contacts/import')) {
-      const logData: any = {
-        location: 'client.ts:34',
-        message: 'Import API request',
-        data: {
-          url: config.url,
-          method: config.method,
-          headers: config.headers,
-          dataType: typeof config.data,
-          dataKeys: config.data ? Object.keys(config.data) : [],
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        hypothesisId: 'H_API'
-      }
-      if (config.data?.csvContent) {
-        logData.data.csvContentLength = config.data.csvContent.length
-        logData.data.csvFirstChars = config.data.csvContent.substring(0, 150)
-      }
-      fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
-    }
-    // #endregion
-    
     return config
   },
   (error) => {
@@ -80,20 +56,9 @@ function onRefreshed(token: string) {
 // Response interceptor for error handling and auto-refresh
 apiClient.interceptors.response.use(
   (response) => {
-    // #region agent log
-    if (response.config.url?.includes('/contacts/import')) {
-      fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'client.ts:56',message:'Import API response success',data:{url:response.config.url,status:response.status,dataKeys:response.data ? Object.keys(response.data) : [],responseData:response.data},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H_API'})}).catch(()=>{});
-    }
-    // #endregion
     return response
   },
   async (error) => {
-    // #region agent log
-    if (error.config?.url?.includes('/contacts/import')) {
-      fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'client.ts:64',message:'Import API response error',data:{url:error.config.url,status:error.response?.status,statusText:error.response?.statusText,errorMessage:error.message,responseData:error.response?.data,errorCode:error.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H_API'})}).catch(()=>{});
-    }
-    // #endregion
-    
     const originalRequest = error.config
     
     // Check for authentication errors

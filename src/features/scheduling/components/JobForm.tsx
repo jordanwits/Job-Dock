@@ -266,14 +266,8 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
 
     // Add recurrence if selected
     if (repeatPattern !== 'none') {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:282',message:'Parsing repeatPattern',data:{repeatPattern,startDate,startTime},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       const [frequency, intervalStr] = repeatPattern.split('-') as [RecurrenceFrequency, string]
       const interval = parseInt(intervalStr) || 1
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:285',message:'Parsed frequency and interval',data:{frequency,interval,intervalStr},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       
       if (endRepeatMode === 'never') {
         formData.recurrence = {
@@ -281,18 +275,12 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           interval,
           count: occurrenceCount,
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:293',message:'Created recurrence payload (never mode)',data:{recurrence:formData.recurrence},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
       } else if (endRepeatMode === 'on-date' && endRepeatDate) {
         // Calculate count based on end date
         const start = new Date(`${startDate}T${startTime || '09:00'}`)
         const end = new Date(endRepeatDate)
         let count = 1
         let currentDate = new Date(start)
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:299',message:'Calculating count with end date',data:{startISO:start.toISOString(),endISO:end.toISOString(),frequency,interval},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
         
         while (currentDate <= end) {
           if (frequency === 'daily') {
@@ -304,18 +292,12 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           }
           if (currentDate <= end) count++
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:313',message:'Finished count calculation',data:{count,finalDateISO:currentDate.toISOString()},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
         
         formData.recurrence = {
           frequency,
           interval,
           count: count,
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e588064f-96c5-4008-ad96-d8278684cf49',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'JobForm.tsx:322',message:'Created recurrence payload (on-date mode)',data:{recurrence:formData.recurrence},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
       }
     }
 

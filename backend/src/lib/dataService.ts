@@ -1239,11 +1239,8 @@ export const dataServices = {
       return prisma.job.findMany({
         where: {
           tenantId,
-          // Filter deleted jobs based on showDeleted flag
-          ...(showDeleted 
-            ? { deletedAt: { not: null } } // Only show deleted jobs (trash view)
-            : { deletedAt: null }), // Exclude deleted jobs (normal view)
           // Filter archived jobs based on includeArchived flag
+          // Note: showDeleted parameter is deprecated, we only use archive now
           ...(includeArchived ? {} : { archivedAt: null }),
           ...(startDate || endDate
             ? {
@@ -1385,7 +1382,7 @@ export const dataServices = {
       })
     },
     delete: async (tenantId: string, id: string, deleteAll?: boolean) => {
-      // Soft delete - moves job to trash
+      // Soft delete - archives the job
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
       })
@@ -1396,22 +1393,22 @@ export const dataServices = {
       const now = new Date()
       
       if (deleteAll && job.recurrenceId) {
-        // Soft delete all jobs with the same recurrenceId
+        // Archive all jobs with the same recurrenceId
         await prisma.job.updateMany({
           where: {
             recurrenceId: job.recurrenceId,
             tenantId,
           },
           data: {
-            deletedAt: now,
+            archivedAt: now,
           },
         })
       } else {
-        // Soft delete only this job
+        // Archive only this job
         await prisma.job.update({
           where: { id },
           data: {
-            deletedAt: now,
+            archivedAt: now,
           },
         })
       }
@@ -1489,21 +1486,21 @@ export const dataServices = {
       return { success: true, permanent: true }
     },
     restore: async (tenantId: string, id: string) => {
-      // Restore a soft-deleted job
+      // Restore an archived job
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
       })
       if (!job) {
         throw new ApiError('Job not found', 404)
       }
-      if (!job.deletedAt) {
-        throw new ApiError('Job is not deleted', 400)
+      if (!job.archivedAt) {
+        throw new ApiError('Job is not archived', 400)
       }
       
       return prisma.job.update({
         where: { id },
         data: {
-          deletedAt: null,
+          archivedAt: null,
         },
         include: { contact: true, service: true },
       })

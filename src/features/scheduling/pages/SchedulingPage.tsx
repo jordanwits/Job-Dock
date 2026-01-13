@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJobStore } from '../store/jobStore'
 import { useServiceStore } from '../store/serviceStore'
@@ -12,7 +12,8 @@ import ServiceForm from '../components/ServiceForm'
 import ServiceDetail from '../components/ServiceDetail'
 import ScheduleJobModal from '../components/ScheduleJobModal'
 import DeleteRecurringJobModal from '../components/DeleteRecurringJobModal'
-import ArchivedJobsModal from '../components/ArchivedJobsModal'
+import PermanentDeleteRecurringJobModal from '../components/PermanentDeleteRecurringJobModal'
+import ArchivedJobsPage from '../components/ArchivedJobsPage'
 import { Button, Modal, Card, ConfirmationDialog } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
 
@@ -97,6 +98,13 @@ const SchedulingPage = () => {
   const [showServiceConfirmation, setShowServiceConfirmation] = useState(false)
   const [serviceConfirmationMessage, setServiceConfirmationMessage] = useState('')
   const [showArchivedJobs, setShowArchivedJobs] = useState(false)
+  const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState(false)
+  const [showPermanentDeleteRecurringModal, setShowPermanentDeleteRecurringModal] = useState(false)
+
+  // Filter out archived jobs for the calendar view
+  const activeJobs = useMemo(() => {
+    return jobs.filter(job => !job.archivedAt)
+  }, [jobs])
 
   // Set active tab from URL parameter on mount
   useEffect(() => {
@@ -208,16 +216,13 @@ const SchedulingPage = () => {
   const handleDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
-        console.log('Deleting single job:', selectedJob.id)
+        console.log('Archiving single job:', selectedJob.id)
         await deleteJob(selectedJob.id, false)
         setSelectedJob(null)
         setShowDeleteRecurringModal(false)
-        // Refresh jobs list
-        const startDate = startOfMonth(currentDate)
-        const endDate = endOfMonth(currentDate)
-        await fetchJobs(startDate, endDate)
+        // No need to refetch - store already updated the job with archivedAt
       } catch (error) {
-        console.error('Error deleting single job:', error)
+        console.error('Error archiving single job:', error)
         // Error handled by store
       }
     }
@@ -226,56 +231,75 @@ const SchedulingPage = () => {
   const handleDeleteAllJobs = async () => {
     if (selectedJob) {
       try {
-        console.log('Deleting all jobs with recurrenceId:', selectedJob.recurrenceId)
+        console.log('Archiving all jobs with recurrenceId:', selectedJob.recurrenceId)
         await deleteJob(selectedJob.id, true)
         setSelectedJob(null)
         setShowDeleteRecurringModal(false)
-        // Refresh jobs list
-        const startDate = startOfMonth(currentDate)
-        const endDate = endOfMonth(currentDate)
-        await fetchJobs(startDate, endDate)
+        // No need to refetch - store already updated the jobs with archivedAt
       } catch (error) {
-        console.error('Error deleting all jobs:', error)
+        console.error('Error archiving all jobs:', error)
         // Error handled by store
       }
     }
   }
 
-  const handlePermanentDeleteJob = async () => {
+  const handlePermanentDeleteJob = () => {
     if (selectedJob) {
-      const confirmed = window.confirm(
-        '⚠️ Are you sure you want to PERMANENTLY delete this job? This action cannot be undone and will remove the job from the database' +
-        (selectedJob.archivedAt ? ' and S3 archive.' : '.')
-      )
-      if (!confirmed) return
+      // Check if this is a recurring job
+      if (selectedJob.recurrenceId) {
+        setShowPermanentDeleteRecurringModal(true)
+      } else {
+        setShowPermanentDeleteConfirm(true)
+      }
+    }
+  }
 
+  const handleConfirmPermanentDelete = async () => {
+    if (selectedJob) {
       try {
-        if (selectedJob.recurrenceId) {
-          const deleteAll = window.confirm('Delete all occurrences of this recurring job?')
-          await permanentDeleteJob(selectedJob.id, deleteAll)
-        } else {
-          await permanentDeleteJob(selectedJob.id, false)
-        }
+        await permanentDeleteJob(selectedJob.id, false)
         setSelectedJob(null)
-        // Refresh jobs list
-        const startDate = startOfMonth(currentDate)
-        const endDate = endOfMonth(currentDate)
-        await fetchJobs(startDate, endDate)
+        setShowPermanentDeleteConfirm(false)
+        // No need to refetch - store already removed the job from the array
       } catch (error) {
         console.error('Error permanently deleting job:', error)
       }
     }
   }
 
-  const handleRestoreJob = async () => {
+  const handlePermanentDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
-        await restoreJob(selectedJob.id)
+        await permanentDeleteJob(selectedJob.id, false)
         setSelectedJob(null)
-        // Refresh jobs list
-        const startDate = startOfMonth(currentDate)
-        const endDate = endOfMonth(currentDate)
-        await fetchJobs(startDate, endDate)
+        setShowPermanentDeleteRecurringModal(false)
+        // No need to refetch - store already removed the job from the array
+      } catch (error) {
+        console.error('Error permanently deleting single job:', error)
+      }
+    }
+  }
+
+  const handlePermanentDeleteAllJobs = async () => {
+    if (selectedJob) {
+      try {
+        await permanentDeleteJob(selectedJob.id, true)
+        setSelectedJob(null)
+        setShowPermanentDeleteRecurringModal(false)
+        // No need to refetch - store already removed the job from the array
+      } catch (error) {
+        console.error('Error permanently deleting all jobs:', error)
+      }
+    }
+  }
+
+  const handleRestoreJob = async (job?: Job) => {
+    const jobToRestore = job || selectedJob
+    if (jobToRestore) {
+      try {
+        await restoreJob(jobToRestore.id)
+        setSelectedJob(null)
+        // No need to refetch - store already updated the job (cleared archivedAt)
       } catch (error) {
         console.error('Error restoring job:', error)
       }
@@ -549,7 +573,7 @@ const SchedulingPage = () => {
         {activeTab === 'calendar' && (
           <div className="h-full min-w-0">
             <Calendar
-              jobs={jobs}
+              jobs={activeJobs}
               viewMode={viewMode}
               currentDate={currentDate}
               onDateChange={setCurrentDate}
@@ -570,10 +594,8 @@ const SchedulingPage = () => {
         )}
 
         {activeTab === 'archived' && (
-          <div className="h-full overflow-y-auto p-4">
-            <ArchivedJobsModal
-              isOpen={true}
-              onClose={() => setActiveTab('calendar')}
+          <div className="h-full overflow-hidden p-6">
+            <ArchivedJobsPage
               onJobRestore={handleRestoreJob}
               onJobSelect={(job) => {
                 setSelectedJob(job)
@@ -756,6 +778,50 @@ const SchedulingPage = () => {
         />
       )}
 
+      {/* Permanent Delete Confirmation Dialog */}
+      {selectedJob && (
+        <ConfirmationDialog
+          isOpen={showPermanentDeleteConfirm}
+          onClose={() => setShowPermanentDeleteConfirm(false)}
+          onConfirm={handleConfirmPermanentDelete}
+          title="⚠️ Permanently Delete Job?"
+          message={
+            <div className="space-y-3">
+              <p className="text-primary-light">
+                Are you sure you want to <strong className="text-red-400">PERMANENTLY</strong> delete this job?
+              </p>
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                <p className="text-sm text-red-400 font-semibold mb-1">
+                  ⚠️ This action cannot be undone!
+                </p>
+                <p className="text-sm text-primary-light/70">
+                  The job will be removed from the database{selectedJob.archivedAt ? ' and S3 archive' : ''}.
+                </p>
+              </div>
+              <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
+                <p className="text-sm text-primary-light/70">
+                  <strong className="text-primary-light">Job:</strong> {selectedJob.title}
+                </p>
+              </div>
+            </div>
+          }
+          confirmText="Delete Permanently"
+          confirmVariant="danger"
+        />
+      )}
+
+      {/* Permanent Delete Recurring Job Modal */}
+      {selectedJob && (
+        <PermanentDeleteRecurringJobModal
+          isOpen={showPermanentDeleteRecurringModal}
+          onClose={() => setShowPermanentDeleteRecurringModal(false)}
+          onDeleteOne={handlePermanentDeleteSingleJob}
+          onDeleteAll={handlePermanentDeleteAllJobs}
+          jobTitle={selectedJob.title}
+          occurrenceCount={selectedJob.occurrenceCount}
+          isArchived={!!selectedJob.archivedAt}
+        />
+      )}
 
       {/* Booking Link Modal */}
       <Modal

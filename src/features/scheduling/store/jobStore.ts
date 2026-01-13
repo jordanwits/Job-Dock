@@ -174,41 +174,48 @@ export const useJobStore = create<JobState>((set, get) => ({
   deleteJob: async (id: string, deleteAll?: boolean) => {
     set({ isLoading: true, error: null })
     try {
-      console.log('Store: deleteJob called with id:', id, 'deleteAll:', deleteAll)
+      console.log('Store: archiveJob called with id:', id, 'deleteAll:', deleteAll)
       await jobsService.delete(id, deleteAll)
       
+      const now = new Date().toISOString()
+      
       if (deleteAll) {
-        // If deleting all, find the recurrenceId and remove all jobs with that recurrenceId
+        // If archiving all, find the recurrenceId and update all jobs with that recurrenceId
         const job = get().jobs.find(j => j.id === id)
         const recurrenceId = job?.recurrenceId
         console.log('Store: Found job with recurrenceId:', recurrenceId)
-        console.log('Store: Jobs before filter:', get().jobs.length)
         
         set((state) => {
-          const filteredJobs = recurrenceId 
-            ? state.jobs.filter((j) => j.recurrenceId !== recurrenceId)
-            : state.jobs.filter((j) => j.id !== id)
-          console.log('Store: Jobs after filter:', filteredJobs.length)
+          const updatedJobs = state.jobs.map((j) => {
+            if (recurrenceId && j.recurrenceId === recurrenceId) {
+              return { ...j, archivedAt: now }
+            } else if (!recurrenceId && j.id === id) {
+              return { ...j, archivedAt: now }
+            }
+            return j
+          })
           return {
-            jobs: filteredJobs,
+            jobs: updatedJobs,
             selectedJob: state.selectedJob?.id === id ? null : state.selectedJob,
             isLoading: false,
           }
         })
       } else {
-        // Delete only the single job
-        console.log('Store: Deleting single job')
+        // Archive only the single job
+        console.log('Store: Archiving single job')
         set((state) => ({
-          jobs: state.jobs.filter((j) => j.id !== id),
+          jobs: state.jobs.map((j) => 
+            j.id === id ? { ...j, archivedAt: now } : j
+          ),
           selectedJob:
             state.selectedJob?.id === id ? null : state.selectedJob,
           isLoading: false,
         }))
       }
     } catch (error: any) {
-      console.error('Store: Error deleting job:', error)
+      console.error('Store: Error archiving job:', error)
       set({
-        error: error.message || 'Failed to delete job',
+        error: error.message || 'Failed to archive job',
         isLoading: false,
       })
       throw error

@@ -1,27 +1,23 @@
 import { useState, useEffect } from 'react'
-import { Modal, Button, Card } from '@/components/ui'
+import { Button, Card } from '@/components/ui'
 import { format } from 'date-fns'
 import { jobsService } from '@/lib/api/services'
 import type { Job } from '../types/job'
 import { cn } from '@/lib/utils'
 
-interface ArchivedJobsModalProps {
-  isOpen: boolean
-  onClose: () => void
+interface ArchivedJobsPageProps {
   onJobRestore: (job: Job) => Promise<void>
   onJobSelect?: (job: Job) => void
 }
 
-const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect }: ArchivedJobsModalProps) => {
+const ArchivedJobsPage = ({ onJobRestore, onJobSelect }: ArchivedJobsPageProps) => {
   const [archivedJobs, setArchivedJobs] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isOpen) {
-      fetchArchivedJobs()
-    }
-  }, [isOpen])
+    fetchArchivedJobs()
+  }, [])
 
   const fetchArchivedJobs = async () => {
     setIsLoading(true)
@@ -33,23 +29,23 @@ const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect }: Archi
       const twoYearsFromNow = new Date()
       twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2)
       
-      console.log('ArchivedJobsModal: Fetching with date range:', {
+      console.log('ArchivedJobsPage: Fetching with date range:', {
         start: twoYearsAgo.toISOString(),
         end: twoYearsFromNow.toISOString(),
         includeArchived: true
       })
       const jobs = await jobsService.getAll(twoYearsAgo, twoYearsFromNow, true, false) // includeArchived = true
       
-      console.log('ArchivedJobsModal: Fetched jobs:', jobs.length, jobs)
+      console.log('ArchivedJobsPage: Fetched jobs:', jobs.length, jobs)
       // Filter to only show archived jobs
       const archived = jobs.filter((job: Job) => {
-        console.log('ArchivedJobsModal: Job', job.id, 'archivedAt:', job.archivedAt)
+        console.log('ArchivedJobsPage: Job', job.id, 'archivedAt:', job.archivedAt)
         return job.archivedAt
       })
-      console.log('ArchivedJobsModal: Filtered archived jobs:', archived.length, archived)
+      console.log('ArchivedJobsPage: Filtered archived jobs:', archived.length, archived)
       setArchivedJobs(archived)
     } catch (err: any) {
-      console.error('ArchivedJobsModal: Error fetching archived jobs:', err)
+      console.error('ArchivedJobsPage: Error fetching archived jobs:', err)
       setError(err.message || 'Failed to fetch archived jobs')
     } finally {
       setIsLoading(false)
@@ -75,19 +71,21 @@ const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect }: Archi
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Archived Jobs"
-      size="xl"
-    >
-      <div className="space-y-4">
-        <div className="text-sm text-primary-light/70">
-          These will be moved to long-term storage after 30 days. Restore any job back to your active calendar.
+    <div className="h-full flex flex-col space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-primary-gold">Archived Jobs</h2>
+          <p className="text-sm text-primary-light/70 mt-1">
+            These will be moved to long-term storage after 30 days. Restore any job back to your active calendar.
+          </p>
         </div>
+      </div>
 
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
         {isLoading && (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center h-full">
             <div className="text-primary-light/70">Loading archived jobs...</div>
           </div>
         )}
@@ -99,16 +97,17 @@ const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect }: Archi
         )}
 
         {!isLoading && !error && archivedJobs.length === 0 && (
-          <div className="text-center py-12">
-            <svg className="w-16 h-16 mx-auto mb-4 text-primary-light/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <svg className="w-20 h-20 mb-4 text-primary-light/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
             </svg>
-            <p className="text-primary-light/50">No archived jobs found</p>
+            <p className="text-xl text-primary-light/50 mb-2">No archived jobs found</p>
+            <p className="text-sm text-primary-light/40">Archived jobs will appear here</p>
           </div>
         )}
 
         {!isLoading && !error && archivedJobs.length > 0 && (
-          <div className="max-h-[500px] overflow-y-auto space-y-3 pr-2">
+          <div className="h-full overflow-y-auto space-y-3 pr-2">
             {archivedJobs.map((job) => (
               <Card
                 key={job.id}
@@ -183,8 +182,8 @@ const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect }: Archi
           </div>
         )}
       </div>
-    </Modal>
+    </div>
   )
 }
 
-export default ArchivedJobsModal
+export default ArchivedJobsPage

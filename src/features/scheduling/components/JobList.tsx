@@ -13,7 +13,7 @@ const JobList = () => {
     fetchJobs,
   } = useJobStore()
   
-  const [localView, setLocalView] = useState<'active' | 'archived' | 'trash'>('active')
+  const [localView, setLocalView] = useState<'active' | 'archived'>('active')
 
   // Fetch jobs when view changes
   useEffect(() => {
@@ -22,8 +22,6 @@ const JobList = () => {
     
     if (localView === 'archived') {
       fetchJobs(startDate, endDate, true, false) // includeArchived
-    } else if (localView === 'trash') {
-      fetchJobs(startDate, endDate, false, true) // showDeleted
     } else {
       fetchJobs(startDate, endDate, false, false) // active only
     }
@@ -39,13 +37,11 @@ const JobList = () => {
       .filter((job) => {
         const jobDate = new Date(job.startTime)
         
-        if (localView === 'trash') {
-          return !!job.deletedAt
-        } else if (localView === 'archived') {
-          return !!job.archivedAt && !job.deletedAt
+        if (localView === 'archived') {
+          return !!job.archivedAt
         } else {
           // Active view - upcoming jobs only
-          return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled' && !job.deletedAt && !job.archivedAt
+          return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled' && !job.archivedAt
         }
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
@@ -87,18 +83,6 @@ const JobList = () => {
         >
           📦 Archived
         </button>
-        <button
-          onClick={() => setLocalView('trash')}
-          className={`
-            px-4 py-2 font-medium transition-colors text-sm
-            ${localView === 'trash'
-              ? 'text-primary-gold border-b-2 border-primary-gold'
-              : 'text-primary-light/70 hover:text-primary-light'
-            }
-          `}
-        >
-          🗑️ Trash
-        </button>
       </div>
 
       {/* Jobs List */}
@@ -106,7 +90,6 @@ const JobList = () => {
         {filteredJobs.length === 0 ? (
           <div className="p-6 text-center">
             <p className="text-primary-light/70">
-              {localView === 'trash' && 'No jobs in trash'}
               {localView === 'archived' && 'No archived jobs'}
               {localView === 'active' && 'No upcoming jobs scheduled'}
             </p>
