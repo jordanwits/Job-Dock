@@ -143,20 +143,6 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
         }
       >
         <div className="space-y-6">
-          {/* Job Confirmation */}
-          {showJobConfirmation && (
-            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
-              <p className="text-sm text-green-500">✓ Job has been created</p>
-            </div>
-          )}
-          
-          {/* Contact Confirmation */}
-          {showContactConfirmation && (
-            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
-              <p className="text-sm text-green-500">✓ {contactConfirmationMessage}</p>
-            </div>
-          )}
-          
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
@@ -283,6 +269,19 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
               <div>Updated: {new Date(contact.updatedAt).toLocaleDateString()}</div>
             )}
           </div>
+
+          {/* Confirmation Messages - Positioned at Bottom for Mobile Visibility */}
+          {showJobConfirmation && (
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
+              <p className="text-sm text-green-500">✓ Job has been created</p>
+            </div>
+          )}
+          
+          {showContactConfirmation && (
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
+              <p className="text-sm text-green-500">✓ {contactConfirmationMessage}</p>
+            </div>
+          )}
         </div>
       </Modal>
 

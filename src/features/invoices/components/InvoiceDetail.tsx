@@ -210,30 +210,6 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
         }
       >
         <div className="space-y-6">
-          {/* Success/Error Messages */}
-          {sendSuccess && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">
-                ✓ Invoice sent successfully to {invoice.contactEmail}
-              </p>
-            </div>
-          )}
-          {sendError && (
-            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
-            </div>
-          )}
-          {showConfirmation && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">✓ {confirmationMessage}</p>
-            </div>
-          )}
-          {showJobConfirmation && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">✓ Job has been created</p>
-            </div>
-          )}
-
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
@@ -410,6 +386,30 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
               <div>Updated: {new Date(invoice.updatedAt).toLocaleDateString()}</div>
             )}
           </div>
+
+          {/* Success/Error Messages - Positioned at Bottom for Mobile Visibility */}
+          {sendSuccess && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">
+                ✓ Invoice sent successfully to {invoice.contactEmail}
+              </p>
+            </div>
+          )}
+          {sendError && (
+            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
+            </div>
+          )}
+          {showConfirmation && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">✓ {confirmationMessage}</p>
+            </div>
+          )}
+          {showJobConfirmation && (
+            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
+              <p className="text-sm text-green-400 font-medium">✓ Job has been created</p>
+            </div>
+          )}
         </div>
       </Modal>
 
