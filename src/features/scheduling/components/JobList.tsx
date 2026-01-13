@@ -1,22 +1,36 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useJobStore } from '../store/jobStore'
 import JobCard from './JobCard'
-import { format } from 'date-fns'
+import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns'
 
 const JobList = () => {
   const {
     jobs,
     isLoading,
     currentDate,
+    jobView,
+    setJobView,
     fetchJobs,
   } = useJobStore()
+  
+  const [localView, setLocalView] = useState<'active' | 'archived' | 'trash'>('active')
 
-  // JobList doesn't need to fetch - SchedulingPage already handles fetching
-  // Just display the jobs from the store
-  // useEffect removed to prevent duplicate fetches that could clear multi-month jobs
+  // Fetch jobs when view changes
+  useEffect(() => {
+    const startDate = startOfMonth(currentDate)
+    const endDate = endOfMonth(addMonths(currentDate, 1))
+    
+    if (localView === 'archived') {
+      fetchJobs(startDate, endDate, true, false) // includeArchived
+    } else if (localView === 'trash') {
+      fetchJobs(startDate, endDate, false, true) // showDeleted
+    } else {
+      fetchJobs(startDate, endDate, false, false) // active only
+    }
+  }, [localView, currentDate, fetchJobs])
 
-  // Get upcoming jobs (next 7 days)
-  const upcomingJobs = useMemo(() => {
+  // Get filtered jobs based on view
+  const filteredJobs = useMemo(() => {
     const today = new Date()
     const nextWeek = new Date(today)
     nextWeek.setDate(nextWeek.getDate() + 7)
@@ -24,10 +38,18 @@ const JobList = () => {
     return jobs
       .filter((job) => {
         const jobDate = new Date(job.startTime)
-        return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled'
+        
+        if (localView === 'trash') {
+          return !!job.deletedAt
+        } else if (localView === 'archived') {
+          return !!job.archivedAt && !job.deletedAt
+        } else {
+          // Active view - upcoming jobs only
+          return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled' && !job.deletedAt && !job.archivedAt
+        }
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-  }, [jobs])
+  }, [jobs, localView])
 
   if (isLoading) {
     return (
@@ -37,19 +59,66 @@ const JobList = () => {
     )
   }
 
-  if (upcomingJobs.length === 0) {
-    return (
-      <div className="p-6 text-center">
-        <p className="text-primary-light/70">No upcoming jobs scheduled</p>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-3">
-      {upcomingJobs.map((job) => (
-        <JobCard key={job.id} job={job} />
-      ))}
+    <div className="h-full flex flex-col">
+      {/* View Tabs */}
+      <div className="flex border-b border-primary-light/20 mb-4">
+        <button
+          onClick={() => setLocalView('active')}
+          className={`
+            px-4 py-2 font-medium transition-colors text-sm
+            ${localView === 'active'
+              ? 'text-primary-gold border-b-2 border-primary-gold'
+              : 'text-primary-light/70 hover:text-primary-light'
+            }
+          `}
+        >
+          📋 Active
+        </button>
+        <button
+          onClick={() => setLocalView('archived')}
+          className={`
+            px-4 py-2 font-medium transition-colors text-sm
+            ${localView === 'archived'
+              ? 'text-primary-gold border-b-2 border-primary-gold'
+              : 'text-primary-light/70 hover:text-primary-light'
+            }
+          `}
+        >
+          📦 Archived
+        </button>
+        <button
+          onClick={() => setLocalView('trash')}
+          className={`
+            px-4 py-2 font-medium transition-colors text-sm
+            ${localView === 'trash'
+              ? 'text-primary-gold border-b-2 border-primary-gold'
+              : 'text-primary-light/70 hover:text-primary-light'
+            }
+          `}
+        >
+          🗑️ Trash
+        </button>
+      </div>
+
+      {/* Jobs List */}
+      <div className="flex-1 overflow-y-auto">
+        {filteredJobs.length === 0 ? (
+          <div className="p-6 text-center">
+            <p className="text-primary-light/70">
+              {localView === 'trash' && 'No jobs in trash'}
+              {localView === 'archived' && 'No archived jobs'}
+              {localView === 'active' && 'No upcoming jobs scheduled'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredJobs.map((job) => (
+              <JobCard key={job.id} job={job} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

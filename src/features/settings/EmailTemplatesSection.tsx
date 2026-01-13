@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Card, Input, Textarea, Button } from '@/components/ui'
+import { Input, Textarea, Button } from '@/components/ui'
+import { CollapsibleSection } from './CollapsibleSection'
 
 interface EmailTemplatesSectionProps {
   formData: {
@@ -36,16 +37,14 @@ export const EmailTemplatesSection = ({
   }
 
   return (
-    <Card>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-primary-light">
-          Email Templates
-        </h2>
+    <CollapsibleSection
+      title="Email Templates"
+      actions={
         <Button onClick={handleSave} disabled={saving} size="sm">
           {saving ? 'Saving...' : 'Save'}
         </Button>
-      </div>
-
+      }
+    >
       <div className="mb-6 p-4 bg-primary-dark-secondary rounded-lg">
         <p className="text-sm text-primary-light/70 mb-2">
           Available variables you can use in your templates:
@@ -107,7 +106,7 @@ export const EmailTemplatesSection = ({
           />
         </div>
       </div>
-    </Card>
+    </CollapsibleSection>
   )
 }
 

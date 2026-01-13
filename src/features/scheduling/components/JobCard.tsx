@@ -27,17 +27,34 @@ const JobCard = ({ job }: JobCardProps) => {
     'pending-confirmation': 'Pending Confirmation',
   }
 
+  const isDeleted = !!job.deletedAt
+  const isArchived = !!job.archivedAt
+
   return (
     <Card
       className={cn(
         'cursor-pointer hover:border-primary-gold transition-all',
-        statusColors[job.status]
+        statusColors[job.status],
+        isDeleted && 'opacity-60 bg-red-50/50 border-red-300',
+        isArchived && !isDeleted && 'opacity-75 bg-gray-50 border-gray-300'
       )}
       onClick={() => setSelectedJob(job)}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <h3 className="font-semibold text-primary-light mb-1">{job.title}</h3>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-primary-light">{job.title}</h3>
+            {isDeleted && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                🗑️ Deleted
+              </span>
+            )}
+            {isArchived && !isDeleted && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                📦 Archived
+              </span>
+            )}
+          </div>
           {job.description && (
             <p className="text-sm text-primary-light/70 mb-2 line-clamp-2">
               {job.description}

@@ -36,6 +36,8 @@ export interface Job {
   notes?: string
   assignedTo?: string
   breaks?: JobBreak[]
+  deletedAt?: string | null
+  archivedAt?: string | null
   createdAt: string
   updatedAt: string
   occurrenceCount?: number

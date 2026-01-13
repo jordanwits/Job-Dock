@@ -266,6 +266,8 @@ async function createRecurringJobs(params: {
         where: {
           tenantId,
           status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+          deletedAt: null,
+          archivedAt: null,
           startTime: { lt: instance.endTime },
           endTime: { gt: instance.startTime },
         },
@@ -1232,11 +1234,17 @@ export const dataServices = {
     },
   },
   jobs: {
-    getAll: async (tenantId: string, startDate?: Date, endDate?: Date) => {
+    getAll: async (tenantId: string, startDate?: Date, endDate?: Date, includeArchived?: boolean, showDeleted?: boolean) => {
       await ensureTenantExists(tenantId)
       return prisma.job.findMany({
         where: {
           tenantId,
+          // Filter deleted jobs based on showDeleted flag
+          ...(showDeleted 
+            ? { deletedAt: { not: null } } // Only show deleted jobs (trash view)
+            : { deletedAt: null }), // Exclude deleted jobs (normal view)
+          // Filter archived jobs based on includeArchived flag
+          ...(includeArchived ? {} : { archivedAt: null }),
           ...(startDate || endDate
             ? {
                 startTime: {
@@ -1297,6 +1305,8 @@ export const dataServices = {
         where: {
           tenantId,
           status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+          deletedAt: null,
+          archivedAt: null,
           startTime: { lt: endTime },
           endTime: { gt: startTime },
         },
@@ -1375,7 +1385,7 @@ export const dataServices = {
       })
     },
     delete: async (tenantId: string, id: string, deleteAll?: boolean) => {
-      // Verify job belongs to tenant before deleting
+      // Soft delete - moves job to trash
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
       })
@@ -1383,8 +1393,88 @@ export const dataServices = {
         throw new ApiError('Job not found', 404)
       }
       
+      const now = new Date()
+      
       if (deleteAll && job.recurrenceId) {
-        // Delete all jobs with the same recurrenceId
+        // Soft delete all jobs with the same recurrenceId
+        await prisma.job.updateMany({
+          where: {
+            recurrenceId: job.recurrenceId,
+            tenantId,
+          },
+          data: {
+            deletedAt: now,
+          },
+        })
+      } else {
+        // Soft delete only this job
+        await prisma.job.update({
+          where: { id },
+          data: {
+            deletedAt: now,
+          },
+        })
+      }
+      
+      return { success: true }
+    },
+    permanentDelete: async (tenantId: string, id: string, deleteAll?: boolean) => {
+      // Permanent delete - removes from database and S3 archive (if exists)
+      const job = await prisma.job.findFirst({
+        where: { id, tenantId },
+      })
+      if (!job) {
+        throw new ApiError('Job not found', 404)
+      }
+      
+      // If job was archived, delete from S3
+      if (job.archivedAt) {
+        try {
+          const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
+          const s3 = new S3Client({})
+          const archiveKey = `archives/jobs/${tenantId}/${id}.json`
+          
+          await s3.send(new DeleteObjectCommand({
+            Bucket: process.env.FILES_BUCKET!,
+            Key: archiveKey,
+          }))
+          
+          console.log(`Deleted archived job from S3: ${archiveKey}`)
+        } catch (s3Error) {
+          console.error('Failed to delete job from S3:', s3Error)
+          // Continue with DB deletion even if S3 deletion fails
+        }
+      }
+      
+      if (deleteAll && job.recurrenceId) {
+        // Get all job IDs for S3 cleanup
+        const recurringJobs = await prisma.job.findMany({
+          where: {
+            recurrenceId: job.recurrenceId,
+            tenantId,
+          },
+          select: { id: true, archivedAt: true },
+        })
+        
+        // Delete archived jobs from S3
+        for (const recurringJob of recurringJobs) {
+          if (recurringJob.archivedAt) {
+            try {
+              const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
+              const s3 = new S3Client({})
+              const archiveKey = `archives/jobs/${tenantId}/${recurringJob.id}.json`
+              
+              await s3.send(new DeleteObjectCommand({
+                Bucket: process.env.FILES_BUCKET!,
+                Key: archiveKey,
+              }))
+            } catch (s3Error) {
+              console.error(`Failed to delete job ${recurringJob.id} from S3:`, s3Error)
+            }
+          }
+        }
+        
+        // Hard delete all jobs with the same recurrenceId
         await prisma.job.deleteMany({
           where: {
             recurrenceId: job.recurrenceId,
@@ -1392,11 +1482,31 @@ export const dataServices = {
           },
         })
       } else {
-        // Delete only this job
+        // Hard delete only this job
         await prisma.job.delete({ where: { id } })
       }
       
-      return { success: true }
+      return { success: true, permanent: true }
+    },
+    restore: async (tenantId: string, id: string) => {
+      // Restore a soft-deleted job
+      const job = await prisma.job.findFirst({
+        where: { id, tenantId },
+      })
+      if (!job) {
+        throw new ApiError('Job not found', 404)
+      }
+      if (!job.deletedAt) {
+        throw new ApiError('Job is not deleted', 400)
+      }
+      
+      return prisma.job.update({
+        where: { id },
+        data: {
+          deletedAt: null,
+        },
+        include: { contact: true, service: true },
+      })
     },
     confirm: async (tenantId: string, id: string) => {
       const job = await prisma.job.findFirst({
@@ -1633,6 +1743,8 @@ export const dataServices = {
         where: {
           tenantId: actualTenantId,
           status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+          deletedAt: null,
+          archivedAt: null,
           startTime: { lte: rangeEnd },
           endTime: { gte: rangeStart },
         },
@@ -1791,6 +1903,8 @@ export const dataServices = {
           where: {
             tenantId: actualTenantId,
             status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+            deletedAt: null,
+            archivedAt: null,
             startTime: { lt: endTime },
             endTime: { gt: startTime },
           },
@@ -1894,6 +2008,8 @@ export const dataServices = {
               where: {
                 tenantId: actualTenantId,
                 status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+                deletedAt: null,
+                archivedAt: null,
                 startTime: { lt: instance.endTime },
                 endTime: { gt: instance.startTime },
               },

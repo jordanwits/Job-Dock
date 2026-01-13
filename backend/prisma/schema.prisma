@@ -224,6 +224,8 @@ model Job {
   notes        String?
   assignedTo   String?
   breaks       Json?
+  deletedAt    DateTime?
+  archivedAt   DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   contact      Contact        @relation(fields: [contactId], references: [id])
@@ -240,7 +242,10 @@ model Job {
   @@index([invoiceId])
   @@index([recurrenceId])
   @@index([startTime])
+  @@index([endTime])
   @@index([status])
+  @@index([deletedAt])
+  @@index([archivedAt])
   @@map("jobs")
 }
 

@@ -1,6 +1,7 @@
 import { useRef } from 'react'
-import { Card, Button } from '@/components/ui'
+import { Button } from '@/components/ui'
 import { TenantSettings } from '@/lib/api/settings'
+import { CollapsibleSection } from './CollapsibleSection'
 
 interface PdfTemplatesSectionProps {
   settings: TenantSettings | null
@@ -37,11 +38,7 @@ export const PdfTemplatesSection = ({
   }
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold text-primary-light mb-4">
-        PDF Templates
-      </h2>
-
+    <CollapsibleSection title="PDF Templates">
       <p className="text-sm text-primary-light/70 mb-6">
         Upload custom PDF backgrounds or letterheads for your invoices and quotes.
         The system will use your template as the background and automatically overlay dynamic content
@@ -131,7 +128,7 @@ export const PdfTemplatesSection = ({
           </Button>
         </div>
       </div>
-    </Card>
+    </CollapsibleSection>
   )
 }
 

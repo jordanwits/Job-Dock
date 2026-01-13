@@ -49,16 +49,20 @@ interface JobState {
   error: string | null
   viewMode: 'day' | 'week' | 'month'
   currentDate: Date
+  jobView: 'active' | 'archived' | 'trash'
   
   // Actions
-  fetchJobs: (startDate?: Date, endDate?: Date) => Promise<void>
+  fetchJobs: (startDate?: Date, endDate?: Date, includeArchived?: boolean, showDeleted?: boolean) => Promise<void>
   getJobById: (id: string) => Promise<void>
   createJob: (data: CreateJobData) => Promise<void>
   updateJob: (data: UpdateJobData) => Promise<void>
   deleteJob: (id: string, deleteAll?: boolean) => Promise<void>
+  permanentDeleteJob: (id: string, deleteAll?: boolean) => Promise<void>
+  restoreJob: (id: string) => Promise<void>
   setSelectedJob: (job: Job | null) => void
   setViewMode: (mode: 'day' | 'week' | 'month') => void
   setCurrentDate: (date: Date) => void
+  setJobView: (view: 'active' | 'archived' | 'trash') => void
   confirmJob: (id: string) => Promise<void>
   declineJob: (id: string, reason?: string) => Promise<void>
   clearError: () => void
@@ -71,11 +75,12 @@ export const useJobStore = create<JobState>((set, get) => ({
   error: null,
   viewMode: 'month',
   currentDate: new Date(),
+  jobView: 'active',
 
-  fetchJobs: async (startDate?: Date, endDate?: Date) => {
+  fetchJobs: async (startDate?: Date, endDate?: Date, includeArchived?: boolean, showDeleted?: boolean) => {
     set({ isLoading: true, error: null })
     try {
-      const apiJobs = await jobsService.getAll(startDate, endDate)
+      const apiJobs = await jobsService.getAll(startDate, endDate, includeArchived, showDeleted)
       const jobs = apiJobs.map(normalizeJob)
       set({ jobs, isLoading: false })
     } catch (error: any) {
@@ -220,6 +225,63 @@ export const useJobStore = create<JobState>((set, get) => ({
 
   setCurrentDate: (date: Date) => {
     set({ currentDate: date })
+  },
+
+  setJobView: (view: 'active' | 'archived' | 'trash') => {
+    set({ jobView: view })
+  },
+
+  permanentDeleteJob: async (id: string, deleteAll?: boolean) => {
+    set({ isLoading: true, error: null })
+    try {
+      console.log('Store: permanentDeleteJob called with id:', id, 'deleteAll:', deleteAll)
+      await jobsService.permanentDelete(id, deleteAll)
+      
+      if (deleteAll) {
+        const job = get().jobs.find(j => j.id === id)
+        const recurrenceId = job?.recurrenceId
+        
+        set((state) => ({
+          jobs: recurrenceId 
+            ? state.jobs.filter((j) => j.recurrenceId !== recurrenceId)
+            : state.jobs.filter((j) => j.id !== id),
+          selectedJob: state.selectedJob?.id === id ? null : state.selectedJob,
+          isLoading: false,
+        }))
+      } else {
+        set((state) => ({
+          jobs: state.jobs.filter((j) => j.id !== id),
+          selectedJob: state.selectedJob?.id === id ? null : state.selectedJob,
+          isLoading: false,
+        }))
+      }
+    } catch (error: any) {
+      console.error('Store: Error permanently deleting job:', error)
+      set({
+        error: error.message || 'Failed to permanently delete job',
+        isLoading: false,
+      })
+      throw error
+    }
+  },
+
+  restoreJob: async (id: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const apiJob = await jobsService.restore(id)
+      const restoredJob = normalizeJob(apiJob)
+      set((state) => ({
+        jobs: state.jobs.map((j) => j.id === id ? restoredJob : j),
+        selectedJob: state.selectedJob?.id === id ? restoredJob : state.selectedJob,
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      set({
+        error: error.message || 'Failed to restore job',
+        isLoading: false,
+      })
+      throw error
+    }
   },
 
   confirmJob: async (id: string) => {

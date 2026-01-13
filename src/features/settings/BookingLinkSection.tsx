@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Card, Button } from '@/components/ui'
+import { Button } from '@/components/ui'
 import { useAuthStore } from '@/features/auth'
+import { CollapsibleSection } from './CollapsibleSection'
 
 export const BookingLinkSection = () => {
   const { user } = useAuthStore()
@@ -21,16 +22,11 @@ export const BookingLinkSection = () => {
   }
 
   return (
-    <Card>
+    <CollapsibleSection title="Public Booking Link">
       <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold text-primary-gold mb-2">
-            Public Booking Link
-          </h2>
-          <p className="text-sm text-primary-light/70">
-            Share this link with your clients so they can book your services online
-          </p>
-        </div>
+        <p className="text-sm text-primary-light/70">
+          Share this link with your clients so they can book your services online
+        </p>
 
         <div className="bg-primary-dark-secondary rounded-lg p-4 border border-primary-blue">
           <div className="flex items-center gap-3">
@@ -92,6 +88,6 @@ export const BookingLinkSection = () => {
           </Button>
         </div>
       </div>
-    </Card>
+    </CollapsibleSection>
   )
 }

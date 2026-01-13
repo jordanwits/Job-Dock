@@ -178,10 +178,12 @@ const realInvoicesService = {
 }
 
 const realJobsService = {
-  getAll: async (startDate?: Date, endDate?: Date) => {
+  getAll: async (startDate?: Date, endDate?: Date, includeArchived?: boolean, showDeleted?: boolean) => {
     const params: any = {}
     if (startDate) params.startDate = startDate.toISOString()
     if (endDate) params.endDate = endDate.toISOString()
+    if (includeArchived) params.includeArchived = 'true'
+    if (showDeleted) params.showDeleted = 'true'
     const response = await apiClient.get('/jobs', { params })
     return response.data
   },
@@ -210,10 +212,26 @@ const realJobsService = {
   },
 
   delete: async (id: string, deleteAll?: boolean) => {
+    // Soft delete by default
     const params = deleteAll ? { deleteAll: 'true' } : {}
-    console.log('API: Deleting job', id, 'with params:', params)
+    console.log('API: Soft deleting job', id, 'with params:', params)
     const response = await apiClient.delete(`/jobs/${id}`, { params })
     console.log('API: Delete response:', response.data)
+    return response.data
+  },
+
+  permanentDelete: async (id: string, deleteAll?: boolean) => {
+    // Permanent delete - removes from DB and S3
+    const params: any = { permanent: 'true' }
+    if (deleteAll) params.deleteAll = 'true'
+    console.log('API: Permanently deleting job', id, 'with params:', params)
+    const response = await apiClient.delete(`/jobs/${id}`, { params })
+    console.log('API: Permanent delete response:', response.data)
+    return response.data
+  },
+
+  restore: async (id: string) => {
+    const response = await apiClient.post(`/jobs/${id}/restore`)
     return response.data
   },
 

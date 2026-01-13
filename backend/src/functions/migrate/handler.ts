@@ -417,6 +417,17 @@ const PENDING_MIGRATIONS = [
        ON CONFLICT ("cognitoId") DO NOTHING`
     ],
     description: 'Provision database records for Dave Witbeck (manually created Cognito user)'
+  },
+  {
+    name: '20260113000000_add_job_archival',
+    statements: [
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3)`,
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "archivedAt" TIMESTAMP(3)`,
+      `CREATE INDEX IF NOT EXISTS "jobs_deletedAt_idx" ON "jobs"("deletedAt")`,
+      `CREATE INDEX IF NOT EXISTS "jobs_archivedAt_idx" ON "jobs"("archivedAt")`,
+      `CREATE INDEX IF NOT EXISTS "jobs_endTime_idx" ON "jobs"("endTime")`
+    ],
+    description: 'Add deletedAt and archivedAt fields to jobs for data retention management'
   }
 ]
 

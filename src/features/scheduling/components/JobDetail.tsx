@@ -5,7 +5,7 @@ import type { Job } from '../types/job'
 import { cn } from '@/lib/utils'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 interface JobDetailProps {
@@ -14,15 +14,18 @@ interface JobDetailProps {
   onClose: () => void
   onEdit?: () => void
   onDelete?: () => void
+  onPermanentDelete?: () => void
+  onRestore?: () => void
   onConfirm?: () => void
   onDecline?: () => void
   onScheduleFollowup?: () => void
 }
 
-const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onConfirm, onDecline, onScheduleFollowup }: JobDetailProps) => {
+const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, onRestore, onConfirm, onDecline, onScheduleFollowup }: JobDetailProps) => {
   const navigate = useNavigate()
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false)
   
   useEffect(() => {
     if (job?.quoteId && quotes.length === 0) {
@@ -52,6 +55,9 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onConfirm, onDeclin
     'pending-confirmation': 'Pending Confirmation',
   }
   
+  const isDeleted = !!job.deletedAt
+  const isArchived = !!job.archivedAt
+  
   // Detect if this is a multi-day job
   const startTime = new Date(job.startTime)
   const endTime = new Date(job.endTime)
@@ -65,59 +71,153 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onConfirm, onDeclin
       title="Job Details"
       size="lg"
       footer={
-        <>
-          {job.status === 'pending-confirmation' && (
-            <>
-              {onDecline && (
-                <Button variant="ghost" onClick={onDecline} className="text-red-500 hover:text-red-600">
-                  Decline
-                </Button>
-              )}
-              {onConfirm && (
-                <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white">
-                  Confirm Booking
-                </Button>
-              )}
-            </>
-          )}
-          {job.status !== 'pending-confirmation' && (
-            <>
-              {onDelete && (
-                <Button variant="ghost" onClick={onDelete} className="text-red-500 hover:text-red-600">
-                  Delete
-                </Button>
-              )}
-              {onScheduleFollowup && (
-                <Button 
-                  onClick={onScheduleFollowup}
-                  className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark"
-                >
-                  Schedule Follow-up
-                </Button>
-              )}
-              {onEdit && (
-                <Button variant="ghost" onClick={onEdit}>
-                  Edit
-                </Button>
-              )}
-            </>
-          )}
-          <Button onClick={onClose}>Close</Button>
-        </>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-2">
+            {isDeleted ? (
+              // Deleted job actions
+              <>
+                {onRestore && (
+                  <Button onClick={onRestore} className="bg-green-600 hover:bg-green-700 text-white">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                    Restore
+                  </Button>
+                )}
+                {onPermanentDelete && (
+                  <Button variant="ghost" onClick={onPermanentDelete} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Delete Forever
+                  </Button>
+                )}
+              </>
+            ) : job.status === 'pending-confirmation' ? (
+              // Pending confirmation actions
+              <>
+                {onDecline && (
+                  <Button variant="ghost" onClick={onDecline} className="text-red-500 hover:text-red-600">
+                    Decline
+                  </Button>
+                )}
+                {onConfirm && (
+                  <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white">
+                    Confirm Booking
+                  </Button>
+                )}
+              </>
+            ) : (
+              // Normal job actions - compact with dropdown
+              <>
+                {(onDelete || onPermanentDelete) && (
+                  <div className="relative">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setShowDeleteMenu(!showDeleteMenu)}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </Button>
+                    {showDeleteMenu && (
+                      <>
+                        {/* Backdrop to close menu */}
+                        <div 
+                          className="fixed inset-0 z-40" 
+                          onClick={() => setShowDeleteMenu(false)}
+                        />
+                        <div className="absolute bottom-full left-0 mb-2 w-64 bg-primary-dark/95 backdrop-blur-sm rounded-lg shadow-xl border border-primary-light/20 py-2 z-50">
+                          {onDelete && (
+                            <button
+                              onClick={() => {
+                                setShowDeleteMenu(false)
+                                onDelete()
+                              }}
+                              className="w-full text-left px-4 py-3 text-sm text-primary-light hover:bg-primary-light/10 transition-colors flex items-start gap-3 group"
+                            >
+                              <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-primary-light/70 group-hover:text-primary-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <div>
+                                <div className="font-medium text-primary-light">Move to Trash</div>
+                                <div className="text-xs text-primary-light/60 mt-0.5">Can be restored later</div>
+                              </div>
+                            </button>
+                          )}
+                          {onPermanentDelete && (
+                            <>
+                              {onDelete && <div className="border-t border-primary-light/10 my-1" />}
+                              <button
+                                onClick={() => {
+                                  setShowDeleteMenu(false)
+                                  onPermanentDelete()
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-start gap-3 group"
+                              >
+                                <svg className="w-5 h-5 flex-shrink-0 mt-0.5 group-hover:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div>
+                                  <div className="font-medium">Delete Permanently</div>
+                                  <div className="text-xs text-red-400/60 mt-0.5">Cannot be undone</div>
+                                </div>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                {onEdit && !isArchived && (
+                  <Button variant="ghost" onClick={onEdit}>
+                    Edit
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {onScheduleFollowup && !isDeleted && job.status !== 'pending-confirmation' && (
+              <Button 
+                onClick={onScheduleFollowup}
+                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark"
+              >
+                Schedule Follow-up
+              </Button>
+            )}
+            <Button onClick={onClose}>Close</Button>
+          </div>
+        </div>
       }
     >
       <div className="space-y-4">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-2xl font-bold text-primary-light mb-2">{job.title}</h2>
-            <span
-              className={cn(
-                'inline-block px-3 py-1 rounded text-sm font-medium',
-                statusColors[job.status]
+            <div className="flex gap-2 flex-wrap">
+              <span
+                className={cn(
+                  'inline-block px-3 py-1 rounded text-sm font-medium',
+                  statusColors[job.status]
+                )}
+              >
+                {statusLabels[job.status]}
+              </span>
+              {isDeleted && (
+                <span className="inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-red-100 text-red-800">
+                  🗑️ In Trash
+                </span>
               )}
-            >
-              {statusLabels[job.status]}
-            </span>
+              {isArchived && !isDeleted && (
+                <span className="inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-gray-200 text-gray-700">
+                  📦 Archived {format(new Date(job.archivedAt!), 'MMM d, yyyy')}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

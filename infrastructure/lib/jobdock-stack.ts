@@ -11,6 +11,8 @@ import * as cloudfrontOrigins from 'aws-cdk-lib/aws-cloudfront-origins'
 import * as acm from 'aws-cdk-lib/aws-certificatemanager'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as logs from 'aws-cdk-lib/aws-logs'
+import * as events from 'aws-cdk-lib/aws-events'
+import * as targets from 'aws-cdk-lib/aws-events-targets'
 import * as path from 'path'
 import { Construct } from 'constructs'
 import { Config } from '../config'
@@ -499,6 +501,53 @@ export class JobDockStack extends cdk.Stack {
     this.database.secret?.grantRead(migrationLambda)
     this.database.grantConnect(migrationLambda, 'jobdock')
 
+    // Job Cleanup Lambda - Archives old jobs to S3
+    const cleanupLambda = new lambdaNodejs.NodejsFunction(this, 'CleanupJobsLambda', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.resolve(backendDir, 'src', 'functions', 'cleanup-jobs', 'handler.ts'),
+      handler: 'handler',
+      bundling: commonBundlingOptions,
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: [lambdaSecurityGroup],
+      role: lambdaRole,
+      timeout: cdk.Duration.minutes(5), // Allow time for processing many jobs
+      memorySize: 512,
+      environment: {
+        DATABASE_SECRET_ARN: this.database.secret?.secretArn ?? '',
+        DATABASE_ENDPOINT: databaseHost,
+        DATABASE_NAME: 'jobdock',
+        DATABASE_HOST: databaseHost,
+        DATABASE_USER: databaseUserSecret.toString(),
+        DATABASE_PASSWORD: databasePasswordSecret.toString(),
+        DATABASE_PORT: '5432',
+        DATABASE_OPTIONS: 'schema=public',
+        FILES_BUCKET: this.filesBucket.bucketName,
+        ENVIRONMENT: config.env,
+      },
+      logRetention: logs.RetentionDays.ONE_MONTH, // Keep logs longer for audit trail
+      description: 'Archives jobs older than 1 year to S3 and cleans up database',
+    })
+
+    // Grant cleanup lambda necessary permissions
+    this.database.secret?.grantRead(cleanupLambda)
+    this.database.grantConnect(cleanupLambda, 'jobdock')
+    this.filesBucket.grantWrite(cleanupLambda)
+
+    // Schedule cleanup to run weekly on Sundays at 2 AM UTC
+    const cleanupRule = new events.Rule(this, 'CleanupJobsSchedule', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '2',
+        weekDay: 'SUN',
+      }),
+      description: 'Triggers job cleanup weekly to archive old jobs',
+    })
+
+    cleanupRule.addTarget(new targets.LambdaFunction(cleanupLambda))
+
     const authResource = this.api.root.addResource('auth')
     authResource.addResource('register').addMethod('POST', authIntegration)
     authResource.addResource('login').addMethod('POST', authIntegration)
@@ -571,6 +620,12 @@ export class JobDockStack extends cdk.Stack {
       value: migrationLambda.functionName,
       description: 'Migration Lambda function name for running database migrations',
       exportName: `JobDock-${config.env}-MigrationLambdaName`,
+    })
+
+    new cdk.CfnOutput(this, 'CleanupJobsLambdaName', {
+      value: cleanupLambda.functionName,
+      description: 'Cleanup Lambda function name for archiving old jobs',
+      exportName: `JobDock-${config.env}-CleanupJobsLambdaName`,
     })
   }
 }

@@ -220,7 +220,14 @@ We look forward to working with you!',
         if ('delete' in service) {
           // For jobs, check if deleteAll query parameter is present
           const deleteAll = event.queryStringParameters?.deleteAll === 'true'
-          // Pass deleteAll for jobs delete, regular services won't use it
+          // Check if permanent delete is requested
+          const permanent = event.queryStringParameters?.permanent === 'true'
+          
+          if (resource === 'jobs' && permanent && 'permanentDelete' in service) {
+            return successResponse(await (service as typeof dataServices.jobs).permanentDelete(tenantId, id, deleteAll))
+          }
+          
+          // Default: soft delete (or regular delete for other resources)
           return successResponse(await service.delete(tenantId, id, deleteAll))
         }
         return errorResponse('Delete method not supported', 405)
@@ -286,9 +293,11 @@ async function handleGet(
   if (resource === 'jobs') {
     const startDateStr = event.queryStringParameters?.startDate
     const endDateStr = event.queryStringParameters?.endDate
+    const includeArchived = event.queryStringParameters?.includeArchived === 'true'
+    const showDeleted = event.queryStringParameters?.showDeleted === 'true'
     const startDate = startDateStr ? new Date(startDateStr) : undefined
     const endDate = endDateStr ? new Date(endDateStr) : undefined
-    return (service as typeof dataServices.jobs).getAll(tenantId, startDate, endDate)
+    return (service as typeof dataServices.jobs).getAll(tenantId, startDate, endDate, includeArchived, showDeleted)
   }
 
   if ('getAll' in service) {
@@ -342,6 +351,10 @@ async function handlePost(
   if (resource === 'jobs' && id && action === 'decline') {
     const payload = parseBody(event)
     return (service as typeof dataServices.jobs).decline(tenantId, id, payload.reason)
+  }
+
+  if (resource === 'jobs' && id && action === 'restore') {
+    return (service as typeof dataServices.jobs).restore(tenantId, id)
   }
 
   // Contacts import endpoints

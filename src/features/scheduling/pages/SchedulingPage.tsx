@@ -12,6 +12,7 @@ import ServiceForm from '../components/ServiceForm'
 import ServiceDetail from '../components/ServiceDetail'
 import ScheduleJobModal from '../components/ScheduleJobModal'
 import DeleteRecurringJobModal from '../components/DeleteRecurringJobModal'
+import ArchivedJobsModal from '../components/ArchivedJobsModal'
 import { Button, Modal, Card, ConfirmationDialog } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
 
@@ -29,6 +30,8 @@ const SchedulingPage = () => {
     createJob,
     updateJob,
     deleteJob,
+    permanentDeleteJob,
+    restoreJob,
     confirmJob,
     declineJob,
     setSelectedJob,
@@ -66,7 +69,7 @@ const SchedulingPage = () => {
   const initialTab = (tabParam === 'jobs' || tabParam === 'services' || tabParam === 'calendar') 
     ? tabParam 
     : 'calendar'
-  const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services'>(initialTab as 'calendar' | 'jobs' | 'services')
+  const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services' | 'archived'>(initialTab as 'calendar' | 'jobs' | 'services' | 'archived')
   
   const [linkCopied, setLinkCopied] = useState(false)
   const [showFollowupModal, setShowFollowupModal] = useState(false)
@@ -93,6 +96,7 @@ const SchedulingPage = () => {
   const [jobErrorMessage, setJobErrorMessage] = useState('')
   const [showServiceConfirmation, setShowServiceConfirmation] = useState(false)
   const [serviceConfirmationMessage, setServiceConfirmationMessage] = useState('')
+  const [showArchivedJobs, setShowArchivedJobs] = useState(false)
 
   // Set active tab from URL parameter on mount
   useEffect(() => {
@@ -233,6 +237,47 @@ const SchedulingPage = () => {
       } catch (error) {
         console.error('Error deleting all jobs:', error)
         // Error handled by store
+      }
+    }
+  }
+
+  const handlePermanentDeleteJob = async () => {
+    if (selectedJob) {
+      const confirmed = window.confirm(
+        '⚠️ Are you sure you want to PERMANENTLY delete this job? This action cannot be undone and will remove the job from the database' +
+        (selectedJob.archivedAt ? ' and S3 archive.' : '.')
+      )
+      if (!confirmed) return
+
+      try {
+        if (selectedJob.recurrenceId) {
+          const deleteAll = window.confirm('Delete all occurrences of this recurring job?')
+          await permanentDeleteJob(selectedJob.id, deleteAll)
+        } else {
+          await permanentDeleteJob(selectedJob.id, false)
+        }
+        setSelectedJob(null)
+        // Refresh jobs list
+        const startDate = startOfMonth(currentDate)
+        const endDate = endOfMonth(currentDate)
+        await fetchJobs(startDate, endDate)
+      } catch (error) {
+        console.error('Error permanently deleting job:', error)
+      }
+    }
+  }
+
+  const handleRestoreJob = async () => {
+    if (selectedJob) {
+      try {
+        await restoreJob(selectedJob.id)
+        setSelectedJob(null)
+        // Refresh jobs list
+        const startDate = startOfMonth(currentDate)
+        const endDate = endOfMonth(currentDate)
+        await fetchJobs(startDate, endDate)
+      } catch (error) {
+        console.error('Error restoring job:', error)
       }
     }
   }
@@ -484,6 +529,19 @@ const SchedulingPage = () => {
         >
           Services
         </button>
+        <button
+          onClick={() => setActiveTab('archived')}
+          className={`
+            px-3 md:px-4 py-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base
+            ${
+              activeTab === 'archived'
+                ? 'text-primary-gold border-b-2 border-primary-gold'
+                : 'text-primary-light/70 hover:text-primary-light'
+            }
+          `}
+        >
+          Archive
+        </button>
       </div>
 
       {/* Content */}
@@ -508,6 +566,19 @@ const SchedulingPage = () => {
         {activeTab === 'jobs' && (
           <div className="h-full overflow-y-auto">
             <JobList />
+          </div>
+        )}
+
+        {activeTab === 'archived' && (
+          <div className="h-full overflow-y-auto p-4">
+            <ArchivedJobsModal
+              isOpen={true}
+              onClose={() => setActiveTab('calendar')}
+              onJobRestore={handleRestoreJob}
+              onJobSelect={(job) => {
+                setSelectedJob(job)
+              }}
+            />
           </div>
         )}
 
@@ -562,6 +633,8 @@ const SchedulingPage = () => {
             setShowJobForm(true)
           }}
           onDelete={handleDeleteJob}
+          onPermanentDelete={handlePermanentDeleteJob}
+          onRestore={handleRestoreJob}
           onConfirm={handleConfirmJob}
           onDecline={() => setShowDeclineModal(true)}
           onScheduleFollowup={handleScheduleFollowup}
@@ -682,6 +755,7 @@ const SchedulingPage = () => {
           occurrenceCount={selectedJob.occurrenceCount}
         />
       )}
+
 
       {/* Booking Link Modal */}
       <Modal
