@@ -1,33 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useJobStore } from '../store/jobStore'
 import JobCard from './JobCard'
-import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns'
+import { startOfMonth, endOfMonth, addMonths } from 'date-fns'
 
 const JobList = () => {
   const {
     jobs,
     isLoading,
     currentDate,
-    jobView,
-    setJobView,
     fetchJobs,
   } = useJobStore()
-  
-  const [localView, setLocalView] = useState<'active' | 'archived'>('active')
 
-  // Fetch jobs when view changes
+  // Fetch active jobs only
   useEffect(() => {
     const startDate = startOfMonth(currentDate)
     const endDate = endOfMonth(addMonths(currentDate, 1))
-    
-    if (localView === 'archived') {
-      fetchJobs(startDate, endDate, true, false) // includeArchived
-    } else {
-      fetchJobs(startDate, endDate, false, false) // active only
-    }
-  }, [localView, currentDate, fetchJobs])
+    fetchJobs(startDate, endDate, false, false) // active only, no archived
+  }, [currentDate, fetchJobs])
 
-  // Get filtered jobs based on view
+  // Get filtered jobs - upcoming active jobs only
   const filteredJobs = useMemo(() => {
     const today = new Date()
     const nextWeek = new Date(today)
@@ -36,16 +27,11 @@ const JobList = () => {
     return jobs
       .filter((job) => {
         const jobDate = new Date(job.startTime)
-        
-        if (localView === 'archived') {
-          return !!job.archivedAt
-        } else {
-          // Active view - upcoming jobs only
-          return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled' && !job.archivedAt
-        }
+        // Active view - upcoming jobs only
+        return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled' && !job.archivedAt
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-  }, [jobs, localView])
+  }, [jobs])
 
   if (isLoading) {
     return (
@@ -57,41 +43,12 @@ const JobList = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* View Tabs */}
-      <div className="flex border-b border-primary-light/20 mb-4">
-        <button
-          onClick={() => setLocalView('active')}
-          className={`
-            px-4 py-2 font-medium transition-colors text-sm
-            ${localView === 'active'
-              ? 'text-primary-gold border-b-2 border-primary-gold'
-              : 'text-primary-light/70 hover:text-primary-light'
-            }
-          `}
-        >
-          📋 Active
-        </button>
-        <button
-          onClick={() => setLocalView('archived')}
-          className={`
-            px-4 py-2 font-medium transition-colors text-sm
-            ${localView === 'archived'
-              ? 'text-primary-gold border-b-2 border-primary-gold'
-              : 'text-primary-light/70 hover:text-primary-light'
-            }
-          `}
-        >
-          📦 Archived
-        </button>
-      </div>
-
       {/* Jobs List */}
       <div className="flex-1 overflow-y-auto">
         {filteredJobs.length === 0 ? (
           <div className="p-6 text-center">
             <p className="text-primary-light/70">
-              {localView === 'archived' && 'No archived jobs'}
-              {localView === 'active' && 'No upcoming jobs scheduled'}
+              No upcoming jobs scheduled
             </p>
           </div>
         ) : (

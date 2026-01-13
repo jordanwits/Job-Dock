@@ -8,7 +8,7 @@ export const jobBreakSchema = z.object({
 })
 
 export const recurrenceSchema = z.object({
-  frequency: z.enum(['daily', 'weekly', 'monthly']),
+  frequency: z.enum(['daily', 'weekly', 'monthly', 'custom']),
   interval: z.number().int().min(1).max(4),
   count: z.number().int().min(2).max(50).optional(),
   untilDate: z.string().optional(),

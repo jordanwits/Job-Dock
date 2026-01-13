@@ -8,9 +8,12 @@ import { cn } from '@/lib/utils'
 interface ArchivedJobsPageProps {
   onJobRestore: (job: Job) => Promise<void>
   onJobSelect?: (job: Job) => void
+  onPermanentDelete?: (job: Job) => void
+  deletedJobId?: string | null
+  deletedRecurrenceId?: string | null
 }
 
-const ArchivedJobsPage = ({ onJobRestore, onJobSelect }: ArchivedJobsPageProps) => {
+const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, deletedJobId, deletedRecurrenceId }: ArchivedJobsPageProps) => {
   const [archivedJobs, setArchivedJobs] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -18,6 +21,19 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect }: ArchivedJobsPageProps) 
   useEffect(() => {
     fetchArchivedJobs()
   }, [])
+
+  // Remove deleted jobs from the list
+  useEffect(() => {
+    if (deletedJobId) {
+      setArchivedJobs(prev => prev.filter(j => j.id !== deletedJobId))
+    }
+  }, [deletedJobId])
+
+  useEffect(() => {
+    if (deletedRecurrenceId) {
+      setArchivedJobs(prev => prev.filter(j => j.recurrenceId !== deletedRecurrenceId))
+    }
+  }, [deletedRecurrenceId])
 
   const fetchArchivedJobs = async () => {
     setIsLoading(true)
@@ -164,18 +180,35 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect }: ArchivedJobsPageProps) 
                     </div>
                   </div>
 
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRestore(job)
-                    }}
-                    className="bg-green-600 hover:bg-green-700 text-white flex-shrink-0"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                    </svg>
-                    Restore
-                  </Button>
+                  <div className="flex gap-2 flex-shrink-0">
+                    {onPermanentDelete && (
+                      <Button
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onPermanentDelete(job)
+                        }}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Delete Forever
+                      </Button>
+                    )}
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRestore(job)
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                      </svg>
+                      Restore
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}

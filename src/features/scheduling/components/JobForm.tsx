@@ -35,6 +35,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   const [endRepeatMode, setEndRepeatMode] = useState<'never' | 'on-date'>('never')
   const [endRepeatDate, setEndRepeatDate] = useState<string>('')
   const [occurrenceCount, setOccurrenceCount] = useState<number>(12)
+  const [customDays, setCustomDays] = useState<number[]>([])
   
   // Duration unit and value state
   const inferDurationUnit = (startTime: string, endTime: string): { unit: 'minutes' | 'hours' | 'days' | 'weeks', value: number } => {
@@ -269,11 +270,18 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       const [frequency, intervalStr] = repeatPattern.split('-') as [RecurrenceFrequency, string]
       const interval = parseInt(intervalStr) || 1
       
+      // Validate custom recurrence has days selected
+      if (frequency === 'custom' && customDays.length === 0) {
+        alert('Please select at least one day for custom recurrence')
+        return
+      }
+      
       if (endRepeatMode === 'never') {
         formData.recurrence = {
           frequency,
           interval,
           count: occurrenceCount,
+          daysOfWeek: frequency === 'custom' ? customDays : undefined,
         }
       } else if (endRepeatMode === 'on-date' && endRepeatDate) {
         // Calculate count based on end date
@@ -282,21 +290,33 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         let count = 1
         let currentDate = new Date(start)
         
-        while (currentDate <= end) {
-          if (frequency === 'daily') {
-            currentDate.setDate(currentDate.getDate() + interval)
-          } else if (frequency === 'weekly') {
-            currentDate = addWeeks(currentDate, interval)
-          } else if (frequency === 'monthly') {
-            currentDate = addMonths(currentDate, interval)
+        if (frequency === 'custom') {
+          // For custom, count occurrences on selected days
+          currentDate.setDate(currentDate.getDate() + 1) // Start from next day
+          while (currentDate <= end) {
+            if (customDays.includes(currentDate.getDay())) {
+              count++
+            }
+            currentDate.setDate(currentDate.getDate() + 1)
           }
-          if (currentDate <= end) count++
+        } else {
+          while (currentDate <= end) {
+            if (frequency === 'daily') {
+              currentDate.setDate(currentDate.getDate() + interval)
+            } else if (frequency === 'weekly') {
+              currentDate = addWeeks(currentDate, interval)
+            } else if (frequency === 'monthly') {
+              currentDate = addMonths(currentDate, interval)
+            }
+            if (currentDate <= end) count++
+          }
         }
         
         formData.recurrence = {
           frequency,
           interval,
           count: count,
+          daysOfWeek: frequency === 'custom' ? customDays : undefined,
         }
       }
     }
@@ -315,7 +335,13 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
     let endDate = new Date(start)
     const count = occurrenceCount - 1 // -1 because first occurrence is the start date
     
-    if (frequency === 'daily') {
+    if (frequency === 'custom') {
+      // For custom, estimate based on average days per week
+      if (customDays.length === 0) return null
+      const daysPerWeek = customDays.length
+      const weeksNeeded = Math.ceil(count / daysPerWeek)
+      endDate.setDate(endDate.getDate() + (weeksNeeded * 7))
+    } else if (frequency === 'daily') {
       endDate.setDate(endDate.getDate() + (interval * count))
     } else if (frequency === 'weekly') {
       endDate = addWeeks(start, interval * count)
@@ -812,15 +838,59 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           }}
           options={[
             { value: 'none', label: 'Does not repeat' },
+            { value: 'daily-1', label: 'Every day' },
+            { value: 'daily-2', label: 'Every 2 days' },
             { value: 'weekly-1', label: 'Every week' },
             { value: 'weekly-2', label: 'Every 2 weeks' },
             { value: 'weekly-4', label: 'Every 4 weeks' },
             { value: 'monthly-1', label: 'Every month' },
+            { value: 'custom-1', label: 'Custom (select days)' },
           ]}
         />
         
         {repeatPattern !== 'none' && (
           <div className="mt-3 space-y-3">
+            {repeatPattern === 'custom-1' && (
+              <div>
+                <label className="block text-sm font-medium text-primary-light mb-2">
+                  Select Days
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 0, label: 'Sun' },
+                    { value: 1, label: 'Mon' },
+                    { value: 2, label: 'Tue' },
+                    { value: 3, label: 'Wed' },
+                    { value: 4, label: 'Thu' },
+                    { value: 5, label: 'Fri' },
+                    { value: 6, label: 'Sat' },
+                  ].map((day) => (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => {
+                        setCustomDays((prev) =>
+                          prev.includes(day.value)
+                            ? prev.filter((d) => d !== day.value)
+                            : [...prev, day.value].sort()
+                        )
+                      }}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        customDays.includes(day.value)
+                          ? 'bg-primary-gold text-primary-dark'
+                          : 'bg-primary-dark-secondary text-primary-light border border-primary-blue hover:border-primary-gold'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+                {customDays.length === 0 && (
+                  <p className="text-xs text-red-400 mt-1">Please select at least one day</p>
+                )}
+              </div>
+            )}
+            
             <Select
               label="End Repeat"
               value={endRepeatMode}

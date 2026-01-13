@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
 import { Input, Button, Card, Select, PhoneInput } from '@/components/ui'
-import { format, addWeeks, addMonths } from 'date-fns'
+import { format, addDays, addWeeks, addMonths } from 'date-fns'
 import type { AvailableSlot, RecurrenceFrequency } from '../types/booking'
 import type { Service } from '@/features/scheduling/types/service'
 
@@ -56,7 +56,9 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
     const count = occurrenceCount - 1
     
     let endDate = new Date(start)
-    if (frequency === 'weekly') {
+    if (frequency === 'daily') {
+      endDate = addDays(start, interval * count)
+    } else if (frequency === 'weekly') {
       endDate = addWeeks(start, interval * count)
     } else if (frequency === 'monthly') {
       endDate = addMonths(start, interval * count)
@@ -164,6 +166,8 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
             disabled={isLoading}
             options={[
               { value: 'none', label: 'One-time only' },
+              { value: 'daily-1', label: 'Every day' },
+              { value: 'daily-2', label: 'Every 2 days' },
               { value: 'weekly-1', label: 'Every week' },
               { value: 'weekly-2', label: 'Every 2 weeks' },
               { value: 'weekly-4', label: 'Every 4 weeks' },

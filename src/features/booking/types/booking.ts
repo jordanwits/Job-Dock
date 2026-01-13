@@ -1,4 +1,4 @@
-export type RecurrenceFrequency = 'weekly' | 'monthly'
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'custom'
 
 export interface RecurrencePayload {
   frequency: RecurrenceFrequency

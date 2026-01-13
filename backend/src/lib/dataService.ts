@@ -32,7 +32,7 @@ import {
 } from './csvImport'
 
 // Recurrence types
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly'
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'custom'
 
 export interface RecurrencePayload {
   frequency: RecurrenceFrequency
@@ -72,10 +72,10 @@ function generateRecurrenceInstances(params: {
   console.log('[DEBUG] generateRecurrenceInstances entry:', JSON.stringify({startTimeISO:startTime.toISOString(),endTimeISO:endTime.toISOString(),recurrence,maxCount,durationMs:duration}));
   // #endregion
   
-  // Custom weekly pattern (specific days of week)
-  if (recurrence.frequency === 'weekly' && recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0) {
+  // Custom pattern (specific days of week) - works for both 'custom' and 'weekly' with daysOfWeek
+  if ((recurrence.frequency === 'custom' || recurrence.frequency === 'weekly') && recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0) {
     // #region agent log
-    console.log('[DEBUG] Using custom weekly pattern:', JSON.stringify({daysOfWeek:recurrence.daysOfWeek,maxCount}));
+    console.log('[DEBUG] Using custom pattern with specific days:', JSON.stringify({frequency:recurrence.frequency,daysOfWeek:recurrence.daysOfWeek,maxCount}));
     // #endregion
     let currentDate = new Date(startTime)
     let instanceCount = 0
@@ -98,7 +98,7 @@ function generateRecurrenceInstances(params: {
       currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000)
     }
     // #region agent log
-    console.log('[DEBUG] Custom weekly instances generated:', JSON.stringify({instanceCount,firstDateISO:instances[0]?.startTime.toISOString(),lastDateISO:instances[instances.length-1]?.startTime.toISOString()}));
+    console.log('[DEBUG] Custom pattern instances generated:', JSON.stringify({instanceCount,firstDateISO:instances[0]?.startTime.toISOString(),lastDateISO:instances[instances.length-1]?.startTime.toISOString()}));
     // #endregion
     
     return instances

@@ -100,6 +100,9 @@ const SchedulingPage = () => {
   const [showArchivedJobs, setShowArchivedJobs] = useState(false)
   const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState(false)
   const [showPermanentDeleteRecurringModal, setShowPermanentDeleteRecurringModal] = useState(false)
+  const [deletedJobId, setDeletedJobId] = useState<string | null>(null)
+  const [deletedRecurrenceId, setDeletedRecurrenceId] = useState<string | null>(null)
+  const [showJobDetail, setShowJobDetail] = useState(false)
 
   // Filter out archived jobs for the calendar view
   const activeJobs = useMemo(() => {
@@ -113,6 +116,14 @@ const SchedulingPage = () => {
       setActiveTab(tabParam)
     }
   }, [searchParams])
+
+  // Clear deleted job IDs when switching away from archived tab
+  useEffect(() => {
+    if (activeTab !== 'archived') {
+      setDeletedJobId(null)
+      setDeletedRecurrenceId(null)
+    }
+  }, [activeTab])
 
   useEffect(() => {
     // Fetch jobs for a wider range to support multi-week/multi-month jobs
@@ -190,6 +201,7 @@ const SchedulingPage = () => {
         setEditingJob(null)
         setShowJobForm(false)
         setSelectedJob(null)
+        setShowJobDetail(false)
         clearJobsError()
         setJobConfirmationMessage('Job updated successfully')
         setShowJobConfirmation(true)
@@ -219,6 +231,7 @@ const SchedulingPage = () => {
         console.log('Archiving single job:', selectedJob.id)
         await deleteJob(selectedJob.id, false)
         setSelectedJob(null)
+        setShowJobDetail(false)
         setShowDeleteRecurringModal(false)
         // No need to refetch - store already updated the job with archivedAt
       } catch (error) {
@@ -234,6 +247,7 @@ const SchedulingPage = () => {
         console.log('Archiving all jobs with recurrenceId:', selectedJob.recurrenceId)
         await deleteJob(selectedJob.id, true)
         setSelectedJob(null)
+        setShowJobDetail(false)
         setShowDeleteRecurringModal(false)
         // No need to refetch - store already updated the jobs with archivedAt
       } catch (error) {
@@ -243,10 +257,15 @@ const SchedulingPage = () => {
     }
   }
 
-  const handlePermanentDeleteJob = () => {
-    if (selectedJob) {
+  const handlePermanentDeleteJob = (job?: typeof selectedJob) => {
+    const jobToDelete = job || selectedJob
+    if (jobToDelete) {
+      // Set as selected for the confirmation modal to use
+      if (job) {
+        setSelectedJob(job)
+      }
       // Check if this is a recurring job
-      if (selectedJob.recurrenceId) {
+      if (jobToDelete.recurrenceId) {
         setShowPermanentDeleteRecurringModal(true)
       } else {
         setShowPermanentDeleteConfirm(true)
@@ -257,8 +276,11 @@ const SchedulingPage = () => {
   const handleConfirmPermanentDelete = async () => {
     if (selectedJob) {
       try {
-        await permanentDeleteJob(selectedJob.id, false)
+        const jobId = selectedJob.id
+        await permanentDeleteJob(jobId, false)
+        setDeletedJobId(jobId) // Notify ArchivedJobsPage
         setSelectedJob(null)
+        setShowJobDetail(false)
         setShowPermanentDeleteConfirm(false)
         // No need to refetch - store already removed the job from the array
       } catch (error) {
@@ -270,8 +292,11 @@ const SchedulingPage = () => {
   const handlePermanentDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
-        await permanentDeleteJob(selectedJob.id, false)
+        const jobId = selectedJob.id
+        await permanentDeleteJob(jobId, false)
+        setDeletedJobId(jobId) // Notify ArchivedJobsPage
         setSelectedJob(null)
+        setShowJobDetail(false)
         setShowPermanentDeleteRecurringModal(false)
         // No need to refetch - store already removed the job from the array
       } catch (error) {
@@ -283,8 +308,13 @@ const SchedulingPage = () => {
   const handlePermanentDeleteAllJobs = async () => {
     if (selectedJob) {
       try {
+        const recurrenceId = selectedJob.recurrenceId
         await permanentDeleteJob(selectedJob.id, true)
+        if (recurrenceId) {
+          setDeletedRecurrenceId(recurrenceId) // Notify ArchivedJobsPage to remove all jobs with this recurrenceId
+        }
         setSelectedJob(null)
+        setShowJobDetail(false)
         setShowPermanentDeleteRecurringModal(false)
         // No need to refetch - store already removed the job from the array
       } catch (error) {
@@ -299,6 +329,7 @@ const SchedulingPage = () => {
       try {
         await restoreJob(jobToRestore.id)
         setSelectedJob(null)
+        setShowJobDetail(false)
         // No need to refetch - store already updated the job (cleared archivedAt)
       } catch (error) {
         console.error('Error restoring job:', error)
@@ -371,6 +402,7 @@ const SchedulingPage = () => {
       try {
         await confirmJob(selectedJob.id)
         setSelectedJob(null)
+        setShowJobDetail(false)
       } catch (error) {
         // Error handled by store
       }
@@ -384,6 +416,7 @@ const SchedulingPage = () => {
         setShowDeclineModal(false)
         setDeclineReason('')
         setSelectedJob(null)
+        setShowJobDetail(false)
       } catch (error) {
         // Error handled by store
       }
@@ -578,7 +611,10 @@ const SchedulingPage = () => {
               currentDate={currentDate}
               onDateChange={setCurrentDate}
               onViewModeChange={setViewMode}
-              onJobClick={setSelectedJob}
+              onJobClick={(job) => {
+                setSelectedJob(job)
+                setShowJobDetail(true)
+              }}
               onDateClick={(date) => {
                 setCurrentDate(date)
                 setViewMode('day')
@@ -599,7 +635,13 @@ const SchedulingPage = () => {
               onJobRestore={handleRestoreJob}
               onJobSelect={(job) => {
                 setSelectedJob(job)
+                setShowJobDetail(true)
               }}
+              onPermanentDelete={(job) => {
+                handlePermanentDeleteJob(job)
+              }}
+              deletedJobId={deletedJobId}
+              deletedRecurrenceId={deletedRecurrenceId}
             />
           </div>
         )}
@@ -648,14 +690,18 @@ const SchedulingPage = () => {
       {selectedJob && (
         <JobDetail
           job={selectedJob}
-          isOpen={!!selectedJob}
-          onClose={() => setSelectedJob(null)}
+          isOpen={showJobDetail}
+          onClose={() => {
+            setSelectedJob(null)
+            setShowJobDetail(false)
+          }}
           onEdit={() => {
             setEditingJob(selectedJob)
             setShowJobForm(true)
+            setShowJobDetail(false)
           }}
           onDelete={handleDeleteJob}
-          onPermanentDelete={handlePermanentDeleteJob}
+          onPermanentDelete={() => handlePermanentDeleteJob()}
           onRestore={handleRestoreJob}
           onConfirm={handleConfirmJob}
           onDecline={() => setShowDeclineModal(true)}
@@ -676,6 +722,7 @@ const SchedulingPage = () => {
         sourceContext="job-followup"
         onSuccess={() => {
           setSelectedJob(null)
+          setShowJobDetail(false)
         }}
       />
 
