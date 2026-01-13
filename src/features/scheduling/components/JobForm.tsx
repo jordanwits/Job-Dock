@@ -575,7 +575,6 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
             label={isAllDay ? 'Start Date *' : (durationUnit === 'minutes' || durationUnit === 'hours') ? 'Date *' : 'Start Date *'}
             value={startDate}
             onChange={setStartDate}
-            minDate={new Date().toISOString().split('T')[0]}
           />
 
           {!isAllDay && (durationUnit === 'minutes' || durationUnit === 'hours') && (

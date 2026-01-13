@@ -63,9 +63,11 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
 
     if (viewMode === 'alphabetical') {
       sorted.sort((a, b) => {
-        const lastNameCompare = a.lastName.toLowerCase().localeCompare(b.lastName.toLowerCase())
+        const lastNameA = (a.lastName || '').toLowerCase()
+        const lastNameB = (b.lastName || '').toLowerCase()
+        const lastNameCompare = lastNameA.localeCompare(lastNameB)
         if (lastNameCompare !== 0) return lastNameCompare
-        return a.firstName.toLowerCase().localeCompare(b.firstName.toLowerCase())
+        return (a.firstName || '').toLowerCase().localeCompare((b.firstName || '').toLowerCase())
       })
     } else if (viewMode === 'dateEntered') {
       sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -95,10 +97,17 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
       )
     }
 
+    // Sort each group by last name, then first name
+    const sortByLastName = (a: typeof contacts[0], b: typeof contacts[0]) => {
+      const lastNameCompare = (a.lastName || '').toLowerCase().localeCompare((b.lastName || '').toLowerCase())
+      if (lastNameCompare !== 0) return lastNameCompare
+      return (a.firstName || '').toLowerCase().localeCompare((b.firstName || '').toLowerCase())
+    }
+
     return {
-      leadContacts: searchFiltered.filter((c) => c.status === 'lead'),
-      customerContacts: searchFiltered.filter((c) => c.status === 'customer'),
-      inactiveContacts: searchFiltered.filter((c) => c.status === 'inactive'),
+      leadContacts: searchFiltered.filter((c) => c.status === 'lead').sort(sortByLastName),
+      customerContacts: searchFiltered.filter((c) => c.status === 'customer').sort(sortByLastName),
+      inactiveContacts: searchFiltered.filter((c) => c.status === 'inactive').sort(sortByLastName),
     }
   }, [contacts, searchQuery, viewMode])
 
