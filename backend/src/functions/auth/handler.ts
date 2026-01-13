@@ -6,7 +6,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { CognitoIdentityProviderClient, AdminConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider'
-import { registerUser, loginUser } from '../../lib/auth'
+import { registerUser, loginUser, refreshAccessToken, verifyToken } from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
 import prisma from '../../lib/db'
 import { randomUUID } from 'crypto'
@@ -208,8 +208,53 @@ async function handleLogin(
 async function handleRefresh(
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> {
-  // TODO: Implement token refresh
-  return errorResponse('Not implemented', 501)
+  const body = JSON.parse(event.body || '{}')
+  const { refreshToken } = body
+
+  if (!refreshToken) {
+    return errorResponse('Refresh token required', 400)
+  }
+
+  try {
+    // 1. Use the refresh token to get new access and ID tokens from Cognito
+    const tokens = await refreshAccessToken(refreshToken)
+
+    // 2. Decode the new ID token to get user info
+    const cognitoUser = await verifyToken(tokens.IdToken!)
+
+    // 3. Look up user in database by Cognito ID
+    const user = await prisma.user.findUnique({
+      where: { cognitoId: cognitoUser.sub },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        tenantId: true,
+      },
+    })
+
+    if (!user) {
+      return errorResponse(
+        'User not found in JobDock database',
+        404
+      )
+    }
+
+    // 4. Return new tokens and user info
+    return successResponse({
+      token: tokens.IdToken,
+      refreshToken: tokens.RefreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        tenantId: user.tenantId,
+      },
+    })
+  } catch (error: any) {
+    console.error('Token refresh error:', error)
+    return errorResponse(error.message || 'Token refresh failed', 401)
+  }
 }
 
 async function handleLogout(

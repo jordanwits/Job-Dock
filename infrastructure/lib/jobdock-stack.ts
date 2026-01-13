@@ -417,7 +417,7 @@ export class JobDockStack extends cdk.Stack {
         // SES Email configuration
         SES_ENABLED: 'true', // Enable for all environments to send real emails
         SES_REGION: this.region,
-        SES_FROM_ADDRESS: config.sesFromAddress || 'jordan@westwavecreative.com',
+        SES_FROM_ADDRESS: config.sesFromAddress || 'noreply@thejobdock.com',
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
     })
@@ -460,7 +460,7 @@ export class JobDockStack extends cdk.Stack {
         // SES Email configuration
         SES_ENABLED: 'true', // Enable for all environments to send real emails
         SES_REGION: this.region,
-        SES_FROM_ADDRESS: config.sesFromAddress || 'jordan@westwavecreative.com',
+        SES_FROM_ADDRESS: config.sesFromAddress || 'noreply@thejobdock.com',
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
     })

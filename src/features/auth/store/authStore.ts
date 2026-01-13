@@ -14,6 +14,7 @@ export interface User {
 interface AuthState {
   user: User | null
   token: string | null
+  refreshToken: string | null
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
@@ -24,6 +25,7 @@ interface AuthState {
     name: string
     companyName: string
   }) => Promise<void>
+  refreshAccessToken: () => Promise<boolean>
   logout: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
   clearError: () => void
@@ -33,9 +35,10 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -47,12 +50,14 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: response.user,
             token: response.token,
+            refreshToken: response.refreshToken,
             isAuthenticated: true,
             isLoading: false,
             error: null,
           })
           // Store token and tenant_id in localStorage for API client
           localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('refresh_token', response.refreshToken)
           localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
           const friendlyMessage = getErrorMessage(error, 'Login failed. Please try again.')
@@ -72,12 +77,14 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: response.user,
             token: response.token,
+            refreshToken: response.refreshToken,
             isAuthenticated: true,
             isLoading: false,
             error: null,
           })
           // Store token and tenant_id in localStorage for API client
           localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('refresh_token', response.refreshToken)
           localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
           const friendlyMessage = getErrorMessage(error, 'Registration failed. Please try again.')
@@ -87,6 +94,36 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
           })
           throw error
+        }
+      },
+
+      refreshAccessToken: async () => {
+        const currentRefreshToken = get().refreshToken || localStorage.getItem('refresh_token')
+        
+        if (!currentRefreshToken) {
+          console.warn('No refresh token available')
+          return false
+        }
+
+        try {
+          const response = await authService.refresh(currentRefreshToken)
+          set({
+            user: response.user,
+            token: response.token,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
+            error: null,
+          })
+          // Update stored tokens
+          localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('refresh_token', response.refreshToken)
+          localStorage.setItem('tenant_id', response.user.tenantId)
+          return true
+        } catch (error: any) {
+          console.error('Token refresh failed:', error)
+          // If refresh fails, clear session
+          get().clearSession()
+          return false
         }
       },
 
@@ -101,12 +138,14 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             token: null,
+            refreshToken: null,
             isAuthenticated: false,
             isLoading: false,
             error: null,
           })
-          // Clear both auth token and tenant_id
+          // Clear all auth tokens
           localStorage.removeItem('auth_token')
+          localStorage.removeItem('refresh_token')
           localStorage.removeItem('tenant_id')
         }
       },
@@ -132,11 +171,13 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           token: null,
+          refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
           error: null,
         })
         localStorage.removeItem('auth_token')
+        localStorage.removeItem('refresh_token')
         localStorage.removeItem('tenant_id')
       },
 
@@ -161,6 +202,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     }

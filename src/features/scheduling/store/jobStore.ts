@@ -108,10 +108,11 @@ export const useJobStore = create<JobState>((set, get) => ({
       // If this is a recurring job (has occurrenceCount > 1), refresh all jobs
       // to get all the created instances. Otherwise just add the single job.
       if (apiJob.occurrenceCount && apiJob.occurrenceCount > 1) {
-        // Recurring job - refresh the entire job list to get all instances
+        // Recurring job - refresh with a wider date range to include all instances
+        // Fetch 6 months forward and 1 month back from the current view
         const { currentDate } = get()
-        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0)
         await get().fetchJobs(startDate, endDate)
       } else {
         // Single job - just add it to the state
@@ -123,11 +124,21 @@ export const useJobStore = create<JobState>((set, get) => ({
       }
       return Promise.resolve()
     } catch (error: any) {
+      // Extract error data from axios response
+      const errorData = error.response?.data?.error || error
+      const errorMessage = errorData.message || error.message || 'Failed to create job'
+      
       set({
-        error: error.message || 'Failed to create job',
+        error: errorMessage,
         isLoading: false,
       })
-      throw error
+      
+      // Preserve the status code and conflicts for the UI layer
+      const enhancedError = new Error(errorMessage) as any
+      enhancedError.statusCode = errorData.statusCode || error.response?.status
+      enhancedError.conflicts = errorData.conflicts
+      
+      throw enhancedError
     }
   },
 

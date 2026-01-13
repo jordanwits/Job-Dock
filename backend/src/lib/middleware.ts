@@ -90,6 +90,15 @@ export function errorResponse(
   statusCode: number = 500
 ): APIGatewayProxyResult {
   const message = error instanceof Error ? error.message : error
+  const errorData: any = {
+    message,
+    statusCode,
+  }
+
+  // Include additional error properties like conflicts
+  if (error instanceof Error && 'conflicts' in error) {
+    errorData.conflicts = (error as any).conflicts
+  }
 
   return {
     statusCode,
@@ -100,10 +109,7 @@ export function errorResponse(
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     },
     body: JSON.stringify({
-      error: {
-        message,
-        statusCode,
-      },
+      error: errorData,
     }),
   }
 }

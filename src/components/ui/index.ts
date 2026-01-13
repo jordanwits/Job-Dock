@@ -34,3 +34,5 @@ export type { StatusBadgeSelectProps, StatusOption } from './StatusBadgeSelect'
 
 export { default as PhoneInput } from './PhoneInput'
 export type { PhoneInputProps } from './PhoneInput'
+
+export { default as ConfirmationDialog } from './ConfirmationDialog'

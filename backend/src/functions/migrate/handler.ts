@@ -405,6 +405,18 @@ const PENDING_MIGRATIONS = [
       `ALTER TABLE "job_recurrences" ADD COLUMN IF NOT EXISTS "daysOfWeek" INTEGER[] DEFAULT ARRAY[]::INTEGER[]`
     ],
     description: 'Add custom days of week selection for job recurrence (for patterns like every Tue and Thu)'
+  },
+  {
+    name: '20260112000002_provision_dave_witbeck',
+    statements: [
+      `INSERT INTO "tenants" (id, name, subdomain, "createdAt", "updatedAt")
+       VALUES ('91aa5603-ed59-42fe-9b32-6d13a5ccf4e4', 'Witbeck Ventures', 'witbeck-ventures', NOW(), NOW())
+       ON CONFLICT (subdomain) DO NOTHING`,
+      `INSERT INTO "users" (id, "cognitoId", email, name, "tenantId", role, "createdAt", "updatedAt")
+       VALUES ('3deb2df8-aa9f-4a68-add2-05b13a8e2d7c', '2478a438-4021-7015-fed6-c19cc19201f7', 'davewitbeck@gmail.com', 'Dave Witbeck', '91aa5603-ed59-42fe-9b32-6d13a5ccf4e4', 'owner', NOW(), NOW())
+       ON CONFLICT ("cognitoId") DO NOTHING`
+    ],
+    description: 'Provision database records for Dave Witbeck (manually created Cognito user)'
   }
 ]
 

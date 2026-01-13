@@ -12,8 +12,8 @@ import ServiceForm from '../components/ServiceForm'
 import ServiceDetail from '../components/ServiceDetail'
 import ScheduleJobModal from '../components/ScheduleJobModal'
 import DeleteRecurringJobModal from '../components/DeleteRecurringJobModal'
-import { Button, Modal, Card } from '@/components/ui'
-import { format, startOfMonth, endOfMonth, addWeeks } from 'date-fns'
+import { Button, Modal, Card, ConfirmationDialog } from '@/components/ui'
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
 
 const SchedulingPage = () => {
   const { user } = useAuthStore()
@@ -78,6 +78,17 @@ const SchedulingPage = () => {
   const [showDeleteRecurringModal, setShowDeleteRecurringModal] = useState(false)
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [jobConfirmationMessage, setJobConfirmationMessage] = useState('')
+  
+  // Conflict handling state
+  const [conflicts, setConflicts] = useState<Array<{
+    id: string
+    title: string
+    startTime: string
+    endTime: string
+    contactName: string
+  }>>([])
+  const [showConflictDialog, setShowConflictDialog] = useState(false)
+  const [pendingJobData, setPendingJobData] = useState<any>(null)
   const [showJobError, setShowJobError] = useState(false)
   const [jobErrorMessage, setJobErrorMessage] = useState('')
   const [showServiceConfirmation, setShowServiceConfirmation] = useState(false)
@@ -92,12 +103,14 @@ const SchedulingPage = () => {
   }, [searchParams])
 
   useEffect(() => {
-    // Fetch jobs for current month
-    const startDate = startOfMonth(currentDate)
-    const endDate = endOfMonth(currentDate)
+    // Fetch jobs for a wider range to support multi-week/multi-month jobs
+    // Fetch 2 months back and 4 months forward from current view
+    const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
     fetchJobs(startDate, endDate)
     fetchServices()
-  }, [currentDate, fetchJobs, fetchServices])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate])
 
   // Keyboard shortcut: CMD+N / CTRL+N to create new job or service based on active tab
   useEffect(() => {
@@ -120,18 +133,42 @@ const SchedulingPage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [showJobForm, showServiceForm, selectedJob, selectedService, activeTab])
 
-  const handleCreateJob = async (data: any) => {
+  const handleCreateJob = async (data: any, forceBooking = false) => {
     try {
-      await createJob(data)
+      const jobData = forceBooking ? { ...data, forceBooking: true } : data
+      await createJob(jobData)
       setShowJobForm(false)
       clearJobsError()
+      setConflicts([])
+      setShowConflictDialog(false)
+      setPendingJobData(null)
       setJobConfirmationMessage('Job created successfully')
       setShowJobConfirmation(true)
       setTimeout(() => setShowJobConfirmation(false), 3000)
     } catch (error: any) {
+      // Check if this is a conflict error
+      if (error.statusCode === 409 && error.conflicts && !forceBooking) {
+        // Clear the regular error and show conflict dialog instead
+        clearJobsError()
+        setConflicts(error.conflicts)
+        setPendingJobData(data)
+        setShowConflictDialog(true)
+      }
       // Error will be displayed in the modal via jobsError
       // Keep the modal open so user can fix the issue
     }
+  }
+  
+  const handleConfirmDoubleBooking = async () => {
+    if (pendingJobData) {
+      await handleCreateJob(pendingJobData, true)
+    }
+  }
+  
+  const handleCancelDoubleBooking = () => {
+    setShowConflictDialog(false)
+    setConflicts([])
+    setPendingJobData(null)
   }
 
   const handleUpdateJob = async (data: any) => {
@@ -703,6 +740,52 @@ const SchedulingPage = () => {
           </p>
         </div>
       </Modal>
+
+      {/* Double Booking Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showConflictDialog}
+        onClose={handleCancelDoubleBooking}
+        onConfirm={handleConfirmDoubleBooking}
+        title="⚠️ Double Booking Detected"
+        confirmText="Book Anyway"
+        cancelText="Cancel"
+        confirmVariant="danger"
+        isLoading={jobsLoading}
+        message={
+          <div className="space-y-4">
+            <p className="text-sm">
+              This time slot conflicts with the following existing job{conflicts.length > 1 ? 's' : ''}:
+            </p>
+            <div className="bg-primary-dark-tertiary rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
+              {conflicts.map((conflict) => (
+                <div key={conflict.id} className="border border-amber-500/30 rounded p-2 bg-amber-500/5">
+                  <div className="font-medium text-amber-400">{conflict.title}</div>
+                  <div className="text-xs text-primary-light/80 mt-1">
+                    {conflict.contactName}
+                  </div>
+                  <div className="text-xs text-primary-light/60 mt-1">
+                    {new Date(conflict.startTime).toLocaleString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                    })} - {new Date(conflict.endTime).toLocaleString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-amber-400">
+              Are you sure you want to create this double booking?
+            </p>
+          </div>
+        }
+      />
     </div>
   )
 }

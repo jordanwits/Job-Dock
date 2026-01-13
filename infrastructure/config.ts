@@ -40,7 +40,7 @@ export const configs: Record<string, Config> = {
     env: 'dev',
     region: 'us-east-1',
     defaultTenantId: 'demo-tenant',
-    sesFromAddress: 'jordan@westwavecreative.com',
+    sesFromAddress: 'noreply@thejobdock.com',
     database: {
       engine: 'rds-postgresql',
       instanceClass: 't3',
@@ -63,7 +63,7 @@ export const configs: Record<string, Config> = {
   staging: {
     env: 'staging',
     region: 'us-east-1',
-    sesFromAddress: 'jordan@westwavecreative.com',
+    sesFromAddress: 'noreply@thejobdock.com',
     database: {
       engine: 'aurora-postgresql',
       minCapacity: 1,
@@ -88,7 +88,7 @@ export const configs: Record<string, Config> = {
     region: 'us-east-1',
     // Custom domain for Vercel deployment
     domain: 'thejobdock.com',
-    sesFromAddress: 'jordan@westwavecreative.com',
+    sesFromAddress: 'noreply@thejobdock.com',
     database: {
       engine: 'rds-postgresql',
       instanceClass: 't3',

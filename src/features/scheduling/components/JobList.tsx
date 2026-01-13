@@ -11,12 +11,9 @@ const JobList = () => {
     fetchJobs,
   } = useJobStore()
 
-  useEffect(() => {
-    // Fetch jobs for the current month
-    const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-    fetchJobs(startDate, endDate)
-  }, [currentDate, fetchJobs])
+  // JobList doesn't need to fetch - SchedulingPage already handles fetching
+  // Just display the jobs from the store
+  // useEffect removed to prevent duplicate fetches that could clear multi-month jobs
 
   // Get upcoming jobs (next 7 days)
   const upcomingJobs = useMemo(() => {

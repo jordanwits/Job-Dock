@@ -58,31 +58,9 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   const [durationUnit, setDurationUnit] = useState<'minutes' | 'hours' | 'days' | 'weeks'>(initialDuration.unit)
   const [durationValue, setDurationValue] = useState<number>(initialDuration.value)
   
-  // Handle duration unit changes and convert values intelligently
+  // Handle duration unit changes - keeps the entered value
   const handleDurationUnitChange = (newUnit: 'minutes' | 'hours' | 'days' | 'weeks') => {
-    const oldUnit = durationUnit
     setDurationUnit(newUnit)
-    
-    // Convert or reset duration value based on unit change
-    if (oldUnit === 'minutes' && newUnit === 'hours') {
-      // Convert minutes to hours (e.g., 60 min -> 1 hour)
-      setDurationValue(Math.max(1, Math.round(durationValue / 60)))
-    } else if (oldUnit === 'hours' && newUnit === 'minutes') {
-      // Convert hours to minutes (e.g., 2 hours -> 120 min)
-      setDurationValue(durationValue * 60)
-    } else if ((oldUnit === 'minutes' || oldUnit === 'hours') && (newUnit === 'days' || newUnit === 'weeks')) {
-      // Reset to 1 when switching to days/weeks
-      setDurationValue(1)
-    } else if ((oldUnit === 'days' || oldUnit === 'weeks') && (newUnit === 'minutes' || newUnit === 'hours')) {
-      // Set sensible defaults when switching from days/weeks to time-based
-      setDurationValue(newUnit === 'hours' ? 1 : 60)
-    } else if (oldUnit === 'days' && newUnit === 'weeks') {
-      // Convert days to weeks (e.g., 7 days -> 1 week)
-      setDurationValue(Math.max(1, Math.round(durationValue / 7)))
-    } else if (oldUnit === 'weeks' && newUnit === 'days') {
-      // Convert weeks to days (e.g., 2 weeks -> 14 days)
-      setDurationValue(durationValue * 7)
-    }
   }
   
   // Job breaks state

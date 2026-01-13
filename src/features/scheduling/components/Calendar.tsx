@@ -633,8 +633,7 @@ const Calendar = ({
                 key={day.toISOString()}
                 className={cn(
                   scaleSettings.minHeight,
-                  'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors',
-                  !isCurrentMonth && 'opacity-40',
+                  'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative',
                   isToday(day) && 'bg-primary-gold/10',
                   isSelected && 'ring-2 ring-primary-gold',
                   isDropTarget && 'bg-primary-gold/20 ring-2 ring-primary-gold'
@@ -659,6 +658,7 @@ const Calendar = ({
                 <div
                   className={cn(
                     'text-xs md:text-sm font-medium mb-0.5 md:mb-1',
+                    !isCurrentMonth && 'opacity-40',
                     isToday(day) ? 'text-primary-gold' : 'text-primary-light'
                   )}
                 >
@@ -683,6 +683,7 @@ const Calendar = ({
                         className={cn(
                           'text-[10px] md:text-xs p-0.5 md:p-1 rounded truncate cursor-move hover:opacity-80 select-none',
                           'border-l-2',
+                          !isCurrentMonth && 'opacity-60',
                           isDragging && 'opacity-50',
                           job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500 text-blue-300',
                           job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500 text-yellow-300',
@@ -698,7 +699,10 @@ const Calendar = ({
                     )
                   })}
                   {dayJobs.length > scaleSettings.maxItems && (
-                    <div className="text-[10px] md:text-xs text-primary-light/50">
+                    <div className={cn(
+                      'text-[10px] md:text-xs text-primary-light/50',
+                      !isCurrentMonth && 'opacity-60'
+                    )}>
                       +{dayJobs.length - scaleSettings.maxItems} more
                     </div>
                   )}

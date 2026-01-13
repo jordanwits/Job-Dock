@@ -176,6 +176,7 @@ async function createRecurringJobs(params: {
   assignedTo?: string
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
   recurrence: RecurrencePayload
+  forceBooking?: boolean
 }) {
   const {
     tenantId,
@@ -194,6 +195,7 @@ async function createRecurringJobs(params: {
     assignedTo,
     breaks,
     recurrence,
+    forceBooking = false,
   } = params
 
   return await prisma.$transaction(async (tx) => {
@@ -284,17 +286,19 @@ async function createRecurringJobs(params: {
       }
     }
 
-    if (conflicts.length > 0) {
+    if (conflicts.length > 0 && !forceBooking) {
       const conflictSummary = conflicts
         .slice(0, 5)
         .map(c => `${c.date} at ${c.time} conflicts with ${c.conflictingJob}`)
         .join('; ')
       const moreText = conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ''
       
-      throw new ApiError(
+      const error = new ApiError(
         `Cannot create recurring schedule due to conflicts: ${conflictSummary}${moreText}`,
         409
-      )
+      ) as any
+      error.conflicts = conflicts
+      throw error
     }
 
     // 4. Create all job instances
@@ -1262,6 +1266,7 @@ export const dataServices = {
       
       const startTime = new Date(payload.startTime)
       const endTime = new Date(payload.endTime)
+      const forceBooking = payload.forceBooking === true
       
       // If recurrence is provided, use the recurring jobs logic
       if (payload.recurrence) {
@@ -1282,11 +1287,12 @@ export const dataServices = {
           assignedTo: payload.assignedTo,
           breaks: payload.breaks,
           recurrence: payload.recurrence,
+          forceBooking,
         })
       }
       
       // Single job creation (existing logic)
-      // Check for overlapping jobs to prevent accidental double-booking
+      // Check for overlapping jobs to warn about double-booking
       const overlappingJobs = await prisma.job.findMany({
         where: {
           tenantId,
@@ -1297,14 +1303,22 @@ export const dataServices = {
         include: { contact: true, service: true },
       })
       
-      if (overlappingJobs.length > 0) {
+      if (overlappingJobs.length > 0 && !forceBooking) {
         const conflictDetails = overlappingJobs.map(j => 
           `${j.title} (${new Date(j.startTime).toLocaleString()} - ${new Date(j.endTime).toLocaleString()})`
         ).join(', ')
-        throw new ApiError(
+        const error = new ApiError(
           `This time slot conflicts with existing job(s): ${conflictDetails}`,
           409
-        )
+        ) as any
+        error.conflicts = overlappingJobs.map(j => ({
+          id: j.id,
+          title: j.title,
+          startTime: j.startTime,
+          endTime: j.endTime,
+          contactName: `${j.contact.firstName} ${j.contact.lastName}`,
+        }))
+        throw error
       }
       
       return prisma.job.create({

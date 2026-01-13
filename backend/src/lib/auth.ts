@@ -142,6 +142,32 @@ export async function verifyToken(token: string): Promise<CognitoUser> {
 }
 
 /**
+ * Refresh access token using refresh token
+ */
+export async function refreshAccessToken(refreshToken: string) {
+  const command = new InitiateAuthCommand({
+    ClientId: CLIENT_ID,
+    AuthFlow: 'REFRESH_TOKEN_AUTH',
+    AuthParameters: {
+      REFRESH_TOKEN: refreshToken,
+    },
+  })
+
+  const response = await cognitoClient.send(command)
+
+  if (!response.AuthenticationResult) {
+    throw new Error('Failed to refresh token')
+  }
+
+  return {
+    AccessToken: response.AuthenticationResult.AccessToken,
+    IdToken: response.AuthenticationResult.IdToken,
+    // Note: Cognito doesn't return a new refresh token unless the old one is expired
+    RefreshToken: refreshToken,
+  }
+}
+
+/**
  * Extract tenant ID from token or user
  */
 export async function getTenantIdFromToken(token: string): Promise<string> {
