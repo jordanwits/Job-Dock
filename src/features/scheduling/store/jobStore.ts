@@ -148,20 +148,36 @@ export const useJobStore = create<JobState>((set, get) => ({
   },
 
   updateJob: async (data: UpdateJobData) => {
+    console.log('🔄 Frontend: Updating job with data:', { 
+      id: data.id, 
+      updateAll: data.updateAll,
+      hasUpdateAll: 'updateAll' in data 
+    })
     set({ isLoading: true, error: null })
     try {
       const apiJob = await jobsService.update(data.id, data)
+      console.log('✅ Frontend: Job update response received')
       const updatedJob = normalizeJob(apiJob)
-      set((state) => ({
-        jobs: state.jobs.map((j) =>
-          j.id === data.id ? updatedJob : j
-        ),
-        selectedJob:
-          state.selectedJob?.id === data.id
-            ? updatedJob
-            : state.selectedJob,
-        isLoading: false,
-      }))
+      
+      // If updating all jobs in a recurring series, refresh the entire jobs list
+      if (data.updateAll) {
+        const { currentDate } = get()
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0)
+        await get().fetchJobs(startDate, endDate)
+      } else {
+        // Single job update - just update it in the state
+        set((state) => ({
+          jobs: state.jobs.map((j) =>
+            j.id === data.id ? updatedJob : j
+          ),
+          selectedJob:
+            state.selectedJob?.id === data.id
+              ? updatedJob
+              : state.selectedJob,
+          isLoading: false,
+        }))
+      }
     } catch (error: any) {
       set({
         error: error.message || 'Failed to update job',

@@ -12,6 +12,7 @@ import ServiceForm from '../components/ServiceForm'
 import ServiceDetail from '../components/ServiceDetail'
 import ScheduleJobModal from '../components/ScheduleJobModal'
 import DeleteRecurringJobModal from '../components/DeleteRecurringJobModal'
+import EditRecurringJobModal from '../components/EditRecurringJobModal'
 import PermanentDeleteRecurringJobModal from '../components/PermanentDeleteRecurringJobModal'
 import ArchivedJobsPage from '../components/ArchivedJobsPage'
 import { Button, Modal, Card, ConfirmationDialog } from '@/components/ui'
@@ -80,6 +81,8 @@ const SchedulingPage = () => {
     notes?: string
   }>({})
   const [showDeleteRecurringModal, setShowDeleteRecurringModal] = useState(false)
+  const [showEditRecurringModal, setShowEditRecurringModal] = useState(false)
+  const [editUpdateAll, setEditUpdateAll] = useState(false)
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [jobConfirmationMessage, setJobConfirmationMessage] = useState('')
   
@@ -195,15 +198,24 @@ const SchedulingPage = () => {
   }
 
   const handleUpdateJob = async (data: any) => {
+    console.log('📝 SchedulingPage: handleUpdateJob called', { 
+      editUpdateAll, 
+      editingJobId: editingJob?.id,
+      recurrenceId: editingJob?.recurrenceId 
+    })
     try {
       if (editingJob) {
-        await updateJob({ ...data, id: editingJob.id })
+        await updateJob({ ...data, id: editingJob.id, updateAll: editUpdateAll })
         setEditingJob(null)
+        setEditUpdateAll(false)
         setShowJobForm(false)
         setSelectedJob(null)
         setShowJobDetail(false)
         clearJobsError()
-        setJobConfirmationMessage('Job updated successfully')
+        const message = editUpdateAll 
+          ? 'All future jobs updated successfully' 
+          : 'Job updated successfully'
+        setJobConfirmationMessage(message)
         setShowJobConfirmation(true)
         setTimeout(() => setShowJobConfirmation(false), 3000)
       }
@@ -211,6 +223,37 @@ const SchedulingPage = () => {
       // Error will be displayed in the modal via jobsError
       // Keep the modal open so user can fix the issue
     }
+  }
+
+  const handleEditJob = () => {
+    if (selectedJob) {
+      // Check if this is a recurring job
+      if (selectedJob.recurrenceId) {
+        setShowEditRecurringModal(true)
+      } else {
+        // Non-recurring job - edit directly
+        setEditingJob(selectedJob)
+        setShowJobForm(true)
+        setShowJobDetail(false)
+      }
+    }
+  }
+
+  const handleEditSingleJob = () => {
+    setEditUpdateAll(false)
+    setEditingJob(selectedJob)
+    setShowJobForm(true)
+    setShowJobDetail(false)
+    setShowEditRecurringModal(false)
+  }
+
+  const handleEditAllJobs = () => {
+    console.log('🔁 User selected: Edit All Future Jobs')
+    setEditUpdateAll(true)
+    setEditingJob(selectedJob)
+    setShowJobForm(true)
+    setShowJobDetail(false)
+    setShowEditRecurringModal(false)
   }
 
   const handleDeleteJob = () => {
@@ -695,11 +738,7 @@ const SchedulingPage = () => {
             setSelectedJob(null)
             setShowJobDetail(false)
           }}
-          onEdit={() => {
-            setEditingJob(selectedJob)
-            setShowJobForm(true)
-            setShowJobDetail(false)
-          }}
+          onEdit={handleEditJob}
           onDelete={handleDeleteJob}
           onPermanentDelete={() => handlePermanentDeleteJob()}
           onRestore={handleRestoreJob}
@@ -825,6 +864,18 @@ const SchedulingPage = () => {
         />
       )}
 
+      {/* Edit Recurring Job Modal */}
+      {selectedJob && (
+        <EditRecurringJobModal
+          isOpen={showEditRecurringModal}
+          onClose={() => setShowEditRecurringModal(false)}
+          onEditOne={handleEditSingleJob}
+          onEditAll={handleEditAllJobs}
+          jobTitle={selectedJob.title}
+          occurrenceCount={selectedJob.occurrenceCount}
+        />
+      )}
+
       {/* Permanent Delete Confirmation Dialog */}
       {selectedJob && (
         <ConfirmationDialog
@@ -941,35 +992,42 @@ const SchedulingPage = () => {
         message={
           <div className="space-y-4">
             <p className="text-sm">
-              This time slot conflicts with the following existing job{conflicts.length > 1 ? 's' : ''}:
+              You already have the following job{conflicts.length > 1 ? 's' : ''} scheduled for this time:
             </p>
             <div className="bg-primary-dark-tertiary rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
-              {conflicts.map((conflict) => (
-                <div key={conflict.id} className="border border-amber-500/30 rounded p-2 bg-amber-500/5">
-                  <div className="font-medium text-amber-400">{conflict.title}</div>
-                  <div className="text-xs text-primary-light/80 mt-1">
-                    {conflict.contactName}
-                  </div>
-                  <div className="text-xs text-primary-light/60 mt-1">
-                    {new Date(conflict.startTime).toLocaleString('en-US', {
+              {conflicts.map((conflict) => {
+                const startDate = new Date(conflict.startTime)
+                const endDate = new Date(conflict.endTime)
+                const isValidDate = !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())
+                
+                const timeRangeStr = isValidDate 
+                  ? `${startDate.toLocaleString('en-US', {
                       weekday: 'short',
                       month: 'short',
                       day: 'numeric',
                       hour: 'numeric',
                       minute: '2-digit',
                       hour12: true,
-                    })} - {new Date(conflict.endTime).toLocaleString('en-US', {
+                    })} - ${endDate.toLocaleString('en-US', {
                       hour: 'numeric',
                       minute: '2-digit',
                       hour12: true,
-                    })}
+                    })}`
+                  : 'Invalid Date'
+                
+                return (
+                  <div key={conflict.id} className="border border-amber-500/30 rounded p-2 bg-amber-500/5">
+                    <div className="font-medium text-amber-400">{conflict.title}</div>
+                    <div className="text-xs text-primary-light/80 mt-1">
+                      {conflict.contactName}
+                    </div>
+                    <div className="text-xs text-primary-light/60 mt-1">
+                      {timeRangeStr}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-            <p className="text-sm text-amber-400">
-              Are you sure you want to create this double booking?
-            </p>
           </div>
         }
       />

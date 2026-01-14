@@ -1384,13 +1384,22 @@ export const dataServices = {
       })
     },
     update: async (tenantId: string, id: string, payload: any) => {
+      console.log('🔄 Job update called:', { id, updateAll: payload.updateAll, hasRecurrenceId: !!payload.recurrenceId })
+      
       // Verify job belongs to tenant before updating
       const existingJob = await prisma.job.findFirst({
         where: { id, tenantId },
+        include: { contact: true, service: true },
       })
       if (!existingJob) {
         throw new ApiError('Job not found', 404)
       }
+      
+      console.log('📋 Existing job:', { 
+        id: existingJob.id, 
+        recurrenceId: existingJob.recurrenceId,
+        title: existingJob.title 
+      })
       
       // Extract only the fields that can be directly updated
       const updateData: any = {}
@@ -1409,6 +1418,62 @@ export const dataServices = {
       if (payload.endTime !== undefined) updateData.endTime = new Date(payload.endTime)
       if (payload.breaks !== undefined) updateData.breaks = payload.breaks
       
+      // If updateAll is true and this job is part of a recurrence, update all future jobs
+      if (payload.updateAll && existingJob.recurrenceId) {
+        console.log('🔁 Updating all future jobs in recurrence:', existingJob.recurrenceId)
+        // Calculate time delta if times are being changed
+        let timeDelta = 0
+        if (payload.startTime !== undefined) {
+          const oldStartTime = new Date(existingJob.startTime)
+          const newStartTime = new Date(payload.startTime)
+          timeDelta = newStartTime.getTime() - oldStartTime.getTime()
+        }
+        
+        // Get all future jobs in the series (including this one)
+        const futureJobs = await prisma.job.findMany({
+          where: {
+            recurrenceId: existingJob.recurrenceId,
+            tenantId,
+            startTime: {
+              gte: existingJob.startTime,
+            },
+          },
+        })
+        
+        console.log(`📅 Found ${futureJobs.length} future jobs to update`)
+        
+        // Update each job
+        const updatePromises = futureJobs.map(async (job) => {
+          const jobUpdateData: any = { ...updateData }
+          
+          // If times are being changed, apply the time delta to all jobs
+          if (timeDelta !== 0) {
+            const originalStart = new Date(job.startTime)
+            const originalEnd = new Date(job.endTime)
+            jobUpdateData.startTime = new Date(originalStart.getTime() + timeDelta)
+            jobUpdateData.endTime = new Date(originalEnd.getTime() + timeDelta)
+          }
+          
+          return prisma.job.update({
+            where: { id: job.id },
+            data: jobUpdateData,
+          })
+        })
+        
+        await Promise.all(updatePromises)
+        
+        console.log('✅ All future jobs updated successfully')
+        
+        // Return the original job with updates applied
+        return prisma.job.findFirst({
+          where: { id },
+          include: { contact: true, service: true },
+        })
+      }
+      
+      console.log('📝 Updating single job only')
+      
+      // Single job update (default behavior)
       return prisma.job.update({
         where: { id },
         data: updateData,

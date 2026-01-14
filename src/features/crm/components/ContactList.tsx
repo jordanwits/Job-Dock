@@ -25,12 +25,28 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
     clearError,
   } = useContactStore()
 
-  const [viewMode, setViewMode] = useState<ViewMode>('alphabetical')
-  const [displayMode, setDisplayMode] = useState<DisplayMode>('cards')
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('crm-view-mode')
+    return (saved as ViewMode) || 'alphabetical'
+  })
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
+    const saved = localStorage.getItem('crm-display-mode')
+    return (saved as DisplayMode) || 'cards'
+  })
 
   useEffect(() => {
     fetchContacts()
   }, [fetchContacts])
+
+  // Persist view mode preference
+  useEffect(() => {
+    localStorage.setItem('crm-view-mode', viewMode)
+  }, [viewMode])
+
+  // Persist display mode preference
+  useEffect(() => {
+    localStorage.setItem('crm-display-mode', displayMode)
+  }, [displayMode])
 
   // Base filtered list - applies search and (for non-status views) statusFilter
   const baseFilteredContacts = useMemo(() => {

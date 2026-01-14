@@ -17,7 +17,7 @@ interface ContactDetailProps {
 
 const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFailed }: ContactDetailProps) => {
   const { updateContact, deleteContact, isLoading } = useContactStore()
-  const { createQuote, isLoading: quoteLoading } = useQuoteStore()
+  const { createQuote, sendQuote, isLoading: quoteLoading } = useQuoteStore()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showScheduleJob, setShowScheduleJob] = useState(false)
@@ -77,6 +77,23 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
       await createQuote(data)
       setShowCreateQuote(false)
       setContactConfirmationMessage('Quote Created Successfully')
+      setShowContactConfirmation(true)
+      setTimeout(() => setShowContactConfirmation(false), 3000)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleCreateAndSendQuote = async (data: any) => {
+    try {
+      // Create the quote first
+      const newQuote = await createQuote(data)
+      // Send the quote
+      if (newQuote) {
+        await sendQuote(newQuote.id)
+      }
+      setShowCreateQuote(false)
+      setContactConfirmationMessage('Quote Sent Successfully')
       setShowContactConfirmation(true)
       setTimeout(() => setShowContactConfirmation(false), 3000)
     } catch (error) {
@@ -327,7 +344,7 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
         isOpen={showScheduleJob}
         onClose={() => setShowScheduleJob(false)}
         defaultContactId={contact.id}
-        defaultTitle={`Job for ${contact.firstName} ${contact.lastName}`}
+        defaultTitle={`${contact.firstName} ${contact.lastName}`}
         sourceContext="contact"
         onSuccess={() => {
           setShowScheduleJob(false)
@@ -347,6 +364,7 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
       >
         <QuoteForm
           onSubmit={handleCreateQuote}
+          onSaveAndSend={handleCreateAndSendQuote}
           onCancel={() => setShowCreateQuote(false)}
           isLoading={quoteLoading}
           defaultContactId={contact.id}

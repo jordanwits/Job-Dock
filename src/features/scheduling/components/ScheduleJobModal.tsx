@@ -98,15 +98,52 @@ const ScheduleJobModal = ({
   }
 
   const formatDateTime = (dateTimeStr: string) => {
-    const date = new Date(dateTimeStr)
-    return date.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    })
+    try {
+      const date = new Date(dateTimeStr)
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date'
+      }
+      return date.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+    } catch (error) {
+      return 'Invalid Date'
+    }
+  }
+  
+  const formatTimeRange = (startTime: string, endTime: string) => {
+    try {
+      const start = new Date(startTime)
+      const end = new Date(endTime)
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return 'Invalid Date'
+      }
+      
+      const startStr = start.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+      
+      const endStr = end.toLocaleString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+      
+      return `${startStr} - ${endStr}`
+    } catch (error) {
+      return 'Invalid Date'
+    }
   }
 
   return (
@@ -142,7 +179,7 @@ const ScheduleJobModal = ({
         message={
           <div className="space-y-4">
             <p className="text-sm">
-              This time slot conflicts with the following existing job{conflicts.length > 1 ? 's' : ''}:
+              You already have the following job{conflicts.length > 1 ? 's' : ''} scheduled for this time:
             </p>
             <div className="bg-primary-dark-tertiary rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
               {conflicts.map((conflict) => (
@@ -152,14 +189,11 @@ const ScheduleJobModal = ({
                     {conflict.contactName}
                   </div>
                   <div className="text-xs text-primary-light/60 mt-1">
-                    {formatDateTime(conflict.startTime)} - {formatDateTime(conflict.endTime)}
+                    {formatTimeRange(conflict.startTime, conflict.endTime)}
                   </div>
                 </div>
               ))}
             </div>
-            <p className="text-sm text-amber-400">
-              Are you sure you want to create this double booking?
-            </p>
           </div>
         }
       />

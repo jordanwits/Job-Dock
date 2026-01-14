@@ -195,8 +195,13 @@ const realJobsService = {
     return response.data
   },
 
-  update: async (id: string, data: Partial<CreateJobData>) => {
+  update: async (id: string, data: Partial<CreateJobData & { updateAll?: boolean }>) => {
+    console.log('🌐 API Service: Sending PUT request to /jobs/' + id, { 
+      updateAll: data.updateAll,
+      dataKeys: Object.keys(data)
+    })
     const response = await apiClient.put(`/jobs/${id}`, data)
+    console.log('✅ API Service: PUT response received')
     return response.data
   },
 

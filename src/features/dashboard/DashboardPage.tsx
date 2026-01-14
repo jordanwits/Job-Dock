@@ -4,18 +4,36 @@ import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useAuthStore } from '@/features/auth'
-import { Card, Button } from '@/components/ui'
+import { Card, Button, Modal } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
 import JobDetail from '@/features/scheduling/components/JobDetail'
+import JobForm from '@/features/scheduling/components/JobForm'
 
 const DashboardPage = () => {
   const { user } = useAuthStore()
-  const { jobs, fetchJobs, isLoading: jobsLoading, setSelectedJob, selectedJob } = useJobStore()
+  const { 
+    jobs, 
+    fetchJobs, 
+    isLoading: jobsLoading, 
+    setSelectedJob, 
+    selectedJob,
+    updateJob,
+    deleteJob,
+    permanentDeleteJob,
+    restoreJob,
+    confirmJob,
+    declineJob,
+    error: jobsError,
+    clearError: clearJobsError
+  } = useJobStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
   const { invoices, fetchInvoices, isLoading: invoicesLoading } = useInvoiceStore()
   
   const [editingJob, setEditingJob] = useState<typeof selectedJob>(null)
+  const [showJobForm, setShowJobForm] = useState(false)
+  const [showDeclineModal, setShowDeclineModal] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
 
   // Fetch all data on mount
   useEffect(() => {
@@ -82,6 +100,72 @@ const DashboardPage = () => {
   }, [invoices])
 
   const isLoading = jobsLoading || quotesLoading || invoicesLoading
+
+  // Job handlers
+  const handleUpdateJob = async (data: any) => {
+    if (!editingJob) return
+    try {
+      await updateJob({ id: editingJob.id, ...data })
+      setShowJobForm(false)
+      setEditingJob(null)
+      setSelectedJob(null)
+      clearJobsError()
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleDeleteJob = async () => {
+    if (!selectedJob) return
+    try {
+      await deleteJob(selectedJob.id)
+      setSelectedJob(null)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handlePermanentDeleteJob = async () => {
+    if (!selectedJob) return
+    try {
+      await permanentDeleteJob(selectedJob.id)
+      setSelectedJob(null)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleRestoreJob = async () => {
+    if (!selectedJob) return
+    try {
+      await restoreJob(selectedJob.id)
+      setSelectedJob(null)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleConfirmJob = async () => {
+    if (!selectedJob) return
+    try {
+      await confirmJob(selectedJob.id)
+      setSelectedJob(null)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleDeclineJob = async () => {
+    if (!selectedJob) return
+    try {
+      await declineJob(selectedJob.id, declineReason)
+      setShowDeclineModal(false)
+      setDeclineReason('')
+      setSelectedJob(null)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -283,6 +367,30 @@ const DashboardPage = () => {
         </div>
       )}
 
+      {/* Job Form Modal */}
+      <Modal
+        isOpen={showJobForm}
+        onClose={() => {
+          setShowJobForm(false)
+          setEditingJob(null)
+          clearJobsError()
+        }}
+        title={editingJob ? 'Edit Job' : 'Schedule New Job'}
+        size="xl"
+      >
+        <JobForm
+          job={editingJob || undefined}
+          onSubmit={handleUpdateJob}
+          onCancel={() => {
+            setShowJobForm(false)
+            setEditingJob(null)
+            clearJobsError()
+          }}
+          isLoading={jobsLoading}
+          error={jobsError}
+        />
+      </Modal>
+
       {/* Job Detail Modal */}
       {selectedJob && (
         <JobDetail
@@ -291,15 +399,63 @@ const DashboardPage = () => {
           onClose={() => setSelectedJob(null)}
           onEdit={() => {
             setEditingJob(selectedJob)
-            // Navigate to scheduling page to edit
-            window.location.href = '/scheduling'
+            setShowJobForm(true)
           }}
-          onDelete={() => {
-            // Navigate to scheduling page to delete
-            window.location.href = '/scheduling'
-          }}
+          onDelete={handleDeleteJob}
+          onPermanentDelete={handlePermanentDeleteJob}
+          onRestore={handleRestoreJob}
+          onConfirm={handleConfirmJob}
+          onDecline={() => setShowDeclineModal(true)}
         />
       )}
+
+      {/* Decline Job Modal */}
+      <Modal
+        isOpen={showDeclineModal}
+        onClose={() => {
+          setShowDeclineModal(false)
+          setDeclineReason('')
+        }}
+        title="Decline Job"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowDeclineModal(false)
+                setDeclineReason('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeclineJob}
+              disabled={jobsLoading}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {jobsLoading ? 'Declining...' : 'Decline Job'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-primary-light">
+            Are you sure you want to decline this job?
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-primary-light mb-2">
+              Reason (optional)
+            </label>
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              className="w-full px-3 py-2 bg-primary-dark-secondary border border-primary-blue rounded-lg text-primary-light focus:outline-none focus:ring-2 focus:ring-primary-gold"
+              rows={3}
+              placeholder="Let the client know why you're declining..."
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -152,7 +152,7 @@ const CRMPage = () => {
           setNewContactName('')
         }}
         defaultContactId={newContactId || undefined}
-        defaultTitle={newContactName ? `Job for ${newContactName}` : undefined}
+        defaultTitle={newContactName || undefined}
         sourceContext="contact"
         onSuccess={() => {
           setShowScheduleJob(false)

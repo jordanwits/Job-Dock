@@ -63,6 +63,7 @@ export interface CreateJobData {
 
 export interface UpdateJobData extends Partial<CreateJobData> {
   id: string
+  updateAll?: boolean // Update all future jobs in a recurring series
 }
 
 export type JobStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
