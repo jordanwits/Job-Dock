@@ -28,8 +28,9 @@ export interface Job {
   quoteId?: string
   invoiceId?: string
   recurrenceId?: string
-  startTime: string
-  endTime: string
+  startTime: string | null
+  endTime: string | null
+  toBeScheduled?: boolean
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
   location?: string
   price?: number
@@ -50,8 +51,9 @@ export interface CreateJobData {
   serviceId?: string
   quoteId?: string
   invoiceId?: string
-  startTime: string
-  endTime: string
+  startTime?: string
+  endTime?: string
+  toBeScheduled?: boolean
   status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
   location?: string
   price?: number

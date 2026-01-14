@@ -10,6 +10,10 @@ interface ScheduleJobModalProps {
   defaultContactId?: string
   defaultTitle?: string
   defaultNotes?: string
+  defaultLocation?: string
+  defaultServiceId?: string
+  defaultDescription?: string
+  defaultPrice?: number
   sourceContext?: 'contact' | 'quote' | 'invoice' | 'job-followup'
   quoteId?: string
   invoiceId?: string
@@ -32,6 +36,10 @@ const ScheduleJobModal = ({
   defaultContactId,
   defaultTitle,
   defaultNotes,
+  defaultLocation,
+  defaultServiceId,
+  defaultDescription,
+  defaultPrice,
   sourceContext,
   quoteId,
   invoiceId,
@@ -162,6 +170,10 @@ const ScheduleJobModal = ({
           defaultContactId={defaultContactId}
           defaultTitle={defaultTitle}
           defaultNotes={defaultNotes}
+          defaultLocation={defaultLocation}
+          defaultServiceId={defaultServiceId}
+          defaultDescription={defaultDescription}
+          defaultPrice={defaultPrice}
           initialQuoteId={initialQuoteId}
           initialInvoiceId={initialInvoiceId}
         />

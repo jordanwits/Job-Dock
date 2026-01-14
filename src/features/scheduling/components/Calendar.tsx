@@ -12,6 +12,7 @@ interface CalendarProps {
   onViewModeChange: (mode: 'day' | 'week' | 'month') => void
   onJobClick: (job: Job) => void
   onDateClick: (date: Date) => void
+  onUnscheduledDrop?: (jobId: string, targetDate: Date, targetHour?: number) => void
 }
 
 interface DragState {
@@ -32,6 +33,7 @@ const Calendar = ({
   onViewModeChange,
   onJobClick,
   onDateClick,
+  onUnscheduledDrop,
 }: CalendarProps) => {
   const [selectedDate, setSelectedDate] = useState(currentDate)
   const [calendarScale, setCalendarScale] = useState<number>(100)
@@ -482,6 +484,21 @@ const Calendar = ({
               <div
                 key={hour}
                 className="border-b border-primary-blue/30 min-h-[60px] md:min-h-[80px] relative"
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.add('bg-primary-gold/10')
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.classList.remove('bg-primary-gold/10')
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.remove('bg-primary-gold/10')
+                  const jobId = e.dataTransfer.getData('jobId')
+                  if (jobId && onUnscheduledDrop) {
+                    onUnscheduledDrop(jobId, selectedDate, hour)
+                  }
+                }}
               >
                 <div className="absolute left-0 top-0 w-12 md:w-20 p-1 md:p-2 text-xs md:text-sm text-primary-light/70">
                   {format(setHours(setMinutes(new Date(), 0), hour), 'h:mm a')}
@@ -678,6 +695,21 @@ const Calendar = ({
                         <div
                           key={hour}
                           className="h-12 md:h-20 border-b border-primary-blue/30 relative"
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.currentTarget.classList.add('bg-primary-gold/10')
+                          }}
+                          onDragLeave={(e) => {
+                            e.currentTarget.classList.remove('bg-primary-gold/10')
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            e.currentTarget.classList.remove('bg-primary-gold/10')
+                            const jobId = e.dataTransfer.getData('jobId')
+                            if (jobId && onUnscheduledDrop) {
+                              onUnscheduledDrop(jobId, day, hour)
+                            }
+                          }}
                         >
                           {timeSlotJobs.map((job) => {
                             const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
@@ -858,6 +890,22 @@ const Calendar = ({
                 onMouseUp={() => {
                   if (dragState.type === 'move' && isDropTarget) {
                     handleDropOnDay(day)
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.add('bg-primary-gold/20')
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.classList.remove('bg-primary-gold/20')
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.remove('bg-primary-gold/20')
+                  const jobId = e.dataTransfer.getData('jobId')
+                  if (jobId && onUnscheduledDrop) {
+                    // Month view: no specific hour, will default to 9 AM
+                    onUnscheduledDrop(jobId, day)
                   }
                 }}
               >

@@ -207,33 +207,34 @@ model Service {
 }
 
 model Job {
-  id           String         @id @default(uuid())
-  tenantId     String
-  title        String
-  description  String?
-  contactId    String
-  serviceId    String?
-  quoteId      String?
-  invoiceId    String?
-  recurrenceId String?
-  startTime    DateTime
-  endTime      DateTime
-  status       String         @default("scheduled")
-  location     String?
-  price        Decimal?       @db.Decimal(10, 2)
-  notes        String?
-  assignedTo   String?
-  breaks       Json?
-  deletedAt    DateTime?
-  archivedAt   DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  contact      Contact        @relation(fields: [contactId], references: [id])
-  service      Service?       @relation(fields: [serviceId], references: [id])
-  quote        Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
-  invoice      Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  recurrence   JobRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id            String         @id @default(uuid())
+  tenantId      String
+  title         String
+  description   String?
+  contactId     String
+  serviceId     String?
+  quoteId       String?
+  invoiceId     String?
+  recurrenceId  String?
+  startTime     DateTime?
+  endTime       DateTime?
+  toBeScheduled Boolean        @default(false)
+  status        String         @default("scheduled")
+  location      String?
+  price         Decimal?       @db.Decimal(10, 2)
+  notes         String?
+  assignedTo    String?
+  breaks        Json?
+  deletedAt     DateTime?
+  archivedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contact       Contact        @relation(fields: [contactId], references: [id])
+  service       Service?       @relation(fields: [serviceId], references: [id])
+  quote         Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  invoice       Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  recurrence    JobRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([contactId])
@@ -246,6 +247,7 @@ model Job {
   @@index([status])
   @@index([deletedAt])
   @@index([archivedAt])
+  @@index([toBeScheduled])
   @@map("jobs")
 }
 

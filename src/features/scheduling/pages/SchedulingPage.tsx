@@ -79,6 +79,10 @@ const SchedulingPage = () => {
     contactId?: string
     title?: string
     notes?: string
+    location?: string
+    serviceId?: string
+    description?: string
+    price?: number
   }>({})
   const [showDeleteRecurringModal, setShowDeleteRecurringModal] = useState(false)
   const [showEditRecurringModal, setShowEditRecurringModal] = useState(false)
@@ -111,6 +115,15 @@ const SchedulingPage = () => {
   const activeJobs = useMemo(() => {
     return jobs.filter(job => !job.archivedAt)
   }, [jobs])
+  
+  // Split active jobs into scheduled and unscheduled
+  const scheduledJobs = useMemo(() => {
+    return activeJobs.filter(job => !job.toBeScheduled && job.startTime && job.endTime)
+  }, [activeJobs])
+  
+  const toBeScheduledJobs = useMemo(() => {
+    return activeJobs.filter(job => job.toBeScheduled || !job.startTime || !job.endTime)
+  }, [activeJobs])
 
   // Set active tab from URL parameter on mount
   useEffect(() => {
@@ -467,13 +480,70 @@ const SchedulingPage = () => {
   }
 
   const handleScheduleFollowup = () => {
-    if (selectedJob) {
+    if (selectedJob && selectedJob.startTime) {
       setFollowupDefaults({
         contactId: selectedJob.contactId,
         title: `Follow-up: ${selectedJob.title}`,
         notes: `Follow-up job for original job on ${format(new Date(selectedJob.startTime), 'MMM d, yyyy')}`,
+        location: selectedJob.location || undefined,
+        serviceId: selectedJob.serviceId || undefined,
+        description: selectedJob.description || undefined,
+        price: selectedJob.price || undefined,
       })
       setShowFollowupModal(true)
+    }
+  }
+  
+  const handleScheduleJob = () => {
+    if (selectedJob) {
+      setEditingJob(selectedJob)
+      setShowJobDetail(false)
+      setShowJobForm(true)
+    }
+  }
+  
+  const handleUnscheduledDrop = async (jobId: string, targetDate: Date, targetHour?: number) => {
+    try {
+      const job = jobs.find(j => j.id === jobId)
+      if (!job) return
+      
+      // Determine duration (in minutes)
+      let durationMinutes = 60 // default
+      if (job.serviceId) {
+        const service = services.find(s => s.id === job.serviceId)
+        if (service) {
+          durationMinutes = service.duration
+        }
+      }
+      
+      // Compute startTime
+      let startTime: Date
+      if (targetHour !== undefined) {
+        // Day/week view - use the specific hour
+        startTime = new Date(targetDate)
+        startTime.setHours(targetHour, 0, 0, 0)
+      } else {
+        // Month view - default to 9 AM
+        startTime = new Date(targetDate)
+        startTime.setHours(9, 0, 0, 0)
+      }
+      
+      // Compute endTime
+      const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
+      
+      // Update the job
+      await updateJob({
+        id: jobId,
+        toBeScheduled: false,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      })
+      
+      setJobConfirmationMessage('Job scheduled successfully')
+      setShowJobConfirmation(true)
+      setTimeout(() => setShowJobConfirmation(false), 3000)
+    } catch (error) {
+      console.error('Failed to schedule job:', error)
     }
   }
 
@@ -647,22 +717,59 @@ const SchedulingPage = () => {
       {/* Content */}
       <div className="flex-1 overflow-hidden min-w-0">
         {activeTab === 'calendar' && (
-          <div className="h-full min-w-0">
-            <Calendar
-              jobs={activeJobs}
-              viewMode={viewMode}
-              currentDate={currentDate}
-              onDateChange={setCurrentDate}
-              onViewModeChange={setViewMode}
-              onJobClick={(job) => {
-                setSelectedJob(job)
-                setShowJobDetail(true)
-              }}
-              onDateClick={(date) => {
-                setCurrentDate(date)
-                setViewMode('day')
-              }}
-            />
+          <div className="h-full flex flex-col min-w-0">
+            {/* To Be Scheduled List */}
+            {toBeScheduledJobs.length > 0 && (
+              <div className="border-b border-primary-blue bg-primary-dark-secondary p-3">
+                <h3 className="text-sm font-semibold text-primary-gold mb-2">
+                  To Be Scheduled ({toBeScheduledJobs.length})
+                </h3>
+                <div className="flex gap-2 flex-wrap">
+                  {toBeScheduledJobs.map((job) => (
+                    <div
+                      key={job.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('jobId', job.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
+                      onClick={() => {
+                        setSelectedJob(job)
+                        setShowJobDetail(true)
+                      }}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 transition-colors"
+                      title="Drag to calendar to schedule"
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="font-medium truncate max-w-[200px]">{job.title}</span>
+                      <span className="text-xs text-amber-400/60">({job.contactName})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Calendar */}
+            <div className="flex-1 min-h-0">
+              <Calendar
+                jobs={scheduledJobs}
+                viewMode={viewMode}
+                currentDate={currentDate}
+                onDateChange={setCurrentDate}
+                onViewModeChange={setViewMode}
+                onJobClick={(job) => {
+                  setSelectedJob(job)
+                  setShowJobDetail(true)
+                }}
+                onDateClick={(date) => {
+                  setCurrentDate(date)
+                  setViewMode('day')
+                }}
+                onUnscheduledDrop={handleUnscheduledDrop}
+              />
+            </div>
           </div>
         )}
 
@@ -713,7 +820,7 @@ const SchedulingPage = () => {
           setEditingJob(null)
           clearJobsError()
         }}
-        title={editingJob ? 'Edit Job' : 'Schedule New Job'}
+        title={editingJob?.toBeScheduled ? 'Schedule Job' : editingJob ? 'Edit Job' : 'Schedule New Job'}
         size="xl"
       >
         <JobForm
@@ -726,6 +833,7 @@ const SchedulingPage = () => {
           }}
           isLoading={jobsLoading}
           error={jobsError}
+          schedulingUnscheduledJob={editingJob?.toBeScheduled}
         />
       </Modal>
 
@@ -745,6 +853,7 @@ const SchedulingPage = () => {
           onConfirm={handleConfirmJob}
           onDecline={() => setShowDeclineModal(true)}
           onScheduleFollowup={handleScheduleFollowup}
+          onScheduleJob={handleScheduleJob}
         />
       )}
 
@@ -758,6 +867,10 @@ const SchedulingPage = () => {
         defaultContactId={followupDefaults.contactId}
         defaultTitle={followupDefaults.title}
         defaultNotes={followupDefaults.notes}
+        defaultLocation={followupDefaults.location}
+        defaultServiceId={followupDefaults.serviceId}
+        defaultDescription={followupDefaults.description}
+        defaultPrice={followupDefaults.price}
         sourceContext="job-followup"
         onSuccess={() => {
           setSelectedJob(null)

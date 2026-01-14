@@ -31,6 +31,7 @@ const normalizeJob = (apiJob: any): Job => {
     recurrenceId: apiJob.recurrenceId,
     startTime: apiJob.startTime,
     endTime: apiJob.endTime,
+    toBeScheduled: apiJob.toBeScheduled || false,
     status: apiJob.status,
     location: apiJob.location,
     notes: apiJob.notes,

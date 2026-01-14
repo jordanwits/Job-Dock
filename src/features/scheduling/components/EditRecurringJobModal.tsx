@@ -39,25 +39,25 @@ const EditRecurringJobModal = ({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
+      <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:justify-end">
         <Button 
           variant="ghost" 
           onClick={onClose}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto sm:flex-shrink-0"
         >
           Cancel
         </Button>
         <Button 
           variant="secondary"
           onClick={onEditOne}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto sm:flex-shrink-0"
         >
           This Job Only
         </Button>
         <Button 
           variant="primary"
           onClick={onEditAll}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto sm:flex-shrink-0"
         >
           All Future Jobs
         </Button>

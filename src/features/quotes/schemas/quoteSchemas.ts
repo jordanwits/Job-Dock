@@ -10,8 +10,14 @@ export const quoteSchema = z.object({
   contactId: z.string().min(1, 'Contact is required'),
   title: z.string().optional(),
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
-  taxRate: z.number().min(0).max(100).optional(),
-  discount: z.number().min(0).optional(),
+  taxRate: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined || isNaN(Number(val)) ? 0 : Number(val)),
+    z.number().min(0).max(100)
+  ),
+  discount: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined || isNaN(Number(val)) ? 0 : Number(val)),
+    z.number().min(0)
+  ),
   notes: z.string().optional(),
   validUntil: z.string().optional(),
   status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'expired']).optional(),

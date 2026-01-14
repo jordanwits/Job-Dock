@@ -18,19 +18,25 @@ interface JobFormProps {
   defaultContactId?: string
   defaultTitle?: string
   defaultNotes?: string
+  defaultLocation?: string
+  defaultServiceId?: string
+  defaultDescription?: string
+  defaultPrice?: number
   initialQuoteId?: string
   initialInvoiceId?: string
   error?: string | null
+  schedulingUnscheduledJob?: boolean
 }
 
-const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, defaultTitle, defaultNotes, initialQuoteId, initialInvoiceId, error }: JobFormProps) => {
+const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, defaultTitle, defaultNotes, defaultLocation, defaultServiceId, defaultDescription, defaultPrice, initialQuoteId, initialInvoiceId, error, schedulingUnscheduledJob }: JobFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { services, fetchServices } = useServiceStore()
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
-  const [startDate, setStartDate] = useState(job ? format(new Date(job.startTime), 'yyyy-MM-dd') : '')
-  const [startTime, setStartTime] = useState(job ? format(new Date(job.startTime), 'HH:mm') : '09:00')
+  const [startDate, setStartDate] = useState(job && job.startTime ? format(new Date(job.startTime), 'yyyy-MM-dd') : '')
+  const [startTime, setStartTime] = useState(job && job.startTime ? format(new Date(job.startTime), 'HH:mm') : '09:00')
   const [isAllDay, setIsAllDay] = useState(false)
+  const [toBeScheduled, setToBeScheduled] = useState(job?.toBeScheduled || false)
   const [repeatPattern, setRepeatPattern] = useState<string>('none')
   const [endRepeatMode, setEndRepeatMode] = useState<'never' | 'on-date'>('never')
   const [endRepeatDate, setEndRepeatDate] = useState<string>('')
@@ -55,7 +61,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
     }
   }
   
-  const initialDuration = job ? inferDurationUnit(job.startTime, job.endTime) : { unit: 'minutes' as const, value: 60 }
+  const initialDuration = (job && job.startTime && job.endTime) ? inferDurationUnit(job.startTime, job.endTime) : { unit: 'minutes' as const, value: 60 }
   const [durationUnit, setDurationUnit] = useState<'minutes' | 'hours' | 'days' | 'weeks'>(initialDuration.unit)
   const [durationValue, setDurationValue] = useState<number>(initialDuration.value)
   
@@ -108,16 +114,16 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
     resolver: zodResolver(jobSchema),
     defaultValues: {
       title: job?.title || defaultTitle || '',
-      description: job?.description || '',
+      description: job?.description || defaultDescription || '',
       contactId: job?.contactId || defaultContactId || '',
-      serviceId: job?.serviceId || '',
+      serviceId: job?.serviceId || defaultServiceId || '',
       quoteId: job?.quoteId || initialQuoteId || '',
       invoiceId: job?.invoiceId || initialInvoiceId || '',
       startTime: job?.startTime || '',
       endTime: job?.endTime || '',
       status: job?.status || 'scheduled',
-      location: job?.location || '',
-      price: job?.price?.toString() || '',
+      location: job?.location || defaultLocation || '',
+      price: job?.price?.toString() || defaultPrice?.toString() || '',
       notes: job?.notes || defaultNotes || '',
       assignedTo: job?.assignedTo || '',
     },
@@ -207,15 +213,37 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         notes: job.notes || '',
         assignedTo: job.assignedTo || '',
       })
-      setStartDate(format(new Date(job.startTime), 'yyyy-MM-dd'))
-      setStartTime(format(new Date(job.startTime), 'HH:mm'))
-      const inferred = inferDurationUnit(job.startTime, job.endTime)
-      setDurationUnit(inferred.unit)
-      setDurationValue(inferred.value)
+      if (job.startTime && job.endTime) {
+        setStartDate(format(new Date(job.startTime), 'yyyy-MM-dd'))
+        setStartTime(format(new Date(job.startTime), 'HH:mm'))
+        const inferred = inferDurationUnit(job.startTime, job.endTime)
+        setDurationUnit(inferred.unit)
+        setDurationValue(inferred.value)
+      }
+      // If we're scheduling an unscheduled job, automatically uncheck toBeScheduled
+      setToBeScheduled(schedulingUnscheduledJob ? false : (job.toBeScheduled || false))
     }
-  }, [job, reset])
+  }, [job, reset, schedulingUnscheduledJob])
 
   const handleFormSubmit = async (data: JobFormData) => {
+    // If toBeScheduled, skip date/time validation and send without times
+    if (toBeScheduled) {
+      const { startTime: _st, endTime: _et, ...dataWithoutTimes } = data
+      const formData: any = {
+        ...dataWithoutTimes,
+        toBeScheduled: true,
+        breaks: undefined,
+        // Convert empty strings to undefined for foreign keys
+        quoteId: dataWithoutTimes.quoteId || undefined,
+        invoiceId: dataWithoutTimes.invoiceId || undefined,
+        serviceId: dataWithoutTimes.serviceId || undefined,
+        // Convert price string to number, or undefined if empty
+        price: dataWithoutTimes.price ? parseFloat(dataWithoutTimes.price.toString()) : undefined,
+      }
+      await onSubmit(formData)
+      return
+    }
+    
     // Validate date is selected
     if (!startDate) {
       return
@@ -256,6 +284,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       ...data,
       startTime: startDateTime.toISOString(),
       endTime: endDateTime.toISOString(),
+      toBeScheduled: false,
       breaks: breaks.length > 0 ? breaks : undefined,
       // Convert empty strings to undefined for foreign keys
       quoteId: data.quoteId || undefined,
@@ -526,8 +555,31 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
 
       {/* Service field is now integrated into Job Title dropdown above */}
 
+      {/* To Be Scheduled checkbox */}
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-primary-blue/5 border border-primary-blue/30">
+        <input
+          type="checkbox"
+          id="toBeScheduled"
+          checked={toBeScheduled}
+          onChange={(e) => {
+            setToBeScheduled(e.target.checked)
+            if (e.target.checked) {
+              // Clear date/time when setting to unscheduled
+              setRepeatPattern('none')
+            }
+          }}
+          className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer"
+        />
+        <label htmlFor="toBeScheduled" className="text-sm font-medium text-primary-light cursor-pointer">
+          To Be Scheduled
+        </label>
+        <span className="text-xs text-primary-light/50 ml-auto">
+          (Schedule date/time later)
+        </span>
+      </div>
+
       {/* Job Time */}
-      {!isAllDay && (
+      {!isAllDay && !toBeScheduled && (
         <div>
           <label className="block text-sm font-medium text-primary-light mb-2">
             Job Time *
@@ -557,26 +609,27 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       )}
 
       {/* Date and Time Selection */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="isAllDay"
-            checked={isAllDay}
-            onChange={(e) => {
-              setIsAllDay(e.target.checked)
-              if (e.target.checked) {
-                setStartTime('00:00')
-                setDurationUnit('days')
-                setDurationValue(1)
-              }
-            }}
-            className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer"
-          />
-          <label htmlFor="isAllDay" className="text-sm font-medium text-primary-light cursor-pointer">
-            All Day Event
-          </label>
-        </div>
+      {!toBeScheduled && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isAllDay"
+              checked={isAllDay}
+              onChange={(e) => {
+                setIsAllDay(e.target.checked)
+                if (e.target.checked) {
+                  setStartTime('00:00')
+                  setDurationUnit('days')
+                  setDurationValue(1)
+                }
+              }}
+              className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer"
+            />
+            <label htmlFor="isAllDay" className="text-sm font-medium text-primary-light cursor-pointer">
+              All Day Event
+            </label>
+          </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <DatePicker
@@ -594,42 +647,43 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
             />
           )}
         </div>
-      </div>
 
-      {/* End time/date preview */}
-      {startDate && (
-        <div className="text-xs text-primary-light/50">
-          {isAllDay ? (
-            <p>
-              All-day event: {format(new Date(startDate), 'MMM d, yyyy')}
-              {durationValue > 1 && (
-                <> through {format(
-                  new Date(new Date(startDate).getTime() + (durationValue - 1) * 24 * 60 * 60 * 1000), 
-                  'MMM d, yyyy'
-                )}</>
-              )}
-            </p>
-          ) : (
-            <>
-              {durationUnit === 'minutes' && startTime && (
-                <p>End time: {format(new Date(`${startDate}T${startTime}`).getTime() + durationValue * 60000, 'h:mm a')}</p>
-              )}
-              {durationUnit === 'hours' && startTime && (
-                <p>End time: {format(new Date(`${startDate}T${startTime}`).getTime() + durationValue * 60 * 60000, 'MMM d, h:mm a')}</p>
-              )}
-              {(durationUnit === 'days' || durationUnit === 'weeks') && (
-                <p>
-                  End date: {format(
-                    new Date(`${startDate}T09:00:00`).getTime() + 
-                    (durationUnit === 'days' ? durationValue : durationValue * 7) * 24 * 60 * 60 * 1000, 
+        {/* End time/date preview */}
+        {startDate && (
+          <div className="text-xs text-primary-light/50">
+            {isAllDay ? (
+              <p>
+                All-day event: {format(new Date(startDate), 'MMM d, yyyy')}
+                {durationValue > 1 && (
+                  <> through {format(
+                    new Date(new Date(startDate).getTime() + (durationValue - 1) * 24 * 60 * 60 * 1000), 
                     'MMM d, yyyy'
-                  )}
-                  {' '}(All-day job)
-                </p>
-              )}
-            </>
-          )}
-        </div>
+                  )}</>
+                )}
+              </p>
+            ) : (
+              <>
+                {durationUnit === 'minutes' && startTime && (
+                  <p>End time: {format(new Date(`${startDate}T${startTime}`).getTime() + durationValue * 60000, 'h:mm a')}</p>
+                )}
+                {durationUnit === 'hours' && startTime && (
+                  <p>End time: {format(new Date(`${startDate}T${startTime}`).getTime() + durationValue * 60 * 60000, 'MMM d, h:mm a')}</p>
+                )}
+                {(durationUnit === 'days' || durationUnit === 'weeks') && (
+                  <p>
+                    End date: {format(
+                      new Date(`${startDate}T09:00:00`).getTime() + 
+                      (durationUnit === 'days' ? durationValue : durationValue * 7) * 24 * 60 * 60 * 1000, 
+                      'MMM d, yyyy'
+                    )}
+                    {' '}(All-day job)
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
       )}
 
       <div>
@@ -827,17 +881,18 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       </div>
 
       {/* Recurrence Section */}
-      <div className="border-t border-primary-blue pt-4">
-        <label className="block text-sm font-medium text-primary-light mb-2">
-          Repeat Schedule
-        </label>
-        <Select
-          value={repeatPattern}
-          onChange={(e) => {
-            setRepeatPattern(e.target.value)
-          }}
-          options={[
-            { value: 'none', label: 'Does not repeat' },
+      {!toBeScheduled && (
+        <div className="border-t border-primary-blue pt-4">
+          <label className="block text-sm font-medium text-primary-light mb-2">
+            Repeat Schedule
+          </label>
+          <Select
+            value={repeatPattern}
+            onChange={(e) => {
+              setRepeatPattern(e.target.value)
+            }}
+            options={[
+              { value: 'none', label: 'Does not repeat' },
             { value: 'daily-1', label: 'Every day' },
             { value: 'daily-2', label: 'Every 2 days' },
             { value: 'weekly-1', label: 'Every week' },
@@ -936,7 +991,8 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
             )}
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       <Controller
         name="status"

@@ -159,6 +159,19 @@ We look forward to working with you!',
       // Add title column to quotes table
       await prisma.$executeRawUnsafe(`ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "title" TEXT;`)
       
+      // Add toBeScheduled support (2026-01-14)
+      console.log('Adding toBeScheduled column...')
+      await prisma.$executeRawUnsafe(`ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "toBeScheduled" BOOLEAN DEFAULT false NOT NULL;`)
+      
+      console.log('Making startTime nullable...')
+      await prisma.$executeRawUnsafe(`ALTER TABLE "jobs" ALTER COLUMN "startTime" DROP NOT NULL;`)
+      
+      console.log('Making endTime nullable...')
+      await prisma.$executeRawUnsafe(`ALTER TABLE "jobs" ALTER COLUMN "endTime" DROP NOT NULL;`)
+      
+      console.log('Adding toBeScheduled index...')
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "jobs_toBeScheduled_idx" ON "jobs"("toBeScheduled");`)
+      
       console.log('✅ Migration completed successfully')
       return successResponse({ message: 'Migration completed successfully' })
     } catch (error: any) {

@@ -19,9 +19,10 @@ interface JobDetailProps {
   onConfirm?: () => void
   onDecline?: () => void
   onScheduleFollowup?: () => void
+  onScheduleJob?: () => void
 }
 
-const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, onRestore, onConfirm, onDecline, onScheduleFollowup }: JobDetailProps) => {
+const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, onRestore, onConfirm, onDecline, onScheduleFollowup, onScheduleJob }: JobDetailProps) => {
   const navigate = useNavigate()
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
@@ -56,11 +57,12 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
   }
   
   const isArchived = !!job.archivedAt
+  const isUnscheduled = job.toBeScheduled || !job.startTime || !job.endTime
   
   // Detect if this is a multi-day job
-  const startTime = new Date(job.startTime)
-  const endTime = new Date(job.endTime)
-  const durationMs = endTime.getTime() - startTime.getTime()
+  const startTime = job.startTime ? new Date(job.startTime) : null
+  const endTime = job.endTime ? new Date(job.endTime) : null
+  const durationMs = (startTime && endTime) ? (endTime.getTime() - startTime.getTime()) : 0
   const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
 
   return (
@@ -180,7 +182,15 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
             )}
           </div>
           <div className="flex items-center gap-2">
-            {onScheduleFollowup && !isArchived && job.status !== 'pending-confirmation' && (
+            {isUnscheduled && onScheduleJob && !isArchived && (
+              <Button 
+                onClick={onScheduleJob}
+                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark"
+              >
+                Schedule Job
+              </Button>
+            )}
+            {!isUnscheduled && onScheduleFollowup && !isArchived && job.status !== 'pending-confirmation' && (
               <Button 
                 onClick={onScheduleFollowup}
                 className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark"
@@ -223,11 +233,22 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {isMultiDay ? (
+          {isUnscheduled ? (
+            <Card className="sm:col-span-2">
+              <h3 className="text-sm font-medium text-primary-light/70 mb-2">Schedule</h3>
+              <p className="text-amber-400 text-lg flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                To Be Scheduled
+              </p>
+              <p className="text-sm text-primary-light/50 mt-1">Drag to calendar to schedule</p>
+            </Card>
+          ) : isMultiDay ? (
             <Card className="sm:col-span-2">
               <h3 className="text-sm font-medium text-primary-light/70 mb-2">Schedule</h3>
               <p className="text-primary-light text-lg">
-                {format(startTime, 'MMM d, yyyy')} – {format(endTime, 'MMM d, yyyy')}
+                {format(startTime!, 'MMM d, yyyy')} – {format(endTime!, 'MMM d, yyyy')}
               </p>
               <p className="text-sm text-primary-light/50 mt-1">All-day job</p>
             </Card>
@@ -236,14 +257,14 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               <Card>
                 <h3 className="text-sm font-medium text-primary-light/70 mb-2">Start Time</h3>
                 <p className="text-primary-light">
-                  {format(startTime, 'MMM d, yyyy h:mm a')}
+                  {format(startTime!, 'MMM d, yyyy h:mm a')}
                 </p>
               </Card>
 
               <Card>
                 <h3 className="text-sm font-medium text-primary-light/70 mb-2">End Time</h3>
                 <p className="text-primary-light">
-                  {format(endTime, 'MMM d, yyyy h:mm a')}
+                  {format(endTime!, 'MMM d, yyyy h:mm a')}
                 </p>
               </Card>
             </>
@@ -323,7 +344,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
         )}
 
         {/* Job Timeline with Breaks */}
-        {job.breaks && job.breaks.length > 0 && (
+        {job.breaks && job.breaks.length > 0 && !isUnscheduled && startTime && endTime && (
           <Card>
             <h3 className="text-sm font-medium text-primary-light/70 mb-3">Job Timeline</h3>
             <div className="space-y-3">

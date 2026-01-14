@@ -51,27 +51,26 @@ const PermanentDeleteRecurringJobModal = ({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
+      <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:justify-end">
         <Button 
           variant="ghost" 
           onClick={onClose}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto sm:flex-shrink-0"
         >
           Cancel
         </Button>
         <Button 
           variant="ghost"
           onClick={onDeleteOne}
-          className="w-full sm:w-auto text-red-500 hover:text-red-600"
+          className="w-full sm:w-auto text-red-500 hover:text-red-600 sm:flex-shrink-0"
         >
           Delete This Job Only
         </Button>
         <Button 
-          size="lg"
           onClick={onDeleteAll}
-          className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
+          className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white sm:flex-shrink-0"
         >
-          Delete All Permanently
+          Delete All
         </Button>
       </div>
     </Modal>

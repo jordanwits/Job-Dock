@@ -45,6 +45,13 @@ export interface RecurrencePayload {
 const toNumber = (value: Prisma.Decimal | number | null | undefined) =>
   value ? Number(value) : 0
 
+// Helper to parse and validate a date, returns null if invalid
+function parseValidDate(value: any): Date | null {
+  if (!value) return null
+  const date = new Date(value)
+  return isNaN(date.getTime()) ? null : date
+}
+
 // Helper to generate recurrence instances
 function generateRecurrenceInstances(params: {
   startTime: Date
@@ -268,6 +275,7 @@ async function createRecurringJobs(params: {
           status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
           deletedAt: null,
           archivedAt: null,
+          toBeScheduled: false,
           startTime: { lt: instance.endTime },
           endTime: { gt: instance.startTime },
         },
@@ -1276,12 +1284,20 @@ export const dataServices = {
           // Filter archived jobs based on includeArchived flag
           // Note: showDeleted parameter is deprecated, we only use archive now
           ...(includeArchived ? {} : { archivedAt: null }),
+          // When date filters are provided, return scheduled jobs in range OR unscheduled jobs
           ...(startDate || endDate
             ? {
-                startTime: {
-                  gte: startDate,
-                  lte: endDate,
-                },
+                OR: [
+                  {
+                    startTime: {
+                      gte: startDate,
+                      lte: endDate,
+                    },
+                  },
+                  {
+                    toBeScheduled: true,
+                  },
+                ],
               }
             : {}),
         },
@@ -1289,7 +1305,10 @@ export const dataServices = {
           contact: true,
           service: true,
         },
-        orderBy: { startTime: 'asc' },
+        orderBy: [
+          { toBeScheduled: 'desc' }, // Unscheduled jobs first
+          { startTime: 'asc' },
+        ],
       })
     },
     getById: async (tenantId: string, id: string) => {
@@ -1303,8 +1322,50 @@ export const dataServices = {
     create: async (tenantId: string, payload: any) => {
       await ensureTenantExists(tenantId)
       
-      const startTime = new Date(payload.startTime)
-      const endTime = new Date(payload.endTime)
+      const toBeScheduled = payload.toBeScheduled === true
+      
+      // Validate: recurrence requires scheduled times
+      if (payload.recurrence && toBeScheduled) {
+        throw new ApiError('Recurring jobs must have scheduled times', 400)
+      }
+      
+      // If toBeScheduled, create without times and skip conflict checks
+      if (toBeScheduled) {
+        return prisma.job.create({
+          data: {
+            tenantId,
+            title: payload.title,
+            description: payload.description,
+            contactId: payload.contactId,
+            serviceId: payload.serviceId,
+            quoteId: payload.quoteId,
+            invoiceId: payload.invoiceId,
+            startTime: null,
+            endTime: null,
+            toBeScheduled: true,
+            status: payload.status || 'scheduled',
+            location: payload.location,
+            price: payload.price !== undefined ? payload.price : null,
+            notes: payload.notes,
+            assignedTo: payload.assignedTo,
+            breaks: undefined,
+          },
+          include: { contact: true, service: true },
+        })
+      }
+      
+      // Otherwise, require times
+      if (!payload.startTime || !payload.endTime) {
+        throw new ApiError('startTime and endTime are required for scheduled jobs', 400)
+      }
+      
+      const startTime = parseValidDate(payload.startTime)
+      const endTime = parseValidDate(payload.endTime)
+      
+      if (!startTime || !endTime) {
+        throw new ApiError('Invalid startTime or endTime format. Please provide valid date strings.', 400)
+      }
+      
       const forceBooking = payload.forceBooking === true
       
       // If recurrence is provided, use the recurring jobs logic
@@ -1330,14 +1391,14 @@ export const dataServices = {
         })
       }
       
-      // Single job creation (existing logic)
-      // Check for overlapping jobs to warn about double-booking
+      // Single job creation - check for conflicts
       const overlappingJobs = await prisma.job.findMany({
         where: {
           tenantId,
           status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
           deletedAt: null,
           archivedAt: null,
+          toBeScheduled: false,
           startTime: { lt: endTime },
           endTime: { gt: startTime },
         },
@@ -1346,7 +1407,7 @@ export const dataServices = {
       
       if (overlappingJobs.length > 0 && !forceBooking) {
         const conflictDetails = overlappingJobs.map(j => 
-          `${j.title} (${new Date(j.startTime).toLocaleString()} - ${new Date(j.endTime).toLocaleString()})`
+          `${j.title} (${new Date(j.startTime!).toLocaleString()} - ${new Date(j.endTime!).toLocaleString()})`
         ).join(', ')
         const error = new ApiError(
           `This time slot conflicts with existing job(s): ${conflictDetails}`,
@@ -1373,6 +1434,7 @@ export const dataServices = {
           invoiceId: payload.invoiceId,
           startTime,
           endTime,
+          toBeScheduled: false,
           status: payload.status || 'scheduled',
           location: payload.location,
           price: payload.price !== undefined ? payload.price : null,
@@ -1414,16 +1476,54 @@ export const dataServices = {
       if (payload.price !== undefined) updateData.price = payload.price
       if (payload.notes !== undefined) updateData.notes = payload.notes
       if (payload.assignedTo !== undefined) updateData.assignedTo = payload.assignedTo
-      if (payload.startTime !== undefined) updateData.startTime = new Date(payload.startTime)
-      if (payload.endTime !== undefined) updateData.endTime = new Date(payload.endTime)
       if (payload.breaks !== undefined) updateData.breaks = payload.breaks
+      
+      // Validate and parse dates if provided
+      if (payload.startTime !== undefined) {
+        const parsedStartTime = parseValidDate(payload.startTime)
+        if (!parsedStartTime) {
+          throw new ApiError('Invalid startTime format. Please provide a valid date string.', 400)
+        }
+        updateData.startTime = parsedStartTime
+      }
+      if (payload.endTime !== undefined) {
+        const parsedEndTime = parseValidDate(payload.endTime)
+        if (!parsedEndTime) {
+          throw new ApiError('Invalid endTime format. Please provide a valid date string.', 400)
+        }
+        updateData.endTime = parsedEndTime
+      }
+      
+      // Handle toBeScheduled flag changes
+      if (payload.toBeScheduled !== undefined) {
+        updateData.toBeScheduled = payload.toBeScheduled
+        
+        if (payload.toBeScheduled === true) {
+          // Setting to unscheduled - clear times
+          updateData.startTime = null
+          updateData.endTime = null
+        } else if (payload.toBeScheduled === false) {
+          // Setting to scheduled - require times
+          if (!payload.startTime || !payload.endTime) {
+            if (!existingJob.startTime || !existingJob.endTime) {
+              throw new ApiError('startTime and endTime are required when scheduling a job', 400)
+            }
+          }
+          // Validate that the dates that will be used are valid
+          const finalStartTime = updateData.startTime || existingJob.startTime
+          const finalEndTime = updateData.endTime || existingJob.endTime
+          if (!finalStartTime || !finalEndTime || isNaN(new Date(finalStartTime).getTime()) || isNaN(new Date(finalEndTime).getTime())) {
+            throw new ApiError('Valid startTime and endTime are required when scheduling a job', 400)
+          }
+        }
+      }
       
       // If updateAll is true and this job is part of a recurrence, update all future jobs
       if (payload.updateAll && existingJob.recurrenceId) {
         console.log('🔁 Updating all future jobs in recurrence:', existingJob.recurrenceId)
         // Calculate time delta if times are being changed
         let timeDelta = 0
-        if (payload.startTime !== undefined) {
+        if (payload.startTime !== undefined && existingJob.startTime) {
           const oldStartTime = new Date(existingJob.startTime)
           const newStartTime = new Date(payload.startTime)
           timeDelta = newStartTime.getTime() - oldStartTime.getTime()
@@ -1434,9 +1534,11 @@ export const dataServices = {
           where: {
             recurrenceId: existingJob.recurrenceId,
             tenantId,
-            startTime: {
-              gte: existingJob.startTime,
-            },
+            ...(existingJob.startTime ? {
+              startTime: {
+                gte: existingJob.startTime,
+              },
+            } : {}),
           },
         })
         
@@ -1447,7 +1549,7 @@ export const dataServices = {
           const jobUpdateData: any = { ...updateData }
           
           // If times are being changed, apply the time delta to all jobs
-          if (timeDelta !== 0) {
+          if (timeDelta !== 0 && job.startTime && job.endTime) {
             const originalStart = new Date(job.startTime)
             const originalEnd = new Date(job.endTime)
             jobUpdateData.startTime = new Date(originalStart.getTime() + timeDelta)
@@ -1634,8 +1736,8 @@ export const dataServices = {
           const emailPayload = buildClientBookingConfirmedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             serviceName: job.service?.name || 'Service',
-            startTime: new Date(job.startTime),
-            endTime: new Date(job.endTime),
+            startTime: job.startTime ? new Date(job.startTime) : new Date(),
+            endTime: job.endTime ? new Date(job.endTime) : new Date(),
             location: job.location || undefined,
           })
           
@@ -1686,7 +1788,7 @@ export const dataServices = {
           const emailPayload = buildClientBookingDeclinedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             serviceName: job.service?.name || 'Service',
-            startTime: new Date(job.startTime),
+            startTime: job.startTime ? new Date(job.startTime) : new Date(),
             reason,
           })
           
@@ -1841,6 +1943,7 @@ export const dataServices = {
           status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
           deletedAt: null,
           archivedAt: null,
+          toBeScheduled: false,
           startTime: { lte: rangeEnd },
           endTime: { gte: rangeStart },
         },
@@ -1855,6 +1958,7 @@ export const dataServices = {
       // Helper to check if a slot overlaps with any jobs
       const countOverlappingJobs = (slotStart: Date, slotEnd: Date): number => {
         return jobs.filter((job) => {
+          if (!job.startTime || !job.endTime) return false
           const jobStart = new Date(job.startTime)
           const jobEnd = new Date(job.endTime)
           return slotStart < jobEnd && slotEnd > jobStart
@@ -2001,6 +2105,7 @@ export const dataServices = {
             status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
             deletedAt: null,
             archivedAt: null,
+            toBeScheduled: false,
             startTime: { lt: endTime },
             endTime: { gt: startTime },
           },
@@ -2106,6 +2211,7 @@ export const dataServices = {
                 status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
                 deletedAt: null,
                 archivedAt: null,
+                toBeScheduled: false,
                 startTime: { lt: instance.endTime },
                 endTime: { gt: instance.startTime },
               },
