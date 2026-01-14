@@ -304,31 +304,6 @@ Write-Host "🔌 API URL: $apiUrl" -ForegroundColor Cyan
 Write-Host "🔐 Cognito User Pool: $userPoolId" -ForegroundColor Cyan
 Write-Host ""
 
-# Check if custom domain is configured
-$configContent = Get-Content "infrastructure\config.ts" -Raw
-if ($configContent -match 'domain:\s*[''"]([^''"]+)[''"]') {
-    $customDomain = $Matches[1]
-    Write-Host "🌐 Custom Domain Setup Required" -ForegroundColor Yellow
-    Write-Host "================================" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "To use your custom domain ($customDomain), add this DNS record to your DNS provider:" -ForegroundColor White
-    Write-Host ""
-    Write-Host "  Type: CNAME" -ForegroundColor Cyan
-    Write-Host "  Name: $customDomain" -ForegroundColor Cyan
-    Write-Host "  Value: $($cloudFrontUrl -replace 'https://', '')" -ForegroundColor Cyan
-    Write-Host "  TTL: 300 (or default)" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Once DNS propagates (5-30 minutes), your app will be available at:" -ForegroundColor White
-    Write-Host "  https://$customDomain" -ForegroundColor Green
-    Write-Host ""
-} else {
-    Write-Host "💡 To add a custom domain later:" -ForegroundColor Yellow
-    Write-Host "   1. Request an ACM certificate in us-east-1" -ForegroundColor White
-    Write-Host "   2. Update infrastructure/config.ts with domain and certificate ARN" -ForegroundColor White
-    Write-Host "   3. Re-run this script" -ForegroundColor White
-    Write-Host ""
-}
-
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Visit the frontend URL to test your deployment" -ForegroundColor White
 Write-Host "  2. Create your first user account" -ForegroundColor White
@@ -336,5 +311,5 @@ Write-Host "  3. Set up billing alerts in AWS Console" -ForegroundColor White
 Write-Host "  4. Configure your DNS if using a custom domain" -ForegroundColor White
 Write-Host ""
 Write-Host "For future deployments, use:" -ForegroundColor Cyan
-Write-Host "  .\deploy-production.ps1 -SkipInfrastructure" -ForegroundColor White
+Write-Host '  .\deploy-production.ps1 -SkipInfrastructure' -ForegroundColor White
 Write-Host ""
