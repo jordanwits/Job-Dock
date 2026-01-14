@@ -44,11 +44,6 @@ export const CollapsibleSection = ({
             {title}
           </h2>
         </div>
-        {actions && (
-          <div onClick={(e) => e.stopPropagation()}>
-            {actions}
-          </div>
-        )}
       </div>
 
       {!isCollapsed && (

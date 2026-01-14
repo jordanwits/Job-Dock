@@ -52,14 +52,7 @@ export const CompanyBrandingSection = ({
   }
 
   return (
-    <CollapsibleSection
-      title="Company & Branding"
-      actions={
-        <Button onClick={handleSave} disabled={saving} size="sm">
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
-      }
-    >
+    <CollapsibleSection title="Company & Branding">
       <div className="space-y-4">
         <Input
           label="Company Name"
@@ -118,6 +111,12 @@ export const CompanyBrandingSection = ({
             disabled={uploadingLogo}
           >
             {uploadingLogo ? 'Uploading...' : settings?.logoUrl ? 'Change Logo' : 'Upload Logo'}
+          </Button>
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </div>

@@ -37,14 +37,7 @@ export const EmailTemplatesSection = ({
   }
 
   return (
-    <CollapsibleSection
-      title="Email Templates"
-      actions={
-        <Button onClick={handleSave} disabled={saving} size="sm">
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
-      }
-    >
+    <CollapsibleSection title="Email Templates">
       <div className="mb-6 p-4 bg-primary-dark-secondary rounded-lg">
         <p className="text-sm text-primary-light/70 mb-2">
           Available variables you can use in your templates:
@@ -104,6 +97,12 @@ export const EmailTemplatesSection = ({
             placeholder="Hi {{customer_name}},&#10;&#10;Please find attached quote {{quote_number}}.&#10;&#10;We look forward to working with you!"
             rows={6}
           />
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
         </div>
       </div>
     </CollapsibleSection>

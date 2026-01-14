@@ -43,18 +43,18 @@ const DashboardPage = () => {
 
   // Quote metrics
   const quoteMetrics = useMemo(() => {
-    const sent = quotes.filter((q) => q.status === 'sent').length
+    const pending = quotes.filter((q) => q.status === 'sent').length
     const accepted = quotes.filter((q) => q.status === 'accepted').length
     const rejected = quotes.filter((q) => q.status === 'rejected').length
     const draft = quotes.filter((q) => q.status === 'draft').length
 
-    // Recent sent quotes (last 3)
+    // Recent quotes activity (last 3)
     const recentQuotes = quotes
       .filter((q) => q.status === 'sent' || q.status === 'accepted' || q.status === 'rejected')
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 3)
 
-    return { sent, accepted, rejected, draft, recentQuotes }
+    return { pending, accepted, rejected, draft, recentQuotes }
   }, [quotes])
 
   // Invoice metrics
@@ -172,8 +172,8 @@ const DashboardPage = () => {
             {/* Quote Stats */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="bg-primary-dark rounded-lg p-3">
-                <p className="text-sm text-primary-light/70">Sent</p>
-                <p className="text-2xl font-bold text-primary-gold">{quoteMetrics.sent}</p>
+                <p className="text-sm text-primary-light/70">Pending</p>
+                <p className="text-2xl font-bold text-primary-blue">{quoteMetrics.pending}</p>
               </div>
               <div className="bg-primary-dark rounded-lg p-3">
                 <p className="text-sm text-primary-light/70">Accepted</p>

@@ -46,6 +46,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
       filtered = filtered.filter(
         (invoice) =>
           invoice.invoiceNumber.toLowerCase().includes(query) ||
+          invoice.title?.toLowerCase().includes(query) ||
           invoice.contactName?.toLowerCase().includes(query) ||
           invoice.contactCompany?.toLowerCase().includes(query)
       )

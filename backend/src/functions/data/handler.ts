@@ -179,13 +179,25 @@ We look forward to working with you!',
         (id && id !== 'public' && event.httpMethod === 'POST' && action === 'book')
       )
     
-    // For public booking endpoints, use a placeholder tenant ID
-    // The actual tenant will be determined from the service ID in the dataService
-    const tenantId = isPublicBookingEndpoint 
-      ? 'public-booking-placeholder' 
-      : await resolveTenantId(event)
+    // Check if this is a public approval endpoint (quote/invoice approval from email links)
+    const isPublicApprovalEndpoint = 
+      event.httpMethod === 'POST' && id && (
+        (resource === 'quotes' && (action === 'approve-public' || action === 'decline-public')) ||
+        (resource === 'invoices' && (action === 'approve-public' || action === 'decline-public'))
+      )
     
-    if (!isPublicBookingEndpoint) {
+    // For public endpoints, determine tenant ID from the resource itself
+    let tenantId: string
+    if (isPublicBookingEndpoint) {
+      tenantId = 'public-booking-placeholder'
+    } else if (isPublicApprovalEndpoint && id) {
+      // For approval endpoints, look up the tenantId from the quote/invoice record
+      tenantId = await getTenantIdFromResource(resource as 'quotes' | 'invoices', id)
+    } else {
+      tenantId = await resolveTenantId(event)
+    }
+    
+    if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint) {
       await ensureTenantExists(tenantId)
     }
 
@@ -497,6 +509,27 @@ function normalizePath(event: APIGatewayProxyEvent) {
   }
 
   return path
+}
+
+/**
+ * Look up tenant ID from a quote or invoice record
+ * Used for public approval endpoints where we need the tenant ID to verify the approval token
+ */
+async function getTenantIdFromResource(
+  resource: 'quotes' | 'invoices',
+  id: string
+): Promise<string> {
+  const { default: prisma } = await import('../../lib/db')
+  
+  const record = resource === 'quotes'
+    ? await prisma.quote.findUnique({ where: { id }, select: { tenantId: true } })
+    : await prisma.invoice.findUnique({ where: { id }, select: { tenantId: true } })
+  
+  if (!record) {
+    throw new ApiError(`${resource === 'quotes' ? 'Quote' : 'Invoice'} not found`, 404)
+  }
+  
+  return record.tenantId
 }
 
 async function resolveTenantId(event: APIGatewayProxyEvent) {

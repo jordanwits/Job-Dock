@@ -110,7 +110,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
       taxRate: data.taxRate ? Number(data.taxRate) / 100 : 0,
       discount: data.discount ? Number(data.discount) : 0,
       notes: data.notes || undefined,
-      validUntil: data.validUntil || undefined,
+      validUntil: data.validUntil ? new Date(data.validUntil).toISOString() : undefined,
     }
     
     if (shouldSend && onSaveAndSend) {

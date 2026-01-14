@@ -62,15 +62,15 @@ const InvoiceCard = ({ invoice }: InvoiceCardProps) => {
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1 min-w-0 pr-2">
             <h3 className="text-lg font-semibold text-primary-light">
               {invoice.invoiceNumber}
+              {invoice.contactName && invoice.title && (
+                <span className="text-primary-light/90"> — {invoice.contactName} {invoice.title}</span>
+              )}
             </h3>
-            {invoice.contactName && (
-              <p className="text-sm text-primary-light/70">{invoice.contactName}</p>
-            )}
             {invoice.contactCompany && (
-              <p className="text-xs text-primary-light/50">{invoice.contactCompany}</p>
+              <p className="text-xs text-primary-light/50 mt-1">{invoice.contactCompany}</p>
             )}
           </div>
           <div className="flex flex-col gap-1 items-end">

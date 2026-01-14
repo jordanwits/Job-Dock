@@ -1103,7 +1103,28 @@ export const dataServices = {
         throw new ApiError('Invoice not found', 404)
       }
 
-      const lineItems = payload.lineItems
+      const { lineItems, ...restPayload } = payload
+      
+      // Calculate totals from line items if provided
+      const itemsToCalculate = lineItems || []
+      const subtotal = itemsToCalculate.reduce(
+        (sum: number, item: any) => sum + (item.quantity || 0) * (item.unitPrice || 0),
+        0
+      )
+      const taxRate = payload.taxRate !== undefined ? payload.taxRate : existingInvoice.taxRate
+      const taxAmount = subtotal * Number(taxRate)
+      const discount = payload.discount !== undefined ? payload.discount : existingInvoice.discount
+      const total = subtotal + taxAmount - Number(discount)
+      
+      // Calculate paidAmount based on paymentStatus
+      const paymentStatus = payload.paymentStatus || existingInvoice.paymentStatus
+      const paidAmount =
+        paymentStatus === 'paid'
+          ? total
+          : paymentStatus === 'partial'
+            ? (payload.paidAmount !== undefined ? payload.paidAmount : existingInvoice.paidAmount)
+            : 0
+
       await prisma.$transaction(async (tx) => {
         if (lineItems) {
           await tx.invoiceLineItem.deleteMany({ where: { invoiceId: id } })
@@ -1121,8 +1142,21 @@ export const dataServices = {
         await tx.invoice.update({
           where: { id },
           data: {
-            ...payload,
-          },
+            title: payload.title !== undefined ? (payload.title || null) : undefined,
+            contactId: payload.contactId,
+            subtotal,
+            taxRate,
+            taxAmount,
+            discount,
+            total,
+            status: payload.status,
+            paymentStatus,
+            approvalStatus: payload.approvalStatus !== undefined ? payload.approvalStatus : undefined,
+            notes: payload.notes !== undefined ? (payload.notes || null) : undefined,
+            dueDate: payload.dueDate !== undefined ? (payload.dueDate ? new Date(payload.dueDate) : null) : undefined,
+            paymentTerms: payload.paymentTerms !== undefined ? (payload.paymentTerms || null) : undefined,
+            paidAmount,
+          } as any,
         })
       })
 

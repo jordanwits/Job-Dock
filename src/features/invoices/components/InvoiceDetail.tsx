@@ -232,7 +232,7 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
                   size="md"
                 />
               )}
-              {invoice.approvalStatus && invoice.approvalStatus !== 'none' && (
+              {invoice.approvalStatus && (
                 <StatusBadgeSelect
                   value={invoice.approvalStatus}
                   options={approvalStatusOptions}
