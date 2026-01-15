@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /email-policy
+Allow: /auth/login
+Allow: /auth/register
+
+# Block authenticated app pages from indexing
+Disallow: /app/
+Disallow: /app/*
+
+# Block public booking pages (privacy)
+Disallow: /book/
+Disallow: /public/
+
+Sitemap: https://www.thejobdock.com/sitemap.xml
