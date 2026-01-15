@@ -10,17 +10,18 @@ import { SchedulingPage } from '@/features/scheduling'
 import { PublicBookingPage } from '@/features/booking'
 import { SettingsPage } from '@/features/settings'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
+import { LandingPage, PrivacyPolicyPage, TermsOfServicePage, EmailPolicyPage } from '@/features/marketing'
 
 function App() {
   const { user, logout, isAuthenticated } = useAuthStore()
 
   const sidebarItems = [
-    { label: 'Dashboard', href: '/' },
-    { label: 'CRM', href: '/crm' },
-    { label: 'Quotes', href: '/quotes' },
-    { label: 'Invoices', href: '/invoices' },
-    { label: 'Calendar', href: '/scheduling' },
-    { label: 'Settings', href: '/settings' },
+    { label: 'Dashboard', href: '/app' },
+    { label: 'CRM', href: '/app/crm' },
+    { label: 'Quotes', href: '/app/quotes' },
+    { label: 'Invoices', href: '/app/invoices' },
+    { label: 'Calendar', href: '/app/scheduling' },
+    { label: 'Settings', href: '/app/settings' },
   ]
 
   const handleLogout = async () => {
@@ -31,6 +32,12 @@ function App() {
     <BrowserRouter>
       <SessionMonitor />
       <Routes>
+        {/* Public Marketing Pages */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/email-policy" element={<EmailPolicyPage />} />
+
         {/* Public Booking Routes - No authentication required */}
         <Route path="/book" element={<PublicBookingPage />} />
         <Route path="/book/:serviceId" element={<PublicBookingPage />} />
@@ -44,9 +51,9 @@ function App() {
         <Route path="/auth/register" element={<RegisterPage />} />
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Protected Routes */}
+        {/* Protected App Routes - All under /app */}
         <Route
-          path="/"
+          path="/app"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <AppLayout
@@ -61,7 +68,7 @@ function App() {
         />
 
         <Route
-          path="/crm"
+          path="/app/crm"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <AppLayout
@@ -76,7 +83,7 @@ function App() {
         />
 
         <Route
-          path="/quotes"
+          path="/app/quotes"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <AppLayout
@@ -91,7 +98,7 @@ function App() {
         />
 
         <Route
-          path="/invoices"
+          path="/app/invoices"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <AppLayout
@@ -106,7 +113,7 @@ function App() {
         />
 
         <Route
-          path="/scheduling"
+          path="/app/scheduling"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <AppLayout
@@ -121,7 +128,7 @@ function App() {
         />
 
         <Route
-          path="/settings"
+          path="/app/settings"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <AppLayout
@@ -139,7 +146,7 @@ function App() {
         <Route
           path="*"
           element={
-            <Navigate to={isAuthenticated ? '/' : '/auth/login'} replace />
+            <Navigate to={isAuthenticated ? '/app' : '/'} replace />
           }
         />
       </Routes>

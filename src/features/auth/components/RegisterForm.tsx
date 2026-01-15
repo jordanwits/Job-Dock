@@ -25,7 +25,7 @@ const RegisterForm = () => {
         name: data.name,
         companyName: data.companyName,
       })
-      navigate('/')
+      navigate('/app')
     } catch (error) {
       // Error is handled by the store
     }

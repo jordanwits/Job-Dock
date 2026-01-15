@@ -28,7 +28,7 @@ const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) =>
               </svg>
             </button>
           )}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to={user ? "/app" : "/"} className="flex items-center space-x-2">
             <span className="text-xl md:text-2xl font-bold text-primary-gold">JobDock</span>
           </Link>
         </div>

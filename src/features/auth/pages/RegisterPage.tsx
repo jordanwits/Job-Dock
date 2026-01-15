@@ -9,7 +9,7 @@ const RegisterPage = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/')
+      navigate('/app')
     }
   }, [isAuthenticated, navigate])
 

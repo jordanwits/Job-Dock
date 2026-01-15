@@ -35,13 +35,14 @@ const DashboardPage = () => {
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
 
-  // Fetch all data on mount
+  // Fetch all data on mount - force refresh to get updated overdue statuses
   useEffect(() => {
     const now = new Date()
     const startDate = startOfMonth(now)
     const endDate = endOfMonth(addDays(now, 30)) // Fetch current and next month
     fetchJobs(startDate, endDate)
     fetchQuotes()
+    // Fetch invoices which will auto-update overdue statuses in backend
     fetchInvoices()
   }, [fetchJobs, fetchQuotes, fetchInvoices])
 
@@ -189,7 +190,7 @@ const DashboardPage = () => {
           <Card className="lg:row-span-2">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-primary-light">Upcoming Jobs</h2>
-              <Link to="/scheduling?tab=jobs">
+              <Link to="/app/scheduling?tab=jobs">
                 <Button variant="ghost" size="sm">
                   View All
                 </Button>
@@ -246,7 +247,7 @@ const DashboardPage = () => {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-primary-light">Quotes</h2>
-              <Link to="/quotes">
+              <Link to="/app/quotes">
                 <Button variant="ghost" size="sm">
                   View All
                 </Button>
@@ -300,7 +301,7 @@ const DashboardPage = () => {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-primary-light">Invoices</h2>
-              <Link to="/invoices">
+              <Link to="/app/invoices">
                 <Button variant="ghost" size="sm">
                   View All
                 </Button>
