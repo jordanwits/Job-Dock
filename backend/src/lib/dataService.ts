@@ -184,6 +184,7 @@ async function createRecurringJobs(params: {
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
   recurrence: RecurrencePayload
   forceBooking?: boolean
+  excludeJobId?: string // Job ID to exclude from conflict checking (for converting existing job to recurring)
 }) {
   const {
     tenantId,
@@ -203,6 +204,7 @@ async function createRecurringJobs(params: {
     breaks,
     recurrence,
     forceBooking = false,
+    excludeJobId,
   } = params
 
   return await prisma.$transaction(async (tx) => {
@@ -278,6 +280,7 @@ async function createRecurringJobs(params: {
           toBeScheduled: false,
           startTime: { lt: instance.endTime },
           endTime: { gt: instance.startTime },
+          ...(excludeJobId ? { id: { not: excludeJobId } } : {}), // Exclude the original job when converting to recurring
         },
         include: { contact: true },
       })
@@ -637,7 +640,7 @@ export const dataServices = {
           country: payload.country ?? 'USA',
           tags: payload.tags ?? [],
           notes: payload.notes,
-          status: payload.status ?? 'active',
+          status: payload.status ?? 'customer',
         },
       })
     },
@@ -1034,6 +1037,31 @@ export const dataServices = {
   invoices: {
     getAll: async (tenantId: string) => {
       await ensureTenantExists(tenantId)
+      
+      // Update overdue invoices automatically
+      // An invoice is overdue if:
+      // 1. It has a due date
+      // 2. The due date is more than 1 day in the past (not just today)
+      // 3. Payment status is not 'paid'
+      // 4. Current status is 'sent' (not already overdue, cancelled, or draft)
+      const oneDayAgo = new Date()
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+      oneDayAgo.setHours(23, 59, 59, 999) // End of yesterday
+      
+      await prisma.invoice.updateMany({
+        where: {
+          tenantId,
+          status: 'sent',
+          paymentStatus: { not: 'paid' },
+          dueDate: {
+            lt: oneDayAgo,
+          },
+        },
+        data: {
+          status: 'overdue',
+        },
+      })
+      
       const invoices = await prisma.invoice.findMany({
         where: { tenantId },
         include: { contact: true, lineItems: true },
@@ -1047,6 +1075,27 @@ export const dataServices = {
         include: { contact: true, lineItems: true },
       })
       if (!invoice) throw new Error('Invoice not found')
+      
+      // Check if this invoice should be marked as overdue
+      if (
+        invoice.status === 'sent' &&
+        invoice.paymentStatus !== 'paid' &&
+        invoice.dueDate
+      ) {
+        const oneDayAgo = new Date()
+        oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+        oneDayAgo.setHours(23, 59, 59, 999)
+        
+        if (invoice.dueDate < oneDayAgo) {
+          // Update to overdue
+          await prisma.invoice.update({
+            where: { id },
+            data: { status: 'overdue' },
+          })
+          invoice.status = 'overdue'
+        }
+      }
+      
       return serializeInvoice(invoice)
     },
     create: async (tenantId: string, payload: any) => {
@@ -1446,7 +1495,13 @@ export const dataServices = {
       })
     },
     update: async (tenantId: string, id: string, payload: any) => {
-      console.log('🔄 Job update called:', { id, updateAll: payload.updateAll, hasRecurrenceId: !!payload.recurrenceId })
+      console.log('🔄 Job update called:', { 
+        id, 
+        updateAll: payload.updateAll, 
+        hasRecurrenceId: !!payload.recurrenceId,
+        hasRecurrenceInPayload: !!payload.recurrence,
+        recurrencePayload: payload.recurrence 
+      })
       
       // Verify job belongs to tenant before updating
       const existingJob = await prisma.job.findFirst({
@@ -1473,7 +1528,10 @@ export const dataServices = {
       if (payload.invoiceId !== undefined) updateData.invoiceId = payload.invoiceId
       if (payload.status !== undefined) updateData.status = payload.status
       if (payload.location !== undefined) updateData.location = payload.location
-      if (payload.price !== undefined) updateData.price = payload.price
+      // Handle price explicitly - allow 0, null, or undefined
+      if (payload.price !== undefined) {
+        updateData.price = payload.price !== null && payload.price !== '' ? payload.price : null
+      }
       if (payload.notes !== undefined) updateData.notes = payload.notes
       if (payload.assignedTo !== undefined) updateData.assignedTo = payload.assignedTo
       if (payload.breaks !== undefined) updateData.breaks = payload.breaks
@@ -1516,6 +1574,50 @@ export const dataServices = {
             throw new ApiError('Valid startTime and endTime are required when scheduling a job', 400)
           }
         }
+      }
+      
+      // Check if adding recurrence to a non-recurring job
+      if (payload.recurrence && !existingJob.recurrenceId) {
+        console.log('➕ Adding recurrence to existing job:', { id, recurrence: payload.recurrence })
+        
+        // Get the final start and end times for the job
+        const finalStartTime = updateData.startTime || existingJob.startTime
+        const finalEndTime = updateData.endTime || existingJob.endTime
+        
+        if (!finalStartTime || !finalEndTime) {
+          throw new ApiError('Job must have start and end times to add recurrence', 400)
+        }
+        
+        // Create the recurring series starting from this job
+        const recurringJobsResult = await createRecurringJobs({
+          tenantId,
+          title: updateData.title || existingJob.title,
+          description: updateData.description !== undefined ? updateData.description : existingJob.description || undefined,
+          contactId: updateData.contactId || existingJob.contactId,
+          serviceId: updateData.serviceId !== undefined ? updateData.serviceId : existingJob.serviceId || undefined,
+          quoteId: updateData.quoteId !== undefined ? updateData.quoteId : existingJob.quoteId || undefined,
+          invoiceId: updateData.invoiceId !== undefined ? updateData.invoiceId : existingJob.invoiceId || undefined,
+          startTime: new Date(finalStartTime),
+          endTime: new Date(finalEndTime),
+          status: updateData.status || existingJob.status,
+          location: updateData.location !== undefined ? updateData.location : existingJob.location || undefined,
+          price: updateData.price !== undefined ? updateData.price : (existingJob.price ? parseFloat(existingJob.price.toString()) : undefined),
+          notes: updateData.notes !== undefined ? updateData.notes : existingJob.notes || undefined,
+          assignedTo: updateData.assignedTo !== undefined ? updateData.assignedTo : existingJob.assignedTo || undefined,
+          breaks: updateData.breaks !== undefined ? updateData.breaks : (existingJob.breaks as any) || undefined,
+          recurrence: payload.recurrence,
+          excludeJobId: existingJob.id, // Exclude the original job from conflict checking
+        })
+        
+        // Delete the original job since we've created a recurring series
+        await prisma.job.delete({
+          where: { id },
+        })
+        
+        console.log('✅ Converted job to recurring series')
+        
+        // Return the first job in the series
+        return recurringJobsResult
       }
       
       // If updateAll is true and this job is part of a recurrence, update all future jobs

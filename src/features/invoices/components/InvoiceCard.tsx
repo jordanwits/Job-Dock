@@ -5,9 +5,11 @@ import { cn } from '@/lib/utils'
 
 interface InvoiceCardProps {
   invoice: Invoice
+  isSelected?: boolean
+  onToggleSelect?: (id: string, event: React.MouseEvent) => void
 }
 
-const InvoiceCard = ({ invoice }: InvoiceCardProps) => {
+const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) => {
   const { setSelectedInvoice } = useInvoiceStore()
 
   const statusColors = {
@@ -50,18 +52,42 @@ const InvoiceCard = ({ invoice }: InvoiceCardProps) => {
     }).format(amount)
   }
 
-  const isOverdue = invoice.dueDate && 
-    new Date(invoice.dueDate) < new Date() && 
-    invoice.paymentStatus !== 'paid'
+  // Invoice is overdue if due date is more than 1 day in the past
+  // (not on the due date itself, but the day after)
+  const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
+    const dueDate = new Date(invoice.dueDate)
+    const oneDayAgo = new Date()
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+    oneDayAgo.setHours(23, 59, 59, 999)
+    return dueDate < oneDayAgo
+  })()
 
   return (
     <Card
-      className="cursor-pointer hover:border-primary-gold transition-colors"
+      className={cn(
+        "cursor-pointer hover:border-primary-gold transition-colors relative",
+        isSelected && "ring-2 ring-primary-gold"
+      )}
       onClick={() => setSelectedInvoice(invoice)}
     >
       <div className="space-y-3">
+        {/* Selection Checkbox */}
+        {onToggleSelect && (
+          <div 
+            className="absolute top-3 left-3 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={isSelected || false}
+              onChange={(e) => onToggleSelect(invoice.id, e as any)}
+              className="w-5 h-5 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
+            />
+          </div>
+        )}
+        
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className={cn("flex items-start justify-between", onToggleSelect && "pl-8")}>
           <div className="flex-1 min-w-0 pr-2">
             <h3 className="text-lg font-semibold text-primary-light">
               {invoice.invoiceNumber}

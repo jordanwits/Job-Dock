@@ -75,23 +75,42 @@ export function parseCSVPreview(csvContent: string): CSVPreview {
   console.log('[parseCSVPreview] Starting, content length:', csvContent?.length)
   const parsed = Papa.parse(csvContent, {
     header: true,
-    skipEmptyLines: true,
+    skipEmptyLines: 'greedy', // Skip lines with all empty values
     transformHeader: (header) => header.trim(),
+    newline: '', // Auto-detect line endings
+    quoteChar: '"',
+    escapeChar: '"',
   })
 
   console.log('[parseCSVPreview] Parsed:', { errorCount: parsed.errors.length, dataLength: parsed.data?.length, fields: parsed.meta?.fields })
 
   if (parsed.errors.length > 0) {
     console.error('[parseCSVPreview] Parse errors:', parsed.errors)
-    throw new Error(`CSV parsing error: ${parsed.errors[0].message}`)
+    // Only throw if it's a critical error, not just warnings
+    const criticalErrors = parsed.errors.filter(e => e.type === 'Quotes' || e.type === 'FieldMismatch')
+    if (criticalErrors.length > 0) {
+      throw new Error(`CSV parsing error: ${criticalErrors[0].message}`)
+    }
   }
 
   const headers = parsed.meta.fields || []
-  const rows = parsed.data.slice(0, 5) // Preview first 5 rows
-  const totalRows = parsed.data.length
+  
+  // Filter out rows that are truly empty (all values are empty or whitespace)
+  const nonEmptyRows = (parsed.data as any[]).filter(row => {
+    return Object.values(row).some(value => 
+      value !== null && 
+      value !== undefined && 
+      String(value).trim() !== '' &&
+      String(value).trim().toLowerCase() !== 'false' // Filter out rows with just FALSE values
+    )
+  })
+
+  const rows = nonEmptyRows.slice(0, 5) // Preview first 5 rows
+  const totalRows = nonEmptyRows.length
 
   console.log('[parseCSVPreview] Headers:', headers)
   console.log('[parseCSVPreview] First row sample:', rows[0])
+  console.log('[parseCSVPreview] Total non-empty rows:', totalRows)
 
   // Suggest field mappings based on common column names
   const suggestedMapping = generateFieldMapping(headers)
@@ -114,25 +133,42 @@ function generateFieldMapping(headers: string[]): Record<string, string> {
 
   const fieldMappings: Record<string, string[]> = {
     // Note: 'client name', 'full name', 'name' are handled specially via name splitting
-    firstName: ['first name', 'firstname', 'first', 'given name', 'fname'],
-    lastName: ['last name', 'lastname', 'last', 'surname', 'family name', 'lname'],
-    email: ['email', 'email address', 'e-mail', 'mail'],
-    phone: ['phone', 'phone number', 'telephone', 'mobile', 'cell', 'contact'],
-    company: ['company', 'company name', 'organization', 'business'],
-    jobTitle: ['job title', 'title', 'position', 'role'],
-    address: ['address', 'street', 'street address', 'address line 1', 'location'],
+    firstName: ['first name', 'first_name', 'firstname', 'first', 'given name', 'fname', 'givenname'],
+    lastName: ['last name', 'last_name', 'lastname', 'last', 'surname', 'family name', 'lname', 'familyname'],
+    email: ['email', 'email address', 'email_address', 'e-mail', 'mail', 'emailaddress'],
+    phone: ['phone', 'phone number', 'phone_number', 'telephone', 'mobile', 'cell', 'contact', 'phonenumber', 'phone#', 'tel'],
+    company: ['company', 'company name', 'company_name', 'organization', 'business', 'companyname', 'org'],
+    jobTitle: ['job title', 'job_title', 'title', 'position', 'role', 'jobtitle'],
+    address: ['address', 'street', 'street address', 'street_address', 'address line 1', 'location', 'addr'],
     city: ['city', 'town'],
     state: ['state', 'province', 'region'],
-    zipCode: ['zip', 'zip code', 'zipcode', 'postal code', 'postcode'],
+    zipCode: ['zip', 'zip code', 'zip_code', 'zipcode', 'postal code', 'postal_code', 'postcode', 'postalcode'],
     country: ['country'],
-    notes: ['notes', 'note', 'comments', 'description', 'special notes', 'info'],
+    notes: ['notes', 'note', 'comments', 'comment', 'description', 'special notes', 'info', 'special_notes', 'additional info', 'details', 'memo'],
   }
 
-  headers.forEach((header) => {
-    const normalized = header.toLowerCase().trim()
+  // Special handling for full name fields (will be split automatically)
+  const fullNameAliases = ['client name', 'client_name', 'clientname', 'full name', 'full_name', 'fullname', 'name', 'contact name', 'contact_name']
 
+  headers.forEach((header) => {
+    // Normalize: lowercase, trim, and replace underscores/hyphens with spaces for matching
+    const normalized = header.toLowerCase().trim()
+    const normalizedWithSpaces = normalized.replace(/[_-]/g, ' ')
+
+    // Check if this is a full name field first
+    if (fullNameAliases.includes(normalized) || fullNameAliases.includes(normalizedWithSpaces)) {
+      // Don't map full name fields - they'll be handled by the name splitting logic
+      // Just leave them unmapped so user can see them, but they'll be auto-processed
+      return
+    }
+
+    // Check standard field mappings
     for (const [field, aliases] of Object.entries(fieldMappings)) {
-      if (aliases.includes(normalized) || normalized === field) {
+      // Check both the original normalized and the version with special chars replaced
+      if (aliases.includes(normalized) || 
+          aliases.includes(normalizedWithSpaces) || 
+          normalized === field.toLowerCase() ||
+          normalizedWithSpaces === field.toLowerCase()) {
         mapping[header] = field
         break
       }
@@ -202,11 +238,23 @@ export async function processImportSession(
   const csvContent = Buffer.from(session.csvData, 'base64').toString('utf-8')
   const parsed = Papa.parse(csvContent, {
     header: true,
-    skipEmptyLines: true,
+    skipEmptyLines: 'greedy',
     transformHeader: (header) => header.trim(),
+    newline: '',
+    quoteChar: '"',
+    escapeChar: '"',
   })
 
-  const rows = parsed.data as any[]
+  // Filter out truly empty rows
+  const allRows = parsed.data as any[]
+  const rows = allRows.filter(row => {
+    return Object.values(row).some(value => 
+      value !== null && 
+      value !== undefined && 
+      String(value).trim() !== '' &&
+      String(value).trim().toLowerCase() !== 'false'
+    )
+  })
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -240,30 +288,57 @@ export async function processImportSession(
       contactData.firstName = firstName
       contactData.lastName = lastName
 
-      // Check for duplicate by email
+      // Check for duplicates using multiple criteria
+      let existing = null
+      
+      // First, check by email if available
       if (contactData.email) {
-        const existing = await prisma.contact.findFirst({
+        existing = await prisma.contact.findFirst({
           where: {
             tenantId: session.tenantId,
             email: contactData.email,
           },
         })
+      }
+      
+      // If no match by email, check by name + phone
+      if (!existing && contactData.phone) {
+        existing = await prisma.contact.findFirst({
+          where: {
+            tenantId: session.tenantId,
+            firstName: firstName,
+            lastName: lastName,
+            phone: contactData.phone,
+          },
+        })
+      }
+      
+      // If still no match, check by name + company (if both exist)
+      if (!existing && contactData.company && firstName && lastName) {
+        existing = await prisma.contact.findFirst({
+          where: {
+            tenantId: session.tenantId,
+            firstName: firstName,
+            lastName: lastName,
+            company: contactData.company,
+          },
+        })
+      }
 
-        if (existing) {
-          // Create conflict for user decision
-          const conflict: ImportConflict = {
-            id: `conflict_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            sessionId: session.id,
-            rowIndex: i,
-            existingContact: existing,
-            incomingData: contactData,
-            status: 'pending',
-            createdAt: new Date(),
-          }
-          session.conflicts.push(conflict)
-          session.processedRows++
-          continue // Skip for now, will be resolved by user
+      if (existing) {
+        // Create conflict for user decision
+        const conflict: ImportConflict = {
+          id: `conflict_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          sessionId: session.id,
+          rowIndex: i,
+          existingContact: existing,
+          incomingData: contactData,
+          status: 'pending',
+          createdAt: new Date(),
         }
+        session.conflicts.push(conflict)
+        session.processedRows++
+        continue // Skip for now, will be resolved by user
       }
 
       // Ensure we have valid firstName and lastName
@@ -301,7 +376,7 @@ export async function processImportSession(
           country: contactData.country || 'USA',
           tags: (contactData.tags as string[]) || [],
           notes: contactData.notes || null,
-          status: (contactData.status as string) || 'active',
+          status: (contactData.status as string) || 'customer',
         },
       })
 
@@ -354,12 +429,19 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
  * Check if a CSV header is a "full name" type field
  */
 function isFullNameField(header: string): boolean {
-  const lowerHeader = header.toLowerCase().trim()
-  return lowerHeader === 'client name' ||
-         lowerHeader === 'full name' ||
-         lowerHeader === 'name' ||
-         lowerHeader === 'customer name' ||
-         lowerHeader === 'contact name'
+  const lowerHeader = header.toLowerCase().trim().replace(/[_-]/g, ' ')
+  const fullNamePatterns = [
+    'name',
+    'full name',
+    'fullname',
+    'contact name',
+    'contactname',
+    'client name',
+    'clientname',
+    'customer name',
+    'customername'
+  ]
+  return fullNamePatterns.includes(lowerHeader)
 }
 
 /**
@@ -371,14 +453,14 @@ function mapRowToContact(
 ): Partial<Contact> {
   const contact: any = {}
 
-  // First, look for full name fields and split them
+  // First, look for full name fields in ALL CSV columns (even unmapped ones) and split them
   for (const [csvField, value] of Object.entries(row)) {
     if (!value || typeof value !== 'string') continue
     
     const trimmedValue = value.trim()
     if (!trimmedValue) continue
     
-    // Check if this is a "full name" type field
+    // Check if this is a "full name" type field (even if not mapped)
     if (isFullNameField(csvField)) {
       const { firstName, lastName } = splitFullName(trimmedValue)
       if (firstName) {
@@ -390,11 +472,11 @@ function mapRowToContact(
       } else if (firstName) {
         contact.lastName = firstName
       }
-      console.log(`Split full name from "${csvField}": "${trimmedValue}" -> firstName: "${firstName}", lastName: "${lastName || firstName}"`)
+      console.log(`Split full name from unmapped field "${csvField}": "${trimmedValue}" -> firstName: "${firstName}", lastName: "${lastName || firstName}"`)
     }
   }
 
-  // Then apply the field mapping for other fields (but don't overwrite firstName/lastName if already set)
+  // Then apply the field mapping for explicitly mapped fields (but don't overwrite firstName/lastName if already set from full name)
   for (const [csvField, contactField] of Object.entries(fieldMapping)) {
     // Skip if this is a full name field (already processed above)
     if (isFullNameField(csvField)) continue

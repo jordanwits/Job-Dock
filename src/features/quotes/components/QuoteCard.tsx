@@ -5,9 +5,11 @@ import { cn } from '@/lib/utils'
 
 interface QuoteCardProps {
   quote: Quote
+  isSelected?: boolean
+  onToggleSelect?: (id: string, event: React.MouseEvent) => void
 }
 
-const QuoteCard = ({ quote }: QuoteCardProps) => {
+const QuoteCard = ({ quote, isSelected, onToggleSelect }: QuoteCardProps) => {
   const { setSelectedQuote } = useQuoteStore()
 
   const statusColors = {
@@ -27,12 +29,30 @@ const QuoteCard = ({ quote }: QuoteCardProps) => {
 
   return (
     <Card
-      className="cursor-pointer hover:border-primary-gold transition-colors"
+      className={cn(
+        "cursor-pointer hover:border-primary-gold transition-colors relative",
+        isSelected && "ring-2 ring-primary-gold"
+      )}
       onClick={() => setSelectedQuote(quote)}
     >
       <div className="space-y-3">
+        {/* Selection Checkbox */}
+        {onToggleSelect && (
+          <div 
+            className="absolute top-3 left-3 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={isSelected || false}
+              onChange={(e) => onToggleSelect(quote.id, e as any)}
+              className="w-5 h-5 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
+            />
+          </div>
+        )}
+        
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className={cn("flex items-start justify-between", onToggleSelect && "pl-8")}>
           <div className="flex-1 min-w-0 pr-2">
             <h3 className="text-lg font-semibold text-primary-light">
               {quote.quoteNumber}

@@ -3,6 +3,7 @@ import { useContactStore } from '../store/contactStore'
 import ContactCard from './ContactCard'
 import { Button, Input, Select } from '@/components/ui'
 import { phoneMatches } from '@/lib/utils/phone'
+import { contactsService } from '@/lib/api/services'
 
 interface ContactListProps {
   onCreateClick?: () => void
@@ -23,6 +24,7 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
     setStatusFilter,
     setSelectedContact,
     clearError,
+    deleteContact,
   } = useContactStore()
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -33,6 +35,9 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
     const saved = localStorage.getItem('crm-display-mode')
     return (saved as DisplayMode) || 'cards'
   })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     fetchContacts()
@@ -132,6 +137,72 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
     ? [...leadContacts, ...customerContacts, ...inactiveContacts]
     : sortedContacts
 
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    try {
+      setIsDeleting(true)
+      const idsToDelete = Array.from(selectedIds)
+      const errors: string[] = []
+      
+      // Delete contacts in batches of 5 to balance speed and reliability
+      const BATCH_SIZE = 5
+      for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+        const batch = idsToDelete.slice(i, i + BATCH_SIZE)
+        const results = await Promise.allSettled(
+          // Call API directly to avoid UI updates during deletion
+          batch.map(id => contactsService.delete(id))
+        )
+        
+        // Track which ones failed
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            const failedId = batch[index]
+            console.error(`Failed to delete contact ${failedId}:`, result.reason)
+            errors.push(failedId)
+          }
+        })
+      }
+      
+      // Refresh the entire list once at the end to prevent flashing
+      await fetchContacts()
+      
+      // Only clear successfully deleted contacts
+      if (errors.length > 0) {
+        // Keep the failed IDs selected for retry
+        setSelectedIds(new Set(errors))
+        alert(`${idsToDelete.length - errors.length} contact(s) deleted successfully. ${errors.length} contact(s) failed - they remain selected for retry.`)
+      } else {
+        setSelectedIds(new Set())
+      }
+      setShowDeleteConfirm(false)
+    } catch (error) {
+      console.error('Error deleting contacts:', error)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // Toggle selection for a contact
+  const toggleSelection = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  // Select all/none
+  const toggleSelectAll = () => {
+    if (selectedIds.size === displayContacts.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(displayContacts.map(c => c.id)))
+    }
+  }
+
   if (error) {
     return (
       <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
@@ -225,10 +296,68 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="text-sm text-primary-light/70">
-        {displayContacts.length} contact{displayContacts.length !== 1 ? 's' : ''} found
+      {/* Results Count and Bulk Actions */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-primary-light/70">
+          {selectedIds.size > 0 ? (
+            <span className="font-medium text-primary-gold">
+              {selectedIds.size} selected
+            </span>
+          ) : (
+            `${displayContacts.length} contact${displayContacts.length !== 1 ? 's' : ''} found`
+          )}
+        </div>
+        {selectedIds.size > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Selected ({selectedIds.size})
+          </Button>
+        )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-red-400 mb-2">Delete {selectedIds.size} Contact{selectedIds.size !== 1 ? 's' : ''}?</h3>
+                <p className="text-sm text-primary-light/70 mb-4">
+                  This action cannot be undone. All associated data will be permanently removed.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleBulkDelete}
+                    disabled={isDeleting}
+                    className="bg-red-500 hover:bg-red-600 text-white"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contact List */}
       {isLoading ? (
@@ -262,7 +391,12 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             ) : (
               <div className="space-y-4">
                 {leadContacts.map((contact) => (
-                  <ContactCard key={contact.id} contact={contact} />
+                  <ContactCard 
+                    key={contact.id} 
+                    contact={contact}
+                    isSelected={selectedIds.has(contact.id)}
+                    onToggleSelect={toggleSelection}
+                  />
                 ))}
               </div>
             )}
@@ -281,7 +415,12 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             ) : (
               <div className="space-y-4">
                 {customerContacts.map((contact) => (
-                  <ContactCard key={contact.id} contact={contact} />
+                  <ContactCard 
+                    key={contact.id} 
+                    contact={contact}
+                    isSelected={selectedIds.has(contact.id)}
+                    onToggleSelect={toggleSelection}
+                  />
                 ))}
               </div>
             )}
@@ -300,7 +439,12 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             ) : (
               <div className="space-y-4">
                 {inactiveContacts.map((contact) => (
-                  <ContactCard key={contact.id} contact={contact} />
+                  <ContactCard 
+                    key={contact.id} 
+                    contact={contact}
+                    isSelected={selectedIds.has(contact.id)}
+                    onToggleSelect={toggleSelection}
+                  />
                 ))}
               </div>
             )}
@@ -310,7 +454,12 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
         // Card Grid Layout
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {displayContacts.map((contact) => (
-            <ContactCard key={contact.id} contact={contact} />
+            <ContactCard 
+              key={contact.id} 
+              contact={contact}
+              isSelected={selectedIds.has(contact.id)}
+              onToggleSelect={toggleSelection}
+            />
           ))}
         </div>
       ) : (
@@ -320,6 +469,14 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             <table className="w-full">
               <thead className="bg-primary-dark-secondary border-b border-primary-blue">
                 <tr>
+                  <th className="px-4 py-3 w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === displayContacts.length && displayContacts.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                     Name
                   </th>
@@ -353,6 +510,14 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
                       className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
                       onClick={() => setSelectedContact(contact)}
                     >
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(contact.id)}
+                          onChange={(e) => toggleSelection(contact.id, e as any)}
+                          className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 rounded-full bg-primary-blue flex items-center justify-center text-primary-gold font-semibold">

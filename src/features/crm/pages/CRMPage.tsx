@@ -3,6 +3,7 @@ import { useContactStore } from '../store/contactStore'
 import ContactList from '../components/ContactList'
 import ContactForm from '../components/ContactForm'
 import ContactDetail from '../components/ContactDetail'
+import ImportContactsModal from '../components/ImportContactsModal'
 import { ScheduleJobModal } from '@/features/scheduling'
 import { Button, Modal, Card } from '@/components/ui'
 
@@ -17,6 +18,7 @@ const CRMPage = () => {
     fetchContacts,
   } = useContactStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
   const [showScheduleJob, setShowScheduleJob] = useState(false)
@@ -41,6 +43,14 @@ const CRMPage = () => {
     } catch (error) {
       // Error handled by store
     }
+  }
+
+  const handleImportComplete = async () => {
+    setShowImportModal(false)
+    await fetchContacts()
+    setConfirmationMessage('Contacts Imported Successfully')
+    setShowConfirmation(true)
+    setTimeout(() => setShowConfirmation(false), 3000)
   }
 
   // Keyboard shortcut: CMD+N / CTRL+N to create new contact
@@ -69,6 +79,13 @@ const CRMPage = () => {
           </p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
+          <Button 
+            onClick={() => setShowImportModal(true)} 
+            variant="outline"
+            className="flex-1 sm:flex-initial"
+          >
+            Import CSV
+          </Button>
           <Button 
             onClick={() => setShowCreateForm(true)} 
             className="flex-1 sm:flex-initial"
@@ -162,6 +179,13 @@ const CRMPage = () => {
           setShowConfirmation(true)
           setTimeout(() => setShowConfirmation(false), 3000)
         }}
+      />
+
+      {/* Import Contacts Modal */}
+      <ImportContactsModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={handleImportComplete}
       />
 
     </div>

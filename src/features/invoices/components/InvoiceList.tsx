@@ -1,11 +1,15 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useInvoiceStore } from '../store/invoiceStore'
 import InvoiceCard from './InvoiceCard'
 import { Input, Button, Select } from '@/components/ui'
+import { cn } from '@/lib/utils'
+import { invoicesService } from '@/lib/api/services'
 
 interface InvoiceListProps {
   onCreateClick?: () => void
 }
+
+type DisplayMode = 'cards' | 'list'
 
 const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
   const {
@@ -20,11 +24,26 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     setStatusFilter,
     setPaymentStatusFilter,
     clearError,
+    setSelectedInvoice,
+    deleteInvoice,
   } = useInvoiceStore()
+
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
+    const saved = localStorage.getItem('invoices-display-mode')
+    return (saved as DisplayMode) || 'cards'
+  })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     fetchInvoices()
   }, [fetchInvoices])
+
+  // Persist display mode preference
+  useEffect(() => {
+    localStorage.setItem('invoices-display-mode', displayMode)
+  }, [displayMode])
 
   // Filter and search invoices
   const filteredInvoices = useMemo(() => {
@@ -55,6 +74,71 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     return filtered
   }, [invoices, statusFilter, paymentStatusFilter, searchQuery])
 
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    try {
+      setIsDeleting(true)
+      const idsToDelete = Array.from(selectedIds)
+      const errors: string[] = []
+      
+      // Delete invoices in batches of 5 to balance speed and reliability
+      const BATCH_SIZE = 5
+      for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+        const batch = idsToDelete.slice(i, i + BATCH_SIZE)
+        const results = await Promise.allSettled(
+          // Call API directly to avoid UI updates during deletion
+          batch.map(id => invoicesService.delete(id))
+        )
+        
+        // Track which ones failed
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            const failedId = batch[index]
+            console.error(`Failed to delete invoice ${failedId}:`, result.reason)
+            errors.push(failedId)
+          }
+        })
+      }
+      
+      // Refresh the entire list once at the end to prevent flashing
+      await fetchInvoices()
+      
+      // Only clear successfully deleted invoices
+      if (errors.length > 0) {
+        setSelectedIds(new Set(errors))
+        alert(`${idsToDelete.length - errors.length} invoice(s) deleted successfully. ${errors.length} invoice(s) failed - they remain selected for retry.`)
+      } else {
+        setSelectedIds(new Set())
+      }
+      setShowDeleteConfirm(false)
+    } catch (error) {
+      console.error('Error deleting invoices:', error)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // Toggle selection
+  const toggleSelection = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  // Select all/none
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredInvoices.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredInvoices.map(i => i.id)))
+    }
+  }
+
   if (error) {
     return (
       <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
@@ -74,6 +158,32 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     )
   }
 
+  const statusColors = {
+    draft: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    sent: 'bg-primary-blue/20 text-primary-blue border-primary-blue/30',
+    overdue: 'bg-red-500/20 text-red-400 border-red-500/30',
+    cancelled: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  }
+
+  const paymentStatusColors = {
+    pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    partial: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    paid: 'bg-green-500/20 text-green-400 border-green-500/30',
+  }
+
+  const paymentStatusLabels = {
+    pending: 'Unpaid',
+    partial: 'Partial',
+    paid: 'Paid',
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount)
+  }
+
   return (
     <div className="space-y-4">
       {/* Search and Filters */}
@@ -85,7 +195,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <Select
             value={statusFilter}
             onChange={(e) =>
@@ -100,7 +210,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
               { value: 'overdue', label: 'Overdue' },
               { value: 'cancelled', label: 'Cancelled' },
             ]}
-            className="min-w-[140px]"
+            className="w-full sm:w-auto min-w-[140px]"
           />
           <Select
             value={paymentStatusFilter}
@@ -115,15 +225,101 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
               { value: 'partial', label: 'Partial' },
               { value: 'paid', label: 'Paid' },
             ]}
-            className="min-w-[140px]"
+            className="w-full sm:w-auto min-w-[140px]"
           />
+          <div className="flex gap-1 border border-primary-blue rounded-lg p-1">
+            <button
+              onClick={() => setDisplayMode('cards')}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                displayMode === 'cards'
+                  ? 'bg-primary-gold text-primary-dark'
+                  : 'text-primary-light hover:bg-primary-blue/20'
+              }`}
+              title="Card View"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setDisplayMode('list')}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                displayMode === 'list'
+                  ? 'bg-primary-gold text-primary-dark'
+                  : 'text-primary-light hover:bg-primary-blue/20'
+              }`}
+              title="List View"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="text-sm text-primary-light/70">
-        {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''} found
+      {/* Results Count and Bulk Actions */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-primary-light/70">
+          {selectedIds.size > 0 ? (
+            <span className="font-medium text-primary-gold">
+              {selectedIds.size} selected
+            </span>
+          ) : (
+            `${filteredInvoices.length} invoice${filteredInvoices.length !== 1 ? 's' : ''} found`
+          )}
+        </div>
+        {selectedIds.size > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Selected ({selectedIds.size})
+          </Button>
+        )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-red-400 mb-2">Delete {selectedIds.size} Invoice{selectedIds.size !== 1 ? 's' : ''}?</h3>
+                <p className="text-sm text-primary-light/70 mb-4">
+                  This action cannot be undone. All selected invoices will be permanently removed.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleBulkDelete}
+                    disabled={isDeleting}
+                    className="bg-red-500 hover:bg-red-600 text-white"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invoice List */}
       {isLoading ? (
@@ -141,11 +337,130 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
             <Button variant="primary" onClick={onCreateClick}>Create Your First Invoice</Button>
           )}
         </div>
-      ) : (
+      ) : displayMode === 'cards' ? (
+        // Card Grid Layout
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredInvoices.map((invoice) => (
-            <InvoiceCard key={invoice.id} invoice={invoice} />
+            <InvoiceCard 
+              key={invoice.id} 
+              invoice={invoice}
+              isSelected={selectedIds.has(invoice.id)}
+              onToggleSelect={toggleSelection}
+            />
           ))}
+        </div>
+      ) : (
+        // List Layout
+        <div className="rounded-lg border border-primary-blue overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+                <tr>
+                  <th className="px-4 py-3 w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
+                    />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    Invoice #
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                    Title
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    Contact
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    Due Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    Total
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    Payment
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-primary-blue">
+                {filteredInvoices.map((invoice) => {
+                  const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
+                    const dueDate = new Date(invoice.dueDate)
+                    const oneDayAgo = new Date()
+                    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+                    oneDayAgo.setHours(23, 59, 59, 999)
+                    return dueDate < oneDayAgo
+                  })()
+
+                  return (
+                    <tr 
+                      key={invoice.id} 
+                      className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedInvoice(invoice)}
+                    >
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(invoice.id)}
+                          onChange={(e) => toggleSelection(invoice.id, e as any)}
+                          className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-primary-light">
+                          {invoice.invoiceNumber}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
+                        <div className="truncate max-w-[200px]">{invoice.title || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
+                        <div className="truncate max-w-[150px]">{invoice.contactName || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell">
+                        {invoice.dueDate ? (
+                          <div className={cn(
+                            isOverdue ? "text-red-400 font-medium" : "text-primary-light/70"
+                          )}>
+                            {isOverdue ? '⚠️ ' : ''}{new Date(invoice.dueDate).toLocaleDateString()}
+                          </div>
+                        ) : (
+                          <span className="text-primary-light/50">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-primary-gold">
+                          {formatCurrency(invoice.total)}
+                        </div>
+                        {invoice.paymentStatus === 'partial' && (
+                          <div className="text-xs text-primary-light/50">
+                            Paid: {formatCurrency(invoice.paidAmount)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {(invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled') && (
+                          <span className={cn('px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border', statusColors[invoice.status])}>
+                            {invoice.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={cn('px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border', paymentStatusColors[invoice.paymentStatus])}>
+                          {paymentStatusLabels[invoice.paymentStatus]}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

@@ -5,9 +5,11 @@ import { cn } from '@/lib/utils'
 
 interface ContactCardProps {
   contact: Contact
+  isSelected?: boolean
+  onToggleSelect?: (id: string, event: React.MouseEvent) => void
 }
 
-const ContactCard = ({ contact }: ContactCardProps) => {
+const ContactCard = ({ contact, isSelected, onToggleSelect }: ContactCardProps) => {
   const { setSelectedContact } = useContactStore()
 
   const statusColors = {
@@ -22,12 +24,30 @@ const ContactCard = ({ contact }: ContactCardProps) => {
 
   return (
     <Card
-      className="cursor-pointer hover:border-primary-gold transition-colors"
+      className={cn(
+        "cursor-pointer hover:border-primary-gold transition-colors relative",
+        isSelected && "ring-2 ring-primary-gold"
+      )}
       onClick={() => setSelectedContact(contact)}
     >
       <div className="space-y-3">
+        {/* Selection Checkbox */}
+        {onToggleSelect && (
+          <div 
+            className="absolute top-3 left-3 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={isSelected || false}
+              onChange={(e) => onToggleSelect(contact.id, e as any)}
+              className="w-5 h-5 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
+            />
+          </div>
+        )}
+        
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className={cn("flex items-start justify-between", onToggleSelect && "pl-8")}>
           <div>
             <h3 className="text-lg font-semibold text-primary-light">
               {fullName}
