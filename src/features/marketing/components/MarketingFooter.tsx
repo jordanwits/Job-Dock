@@ -8,9 +8,13 @@ const MarketingFooter = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* Company Info */}
           <div>
-            <h3 className="text-xl font-bold text-primary-gold mb-4">
-              {publicSiteConfig.companyName}
-            </h3>
+            <div className="bg-white rounded-lg px-3 py-2 inline-block mb-4">
+              <img 
+                src="/TJD Horizontal.png" 
+                alt="JobDock Logo" 
+                className="h-8 md:h-10 w-auto"
+              />
+            </div>
             <p className="text-primary-light/70 text-sm mb-4">
               Complete contractor management platform for service providers.
             </p>

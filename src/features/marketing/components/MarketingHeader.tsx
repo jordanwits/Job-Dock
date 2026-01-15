@@ -7,7 +7,10 @@ const MarketingHeader = () => {
     <header className="sticky top-0 z-40 w-full border-b border-primary-blue bg-primary-dark-secondary/95 backdrop-blur supports-[backdrop-filter]:bg-primary-dark-secondary/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <Link to="/" className="flex items-center space-x-2">
+        <Link to="/" className="flex items-center space-x-3">
+          <div className="relative flex items-center justify-center w-10 h-10 md:w-12 md:h-12 bg-white rounded-full">
+            <img src="/TJD Icon transparent.png" alt="JobDock Logo" className="h-6 md:h-8 w-auto" />
+          </div>
           <span className="text-xl md:text-2xl font-bold text-primary-gold">
             {publicSiteConfig.companyName}
           </span>
