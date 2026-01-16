@@ -198,10 +198,13 @@ const realJobsService = {
   update: async (id: string, data: Partial<CreateJobData & { updateAll?: boolean }>) => {
     console.log('🌐 API Service: Sending PUT request to /jobs/' + id, { 
       updateAll: data.updateAll,
-      dataKeys: Object.keys(data)
+      dataKeys: Object.keys(data),
+      hasRecurrence: !!data.recurrence,
+      recurrenceData: data.recurrence,
+      fullPayload: data
     })
     const response = await apiClient.put(`/jobs/${id}`, data)
-    console.log('✅ API Service: PUT response received')
+    console.log('✅ API Service: PUT response received', response.data)
     return response.data
   },
 
@@ -299,6 +302,25 @@ export const invoicesService = useMockData ? mockServices.invoices : realInvoice
 export const jobsService = useMockData ? mockServices.jobs : realJobsService
 export const servicesService = useMockData ? mockServices.services : realServicesService
 
+const realBillingService = {
+  getStatus: async () => {
+    const response = await apiClient.get('/billing/status')
+    return response.data
+  },
+  
+  createEmbeddedCheckoutSession: async () => {
+    const response = await apiClient.post('/billing/embedded-checkout-session')
+    return response.data
+  },
+  
+  createPortalSession: async () => {
+    const response = await apiClient.post('/billing/portal-session')
+    return response.data
+  },
+}
+
+export const billingService = realBillingService
+
 // Add more services as you build them
 export const services = {
   auth: authService,
@@ -307,5 +329,6 @@ export const services = {
   invoices: invoicesService,
   jobs: jobsService,
   services: servicesService,
+  billing: billingService,
 }
 

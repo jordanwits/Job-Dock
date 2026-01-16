@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout, ProtectedRoute } from '@/components'
+import { BillingGuard } from '@/components/billing'
 import SessionMonitor from '@/components/SessionMonitor'
 import { LoginPage, RegisterPage, ResetPasswordPage, useAuthStore } from '@/features/auth'
 import { DashboardPage } from '@/features/dashboard'
@@ -9,6 +10,7 @@ import { InvoicesPage } from '@/features/invoices'
 import { SchedulingPage } from '@/features/scheduling'
 import { PublicBookingPage } from '@/features/booking'
 import { SettingsPage } from '@/features/settings'
+import { BillingPage, BillingReturnPage } from '@/features/billing'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
 import { LandingPage, PrivacyPolicyPage, TermsOfServicePage, EmailPolicyPage } from '@/features/marketing'
 
@@ -22,6 +24,7 @@ function App() {
     { label: 'Invoices', href: '/app/invoices' },
     { label: 'Calendar', href: '/app/scheduling' },
     { label: 'Settings', href: '/app/settings' },
+    { label: 'Billing', href: '/app/billing' },
   ]
 
   const handleLogout = async () => {
@@ -56,13 +59,15 @@ function App() {
           path="/app"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AppLayout
-                sidebarItems={sidebarItems}
-                user={user ? { name: user.name, email: user.email } : undefined}
-                onLogout={handleLogout}
-              >
-                <DashboardPage />
-              </AppLayout>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <DashboardPage />
+                </AppLayout>
+              </BillingGuard>
             </ProtectedRoute>
           }
         />
@@ -71,13 +76,15 @@ function App() {
           path="/app/crm"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AppLayout
-                sidebarItems={sidebarItems}
-                user={user ? { name: user.name, email: user.email } : undefined}
-                onLogout={handleLogout}
-              >
-                <CRMPage />
-              </AppLayout>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <CRMPage />
+                </AppLayout>
+              </BillingGuard>
             </ProtectedRoute>
           }
         />
@@ -86,13 +93,15 @@ function App() {
           path="/app/quotes"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AppLayout
-                sidebarItems={sidebarItems}
-                user={user ? { name: user.name, email: user.email } : undefined}
-                onLogout={handleLogout}
-              >
-                <QuotesPage />
-              </AppLayout>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <QuotesPage />
+                </AppLayout>
+              </BillingGuard>
             </ProtectedRoute>
           }
         />
@@ -101,13 +110,15 @@ function App() {
           path="/app/invoices"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AppLayout
-                sidebarItems={sidebarItems}
-                user={user ? { name: user.name, email: user.email } : undefined}
-                onLogout={handleLogout}
-              >
-                <InvoicesPage />
-              </AppLayout>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <InvoicesPage />
+                </AppLayout>
+              </BillingGuard>
             </ProtectedRoute>
           }
         />
@@ -116,13 +127,15 @@ function App() {
           path="/app/scheduling"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AppLayout
-                sidebarItems={sidebarItems}
-                user={user ? { name: user.name, email: user.email } : undefined}
-                onLogout={handleLogout}
-              >
-                <SchedulingPage />
-              </AppLayout>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <SchedulingPage />
+                </AppLayout>
+              </BillingGuard>
             </ProtectedRoute>
           }
         />
@@ -131,13 +144,39 @@ function App() {
           path="/app/settings"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <SettingsPage />
+                </AppLayout>
+              </BillingGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/app/billing"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
               <AppLayout
                 sidebarItems={sidebarItems}
                 user={user ? { name: user.name, email: user.email } : undefined}
                 onLogout={handleLogout}
               >
-                <SettingsPage />
+                <BillingPage />
               </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/app/billing/return"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <BillingReturnPage />
             </ProtectedRoute>
           }
         />

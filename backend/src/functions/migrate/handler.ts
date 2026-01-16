@@ -428,6 +428,29 @@ const PENDING_MIGRATIONS = [
       `CREATE INDEX IF NOT EXISTS "jobs_endTime_idx" ON "jobs"("endTime")`
     ],
     description: 'Add deletedAt and archivedAt fields to jobs for data retention management'
+  },
+  {
+    name: '20260116000000_add_stripe_billing',
+    statements: [
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "stripeCustomerId" TEXT`,
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "stripeSubscriptionId" TEXT`,
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "stripePriceId" TEXT`,
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "stripeSubscriptionStatus" TEXT`,
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "trialEndsAt" TIMESTAMP(3)`,
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "currentPeriodEndsAt" TIMESTAMP(3)`,
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "cancelAtPeriodEnd" BOOLEAN DEFAULT false`,
+      `CREATE INDEX IF NOT EXISTS "tenants_stripeCustomerId_idx" ON "tenants"("stripeCustomerId")`,
+      `CREATE INDEX IF NOT EXISTS "tenants_stripeSubscriptionId_idx" ON "tenants"("stripeSubscriptionId")`,
+      `CREATE TABLE IF NOT EXISTS "stripe_webhook_events" (
+        "id" TEXT NOT NULL,
+        "stripeEventId" TEXT NOT NULL,
+        "processedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "stripe_webhook_events_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "stripe_webhook_events_stripeEventId_key" ON "stripe_webhook_events"("stripeEventId")`,
+      `CREATE INDEX IF NOT EXISTS "stripe_webhook_events_stripeEventId_idx" ON "stripe_webhook_events"("stripeEventId")`
+    ],
+    description: 'Add Stripe billing fields to tenants and create webhook idempotency table'
   }
 ]
 

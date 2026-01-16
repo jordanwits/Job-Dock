@@ -11,7 +11,7 @@ export interface Config {
   vercelDomain?: string // e.g. 'jobdock.vercel.app' or 'app.yourdomain.com'
   defaultTenantId?: string
   email?: string
-  sesFromAddress?: string
+  emailFromAddress?: string
   cloudfrontCertificateArn?: string
   database: {
     engine: 'aurora-postgresql' | 'rds-postgresql'
@@ -40,7 +40,7 @@ export const configs: Record<string, Config> = {
     env: 'dev',
     region: 'us-east-1',
     defaultTenantId: 'demo-tenant',
-    sesFromAddress: 'noreply@thejobdock.com',
+    emailFromAddress: 'noreply@thejobdock.com',
     database: {
       engine: 'rds-postgresql',
       instanceClass: 't3',
@@ -63,7 +63,7 @@ export const configs: Record<string, Config> = {
   staging: {
     env: 'staging',
     region: 'us-east-1',
-    sesFromAddress: 'noreply@thejobdock.com',
+    emailFromAddress: 'noreply@thejobdock.com',
     database: {
       engine: 'aurora-postgresql',
       minCapacity: 1,
@@ -88,7 +88,7 @@ export const configs: Record<string, Config> = {
     region: 'us-east-1',
     // Custom domain for Vercel deployment
     domain: 'thejobdock.com',
-    sesFromAddress: 'noreply@thejobdock.com',
+    emailFromAddress: 'noreply@thejobdock.com',
     database: {
       engine: 'rds-postgresql',
       instanceClass: 't3',

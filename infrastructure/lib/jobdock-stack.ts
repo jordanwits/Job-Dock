@@ -416,10 +416,15 @@ export class JobDockStack extends cdk.Stack {
             ? `https://${config.domain}`
             : 'http://localhost:3000',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
-        // SES Email configuration
-        SES_ENABLED: 'true', // Enable for all environments to send real emails
-        SES_REGION: this.region,
-        SES_FROM_ADDRESS: config.sesFromAddress || 'noreply@thejobdock.com',
+        // Email configuration (Resend)
+        EMAIL_PROVIDER: 'resend',
+        EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thejobdock.com',
+        RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+        // Stripe billing configuration
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+        STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID || '',
+        STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
     })
@@ -459,10 +464,15 @@ export class JobDockStack extends cdk.Stack {
             ? `https://${config.domain}`
             : 'http://localhost:3000',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
-        // SES Email configuration
-        SES_ENABLED: 'true', // Enable for all environments to send real emails
-        SES_REGION: this.region,
-        SES_FROM_ADDRESS: config.sesFromAddress || 'noreply@thejobdock.com',
+        // Email configuration (Resend)
+        EMAIL_PROVIDER: 'resend',
+        EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thejobdock.com',
+        RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+        // Stripe billing configuration
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+        STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID || '',
+        STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
       },
       logRetention: logs.RetentionDays.ONE_WEEK,
     })

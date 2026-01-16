@@ -9,21 +9,31 @@ datasource db {
 }
 
 model Tenant {
-  id             String          @id @default(uuid())
-  name           String
-  subdomain      String          @unique
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  contacts       Contact[]
-  invoices       Invoice[]
-  jobs           Job[]
-  jobRecurrences JobRecurrence[]
-  quotes         Quote[]
-  services       Service[]
-  users          User[]
-  settings       TenantSettings?
+  id                       String          @id @default(uuid())
+  name                     String
+  subdomain                String          @unique
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  // Stripe billing fields
+  stripeCustomerId         String?
+  stripeSubscriptionId     String?
+  stripePriceId            String?
+  stripeSubscriptionStatus String?
+  trialEndsAt              DateTime?
+  currentPeriodEndsAt      DateTime?
+  cancelAtPeriodEnd        Boolean         @default(false)
+  contacts                 Contact[]
+  invoices                 Invoice[]
+  jobs                     Job[]
+  jobRecurrences           JobRecurrence[]
+  quotes                   Quote[]
+  services                 Service[]
+  users                    User[]
+  settings                 TenantSettings?
 
   @@index([subdomain])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
   @@map("tenants")
 }
 
@@ -320,4 +330,13 @@ model TenantSettings {
 
   @@index([tenantId])
   @@map("tenant_settings")
+}
+
+model StripeWebhookEvent {
+  id            String   @id @default(uuid())
+  stripeEventId String   @unique
+  processedAt   DateTime @default(now())
+
+  @@index([stripeEventId])
+  @@map("stripe_webhook_events")
 }

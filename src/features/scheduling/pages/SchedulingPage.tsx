@@ -214,11 +214,15 @@ const SchedulingPage = () => {
     console.log('📝 SchedulingPage: handleUpdateJob called', { 
       editUpdateAll, 
       editingJobId: editingJob?.id,
-      recurrenceId: editingJob?.recurrenceId 
+      recurrenceId: editingJob?.recurrenceId,
+      hasRecurrence: !!data.recurrence,
+      recurrenceData: data.recurrence
     })
     try {
       if (editingJob) {
-        await updateJob({ ...data, id: editingJob.id, updateAll: editUpdateAll })
+        const updatePayload = { ...data, id: editingJob.id, updateAll: editUpdateAll }
+        console.log('📤 Sending update payload:', updatePayload)
+        await updateJob(updatePayload)
         setEditingJob(null)
         setEditUpdateAll(false)
         setShowJobForm(false)

@@ -180,9 +180,66 @@ We look forward to working with you!',
     }
   }
 
+  // Special handling for billing webhook (no auth, raw body required)
+  if (event.path?.includes('/billing/webhook') && event.httpMethod === 'POST') {
+    try {
+      const signature = event.headers['stripe-signature'] || event.headers['Stripe-Signature'] || ''
+      if (!signature) {
+        return errorResponse('Missing stripe-signature header', 400)
+      }
+      
+      // Use raw body if available, otherwise use event.body
+      const rawBody = event.body || ''
+      
+      const result = await dataServices.billing.handleWebhook(rawBody, signature)
+      return successResponse(result)
+    } catch (error) {
+      console.error('Webhook error:', error)
+      if (error instanceof ApiError) {
+        return errorResponse(error, error.statusCode)
+      }
+      return errorResponse(error instanceof Error ? error : 'Webhook processing failed', 500)
+    }
+  }
+
   try {
     const { resource, id, action } = parsePath(event)
     console.log('[HANDLER v2.1] Parsed path:', { resource, id, action, method: event.httpMethod, path: event.path })
+    
+    // Handle billing endpoints with authentication
+    if (resource === 'billing') {
+      const context = await extractContext(event)
+      const tenantId = context.tenantId
+      const userId = context.userId
+      const userEmail = context.userEmail
+      
+      // Check if user is owner
+      const user = await prisma.user.findUnique({
+        where: { cognitoId: userId },
+        select: { role: true },
+      })
+      
+      if (!user || user.role !== 'owner') {
+        return errorResponse('Only tenant owners can manage billing', 403)
+      }
+      
+      if (action === 'status' && event.httpMethod === 'GET') {
+        const status = await dataServices.billing.getStatus(tenantId)
+        return successResponse(status)
+      }
+      
+      if (action === 'embedded-checkout-session' && event.httpMethod === 'POST') {
+        const result = await dataServices.billing.createEmbeddedCheckoutSession(tenantId, userId, userEmail)
+        return successResponse(result)
+      }
+      
+      if (action === 'portal-session' && event.httpMethod === 'POST') {
+        const result = await dataServices.billing.createPortalSession(tenantId)
+        return successResponse(result)
+      }
+      
+      return errorResponse('Billing route not found', 404)
+    }
     
     // Check if this is a public booking endpoint that doesn't require authentication
     const isPublicBookingEndpoint = 
@@ -216,6 +273,27 @@ We look forward to working with you!',
 
     if (!resource) {
       return successResponse({ status: 'ok' })
+    }
+
+    // Subscription enforcement (when enabled)
+    const enforceSubscription = process.env.STRIPE_ENFORCE_SUBSCRIPTION === 'true'
+    if (enforceSubscription && resource !== 'billing') {
+      // Always allow public endpoints
+      if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint) {
+        // Check subscription status
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { stripeSubscriptionStatus: true },
+        })
+        
+        const hasActiveSubscription = 
+          tenant?.stripeSubscriptionStatus === 'active' || 
+          tenant?.stripeSubscriptionStatus === 'trialing'
+        
+        if (!hasActiveSubscription) {
+          return errorResponse('Subscription required. Please visit the billing page to activate your account.', 402)
+        }
+      }
     }
 
     const service = dataServices[resource]

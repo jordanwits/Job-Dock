@@ -39,6 +39,20 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
       }
     }, [isOpen, onBlur])
 
+    // Scroll dropdown into view when it opens
+    useEffect(() => {
+      if (isOpen && dropdownRef.current) {
+        // Small delay to ensure the dropdown is rendered
+        setTimeout(() => {
+          dropdownRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest'
+          })
+        }, 10)
+      }
+    }, [isOpen])
+
     const selectedOption = options.find((opt) => opt.value === value)
     const displayValue = selectedOption ? selectedOption.label : placeholder
 

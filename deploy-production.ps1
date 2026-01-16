@@ -6,6 +6,7 @@ param(
     [switch]$SkipInfrastructure,
     [switch]$SkipMigrations,
     [switch]$SkipFrontend,
+    [switch]$SkipSESCheck,
     [string]$Domain,
     [string]$CertificateArn
 )
@@ -117,24 +118,29 @@ try {
 }
 
 # Step 3: Check SES configuration
-Write-Host "Step 3: Amazon SES Email Configuration" -ForegroundColor Yellow
-Write-Host "---------------------------------------" -ForegroundColor Yellow
-Write-Host ""
-
-Write-Host "⚠️  Important: Verify your email sending domain in SES" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  1. Go to: https://console.aws.amazon.com/ses/home?region=us-east-1" -ForegroundColor White
-Write-Host "  2. Under 'Verified identities', verify 'jordan@westwavecreative.com'" -ForegroundColor White
-Write-Host "  3. If SES is in sandbox mode, request production access to send to any email" -ForegroundColor White
-Write-Host ""
-
-$sesConfirm = Read-Host "Have you verified your SES sending identity? (y/n)"
-if ($sesConfirm -ne "y") {
+if (-not $SkipSESCheck) {
+    Write-Host "Step 3: Amazon SES Email Configuration" -ForegroundColor Yellow
+    Write-Host "---------------------------------------" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Please verify your SES identity before continuing." -ForegroundColor Yellow
-    Write-Host "You can continue deployment, but emails won't be sent until this is done." -ForegroundColor Yellow
+
+    Write-Host "Important: Verify your email sending domain in SES" -ForegroundColor Yellow
     Write-Host ""
-    Read-Host "Press Enter to continue anyway, or Ctrl+C to exit"
+    Write-Host "  1. Go to: https://console.aws.amazon.com/ses/home?region=us-east-1" -ForegroundColor White
+    Write-Host "  2. Under 'Verified identities', verify 'jordan@westwavecreative.com'" -ForegroundColor White
+    Write-Host "  3. If SES is in sandbox mode, request production access to send to any email" -ForegroundColor White
+    Write-Host ""
+
+    $sesConfirm = Read-Host "Have you verified your SES sending identity? (y/n)"
+    if ($sesConfirm -ne "y") {
+        Write-Host ""
+        Write-Host "Please verify your SES identity before continuing." -ForegroundColor Yellow
+        Write-Host "You can continue deployment, but emails won't be sent until this is done." -ForegroundColor Yellow
+        Write-Host ""
+        Read-Host "Press Enter to continue anyway, or Ctrl+C to exit"
+    }
+} else {
+    Write-Host "Skipping SES check (--SkipSESCheck flag)" -ForegroundColor Yellow
+    Write-Host ""
 }
 
 # Step 4: Deploy infrastructure
@@ -299,9 +305,9 @@ $userPoolId = aws cloudformation describe-stacks --stack-name $stackName --query
 
 Write-Host "Your JobDock production environment is ready!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📱 Frontend URL: $cloudFrontUrl" -ForegroundColor Cyan
-Write-Host "🔌 API URL: $apiUrl" -ForegroundColor Cyan
-Write-Host "🔐 Cognito User Pool: $userPoolId" -ForegroundColor Cyan
+Write-Host "Frontend URL: $cloudFrontUrl" -ForegroundColor Cyan
+Write-Host "API URL: $apiUrl" -ForegroundColor Cyan
+Write-Host "Cognito User Pool: $userPoolId" -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host "Next steps:" -ForegroundColor Yellow
@@ -311,5 +317,5 @@ Write-Host "  3. Set up billing alerts in AWS Console" -ForegroundColor White
 Write-Host "  4. Configure your DNS if using a custom domain" -ForegroundColor White
 Write-Host ""
 Write-Host "For future deployments, use:" -ForegroundColor Cyan
-Write-Host '  .\deploy-production.ps1 -SkipInfrastructure' -ForegroundColor White
+Write-Host "  .\deploy-production.ps1 -SkipInfrastructure -SkipDomainCheck -SkipMigrations" -ForegroundColor White
 Write-Host ""

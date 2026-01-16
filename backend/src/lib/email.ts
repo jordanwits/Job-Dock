@@ -1,16 +1,16 @@
-import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses'
+import { Resend } from 'resend'
 import { generateQuotePDF, generateInvoicePDF } from './pdf'
 import { generateApprovalToken } from './approvalTokens'
 
 // Email configuration from environment variables
-const SES_ENABLED = process.env.SES_ENABLED === 'true'
-const SES_REGION = process.env.SES_REGION || 'us-east-1'
-const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'noreply@jobdock.dev'
+const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'console'
+const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
+const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'noreply@thejobdock.com'
 
-// Initialize SES client if enabled
-let sesClient: SESClient | null = null
-if (SES_ENABLED) {
-  sesClient = new SESClient({ region: SES_REGION })
+// Initialize Resend client if enabled
+let resendClient: Resend | null = null
+if (EMAIL_PROVIDER === 'resend' && RESEND_API_KEY) {
+  resendClient = new Resend(RESEND_API_KEY)
 }
 
 export interface EmailPayload {
@@ -37,56 +37,38 @@ export interface EmailWithAttachment {
 }
 
 /**
- * Send an email using AWS SES or log to console in dev mode
+ * Send an email using Resend or log to console in dev mode
  */
 export async function sendEmail(payload: EmailPayload): Promise<void> {
   const { to, subject, htmlBody, textBody, fromName, replyTo } = payload
 
-  if (SES_ENABLED && sesClient) {
-    // Send via AWS SES
+  if (EMAIL_PROVIDER === 'resend' && resendClient) {
+    // Send via Resend
     try {
       // Build FROM address with optional display name
-      const sourceAddress = fromName 
-        ? `${fromName} <${SES_FROM_ADDRESS}>`
-        : SES_FROM_ADDRESS
+      const fromAddress = fromName 
+        ? `${fromName} <${EMAIL_FROM_ADDRESS}>`
+        : EMAIL_FROM_ADDRESS
 
-      const command = new SendEmailCommand({
-        Source: sourceAddress,
-        ...(replyTo && { ReplyToAddresses: [replyTo] }),
-        Destination: {
-          ToAddresses: [to],
-        },
-        Message: {
-          Subject: {
-            Data: subject,
-            Charset: 'UTF-8',
-          },
-          Body: {
-            Html: {
-              Data: htmlBody,
-              Charset: 'UTF-8',
-            },
-            ...(textBody && {
-              Text: {
-                Data: textBody,
-                Charset: 'UTF-8',
-              },
-            }),
-          },
-        },
+      await resendClient.emails.send({
+        from: fromAddress,
+        to,
+        subject,
+        html: htmlBody,
+        ...(textBody && { text: textBody }),
+        ...(replyTo && { reply_to: replyTo }),
       })
-
-      await sesClient.send(command)
-      console.log(`✅ Email sent via SES to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`)
+      
+      console.log(`✅ Email sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`)
     } catch (error) {
-      console.error('❌ Failed to send email via SES:', error)
+      console.error('❌ Failed to send email via Resend:', error)
       throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   } else {
     // Log to console in dev mode
     console.log('\n📧 =============== EMAIL (Dev Mode) ===============')
     console.log(`To: ${to}`)
-    console.log(`From: ${fromName ? `${fromName} <${SES_FROM_ADDRESS}>` : SES_FROM_ADDRESS}`)
+    console.log(`From: ${fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS}`)
     if (replyTo) console.log(`Reply-To: ${replyTo}`)
     console.log(`Subject: ${subject}`)
     console.log('---')
@@ -96,86 +78,44 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
 }
 
 /**
- * Create MIME message with attachments for raw email sending
- */
-function createMimeMessage(payload: EmailWithAttachment): string {
-  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`
-  const { to, subject, htmlBody, textBody, fromName, replyTo, attachments = [] } = payload
-
-  // Build FROM address with optional display name
-  const fromAddress = fromName 
-    ? `${fromName} <${SES_FROM_ADDRESS}>`
-    : SES_FROM_ADDRESS
-
-  let mime = [
-    `From: ${fromAddress}`,
-    `To: ${to}`,
-    ...(replyTo ? [`Reply-To: ${replyTo}`] : []),
-    `Subject: ${subject}`,
-    'MIME-Version: 1.0',
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    'Content-Type: multipart/alternative; boundary="alt-boundary"',
-    '',
-    '--alt-boundary',
-    'Content-Type: text/plain; charset=UTF-8',
-    '',
-    textBody || htmlBody.replace(/<[^>]*>/g, ''),
-    '',
-    '--alt-boundary',
-    'Content-Type: text/html; charset=UTF-8',
-    '',
-    htmlBody,
-    '',
-    '--alt-boundary--',
-  ].join('\r\n')
-
-  // Add attachments
-  attachments.forEach((attachment) => {
-    const base64Content = attachment.content.toString('base64')
-    mime += [
-      '',
-      `--${boundary}`,
-      `Content-Type: ${attachment.contentType}; name="${attachment.filename}"`,
-      'Content-Transfer-Encoding: base64',
-      `Content-Disposition: attachment; filename="${attachment.filename}"`,
-      '',
-      base64Content,
-    ].join('\r\n')
-  })
-
-  mime += `\r\n--${boundary}--`
-
-  return mime
-}
-
-/**
- * Send an email with attachments using AWS SES raw email API
+ * Send an email with attachments using Resend
  */
 export async function sendEmailWithAttachments(payload: EmailWithAttachment): Promise<void> {
   const { to, subject, htmlBody, textBody, fromName, replyTo, attachments = [] } = payload
 
-  if (SES_ENABLED && sesClient) {
+  if (EMAIL_PROVIDER === 'resend' && resendClient) {
     try {
-      const mimeMessage = createMimeMessage(payload)
-      const command = new SendRawEmailCommand({
-        RawMessage: {
-          Data: Buffer.from(mimeMessage),
-        },
+      // Build FROM address with optional display name
+      const fromAddress = fromName 
+        ? `${fromName} <${EMAIL_FROM_ADDRESS}>`
+        : EMAIL_FROM_ADDRESS
+
+      // Convert Buffer attachments to base64 strings for Resend
+      const resendAttachments = attachments.map(attachment => ({
+        filename: attachment.filename,
+        content: attachment.content.toString('base64'),
+      }))
+
+      await resendClient.emails.send({
+        from: fromAddress,
+        to,
+        subject,
+        html: htmlBody,
+        ...(textBody && { text: textBody }),
+        ...(replyTo && { reply_to: replyTo }),
+        ...(resendAttachments.length > 0 && { attachments: resendAttachments }),
       })
 
-      await sesClient.send(command)
-      console.log(`✅ Email with attachments sent via SES to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`)
+      console.log(`✅ Email with attachments sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`)
     } catch (error) {
-      console.error('❌ Failed to send email with attachments via SES:', error)
+      console.error('❌ Failed to send email with attachments via Resend:', error)
       throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   } else {
     // Log to console in dev mode
     console.log('\n📧 =============== EMAIL WITH ATTACHMENTS (Dev Mode) ===============')
     console.log(`To: ${to}`)
-    console.log(`From: ${fromName ? `${fromName} <${SES_FROM_ADDRESS}>` : SES_FROM_ADDRESS}`)
+    console.log(`From: ${fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS}`)
     if (replyTo) console.log(`Reply-To: ${replyTo}`)
     console.log(`Subject: ${subject}`)
     console.log(`Attachments: ${attachments.map(a => a.filename).join(', ')}`)

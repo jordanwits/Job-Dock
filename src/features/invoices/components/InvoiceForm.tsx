@@ -109,12 +109,14 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
   }
 
   const handleFormSubmit = async (data: InvoiceFormData, shouldSend: boolean = false) => {
+    const { dateStringToISO } = await import('@/lib/utils/dateUtils')
+    
     const cleanedData = {
       ...data,
       title: data.title || undefined,
       taxRate: data.taxRate ? data.taxRate / 100 : 0,
       notes: data.notes || undefined,
-      dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
+      dueDate: dateStringToISO(data.dueDate),
       paymentTerms: data.paymentTerms || undefined,
     }
     

@@ -34,6 +34,7 @@ const normalizeJob = (apiJob: any): Job => {
     toBeScheduled: apiJob.toBeScheduled || false,
     status: apiJob.status,
     location: apiJob.location,
+    price: apiJob.price ? parseFloat(apiJob.price) : undefined,
     notes: apiJob.notes,
     assignedTo: apiJob.assignedTo,
     breaks: apiJob.breaks || undefined,
@@ -152,16 +153,21 @@ export const useJobStore = create<JobState>((set, get) => ({
     console.log('🔄 Frontend: Updating job with data:', { 
       id: data.id, 
       updateAll: data.updateAll,
-      hasUpdateAll: 'updateAll' in data 
+      hasUpdateAll: 'updateAll' in data,
+      hasRecurrence: !!data.recurrence
     })
     set({ isLoading: true, error: null })
     try {
       const apiJob = await jobsService.update(data.id, data)
-      console.log('✅ Frontend: Job update response received')
+      console.log('✅ Frontend: Job update response received', { hasRecurrenceId: !!apiJob.recurrenceId })
       const updatedJob = normalizeJob(apiJob)
       
-      // If updating all jobs in a recurring series, refresh the entire jobs list
-      if (data.updateAll) {
+      // Check if recurrence was added (response has recurrenceId but we're adding recurrence)
+      const wasRecurrenceAdded = data.recurrence && updatedJob.recurrenceId
+      
+      // If updating all jobs in a recurring series OR adding recurrence, refresh the entire jobs list
+      if (data.updateAll || wasRecurrenceAdded) {
+        console.log('🔄 Refreshing jobs list after update', { updateAll: data.updateAll, wasRecurrenceAdded })
         const { currentDate } = get()
         const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
         const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0)

@@ -100,8 +100,11 @@ const ConvertQuoteToInvoiceModal = ({
       // Don't allow conversion without a custom date
       return
     }
+    const { dateStringToISO } = await import('@/lib/utils/dateUtils')
     const finalDueDate = dueDate || calculateDueDate('Net 30')
-    await onConvert({ paymentTerms, dueDate: finalDueDate })
+    // Convert to ISO at noon UTC to avoid timezone shifts
+    const dueDateISO = dateStringToISO(finalDueDate)
+    await onConvert({ paymentTerms, dueDate: dueDateISO || finalDueDate })
   }
 
   return (

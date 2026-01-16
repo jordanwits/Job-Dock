@@ -104,13 +104,15 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
   }
 
   const handleFormSubmit = async (data: QuoteFormData, shouldSend: boolean = false) => {
+    const { dateStringToISO } = await import('@/lib/utils/dateUtils')
+    
     // Convert tax rate from percentage to decimal, auto-zero if empty
     const cleanedData = {
       ...data,
       taxRate: data.taxRate ? Number(data.taxRate) / 100 : 0,
       discount: data.discount ? Number(data.discount) : 0,
       notes: data.notes || undefined,
-      validUntil: data.validUntil ? new Date(data.validUntil).toISOString() : undefined,
+      validUntil: dateStringToISO(data.validUntil),
     }
     
     if (shouldSend && onSaveAndSend) {

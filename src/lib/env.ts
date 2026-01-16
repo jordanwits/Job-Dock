@@ -10,6 +10,7 @@ const envDefaults = {
   s3Bucket: import.meta.env.VITE_S3_BUCKET || '',
   defaultTenantId: import.meta.env.VITE_DEFAULT_TENANT_ID || 'demo-tenant',
   useMockDataFlag: parseBoolean(import.meta.env.VITE_USE_MOCK_DATA, import.meta.env.DEV),
+  stripePublishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
 }
 
 const storedMode = readStoredDataMode()
@@ -50,6 +51,7 @@ export const appEnv = {
   dataMode: resolvedDataMode,
   isLive: resolvedDataMode === 'live',
   isMock: resolvedDataMode === 'mock',
+  stripePublishableKey: envDefaults.stripePublishableKey,
 }
 
 function readStoredDataMode(): DataMode | null {

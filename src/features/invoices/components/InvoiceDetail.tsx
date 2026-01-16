@@ -143,8 +143,15 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
     }).format(amount)
   }
 
-  const isOverdue =
-    invoice.dueDate && new Date(invoice.dueDate) < new Date() && invoice.paymentStatus !== 'paid'
+  // Invoice is overdue if due date is more than 1 day in the past
+  // (not on the due date itself, but the day after)
+  const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
+    const dueDate = new Date(invoice.dueDate)
+    const oneDayAgo = new Date()
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+    oneDayAgo.setHours(23, 59, 59, 999)
+    return dueDate < oneDayAgo
+  })()
 
   if (isEditing) {
     return (

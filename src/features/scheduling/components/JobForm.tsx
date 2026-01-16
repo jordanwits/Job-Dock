@@ -226,6 +226,15 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   }, [job, reset, schedulingUnscheduledJob])
 
   const handleFormSubmit = async (data: JobFormData) => {
+    // Helper function to safely convert price to number
+    const convertPrice = (price: any): number | undefined => {
+      if (price === undefined || price === null || price === '') {
+        return undefined
+      }
+      const numPrice = typeof price === 'string' ? parseFloat(price) : price
+      return !isNaN(numPrice) ? numPrice : undefined
+    }
+
     // If toBeScheduled, skip date/time validation and send without times
     if (toBeScheduled) {
       const { startTime: _st, endTime: _et, ...dataWithoutTimes } = data
@@ -238,7 +247,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         invoiceId: dataWithoutTimes.invoiceId || undefined,
         serviceId: dataWithoutTimes.serviceId || undefined,
         // Convert price string to number, or undefined if empty
-        price: dataWithoutTimes.price ? parseFloat(dataWithoutTimes.price.toString()) : undefined,
+        price: convertPrice(dataWithoutTimes.price),
       }
       await onSubmit(formData)
       return
@@ -291,13 +300,22 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       invoiceId: data.invoiceId || undefined,
       serviceId: data.serviceId || undefined,
       // Convert price string to number, or undefined if empty
-      price: data.price ? parseFloat(data.price.toString()) : undefined,
+      price: convertPrice(data.price),
     }
 
     // Add recurrence if selected
+    console.log('🔄 JobForm: Checking recurrence', { 
+      repeatPattern, 
+      isNone: repeatPattern === 'none',
+      job: job ? 'editing' : 'creating',
+      jobId: job?.id 
+    })
+    
     if (repeatPattern !== 'none') {
       const [frequency, intervalStr] = repeatPattern.split('-') as [RecurrenceFrequency, string]
       const interval = parseInt(intervalStr) || 1
+      
+      console.log('➕ JobForm: Adding recurrence', { frequency, interval, endRepeatMode })
       
       // Validate custom recurrence has days selected
       if (frequency === 'custom' && customDays.length === 0) {
@@ -312,6 +330,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           count: occurrenceCount,
           daysOfWeek: frequency === 'custom' ? customDays : undefined,
         }
+        console.log('✅ JobForm: Recurrence added (never ends)', formData.recurrence)
       } else if (endRepeatMode === 'on-date' && endRepeatDate) {
         // Calculate count based on end date
         const start = new Date(`${startDate}T${startTime || '09:00'}`)
@@ -347,9 +366,17 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           count: count,
           daysOfWeek: frequency === 'custom' ? customDays : undefined,
         }
+        console.log('✅ JobForm: Recurrence added (ends on date)', formData.recurrence)
       }
+    } else {
+      console.log('⏭️ JobForm: No recurrence selected, skipping')
     }
 
+    console.log('📤 JobForm: Final formData being submitted:', {
+      ...formData,
+      recurrence: formData.recurrence ? 'yes' : 'no',
+      recurrenceDetails: formData.recurrence
+    })
     await onSubmit(formData)
   }
   

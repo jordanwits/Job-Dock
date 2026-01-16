@@ -2483,5 +2483,261 @@ export const dataServices = {
       })
     },
   },
+  billing: {
+    getStatus: async (tenantId: string) => {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          stripeCustomerId: true,
+          stripeSubscriptionId: true,
+          stripeSubscriptionStatus: true,
+          trialEndsAt: true,
+          currentPeriodEndsAt: true,
+          cancelAtPeriodEnd: true,
+        },
+      })
+      
+      if (!tenant) {
+        throw new ApiError('Tenant not found', 404)
+      }
+      
+      return {
+        hasSubscription: !!tenant.stripeSubscriptionId,
+        status: tenant.stripeSubscriptionStatus || 'none',
+        trialEndsAt: tenant.trialEndsAt?.toISOString(),
+        currentPeriodEndsAt: tenant.currentPeriodEndsAt?.toISOString(),
+        cancelAtPeriodEnd: tenant.cancelAtPeriodEnd || false,
+      }
+    },
+    createEmbeddedCheckoutSession: async (tenantId: string, userId: string, userEmail: string) => {
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2024-12-18.acacia',
+      })
+      
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          stripeCustomerId: true,
+          name: true,
+        },
+      })
+      
+      if (!tenant) {
+        throw new ApiError('Tenant not found', 404)
+      }
+      
+      // Create or reuse Stripe customer
+      let customerId = tenant.stripeCustomerId
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: userEmail,
+          metadata: {
+            tenantId,
+            ownerUserId: userId,
+          },
+        })
+        customerId = customer.id
+        
+        // Save customer ID to tenant
+        await prisma.tenant.update({
+          where: { id: tenantId },
+          data: { stripeCustomerId: customerId },
+        })
+      }
+      
+      const priceId = process.env.STRIPE_PRICE_ID
+      if (!priceId) {
+        throw new ApiError('STRIPE_PRICE_ID not configured', 500)
+      }
+      
+      const returnUrl = process.env.PUBLIC_APP_URL
+        ? `${process.env.PUBLIC_APP_URL}/app/billing/return?session_id={CHECKOUT_SESSION_ID}`
+        : 'http://localhost:5173/app/billing/return?session_id={CHECKOUT_SESSION_ID}'
+      
+      const session = await stripe.checkout.sessions.create({
+        ui_mode: 'embedded',
+        mode: 'subscription',
+        customer: customerId,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        subscription_data: {
+          trial_period_days: 14,
+          trial_settings: {
+            end_behavior: {
+              missing_payment_method: 'cancel',
+            },
+          },
+          metadata: {
+            tenantId,
+            ownerUserId: userId,
+          },
+        },
+        payment_method_collection: 'always',
+        return_url: returnUrl,
+        metadata: {
+          tenantId,
+          ownerUserId: userId,
+        },
+      })
+      
+      return {
+        clientSecret: session.client_secret,
+      }
+    },
+    createPortalSession: async (tenantId: string) => {
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2024-12-18.acacia',
+      })
+      
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          stripeCustomerId: true,
+        },
+      })
+      
+      if (!tenant || !tenant.stripeCustomerId) {
+        throw new ApiError('No Stripe customer found for this tenant', 404)
+      }
+      
+      const returnUrl = process.env.PUBLIC_APP_URL
+        ? `${process.env.PUBLIC_APP_URL}/app/billing`
+        : 'http://localhost:5173/app/billing'
+      
+      const session = await stripe.billingPortal.sessions.create({
+        customer: tenant.stripeCustomerId,
+        return_url: returnUrl,
+      })
+      
+      return {
+        url: session.url,
+      }
+    },
+    handleWebhook: async (rawBody: string, signature: string) => {
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2024-12-18.acacia',
+      })
+      
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+      if (!webhookSecret) {
+        throw new ApiError('STRIPE_WEBHOOK_SECRET not configured', 500)
+      }
+      
+      let event: any
+      try {
+        event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
+      } catch (err: any) {
+        console.error('Webhook signature verification failed:', err.message)
+        throw new ApiError(`Webhook signature verification failed: ${err.message}`, 400)
+      }
+      
+      // Check for idempotency
+      const existingEvent = await prisma.stripeWebhookEvent.findUnique({
+        where: { stripeEventId: event.id },
+      })
+      
+      if (existingEvent) {
+        console.log(`Event ${event.id} already processed, skipping`)
+        return { received: true, alreadyProcessed: true }
+      }
+      
+      // Process the event
+      console.log(`Processing Stripe event: ${event.type}`)
+      
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object
+          const tenantId = session.metadata?.tenantId
+          
+          if (tenantId && session.subscription) {
+            await prisma.tenant.update({
+              where: { id: tenantId },
+              data: {
+                stripeSubscriptionId: session.subscription as string,
+                stripePriceId: process.env.STRIPE_PRICE_ID || null,
+              },
+            })
+            console.log(`Updated tenant ${tenantId} with subscription ${session.subscription}`)
+          }
+          break
+        }
+        
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object
+          const tenantId = subscription.metadata?.tenantId
+          
+          if (tenantId) {
+            const updateData: any = {
+              stripeSubscriptionId: subscription.id,
+              stripeSubscriptionStatus: subscription.status,
+              currentPeriodEndsAt: new Date(subscription.current_period_end * 1000),
+              cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            }
+            
+            if (subscription.trial_end) {
+              updateData.trialEndsAt = new Date(subscription.trial_end * 1000)
+            }
+            
+            await prisma.tenant.update({
+              where: { id: tenantId },
+              data: updateData,
+            })
+            console.log(`Updated tenant ${tenantId} subscription status to ${subscription.status}`)
+          }
+          break
+        }
+        
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object
+          const tenantId = subscription.metadata?.tenantId
+          
+          if (tenantId) {
+            await prisma.tenant.update({
+              where: { id: tenantId },
+              data: {
+                stripeSubscriptionStatus: 'canceled',
+              },
+            })
+            console.log(`Subscription canceled for tenant ${tenantId}`)
+          }
+          break
+        }
+        
+        case 'invoice.paid': {
+          const invoice = event.data.object
+          // You can add additional logic here if needed
+          console.log(`Invoice ${invoice.id} paid`)
+          break
+        }
+        
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object
+          // You can add logic to notify the user or take action
+          console.log(`Invoice ${invoice.id} payment failed`)
+          break
+        }
+        
+        default:
+          console.log(`Unhandled event type: ${event.type}`)
+      }
+      
+      // Record the event as processed
+      await prisma.stripeWebhookEvent.create({
+        data: {
+          stripeEventId: event.id,
+        },
+      })
+      
+      return { received: true }
+    },
+  },
 }
 
