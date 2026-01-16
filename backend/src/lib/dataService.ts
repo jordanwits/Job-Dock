@@ -2512,7 +2512,7 @@ export const dataServices = {
     createEmbeddedCheckoutSession: async (tenantId: string, userId: string, userEmail: string) => {
       const Stripe = (await import('stripe')).default
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-        apiVersion: '2024-12-18.acacia',
+        apiVersion: '2025-02-24.acacia',
       })
       
       const tenant = await prisma.tenant.findUnique({
@@ -2592,7 +2592,7 @@ export const dataServices = {
     createPortalSession: async (tenantId: string) => {
       const Stripe = (await import('stripe')).default
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-        apiVersion: '2024-12-18.acacia',
+        apiVersion: '2025-02-24.acacia',
       })
       
       const tenant = await prisma.tenant.findUnique({
@@ -2622,7 +2622,7 @@ export const dataServices = {
     handleWebhook: async (rawBody: string, signature: string) => {
       const Stripe = (await import('stripe')).default
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-        apiVersion: '2024-12-18.acacia',
+        apiVersion: '2025-02-24.acacia',
       })
       
       const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET

@@ -208,32 +208,37 @@ We look forward to working with you!',
     
     // Handle billing endpoints with authentication
     if (resource === 'billing') {
+      const { default: prisma } = await import('../../lib/db')
       const context = await extractContext(event)
       const tenantId = context.tenantId
       const userId = context.userId
       const userEmail = context.userEmail
       
-      // Check if user is owner
+      // Check if user is owner (but allow status check for all authenticated users)
       const user = await prisma.user.findUnique({
         where: { cognitoId: userId },
         select: { role: true },
       })
       
-      if (!user || user.role !== 'owner') {
-        return errorResponse('Only tenant owners can manage billing', 403)
-      }
+      // Allow status check for any authenticated user, but other billing actions require owner
+      const billingAction = id // In billing routes, the second segment is the action
       
-      if (action === 'status' && event.httpMethod === 'GET') {
+      if (billingAction === 'status' && event.httpMethod === 'GET') {
         const status = await dataServices.billing.getStatus(tenantId)
         return successResponse(status)
       }
       
-      if (action === 'embedded-checkout-session' && event.httpMethod === 'POST') {
+      // For other billing actions, require owner role
+      if (!user || user.role !== 'owner') {
+        return errorResponse('Only tenant owners can manage billing', 403)
+      }
+      
+      if (billingAction === 'embedded-checkout-session' && event.httpMethod === 'POST') {
         const result = await dataServices.billing.createEmbeddedCheckoutSession(tenantId, userId, userEmail)
         return successResponse(result)
       }
       
-      if (action === 'portal-session' && event.httpMethod === 'POST') {
+      if (billingAction === 'portal-session' && event.httpMethod === 'POST') {
         const result = await dataServices.billing.createPortalSession(tenantId)
         return successResponse(result)
       }
