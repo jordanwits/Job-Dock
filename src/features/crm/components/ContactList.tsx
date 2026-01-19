@@ -4,6 +4,7 @@ import ContactCard from './ContactCard'
 import { Button, Input, Select } from '@/components/ui'
 import { phoneMatches } from '@/lib/utils/phone'
 import { contactsService } from '@/lib/api/services'
+import { cn } from '@/lib/utils'
 
 interface ContactListProps {
   onCreateClick?: () => void
@@ -470,12 +471,19 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
               <thead className="bg-primary-dark-secondary border-b border-primary-blue">
                 <tr>
                   <th className="px-4 py-3 w-12">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.size === displayContacts.length && displayContacts.length > 0}
-                      onChange={toggleSelectAll}
-                      className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
-                    />
+                    <div 
+                      onClick={toggleSelectAll}
+                      className={cn(
+                        "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
+                        selectedIds.size === displayContacts.length && displayContacts.length > 0
+                          ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
+                          : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                      )}
+                    >
+                      {selectedIds.size === displayContacts.length && displayContacts.length > 0 && (
+                        <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                      )}
+                    </div>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                     Name
@@ -511,12 +519,19 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
                       onClick={() => setSelectedContact(contact)}
                     >
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(contact.id)}
-                          onChange={(e) => toggleSelection(contact.id, e as any)}
-                          className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
-                        />
+                        <div 
+                          onClick={(e) => toggleSelection(contact.id, e)}
+                          className={cn(
+                            "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
+                            selectedIds.has(contact.id)
+                              ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
+                              : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                          )}
+                        >
+                          {selectedIds.has(contact.id) && (
+                            <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">

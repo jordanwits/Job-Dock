@@ -6,11 +6,14 @@ import { Input, Button, Card, Select, PhoneInput } from '@/components/ui'
 import { format, addDays, addWeeks, addMonths } from 'date-fns'
 import type { AvailableSlot, RecurrenceFrequency } from '../types/booking'
 import type { Service } from '@/features/scheduling/types/service'
+import { normalizePhoneNumber } from '@/lib/utils/phone'
 
 const bookingFormSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
-  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  phone: z
+    .string()
+    .refine((value) => normalizePhoneNumber(value).length >= 10, 'Phone number must be at least 10 digits'),
   company: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),

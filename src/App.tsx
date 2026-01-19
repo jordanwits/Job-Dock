@@ -10,7 +10,6 @@ import { InvoicesPage } from '@/features/invoices'
 import { SchedulingPage } from '@/features/scheduling'
 import { PublicBookingPage } from '@/features/booking'
 import { SettingsPage } from '@/features/settings'
-import { BillingPage, BillingReturnPage } from '@/features/billing'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
 import { LandingPage, PrivacyPolicyPage, TermsOfServicePage, EmailPolicyPage } from '@/features/marketing'
 
@@ -24,7 +23,6 @@ function App() {
     { label: 'Invoices', href: '/app/invoices' },
     { label: 'Calendar', href: '/app/scheduling' },
     { label: 'Settings', href: '/app/settings' },
-    { label: 'Billing', href: '/app/billing' },
   ]
 
   const handleLogout = async () => {
@@ -157,29 +155,6 @@ function App() {
           }
         />
 
-        <Route
-          path="/app/billing"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AppLayout
-                sidebarItems={sidebarItems}
-                user={user ? { name: user.name, email: user.email } : undefined}
-                onLogout={handleLogout}
-              >
-                <BillingPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/app/billing/return"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <BillingReturnPage />
-            </ProtectedRoute>
-          }
-        />
 
         {/* Redirect unknown routes */}
         <Route

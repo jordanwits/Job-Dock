@@ -325,12 +325,19 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
               <thead className="bg-primary-dark-secondary border-b border-primary-blue">
                 <tr>
                   <th className="px-4 py-3 w-12">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.size === filteredQuotes.length && filteredQuotes.length > 0}
-                      onChange={toggleSelectAll}
-                      className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
-                    />
+                    <div 
+                      onClick={toggleSelectAll}
+                      className={cn(
+                        "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
+                        selectedIds.size === filteredQuotes.length && filteredQuotes.length > 0
+                          ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
+                          : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                      )}
+                    >
+                      {selectedIds.size === filteredQuotes.length && filteredQuotes.length > 0 && (
+                        <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                      )}
+                    </div>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                     Quote #
@@ -360,12 +367,19 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
                     onClick={() => setSelectedQuote(quote)}
                   >
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(quote.id)}
-                        onChange={(e) => toggleSelection(quote.id, e as any)}
-                        className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark cursor-pointer"
-                      />
+                      <div 
+                        onClick={(e) => toggleSelection(quote.id, e)}
+                        className={cn(
+                          "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
+                          selectedIds.has(quote.id)
+                            ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
+                            : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                        )}
+                      >
+                        {selectedIds.has(quote.id) && (
+                          <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-sm font-medium text-primary-light">

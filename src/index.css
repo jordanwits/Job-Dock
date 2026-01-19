@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Chrome autofill can set input values without firing React onChange/onInput.
+   This animation hook lets components detect autofill and sync the value. */
+@keyframes jd-autofill-start {
+  from {}
+  to {}
+}
+
+input:-webkit-autofill {
+  animation-name: jd-autofill-start;
+  animation-duration: 0.01s;
+  animation-iteration-count: 1;
+}
+
 @layer base {
   html {
     overflow-x: hidden;
