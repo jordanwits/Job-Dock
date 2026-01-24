@@ -90,16 +90,7 @@ const SchedulingPage = () => {
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [jobConfirmationMessage, setJobConfirmationMessage] = useState('')
   
-  // Conflict handling state
-  const [conflicts, setConflicts] = useState<Array<{
-    id: string
-    title: string
-    startTime: string
-    endTime: string
-    contactName: string
-  }>>([])
-  const [showConflictDialog, setShowConflictDialog] = useState(false)
-  const [pendingJobData, setPendingJobData] = useState<any>(null)
+  // Conflict handling removed - double booking now allowed
   const [showJobError, setShowJobError] = useState(false)
   const [jobErrorMessage, setJobErrorMessage] = useState('')
   const [showServiceConfirmation, setShowServiceConfirmation] = useState(false)
@@ -172,42 +163,18 @@ const SchedulingPage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [showJobForm, showServiceForm, selectedJob, selectedService, activeTab])
 
-  const handleCreateJob = async (data: any, forceBooking = false) => {
+  const handleCreateJob = async (data: any) => {
     try {
-      const jobData = forceBooking ? { ...data, forceBooking: true } : data
-      await createJob(jobData)
+      await createJob(data)
       setShowJobForm(false)
       clearJobsError()
-      setConflicts([])
-      setShowConflictDialog(false)
-      setPendingJobData(null)
       setJobConfirmationMessage('Job created successfully')
       setShowJobConfirmation(true)
       setTimeout(() => setShowJobConfirmation(false), 3000)
     } catch (error: any) {
-      // Check if this is a conflict error
-      if (error.statusCode === 409 && error.conflicts && !forceBooking) {
-        // Clear the regular error and show conflict dialog instead
-        clearJobsError()
-        setConflicts(error.conflicts)
-        setPendingJobData(data)
-        setShowConflictDialog(true)
-      }
       // Error will be displayed in the modal via jobsError
       // Keep the modal open so user can fix the issue
     }
-  }
-  
-  const handleConfirmDoubleBooking = async () => {
-    if (pendingJobData) {
-      await handleCreateJob(pendingJobData, true)
-    }
-  }
-  
-  const handleCancelDoubleBooking = () => {
-    setShowConflictDialog(false)
-    setConflicts([])
-    setPendingJobData(null)
   }
 
   const handleUpdateJob = async (data: any) => {
@@ -1096,58 +1063,6 @@ const SchedulingPage = () => {
         </div>
       </Modal>
 
-      {/* Double Booking Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={showConflictDialog}
-        onClose={handleCancelDoubleBooking}
-        onConfirm={handleConfirmDoubleBooking}
-        title="⚠️ Double Booking Detected"
-        confirmText="Book Anyway"
-        cancelText="Cancel"
-        confirmVariant="danger"
-        isLoading={jobsLoading}
-        message={
-          <div className="space-y-4">
-            <p className="text-sm">
-              You already have the following job{conflicts.length > 1 ? 's' : ''} scheduled for this time:
-            </p>
-            <div className="bg-primary-dark-tertiary rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
-              {conflicts.map((conflict) => {
-                const startDate = new Date(conflict.startTime)
-                const endDate = new Date(conflict.endTime)
-                const isValidDate = !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())
-                
-                const timeRangeStr = isValidDate 
-                  ? `${startDate.toLocaleString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true,
-                    })} - ${endDate.toLocaleString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true,
-                    })}`
-                  : 'Invalid Date'
-                
-                return (
-                  <div key={conflict.id} className="border border-amber-500/30 rounded p-2 bg-amber-500/5">
-                    <div className="font-medium text-amber-400">{conflict.title}</div>
-                    <div className="text-xs text-primary-light/80 mt-1">
-                      {conflict.contactName}
-                    </div>
-                    <div className="text-xs text-primary-light/60 mt-1">
-                      {timeRangeStr}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        }
-      />
     </div>
   )
 }

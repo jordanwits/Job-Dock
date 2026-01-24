@@ -267,52 +267,7 @@ async function createRecurringJobs(params: {
       })
     }
 
-    // 3. Check for conflicts across all instances
-    const conflicts: Array<{ date: string; time: string; conflictingJob: string }> = []
-    
-    for (const instance of instances) {
-      const overlappingJobs = await tx.job.findMany({
-        where: {
-          tenantId,
-          status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
-          deletedAt: null,
-          archivedAt: null,
-          toBeScheduled: false,
-          startTime: { lt: instance.endTime },
-          endTime: { gt: instance.startTime },
-          ...(excludeJobId ? { id: { not: excludeJobId } } : {}), // Exclude the original job when converting to recurring
-        },
-        include: { contact: true },
-      })
-      
-      if (overlappingJobs.length > 0) {
-        for (const job of overlappingJobs) {
-          conflicts.push({
-            date: instance.startTime.toISOString().split('T')[0],
-            time: instance.startTime.toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            }),
-            conflictingJob: `${job.title} (${job.contact.firstName} ${job.contact.lastName})`,
-          })
-        }
-      }
-    }
-
-    if (conflicts.length > 0 && !forceBooking) {
-      const conflictSummary = conflicts
-        .slice(0, 5)
-        .map(c => `${c.date} at ${c.time} conflicts with ${c.conflictingJob}`)
-        .join('; ')
-      const moreText = conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ''
-      
-      const error = new ApiError(
-        `Cannot create recurring schedule due to conflicts: ${conflictSummary}${moreText}`,
-        409
-      ) as any
-      error.conflicts = conflicts
-      throw error
-    }
+    // Double booking check removed - allowing overlapping recurring jobs
 
     // 4. Create all job instances
     const jobs = await Promise.all(
@@ -1440,37 +1395,7 @@ export const dataServices = {
         })
       }
       
-      // Single job creation - check for conflicts
-      const overlappingJobs = await prisma.job.findMany({
-        where: {
-          tenantId,
-          status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
-          deletedAt: null,
-          archivedAt: null,
-          toBeScheduled: false,
-          startTime: { lt: endTime },
-          endTime: { gt: startTime },
-        },
-        include: { contact: true, service: true },
-      })
-      
-      if (overlappingJobs.length > 0 && !forceBooking) {
-        const conflictDetails = overlappingJobs.map(j => 
-          `${j.title} (${new Date(j.startTime!).toLocaleString()} - ${new Date(j.endTime!).toLocaleString()})`
-        ).join(', ')
-        const error = new ApiError(
-          `This time slot conflicts with existing job(s): ${conflictDetails}`,
-          409
-        ) as any
-        error.conflicts = overlappingJobs.map(j => ({
-          id: j.id,
-          title: j.title,
-          startTime: j.startTime,
-          endTime: j.endTime,
-          contactName: `${j.contact.firstName} ${j.contact.lastName}`,
-        }))
-        throw error
-      }
+      // Double booking check removed - allowing overlapping jobs
       
       return prisma.job.create({
         data: {
@@ -2198,24 +2123,7 @@ export const dataServices = {
           throw new Error('Booking is too far in advance')
         }
 
-        // 3. Check for conflicts
-        // Include pending-confirmation to prevent double-booking before confirmation
-        const maxBookingsPerSlot = bookingSettings?.maxBookingsPerSlot || 1
-        const conflictingJobs = await tx.job.count({
-          where: {
-            tenantId: actualTenantId,
-            status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
-            deletedAt: null,
-            archivedAt: null,
-            toBeScheduled: false,
-            startTime: { lt: endTime },
-            endTime: { gt: startTime },
-          },
-        })
-
-        if (conflictingJobs >= maxBookingsPerSlot) {
-          throw new Error('This time slot is no longer available')
-        }
+        // Double booking check removed - allowing overlapping bookings
 
         // 4. Upsert contact
         let contact
