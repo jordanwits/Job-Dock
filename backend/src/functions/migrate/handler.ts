@@ -451,6 +451,14 @@ const PENDING_MIGRATIONS = [
       `CREATE INDEX IF NOT EXISTS "stripe_webhook_events_stripeEventId_idx" ON "stripe_webhook_events"("stripeEventId")`
     ],
     description: 'Add Stripe billing fields to tenants and create webhook idempotency table'
+  },
+  {
+    name: '20260126000000_add_discount_reason',
+    statements: [
+      `ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "discountReason" TEXT`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "discountReason" TEXT`
+    ],
+    description: 'Add discountReason field to quotes and invoices for tracking discount justification'
   }
 ]
 
