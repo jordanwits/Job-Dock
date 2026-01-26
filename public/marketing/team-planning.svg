@@ -1,0 +1,32 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Team collaboration at worksite placeholder -->
+  <rect width="1200" height="800" fill="#1C2541"/>
+  <rect x="50" y="50" width="1100" height="700" rx="20" fill="#3A506B" opacity="0.5"/>
+  
+  <!-- Table/workspace -->
+  <rect x="200" y="500" width="800" height="200" rx="8" fill="#0B132B" opacity="0.7"/>
+  
+  <!-- Three people silhouettes -->
+  <g opacity="0.7">
+    <!-- Person 1 -->
+    <circle cx="350" cy="350" r="50" fill="#D4AF37"/>
+    <rect x="310" y="410" width="80" height="150" rx="8" fill="#D4AF37"/>
+    
+    <!-- Person 2 -->
+    <circle cx="600" cy="330" r="55" fill="#D4AF37" opacity="0.9"/>
+    <rect x="555" y="395" width="90" height="170" rx="8" fill="#D4AF37" opacity="0.9"/>
+    
+    <!-- Person 3 -->
+    <circle cx="850" cy="360" r="48" fill="#D4AF37" opacity="0.8"/>
+    <rect x="812" y="418" width="76" height="145" rx="8" fill="#D4AF37" opacity="0.8"/>
+  </g>
+  
+  <!-- Plans/documents on table -->
+  <rect x="250" y="530" width="300" height="150" rx="4" fill="#F5F3F4" opacity="0.2"/>
+  <rect x="600" y="540" width="280" height="140" rx="4" fill="#F5F3F4" opacity="0.15"/>
+  
+  <!-- Grid lines suggesting blueprint/plan -->
+  <line x1="270" y1="560" x2="520" y2="560" stroke="#D4AF37" stroke-width="2" opacity="0.4"/>
+  <line x1="270" y1="600" x2="500" y2="600" stroke="#3A506B" stroke-width="2" opacity="0.6"/>
+  <line x1="270" y1="640" x2="530" y2="640" stroke="#3A506B" stroke-width="2" opacity="0.6"/>
+</svg>

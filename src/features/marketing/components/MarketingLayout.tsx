@@ -8,7 +8,7 @@ interface MarketingLayoutProps {
 
 const MarketingLayout = ({ children }: MarketingLayoutProps) => {
   return (
-    <div className="min-h-screen bg-primary-dark flex flex-col">
+    <div className="min-h-screen bg-primary-light flex flex-col">
       <MarketingHeader />
       <main className="flex-1">{children}</main>
       <MarketingFooter />

@@ -2,32 +2,61 @@ import { Link } from 'react-router-dom'
 import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
 
 const MarketingFooter = () => {
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
   return (
-    <footer className="border-t border-primary-blue bg-primary-dark-secondary">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+    <footer className="relative bg-gradient-to-br from-primary-dark via-primary-dark-secondary to-primary-blue text-white overflow-hidden">
+      {/* Large watermark */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+        <div className="text-[20rem] font-bold tracking-tighter select-none">
+          {publicSiteConfig.companyName}
+        </div>
+      </div>
+
+      <div className="relative container mx-auto px-4 md:px-6 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
           {/* Company Info */}
           <div>
-            <div className="bg-white rounded-lg px-3 py-2 inline-block mb-4">
-              <img 
-                src="/TJD Horizontal.png" 
-                alt="JobDock Logo" 
-                className="h-8 md:h-10 w-auto"
-              />
+            <div className="flex items-center gap-2 mb-4">
+              <div className="relative flex items-center justify-center w-10 h-10 bg-white rounded-full">
+                <img src="/TJD Icon transparent.png" alt="JobDock Logo" className="h-6 w-auto" />
+              </div>
+              <span className="text-xl font-bold">{publicSiteConfig.companyName}</span>
             </div>
-            <p className="text-primary-light/70 text-sm mb-4">
-              Complete contractor management platform for service providers.
+            <p className="text-white/70 text-sm leading-relaxed">
+              Professional contractor management platform for service businesses. Streamline quotes, invoices, scheduling, and client relationships in one powerful tool.
             </p>
           </div>
 
-          {/* Legal Links */}
+          {/* Quick Links */}
           <div>
-            <h4 className="text-lg font-semibold text-primary-light mb-4">Legal</h4>
-            <ul className="space-y-2 text-sm">
+            <h4 className="text-base font-semibold mb-4">Quick Links</h4>
+            <ul className="space-y-2.5 text-sm">
+              <li>
+                <button
+                  onClick={() => scrollToSection('features')}
+                  className="text-white/70 hover:text-primary-gold transition-colors"
+                >
+                  Features
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => scrollToSection('how-it-works')}
+                  className="text-white/70 hover:text-primary-gold transition-colors"
+                >
+                  How It Works
+                </button>
+              </li>
               <li>
                 <Link
                   to="/privacy"
-                  className="text-primary-light/70 hover:text-primary-gold transition-colors"
+                  className="text-white/70 hover:text-primary-gold transition-colors"
                 >
                   Privacy Policy
                 </Link>
@@ -35,7 +64,7 @@ const MarketingFooter = () => {
               <li>
                 <Link
                   to="/terms"
-                  className="text-primary-light/70 hover:text-primary-gold transition-colors"
+                  className="text-white/70 hover:text-primary-gold transition-colors"
                 >
                   Terms of Service
                 </Link>
@@ -43,7 +72,7 @@ const MarketingFooter = () => {
               <li>
                 <Link
                   to="/email-policy"
-                  className="text-primary-light/70 hover:text-primary-gold transition-colors"
+                  className="text-white/70 hover:text-primary-gold transition-colors"
                 >
                   Email Policy
                 </Link>
@@ -53,41 +82,40 @@ const MarketingFooter = () => {
 
           {/* Contact Info */}
           <div>
-            <h4 className="text-lg font-semibold text-primary-light mb-4">Contact</h4>
-            <div className="space-y-2 text-sm text-primary-light/70">
-              <p>
-                <strong className="text-primary-light">Support:</strong>{' '}
+            <h4 className="text-base font-semibold mb-4">Contact Us</h4>
+            <div className="space-y-3 text-sm">
+              <p className="text-white/70">
+                <span className="font-medium text-white">Email:</span>{' '}
                 <a
                   href={`mailto:${publicSiteConfig.supportEmail}`}
-                  className="text-primary-gold hover:text-primary-light transition-colors underline"
+                  className="text-primary-gold hover:text-primary-light transition-colors"
                 >
                   {publicSiteConfig.supportEmail}
                 </a>
               </p>
               {publicSiteConfig.phoneNumber && (
-                <p>
-                  <strong className="text-primary-light">Phone:</strong>{' '}
+                <p className="text-white/70">
+                  <span className="font-medium text-white">Phone:</span>{' '}
                   <a
                     href={`tel:${publicSiteConfig.phoneNumber}`}
-                    className="text-primary-gold hover:text-primary-light transition-colors underline"
+                    className="text-primary-gold hover:text-primary-light transition-colors"
                   >
                     {publicSiteConfig.phoneNumber}
                   </a>
                 </p>
               )}
-              <p className="pt-2">
-                <strong className="text-primary-light">Business Address:</strong>
-              </p>
-              <p className="leading-relaxed">{getFormattedAddress()}</p>
+              <div className="pt-2">
+                <p className="font-medium text-white mb-1">Business Address</p>
+                <p className="text-white/70 leading-relaxed">{getFormattedAddress()}</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-primary-blue pt-8 text-center text-sm text-primary-light/60">
-          <p>
-            &copy; {publicSiteConfig.copyrightYear} {publicSiteConfig.copyrightHolder}. All rights
-            reserved.
+        <div className="border-t border-white/10 pt-8 text-center">
+          <p className="text-sm text-white/60">
+            &copy; {publicSiteConfig.copyrightYear} {publicSiteConfig.copyrightHolder}. All rights reserved.
           </p>
         </div>
       </div>

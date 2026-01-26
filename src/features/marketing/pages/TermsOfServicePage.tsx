@@ -5,14 +5,14 @@ const TermsOfServicePage = () => {
   return (
     <MarketingLayout>
       <div className="container mx-auto px-4 py-16 max-w-4xl">
-        <h1 className="text-4xl font-bold text-primary-light mb-4">Terms of Service</h1>
-        <p className="text-primary-light/70 mb-8">
+        <h1 className="text-4xl font-bold text-primary-dark mb-4">Terms of Service</h1>
+        <p className="text-primary-dark/60 mb-8">
           Last Updated: January {publicSiteConfig.copyrightYear}
         </p>
 
-        <div className="space-y-8 text-primary-light/80">
+        <div className="space-y-8 text-primary-dark/80">
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               1. Acceptance of Terms
             </h2>
             <p>
@@ -23,7 +23,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               2. Description of Service
             </h2>
             <p>
@@ -34,7 +34,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">3. User Accounts</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">3. User Accounts</h2>
             <p className="mb-4">To use the Service, you must:</p>
             <ul className="list-disc list-inside space-y-2 ml-4">
               <li>Create an account with accurate and complete information</li>
@@ -46,7 +46,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               4. Acceptable Use Policy
             </h2>
             <p className="mb-4">You agree not to:</p>
@@ -63,7 +63,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               5. Email Sending Policy
             </h2>
             <p className="mb-4">
@@ -85,7 +85,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">6. Your Content</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">6. Your Content</h2>
             <p>
               You retain ownership of all content you upload to the Service (customer data, quotes,
               invoices, etc.). By using the Service, you grant us a limited license to use,
@@ -94,7 +94,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               7. Intellectual Property
             </h2>
             <p>
@@ -105,7 +105,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               8. Payment and Subscriptions
             </h2>
             <p>
@@ -116,7 +116,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               9. Service Availability
             </h2>
             <p>
@@ -127,7 +127,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               10. Limitation of Liability
             </h2>
             <p>
@@ -138,7 +138,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">11. Termination</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">11. Termination</h2>
             <p>
               We may terminate or suspend your account at any time if you violate these Terms. You
               may terminate your account at any time by contacting us. Upon termination, your right
@@ -147,7 +147,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               12. Changes to Terms
             </h2>
             <p>
@@ -158,7 +158,7 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">13. Governing Law</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">13. Governing Law</h2>
             <p>
               These Terms shall be governed by and construed in accordance with the laws of the
               United States, without regard to its conflict of law provisions.
@@ -166,16 +166,16 @@ const TermsOfServicePage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">14. Contact Us</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">14. Contact Us</h2>
             <p className="mb-2">
               If you have questions about these Terms of Service, please contact us:
             </p>
-            <div className="bg-primary-dark-secondary border border-primary-blue rounded-lg p-4 mt-4">
+            <div className="bg-white border border-primary-blue/20 rounded-lg p-4 mt-4">
               <p className="mb-2">
                 <strong>Email:</strong>{' '}
                 <a
                   href={`mailto:${publicSiteConfig.supportEmail}`}
-                  className="text-primary-blue hover:text-primary-gold transition-colors"
+                  className="text-primary-gold hover:text-primary-gold/80 transition-colors"
                 >
                   {publicSiteConfig.supportEmail}
                 </a>

@@ -5,14 +5,14 @@ const PrivacyPolicyPage = () => {
   return (
     <MarketingLayout>
       <div className="container mx-auto px-4 py-16 max-w-4xl">
-        <h1 className="text-4xl font-bold text-primary-light mb-4">Privacy Policy</h1>
-        <p className="text-primary-light/70 mb-8">
+        <h1 className="text-4xl font-bold text-primary-dark mb-4">Privacy Policy</h1>
+        <p className="text-primary-dark/60 mb-8">
           Last Updated: January {publicSiteConfig.copyrightYear}
         </p>
 
-        <div className="space-y-8 text-primary-light/80">
+        <div className="space-y-8 text-primary-dark/80">
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               1. Information We Collect
             </h2>
             <p className="mb-4">
@@ -43,7 +43,7 @@ const PrivacyPolicyPage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               2. How We Use Your Information
             </h2>
             <p className="mb-4">We use the information we collect to:</p>
@@ -58,7 +58,7 @@ const PrivacyPolicyPage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               3. Information Sharing and Disclosure
             </h2>
             <p className="mb-4">
@@ -82,7 +82,7 @@ const PrivacyPolicyPage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">4. Data Security</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">4. Data Security</h2>
             <p>
               We implement industry-standard security measures to protect your data, including
               encryption, secure authentication, and regular security audits. However, no method of
@@ -92,7 +92,7 @@ const PrivacyPolicyPage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">5. Data Retention</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">5. Data Retention</h2>
             <p>
               We retain your account information and business data for as long as your account is
               active or as needed to provide you services. You may request deletion of your account
@@ -101,7 +101,7 @@ const PrivacyPolicyPage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">6. Your Rights</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">6. Your Rights</h2>
             <p className="mb-4">You have the right to:</p>
             <ul className="list-disc list-inside space-y-2 ml-4">
               <li>Access and review your personal information</li>
@@ -113,7 +113,7 @@ const PrivacyPolicyPage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               7. Cookies and Tracking
             </h2>
             <p>
@@ -123,7 +123,7 @@ const PrivacyPolicyPage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">
               8. Changes to This Policy
             </h2>
             <p>
@@ -134,14 +134,14 @@ const PrivacyPolicyPage = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold text-primary-light mb-4">9. Contact Us</h2>
+            <h2 className="text-2xl font-semibold text-primary-dark mb-4">9. Contact Us</h2>
             <p className="mb-2">If you have questions about this Privacy Policy, please contact us:</p>
-            <div className="bg-primary-dark-secondary border border-primary-blue rounded-lg p-4 mt-4">
+            <div className="bg-white border border-primary-blue/20 rounded-lg p-4 mt-4">
               <p className="mb-2">
                 <strong>Email:</strong>{' '}
                 <a
                   href={`mailto:${publicSiteConfig.supportEmail}`}
-                  className="text-primary-blue hover:text-primary-gold transition-colors"
+                  className="text-primary-gold hover:text-primary-gold/80 transition-colors"
                 >
                   {publicSiteConfig.supportEmail}
                 </a>
