@@ -19,6 +19,7 @@ export interface Invoice {
   taxRate: number
   taxAmount: number
   discount: number
+  discountReason?: string
   total: number
   status: 'draft' | 'sent' | 'overdue' | 'cancelled'
   paymentStatus: 'pending' | 'partial' | 'paid'
@@ -38,6 +39,7 @@ export interface CreateInvoiceData {
   lineItems: Omit<InvoiceLineItem, 'id' | 'total'>[]
   taxRate?: number
   discount?: number
+  discountReason?: string
   notes?: string
   dueDate?: string
   paymentTerms?: string

@@ -151,9 +151,6 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
               >
                 Schedule Job
               </Button>
-              <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">
-                Close
-              </Button>
               <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">Edit</Button>
             </div>
           </div>

@@ -9,6 +9,13 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, helperText, ...props }, ref) => {
+    // Prevent scroll from changing number input values
+    const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+      if (props.type === 'number') {
+        e.currentTarget.blur()
+      }
+    }
+
     return (
       <div className="w-full">
         {label && (
@@ -28,6 +35,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             className
           )}
           ref={ref}
+          onWheel={handleWheel}
           {...props}
         />
         {error && (

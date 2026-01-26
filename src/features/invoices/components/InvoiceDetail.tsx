@@ -291,7 +291,8 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
           {/* Line Items Table */}
           <div>
             <h3 className="text-sm font-medium text-primary-light/70 mb-3">Line Items</h3>
-            <div className="rounded-lg border border-primary-blue overflow-hidden">
+            {/* Desktop Table View */}
+            <div className="hidden sm:block rounded-lg border border-primary-blue overflow-hidden">
               <table className="w-full">
                 <thead className="bg-primary-dark-secondary">
                   <tr>
@@ -327,6 +328,29 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
                 </tbody>
               </table>
             </div>
+            {/* Mobile Card View */}
+            <div className="sm:hidden space-y-3">
+              {invoice.lineItems.map((item, index) => (
+                <div
+                  key={item.id || index}
+                  className="rounded-lg border border-primary-blue bg-primary-dark-secondary p-4 space-y-2"
+                >
+                  <div className="text-sm font-medium text-primary-light">{item.description}</div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-primary-light/70">Quantity:</span>
+                    <span className="text-primary-light">{item.quantity}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-primary-light/70">Unit Price:</span>
+                    <span className="text-primary-light">{formatCurrency(item.unitPrice)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-medium pt-2 border-t border-primary-blue">
+                    <span className="text-primary-light">Total:</span>
+                    <span className="text-primary-gold">{formatCurrency(item.total)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Totals */}
@@ -342,7 +366,9 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
               </div>
               {invoice.discount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-primary-light/70">Discount</span>
+                  <span className="text-primary-light/70">
+                    Discount{invoice.discountReason && ` (${invoice.discountReason})`}
+                  </span>
                   <span className="text-primary-light">-{formatCurrency(invoice.discount)}</span>
                 </div>
               )}

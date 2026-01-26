@@ -86,25 +86,26 @@ model Contact {
 }
 
 model Quote {
-  id          String          @id @default(uuid())
-  tenantId    String
-  quoteNumber String
-  title       String?
-  contactId   String
-  subtotal    Decimal         @db.Decimal(10, 2)
-  taxRate     Decimal         @default(0) @db.Decimal(5, 4)
-  taxAmount   Decimal         @db.Decimal(10, 2)
-  discount    Decimal         @default(0) @db.Decimal(10, 2)
-  total       Decimal         @db.Decimal(10, 2)
-  status      String          @default("draft")
-  notes       String?
-  validUntil  DateTime?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  lineItems   QuoteLineItem[]
-  contact     Contact         @relation(fields: [contactId], references: [id])
-  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  jobs        Job[]
+  id             String          @id @default(uuid())
+  tenantId       String
+  quoteNumber    String
+  title          String?
+  contactId      String
+  subtotal       Decimal         @db.Decimal(10, 2)
+  taxRate        Decimal         @default(0) @db.Decimal(5, 4)
+  taxAmount      Decimal         @db.Decimal(10, 2)
+  discount       Decimal         @default(0) @db.Decimal(10, 2)
+  discountReason String?
+  total          Decimal         @db.Decimal(10, 2)
+  status         String          @default("draft")
+  notes          String?
+  validUntil     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  lineItems      QuoteLineItem[]
+  contact        Contact         @relation(fields: [contactId], references: [id])
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobs           Job[]
 
   @@index([tenantId])
   @@index([contactId])
@@ -137,6 +138,7 @@ model Invoice {
   taxRate        Decimal           @default(0) @db.Decimal(5, 4)
   taxAmount      Decimal           @db.Decimal(10, 2)
   discount       Decimal           @default(0) @db.Decimal(10, 2)
+  discountReason String?
   total          Decimal           @db.Decimal(10, 2)
   status         String            @default("draft")
   paymentStatus  String            @default("pending")

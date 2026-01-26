@@ -41,7 +41,6 @@ const ServiceDetail = ({ service, isOpen, onClose, onEdit, onDelete, onGetLink }
               Edit
             </Button>
           )}
-          <Button onClick={onClose} className="border border-primary-gold">Close</Button>
         </>
       }
     >

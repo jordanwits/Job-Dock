@@ -35,6 +35,11 @@ const DashboardPage = () => {
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
 
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
   // Fetch all data on mount - force refresh to get updated overdue statuses
   useEffect(() => {
     const now = new Date()

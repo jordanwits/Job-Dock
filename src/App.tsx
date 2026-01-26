@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { AppLayout, ProtectedRoute } from '@/components'
 import { BillingGuard } from '@/components/billing'
 import SessionMonitor from '@/components/SessionMonitor'
@@ -12,6 +13,17 @@ import { PublicBookingPage } from '@/features/booking'
 import { SettingsPage } from '@/features/settings'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
 import { LandingPage, PrivacyPolicyPage, TermsOfServicePage, EmailPolicyPage } from '@/features/marketing'
+
+// Scroll to top on route change
+function ScrollToTop() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+
+  return null
+}
 
 function App() {
   const { user, logout, isAuthenticated } = useAuthStore()
@@ -31,6 +43,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <SessionMonitor />
       <Routes>
         {/* Public Marketing Pages */}

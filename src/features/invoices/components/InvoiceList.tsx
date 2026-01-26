@@ -158,13 +158,6 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     )
   }
 
-  const statusColors = {
-    draft: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    sent: 'bg-primary-blue/20 text-primary-blue border-primary-blue/30',
-    overdue: 'bg-red-500/20 text-red-400 border-red-500/30',
-    cancelled: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  }
-
   const paymentStatusColors = {
     pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     partial: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -175,6 +168,18 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     pending: 'Unpaid',
     partial: 'Partial',
     paid: 'Paid',
+  }
+
+  const approvalStatusColors = {
+    none: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
+    declined: 'bg-red-500/20 text-red-400 border-red-500/30',
+  }
+
+  const approvalStatusLabels = {
+    none: 'No Response',
+    accepted: 'Accepted',
+    declined: 'Declined',
   }
 
   const formatCurrency = (amount: number) => {
@@ -351,102 +356,105 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
         </div>
       ) : (
         // List Layout
-        <div className="rounded-lg border border-primary-blue overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-primary-dark-secondary border-b border-primary-blue">
-                <tr>
-                  <th className="px-4 py-3 w-12">
-                    <div 
-                      onClick={toggleSelectAll}
-                      className={cn(
-                        "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
-                        selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0
-                          ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                          : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
-                      )}
-                    >
-                      {selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0 && (
-                        <div className="w-2 h-2 rounded-full bg-primary-dark" />
-                      )}
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
-                    Invoice #
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
-                    Title
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
-                    Contact
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
-                    Due Date
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
-                    Total
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
-                    Payment
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-blue">
-                {filteredInvoices.map((invoice) => {
-                  const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
-                    const dueDate = new Date(invoice.dueDate)
-                    const oneDayAgo = new Date()
-                    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-                    oneDayAgo.setHours(23, 59, 59, 999)
-                    return dueDate < oneDayAgo
-                  })()
-
-                  return (
-                    <tr 
-                      key={invoice.id} 
-                      className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
-                      onClick={() => setSelectedInvoice(invoice)}
-                    >
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div 
-                          onClick={(e) => toggleSelection(invoice.id, e)}
-                          className={cn(
-                            "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
-                            selectedIds.has(invoice.id)
-                              ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                              : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
-                          )}
-                        >
-                          {selectedIds.has(invoice.id) && (
-                            <div className="w-2 h-2 rounded-full bg-primary-dark" />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-primary-light">
-                          {invoice.invoiceNumber}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
-                        <div className="truncate max-w-[200px]">{invoice.title || '-'}</div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
-                        <div className="truncate max-w-[150px]">{invoice.contactName || '-'}</div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell">
-                        {invoice.dueDate ? (
-                          <div className={cn(
-                            isOverdue ? "text-red-400 font-medium" : "text-primary-light/70"
-                          )}>
-                            {isOverdue ? '⚠️ ' : ''}{new Date(invoice.dueDate).toLocaleDateString()}
-                          </div>
-                        ) : (
-                          <span className="text-primary-light/50">-</span>
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden sm:block rounded-lg border border-primary-blue overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+                  <tr>
+                    <th className="px-4 py-3 w-12">
+                      <div 
+                        onClick={toggleSelectAll}
+                        className={cn(
+                          "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
+                          selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0
+                            ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
+                            : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
                         )}
-                      </td>
+                      >
+                        {selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0 && (
+                          <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                      Title
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                      Due Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      Response
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      Payment
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-primary-blue">
+                  {filteredInvoices.map((invoice) => {
+                    const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
+                      const dueDate = new Date(invoice.dueDate)
+                      const oneDayAgo = new Date()
+                      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+                      oneDayAgo.setHours(23, 59, 59, 999)
+                      return dueDate < oneDayAgo
+                    })()
+
+                    return (
+                      <tr 
+                        key={invoice.id} 
+                        className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
+                        onClick={() => setSelectedInvoice(invoice)}
+                      >
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <div 
+                            onClick={(e) => toggleSelection(invoice.id, e)}
+                            className={cn(
+                              "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
+                              selectedIds.has(invoice.id)
+                                ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
+                                : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                            )}
+                          >
+                            {selectedIds.has(invoice.id) && (
+                              <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-primary-light">
+                            <span className="sm:hidden">{invoice.title || invoice.invoiceNumber}</span>
+                            <span className="hidden sm:inline">{invoice.invoiceNumber}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
+                          <div className="truncate max-w-[200px]">{invoice.title || '-'}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70">
+                          <div className="truncate max-w-[150px]">{invoice.contactName || '-'}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell">
+                          {invoice.dueDate ? (
+                            <div className={cn(
+                              isOverdue ? "text-red-400 font-medium" : "text-primary-light/70"
+                            )}>
+                              {isOverdue ? '⚠️ ' : ''}{new Date(invoice.dueDate).toLocaleDateString()}
+                            </div>
+                          ) : (
+                            <span className="text-primary-light/50">-</span>
+                          )}
+                        </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm font-semibold text-primary-gold">
                           {formatCurrency(invoice.total)}
@@ -458,9 +466,9 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                         )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {(invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled') && (
-                          <span className={cn('px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border', statusColors[invoice.status])}>
-                            {invoice.status}
+                        {invoice.approvalStatus && (
+                          <span className={cn('px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border', approvalStatusColors[invoice.approvalStatus])}>
+                            {approvalStatusLabels[invoice.approvalStatus]}
                           </span>
                         )}
                       </td>
@@ -469,13 +477,95 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                           {paymentStatusLabels[invoice.paymentStatus]}
                         </span>
                       </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Mobile List View */}
+          <div className="sm:hidden space-y-3">
+            {filteredInvoices.map((invoice) => {
+              const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
+                const dueDate = new Date(invoice.dueDate)
+                const oneDayAgo = new Date()
+                oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+                oneDayAgo.setHours(23, 59, 59, 999)
+                return dueDate < oneDayAgo
+              })()
+
+              return (
+                <div
+                  key={invoice.id}
+                  onClick={() => setSelectedInvoice(invoice)}
+                  className="rounded-lg border border-primary-blue bg-primary-dark p-4 space-y-3 cursor-pointer hover:bg-primary-dark/50 transition-colors"
+                >
+                  {/* Header with Selection and Number */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        onClick={(e) => toggleSelection(invoice.id, e)}
+                        className={cn(
+                          "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center flex-shrink-0",
+                          selectedIds.has(invoice.id)
+                            ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
+                            : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                        )}
+                      >
+                        {selectedIds.has(invoice.id) && (
+                          <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                        )}
+                      </div>
+                      <div className="text-sm font-semibold text-primary-light">
+                        {invoice.title || invoice.invoiceNumber}
+                      </div>
+                    </div>
+                    <div className="text-lg font-bold text-primary-gold">
+                      {formatCurrency(invoice.total)}
+                    </div>
+                  </div>
+
+                  {/* Contact, Due Date, and Status on same row */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    {/* Contact Name */}
+                    <div className="text-sm text-primary-light/70 truncate flex-shrink min-w-0">
+                      {invoice.contactName || '-'}
+                    </div>
+                    
+                    {/* Due Date and Status */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {invoice.dueDate && (
+                        <div className={cn(
+                          "text-xs whitespace-nowrap",
+                          isOverdue ? "text-red-400 font-medium" : "text-primary-light/50"
+                        )}>
+                          {isOverdue ? '⚠️ ' : ''}{new Date(invoice.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                      )}
+                      {invoice.approvalStatus && (
+                        <span className={cn('px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border', approvalStatusColors[invoice.approvalStatus])}>
+                          {approvalStatusLabels[invoice.approvalStatus]}
+                        </span>
+                      )}
+                      <span className={cn('px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border', paymentStatusColors[invoice.paymentStatus])}>
+                        {paymentStatusLabels[invoice.paymentStatus]}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Partial Payment Info */}
+                  {invoice.paymentStatus === 'partial' && (
+                    <div className="text-xs text-primary-light/50 pt-2 border-t border-primary-blue">
+                      Paid: {formatCurrency(invoice.paidAmount)} of {formatCurrency(invoice.total)}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )

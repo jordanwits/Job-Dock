@@ -18,6 +18,7 @@ export const quoteSchema = z.object({
     (val) => (val === '' || val === null || val === undefined || isNaN(Number(val)) ? 0 : Number(val)),
     z.number().min(0)
   ),
+  discountReason: z.string().optional(),
   notes: z.string().optional(),
   validUntil: z.string().optional(),
   status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'expired']).optional(),

@@ -47,6 +47,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
       })) || [{ description: '', quantity: 1, unitPrice: 0 }],
       taxRate: quote ? quote.taxRate * 100 : 8,
       discount: quote?.discount || 0,
+      discountReason: quote?.discountReason || '',
       notes: quote?.notes || '',
       validUntil: quote?.validUntil
         ? new Date(quote.validUntil).toISOString().split('T')[0]
@@ -87,6 +88,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
         })),
         taxRate: quote.taxRate * 100, // Convert decimal to percentage for display
         discount: quote.discount,
+        discountReason: quote.discountReason || '',
         notes: quote.notes || '',
         validUntil: quote.validUntil
           ? new Date(quote.validUntil).toISOString().split('T')[0]
@@ -111,6 +113,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
       ...data,
       taxRate: data.taxRate ? Number(data.taxRate) / 100 : 0,
       discount: data.discount ? Number(data.discount) : 0,
+      discountReason: data.discountReason || undefined,
       notes: data.notes || undefined,
       validUntil: dateStringToISO(data.validUntil),
     }
@@ -289,6 +292,17 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
         />
       </div>
 
+      {/* Discount Reason - Only show if discount is applied */}
+      {watchedDiscount > 0 && (
+        <Input
+          label="Discount Reason (Optional)"
+          placeholder="e.g., Repeat customer discount, Seasonal promotion"
+          error={errors.discountReason?.message}
+          {...register('discountReason')}
+          helperText="Provide a reason for this discount (will appear on quote)"
+        />
+      )}
+
       {/* Totals Summary */}
       <div className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
         <div className="space-y-2 text-sm">
@@ -355,14 +369,14 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>
+        <Button type="button" onClick={handleSave} disabled={isLoading}>
+          {isLoading ? 'Saving...' : 'Save'}
+        </Button>
         {onSaveAndSend && (
           <Button type="button" onClick={handleSaveAndSend} disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Save & Send'}
+            {isLoading ? 'Saving...' : 'Save and Send'}
           </Button>
         )}
-        <Button type="button" onClick={handleSave} disabled={isLoading}>
-          {isLoading ? 'Saving...' : 'Save & Send Later'}
-        </Button>
       </div>
     </form>
 

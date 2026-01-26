@@ -35,8 +35,16 @@ const Calendar = ({
   onDateClick,
   onUnscheduledDrop,
 }: CalendarProps) => {
+  // Set initial scale based on screen size
+  const getInitialScale = () => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768 ? 75 : 100
+    }
+    return 100
+  }
+  
   const [selectedDate, setSelectedDate] = useState(currentDate)
-  const [calendarScale, setCalendarScale] = useState<number>(100)
+  const [calendarScale, setCalendarScale] = useState<number>(getInitialScale())
   const [dragState, setDragState] = useState<DragState>({
     job: null,
     type: null,
@@ -55,6 +63,17 @@ const Calendar = ({
   const weekColumnsRef = useRef<Map<number, DOMRect>>(new Map())
   
   const { updateJob } = useJobStore()
+  
+  // Update scale when window is resized
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768
+      setCalendarScale(isMobile ? 75 : 100)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Helper function to snap to 15-minute increments
   const snapTo15Minutes = (date: Date): Date => {
@@ -1017,11 +1036,11 @@ const Calendar = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1 md:gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => onViewModeChange('day')}
               className={cn(
-                'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
+                'px-4 py-2 rounded-lg font-medium transition-colors text-sm',
                 viewMode === 'day'
                   ? 'bg-primary-gold text-primary-dark'
                   : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
@@ -1032,7 +1051,7 @@ const Calendar = ({
             <button
               onClick={() => onViewModeChange('week')}
               className={cn(
-                'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
+                'px-4 py-2 rounded-lg font-medium transition-colors text-sm',
                 viewMode === 'week'
                   ? 'bg-primary-gold text-primary-dark'
                   : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
@@ -1043,7 +1062,7 @@ const Calendar = ({
             <button
               onClick={() => onViewModeChange('month')}
               className={cn(
-                'px-2 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm',
+                'px-4 py-2 rounded-lg font-medium transition-colors text-sm',
                 viewMode === 'month'
                   ? 'bg-primary-gold text-primary-dark'
                   : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
@@ -1053,10 +1072,10 @@ const Calendar = ({
             </button>
           </div>
           
-          {/* Zoom Control - Only show in month view */}
+          {/* Zoom Control - Only show in month view and hidden on mobile */}
           {viewMode === 'month' && (
-            <div className="flex items-center gap-1 border-l border-primary-blue/50 pl-2">
-              <span className="text-xs text-primary-light/70 hidden md:inline mr-1">Zoom:</span>
+            <div className="hidden md:flex items-center gap-1 border-l border-primary-blue/50 pl-2">
+              <span className="text-xs text-primary-light/70 mr-1">Zoom:</span>
               {[75, 100, 125, 150].map((scale) => (
                 <button
                   key={scale}

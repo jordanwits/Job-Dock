@@ -383,7 +383,8 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-sm font-medium text-primary-light">
-                        {quote.quoteNumber}
+                        <span className="md:hidden">{quote.title || quote.quoteNumber}</span>
+                        <span className="hidden md:inline">{quote.quoteNumber}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">

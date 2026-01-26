@@ -72,13 +72,34 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
       title="Job Details"
       size="lg"
       footer={
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between w-full gap-3">
+          {/* Primary actions - shown on top on mobile */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            {isUnscheduled && onScheduleJob && !isArchived && (
+              <Button 
+                onClick={onScheduleJob}
+                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto justify-center"
+              >
+                Schedule Job
+              </Button>
+            )}
+            {!isUnscheduled && onScheduleFollowup && !isArchived && job.status !== 'pending-confirmation' && (
+              <Button 
+                onClick={onScheduleFollowup}
+                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto justify-center"
+              >
+                Schedule Follow-up
+              </Button>
+            )}
+          </div>
+          
+          {/* Secondary actions - shown on bottom on mobile */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             {isArchived ? (
               // Archived job actions
               <>
                 {onRestore && (
-                  <Button onClick={onRestore} className="bg-green-600 hover:bg-green-700 text-white">
+                  <Button onClick={onRestore} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto justify-center">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                     </svg>
@@ -86,7 +107,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                   </Button>
                 )}
                 {onPermanentDelete && (
-                  <Button variant="ghost" onClick={onPermanentDelete} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                  <Button variant="ghost" onClick={onPermanentDelete} className="bg-red-500 text-white hover:bg-red-600 sm:bg-transparent sm:text-red-600 sm:hover:text-red-700 sm:hover:bg-red-50 w-full sm:w-auto justify-center">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
@@ -98,12 +119,12 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               // Pending confirmation actions
               <>
                 {onDecline && (
-                  <Button variant="ghost" onClick={onDecline} className="text-red-500 hover:text-red-600">
+                  <Button variant="ghost" onClick={onDecline} className="bg-red-500 text-white hover:bg-red-600 sm:bg-transparent sm:text-red-500 sm:hover:text-red-600 sm:hover:bg-red-50 w-full sm:w-auto justify-center">
                     Decline
                   </Button>
                 )}
                 {onConfirm && (
-                  <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white">
+                  <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto justify-center">
                     Confirm Booking
                   </Button>
                 )}
@@ -112,11 +133,11 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               // Normal job actions - compact with dropdown
               <>
                 {(onDelete || onPermanentDelete) && (
-                  <div className="relative">
+                  <div className="relative w-full sm:w-auto">
                     <Button 
                       variant="ghost" 
                       onClick={() => setShowDeleteMenu(!showDeleteMenu)}
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      className="bg-red-500 text-white hover:bg-red-600 sm:bg-transparent sm:text-red-500 sm:hover:text-red-600 sm:hover:bg-red-50 w-full sm:w-auto justify-center"
                     >
                       Delete
                       <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,31 +195,12 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                   </div>
                 )}
                 {onEdit && !isArchived && (
-                  <Button variant="ghost" onClick={onEdit}>
+                  <Button variant="ghost" onClick={onEdit} className="bg-primary-light/10 text-primary-light hover:bg-primary-light/20 sm:bg-transparent sm:hover:bg-primary-light/5 w-full sm:w-auto justify-center">
                     Edit
                   </Button>
                 )}
               </>
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            {isUnscheduled && onScheduleJob && !isArchived && (
-              <Button 
-                onClick={onScheduleJob}
-                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark"
-              >
-                Schedule Job
-              </Button>
-            )}
-            {!isUnscheduled && onScheduleFollowup && !isArchived && job.status !== 'pending-confirmation' && (
-              <Button 
-                onClick={onScheduleFollowup}
-                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark"
-              >
-                Schedule Follow-up
-              </Button>
-            )}
-            <Button onClick={onClose}>Close</Button>
           </div>
         </div>
       }

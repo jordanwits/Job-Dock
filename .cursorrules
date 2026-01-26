@@ -1,0 +1,26 @@
+# JobDock Project Rules
+
+## Deployment Rules
+When deploying backend to production, ALWAYS use: cd infrastructure; cdk deploy -c env=prod --require-approval never
+When deploying frontend to production, ALWAYS use: .\deploy-frontend-prod.ps1
+NEVER deploy backend without -c env=prod flag (it defaults to dev)
+
+## Database Migrations
+For Database Migrations:
+Use the Lambda function instead (no bastion needed):
+.\run-migration-lambda.ps1 -Environment prod
+
+## Browser Testing
+dont run browser actions unless I tell you
+do not browser test unless I tell you. I will do the testing
+
+## Environment
+we are in production env
+
+## Windows/PowerShell
+Powershell doesnt accept "&&"
+use Windows 10 commands
+
+## Documentation
+dont write .md files unless you as an AI agent need it. I will not use them myself.
+Ignore all .md files unless explicitly referenced.

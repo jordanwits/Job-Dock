@@ -47,6 +47,7 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
       })) || [{ description: '', quantity: 1, unitPrice: 0 }],
       taxRate: invoice ? invoice.taxRate * 100 : 8,
       discount: invoice?.discount || 0,
+      discountReason: invoice?.discountReason || '',
       notes: invoice?.notes || '',
       dueDate: invoice?.dueDate
         ? new Date(invoice.dueDate).toISOString().split('T')[0]
@@ -90,6 +91,7 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
         })),
         taxRate: invoice.taxRate * 100,
         discount: invoice.discount,
+        discountReason: invoice.discountReason || '',
         notes: invoice.notes || '',
         dueDate: invoice.dueDate
           ? new Date(invoice.dueDate).toISOString().split('T')[0]
@@ -115,6 +117,7 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
       ...data,
       title: data.title || undefined,
       taxRate: data.taxRate ? data.taxRate / 100 : 0,
+      discountReason: data.discountReason || undefined,
       notes: data.notes || undefined,
       dueDate: dateStringToISO(data.dueDate),
       paymentTerms: data.paymentTerms || undefined,
@@ -293,6 +296,17 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
         />
       </div>
 
+      {/* Discount Reason - Only show if discount is applied */}
+      {watchedDiscount > 0 && (
+        <Input
+          label="Discount Reason (Optional)"
+          placeholder="e.g., Repeat customer discount, Seasonal promotion"
+          error={errors.discountReason?.message}
+          {...register('discountReason')}
+          helperText="Provide a reason for this discount (will appear on invoice)"
+        />
+      )}
+
       {/* Totals Summary */}
       <div className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
         <div className="space-y-2 text-sm">
@@ -385,7 +399,7 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
         </Button>
         {!invoice && onSaveAndSend && (
           <Button type="button" onClick={handleSaveAndSend} disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Create and Send'}
+            {isLoading ? 'Saving...' : 'Save and Send'}
           </Button>
         )}
       </div>

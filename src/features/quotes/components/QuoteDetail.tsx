@@ -297,7 +297,9 @@ const QuoteDetail = ({ quote, isOpen, onClose, onJobCreated, onJobCreateFailed }
               </div>
               {quote.discount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-primary-light/70">Discount</span>
+                  <span className="text-primary-light/70">
+                    Discount{quote.discountReason && ` (${quote.discountReason})`}
+                  </span>
                   <span className="text-primary-light">-{formatCurrency(quote.discount)}</span>
                 </div>
               )}

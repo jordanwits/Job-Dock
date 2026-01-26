@@ -17,6 +17,7 @@ interface QuoteData {
   taxRate: number
   taxAmount: number
   discount: number
+  discountReason?: string
   total: number
   notes?: string
   validUntil?: string
@@ -39,6 +40,7 @@ interface InvoiceData {
   taxRate: number
   taxAmount: number
   discount: number
+  discountReason?: string
   total: number
   status: string
   paymentStatus: string
@@ -359,7 +361,8 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
   }
 
   if (quote.discount > 0) {
-    page.drawText('Discount:', { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
+    const discountLabel = quote.discountReason ? `Discount (${quote.discountReason}):` : 'Discount:'
+    page.drawText(discountLabel, { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
     page.drawText(`-${formatCurrency(quote.discount)}`, { x: 480, y, size: 10, font: fontRegular, color: mediumGray })
     y -= 20
   }
@@ -651,7 +654,8 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
   }
 
   if (invoice.discount > 0) {
-    page.drawText('Discount:', { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
+    const discountLabel = invoice.discountReason ? `Discount (${invoice.discountReason}):` : 'Discount:'
+    page.drawText(discountLabel, { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
     page.drawText(`-${formatCurrency(invoice.discount)}`, { x: 480, y, size: 10, font: fontRegular, color: mediumGray })
     y -= 20
   }

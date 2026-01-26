@@ -19,6 +19,7 @@ export interface Quote {
   taxRate: number
   taxAmount: number
   discount: number
+  discountReason?: string
   total: number
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
   notes?: string
@@ -33,6 +34,7 @@ export interface CreateQuoteData {
   lineItems: Omit<QuoteLineItem, 'id' | 'total'>[]
   taxRate?: number
   discount?: number
+  discountReason?: string
   notes?: string
   validUntil?: string
   status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
