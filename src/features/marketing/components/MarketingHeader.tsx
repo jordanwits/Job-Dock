@@ -102,17 +102,6 @@ const MarketingHeader = () => {
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
           </button>
           <button
-            onClick={() => scrollToSection('testimonials')}
-            className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isScrolled 
-                ? 'text-primary-dark/70 hover:text-primary-dark' 
-                : 'text-white/80 hover:text-white'
-            }`}
-          >
-            Testimonials
-            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
-          </button>
-          <button
             onClick={() => scrollToSection('why-us')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
               isScrolled 
@@ -180,12 +169,6 @@ const MarketingHeader = () => {
               className="text-left px-4 py-3 text-base font-medium text-primary-dark hover:bg-primary-gold/10 rounded-lg transition-colors"
             >
               Benefits
-            </button>
-            <button
-              onClick={() => scrollToSection('testimonials')}
-              className="text-left px-4 py-3 text-base font-medium text-primary-dark hover:bg-primary-gold/10 rounded-lg transition-colors"
-            >
-              Testimonials
             </button>
             <button
               onClick={() => scrollToSection('why-us')}

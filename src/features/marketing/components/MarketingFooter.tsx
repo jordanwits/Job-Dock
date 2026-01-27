@@ -109,14 +109,6 @@ const MarketingFooter = () => {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToSection('testimonials')}
-                  className="text-white/70 hover:text-primary-gold transition-colors"
-                >
-                  Testimonials
-                </button>
-              </li>
-              <li>
-                <button
                   onClick={() => scrollToSection('why-us')}
                   className="text-white/70 hover:text-primary-gold transition-colors"
                 >

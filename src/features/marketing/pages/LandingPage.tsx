@@ -405,70 +405,8 @@ const LandingPage = () => {
         </div>
       </MarketingSection>
 
-      {/* Testimonials */}
-      <MarketingSection id="testimonials" variant="white" withTopDivider withBottomDivider>
-        <div className="container mx-auto px-4 md:px-6">
-          <SectionHeading
-            eyebrow="What Users Say"
-            heading="Built with feedback from real service pros"
-          />
-          <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6 md:gap-8">
-            <div className="bg-gradient-to-br from-primary-light to-white border-2 border-primary-blue/10 rounded-xl p-6 md:p-8 shadow-md hover:shadow-xl transition-shadow">
-              <div className="flex gap-1 mb-4">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} className="w-5 h-5 text-primary-gold fill-current" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                ))}
-              </div>
-              <p className="text-primary-dark/80 mb-4 leading-relaxed">
-                "Finally, a tool that doesn't try to do everything. It does exactly what I need for my contracting business."
-              </p>
-              <div className="border-t border-primary-blue/10 pt-4">
-                <p className="font-semibold text-primary-dark">Mike R.</p>
-                <p className="text-sm text-primary-dark/60">General Contractor</p>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-primary-light to-white border-2 border-primary-blue/10 rounded-xl p-6 md:p-8 shadow-md hover:shadow-xl transition-shadow">
-              <div className="flex gap-1 mb-4">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} className="w-5 h-5 text-primary-gold fill-current" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                ))}
-              </div>
-              <p className="text-primary-dark/80 mb-4 leading-relaxed">
-                "The scheduling feature alone saves me hours every week. No more back-and-forth texts with clients."
-              </p>
-              <div className="border-t border-primary-blue/10 pt-4">
-                <p className="font-semibold text-primary-dark">Sarah T.</p>
-                <p className="text-sm text-primary-dark/60">Landscaping Services</p>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-primary-light to-white border-2 border-primary-blue/10 rounded-xl p-6 md:p-8 shadow-md hover:shadow-xl transition-shadow">
-              <div className="flex gap-1 mb-4">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} className="w-5 h-5 text-primary-gold fill-current" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                ))}
-              </div>
-              <p className="text-primary-dark/80 mb-4 leading-relaxed">
-                "I can create a quote on my phone between jobs. That's a game-changer for keeping work moving."
-              </p>
-              <div className="border-t border-primary-blue/10 pt-4">
-                <p className="font-semibold text-primary-dark">James K.</p>
-                <p className="text-sm text-primary-dark/60">HVAC Specialist</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </MarketingSection>
-
       {/* Why Different Section */}
-      <MarketingSection id="why-us" variant="gradient-blue">
+      <MarketingSection id="why-us" variant="white">
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
