@@ -71,9 +71,9 @@ const RegisterForm = () => {
 
         <PasswordInput
           label="Password"
-          placeholder="At least 8 characters"
+          placeholder="Enter a strong password"
           error={errors.password?.message}
-          helperText="Must be at least 8 characters"
+          helperText="Must be at least 8 characters with uppercase, lowercase, number, and special character"
           {...register('password')}
         />
 

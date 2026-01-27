@@ -32,12 +32,29 @@ function getCognitoErrorMessage(errorMessage: string): string {
   }
 
   if (lowerMessage.includes('invalidpasswordexception') || lowerMessage.includes('invalid password')) {
-    return 'The password you entered is invalid. Please try again.'
+    return 'Password does not meet security requirements. Must include uppercase, lowercase, number, and special character.'
   }
 
   if (lowerMessage.includes('invalidparameterexception')) {
     if (lowerMessage.includes('password')) {
-      return 'Password does not meet requirements. Please use a stronger password.'
+      // Check for specific password requirement violations
+      if (lowerMessage.includes('length') || lowerMessage.includes('too short')) {
+        return 'Password must be at least 8 characters long.'
+      }
+      if (lowerMessage.includes('uppercase')) {
+        return 'Password must contain at least one uppercase letter.'
+      }
+      if (lowerMessage.includes('lowercase')) {
+        return 'Password must contain at least one lowercase letter.'
+      }
+      if (lowerMessage.includes('numeric') || lowerMessage.includes('number')) {
+        return 'Password must contain at least one number.'
+      }
+      if (lowerMessage.includes('symbol') || lowerMessage.includes('special')) {
+        return 'Password must contain at least one special character (!@#$%^&*).'
+      }
+      // Generic password requirement message
+      return 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
     }
     return 'Invalid information provided. Please check your input and try again.'
   }
