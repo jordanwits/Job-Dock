@@ -70,6 +70,7 @@ input:-webkit-autofill {
 }
 
 @layer utilities {
+  /* Scale In Animation */
   @keyframes scaleIn {
     from {
       transform: scale(0);
@@ -85,12 +86,108 @@ input:-webkit-autofill {
     animation: scaleIn 0.2s ease-out;
   }
 
+  /* Fade In Up Animation - respects prefers-reduced-motion */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-fade-in-up {
+      animation: fadeInUp 0.6s ease-out forwards;
+      opacity: 0;
+    }
+
+    .animation-delay-100 {
+      animation-delay: 0.1s;
+    }
+
+    .animation-delay-200 {
+      animation-delay: 0.2s;
+    }
+
+    .animation-delay-300 {
+      animation-delay: 0.3s;
+    }
+  }
+
+  /* For users who prefer reduced motion, just show the content */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in-up {
+      opacity: 1;
+      animation: none;
+    }
+  }
+
+  /* Slide Down Animation for mobile menu */
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-slide-down {
+      animation: slideDown 0.2s ease-out;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-slide-down {
+      animation: none;
+    }
+  }
+
   /* Subtle grid texture for hero/CTA backgrounds */
   .bg-grid-white {
     background-image: 
       linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
     background-size: 40px 40px;
+  }
+
+  /* Blueprint grid texture - industrial feel */
+  .bg-blueprint-grid {
+    background-color: transparent;
+    background-image: 
+      linear-gradient(rgba(212, 175, 55, 0.08) 1.5px, transparent 1.5px),
+      linear-gradient(90deg, rgba(212, 175, 55, 0.08) 1.5px, transparent 1.5px),
+      linear-gradient(rgba(212, 175, 55, 0.04) 0.5px, transparent 0.5px),
+      linear-gradient(90deg, rgba(212, 175, 55, 0.04) 0.5px, transparent 0.5px);
+    background-size: 60px 60px, 60px 60px, 20px 20px, 20px 20px;
+    background-position: -1.5px -1.5px, -1.5px -1.5px, -0.5px -0.5px, -0.5px -0.5px;
+  }
+
+  /* Diagonal stripe texture - trades aesthetic */
+  .bg-diagonal-stripes {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(212, 175, 55, 0.03) 10px,
+      rgba(212, 175, 55, 0.03) 20px
+    );
+  }
+
+  /* Industrial accent line */
+  .border-industrial {
+    border-image: linear-gradient(
+      to right,
+      transparent,
+      rgba(212, 175, 55, 0.5),
+      transparent
+    ) 1;
   }
 }
 

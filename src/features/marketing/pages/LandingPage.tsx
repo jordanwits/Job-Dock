@@ -1,200 +1,480 @@
-import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
+import MarketingSection from '../components/MarketingSection'
+import SectionHeading from '../components/SectionHeading'
+import FeatureCard from '../components/FeatureCard'
+import StatCard from '../components/StatCard'
+import MarketingButton from '../components/MarketingButton'
+import { landingPageContent } from '../content/landingPageContent'
 
 const LandingPage = () => {
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
   return (
     <MarketingLayout>
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-primary-dark via-primary-dark-secondary to-primary-blue pt-36 pb-16 md:pt-44 md:pb-24 overflow-hidden">
+      <MarketingSection variant="gradient-dark" className="pt-36 pb-16 md:pt-44 md:pb-24">
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-grid-white"></div>
+          <div className="absolute inset-0 bg-blueprint-grid"></div>
         </div>
         <div className="container mx-auto px-4 md:px-6 relative">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               {/* Left Column - Content */}
-              <div className="text-center lg:text-left">
-                <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-primary-light mb-6 leading-tight">
-                  Manage Your Contracting Business with{' '}
-                  <span className="text-primary-gold">Confidence</span>
+              <div className="text-center lg:text-left animate-fade-in-up">
+                <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-primary-light mb-6 leading-tight">
+                  {landingPageContent.hero.title.line1}
+                  <br />
+                  <span className="text-primary-gold">{landingPageContent.hero.title.line2}</span>
                 </h1>
-                <p className="text-lg md:text-xl lg:text-2xl text-primary-light/80 mb-8 leading-relaxed">
-                  Professional quotes, invoices, scheduling, and client management—all in one powerful platform built for service contractors.
+                <p className="text-lg md:text-xl lg:text-2xl text-primary-light/90 mb-6 leading-relaxed">
+                  {landingPageContent.hero.subtitle}
+                </p>
+                <p className="text-base md:text-lg text-primary-light/80 mb-8 leading-relaxed">
+                  {landingPageContent.hero.description}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <Link to="/auth/register">
-                    <button className="group px-8 py-4 bg-primary-gold hover:bg-primary-gold/90 text-primary-dark font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 text-lg">
-                      Start Free Trial
-                      <svg className="inline-block ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </button>
-                  </Link>
-                  <Link to="/auth/login">
-                    <button className="px-8 py-4 bg-white hover:bg-primary-light text-primary-dark font-semibold rounded-xl border-2 border-primary-light hover:scale-105 transition-all duration-200 text-lg">
-                      Sign In
-                    </button>
-                  </Link>
+                  <MarketingButton to="/auth/register" variant="primary" size="lg" withArrow>
+                    {landingPageContent.hero.primaryCta}
+                  </MarketingButton>
+                  <MarketingButton onClick={() => scrollToSection('how-it-works')} variant="outline" size="lg">
+                    {landingPageContent.hero.secondaryCta}
+                  </MarketingButton>
                 </div>
-                <p className="mt-6 text-sm text-primary-light/60">Free 14-day trial</p>
               </div>
 
               {/* Right Column - Image */}
-              <div className="relative">
+              <div className="relative animate-fade-in-up animation-delay-200">
                 <div className="relative rounded-3xl overflow-hidden border-2 border-primary-gold/20 shadow-2xl">
-                  {/* Gradient overlay for cohesion */}
                   <div className="absolute inset-0 bg-gradient-to-br from-primary-dark/20 via-transparent to-primary-blue/10 z-10 pointer-events-none"></div>
                   <img 
                     src="/marketing/hero-contractor.svg" 
-                    alt="Contractor managing business with JobDock on tablet"
+                    alt={landingPageContent.hero.imageAlt}
                     className="w-full h-auto"
                     loading="eager"
                   />
                 </div>
-                {/* Decorative accent */}
                 <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-primary-gold/20 rounded-full blur-3xl"></div>
                 <div className="absolute -top-4 -left-4 w-32 h-32 bg-primary-blue/20 rounded-full blur-3xl"></div>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </MarketingSection>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 md:py-28 bg-primary-light">
+      {/* Trust Bar */}
+      <MarketingSection variant="white" className="py-8 md:py-12 border-b border-primary-blue/10">
         <div className="container mx-auto px-4 md:px-6">
-          <div className="text-center mb-16">
-            <div className="inline-block px-4 py-1.5 bg-primary-gold/10 text-primary-gold text-sm font-semibold rounded-full mb-4">
-              FEATURES
+          <div className="max-w-5xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
+              {landingPageContent.trustBar.map((item, index) => (
+                <div key={index} className={`animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}>
+                  <div className="text-3xl md:text-4xl font-bold text-primary-gold mb-2">{item.value}</div>
+                  <div className="text-sm md:text-base text-primary-dark/70">{item.label}</div>
+                </div>
+              ))}
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-primary-dark mb-4">
-              Everything You Need to Succeed
+          </div>
+        </div>
+      </MarketingSection>
+
+      {/* Value Proposition */}
+      <MarketingSection variant="gradient-blue" className="py-12 md:py-16">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12 md:mb-16">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-4 leading-tight">
+                You don't need another <span className="text-primary-gold">bloated platform.</span>
+              </h2>
+              <p className="text-xl md:text-2xl text-primary-dark/70 leading-relaxed">
+                You need something that <span className="text-primary-gold font-semibold">actually fits how you work.</span>
+              </p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+              {landingPageContent.valueProposition.cards.map((card, index) => {
+                const icons = [
+                  <path key={index} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />,
+                  <path key={index} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />,
+                  <path key={index} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                ]
+                const bgColors = ['bg-primary-gold/10', 'bg-primary-blue/10', 'bg-primary-gold/10']
+                const iconColors = ['text-primary-gold', 'text-primary-blue', 'text-primary-gold']
+                
+                return (
+                  <div key={index} className="text-center p-6">
+                    <div className={`w-16 h-16 mx-auto mb-4 ${bgColors[index]} rounded-full flex items-center justify-center`}>
+                      <svg className={`w-8 h-8 ${iconColors[index]}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {icons[index]}
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-primary-dark mb-2">{card.title}</h3>
+                    <p className="text-primary-dark/70">{card.description}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </MarketingSection>
+
+      {/* Problem Section */}
+      <MarketingSection variant="white">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-8 text-center leading-tight">
+              Running your business shouldn't feel <span className="text-primary-gold">this complicated</span>
             </h2>
-            <p className="text-xl text-primary-dark/70 max-w-2xl mx-auto">
-              Powerful tools designed specifically for contractors and service professionals
+            <p className="text-lg md:text-xl text-primary-dark/70 mb-8 text-center">
+              {landingPageContent.problem.subtitle}
+            </p>
+            <div className="space-y-4 mb-8 max-w-2xl mx-auto">
+              {landingPageContent.problem.problems.map((problem, index) => (
+                <div key={index} className={`flex items-start gap-3 animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}>
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-blue/20 flex items-center justify-center mt-1">
+                    <div className="w-2 h-2 rounded-full bg-primary-blue"></div>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">{problem}</p>
+                </div>
+              ))}
+            </div>
+            <div className="text-center max-w-2xl mx-auto space-y-4 pt-8 border-t-2 border-primary-gold/20">
+              <p className="text-xl text-primary-dark/80 font-bold">{landingPageContent.problem.conclusion.headline}</p>
+              <p className="text-lg text-primary-dark/70">
+                {landingPageContent.problem.conclusion.description}
+              </p>
+            </div>
+          </div>
+        </div>
+      </MarketingSection>
+
+      {/* Features Grid */}
+      <MarketingSection variant="gradient-dark">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="text-center mb-12 md:mb-16">
+            <div className="inline-block px-4 py-1.5 bg-primary-gold/10 text-primary-gold text-sm font-bold tracking-wider rounded-full mb-4 uppercase">
+              {landingPageContent.features.eyebrow}
+            </div>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
+              Everything you need. <span className="text-primary-gold">Nothing you don't.</span>
+            </h2>
+            <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto leading-relaxed">
+              {landingPageContent.features.subtitle}
             </p>
           </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-            {/* Feature 1 */}
-            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 shadow-lg">
-              <div className="w-14 h-14 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-xl flex items-center justify-center mb-5 shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            <FeatureCard
+              variant="elevated"
+              icon={
+                <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-              </div>
-              <h3 className="text-xl font-bold text-primary-dark mb-3">Professional Quotes & Invoices</h3>
-              <p className="text-primary-dark/70 leading-relaxed">
-                Create polished quotes and invoices in seconds. Auto-send via email with PDF attachments and tracking.
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 shadow-lg">
-              <div className="w-14 h-14 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-xl flex items-center justify-center mb-5 shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              }
+              title="Professional Quotes"
+              description="Create and send polished quotes in minutes. No design skills needed."
+            />
+            <FeatureCard
+              variant="elevated"
+              icon={
+                <svg className="w-6 h-6 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              }
+              title="Fast Invoicing"
+              description="Turn completed jobs into accurate invoices with one click."
+            />
+            <FeatureCard
+              variant="elevated"
+              icon={
+                <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-              </div>
-              <h3 className="text-xl font-bold text-primary-dark mb-3">Smart Scheduling</h3>
-              <p className="text-primary-dark/70 leading-relaxed">
-                Manage your calendar with ease. Let clients book appointments online with automatic confirmation emails.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 shadow-lg">
-              <div className="w-14 h-14 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-xl flex items-center justify-center mb-5 shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              }
+              title="Smart Scheduling"
+              description="Manage bookings without double-booking. See your week at a glance."
+            />
+            <FeatureCard
+              variant="elevated"
+              icon={
+                <svg className="w-6 h-6 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-              </div>
-              <h3 className="text-xl font-bold text-primary-dark mb-3">Client Relationship Management</h3>
-              <p className="text-primary-dark/70 leading-relaxed">
-                Keep all client details, communication history, and project notes organized in one central hub.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 shadow-lg">
-              <div className="w-14 h-14 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-xl flex items-center justify-center mb-5 shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              }
+              title="Client Management"
+              description="Keep all contact details, job history, and notes in one place."
+            />
+            <FeatureCard
+              variant="elevated"
+              icon={
+                <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-              </div>
-              <h3 className="text-xl font-bold text-primary-dark mb-3">Automated Notifications</h3>
-              <p className="text-primary-dark/70 leading-relaxed">
-                Keep clients in the loop with automatic email updates for quotes, invoices, bookings, and job status changes.
-              </p>
-            </div>
-
-            {/* Feature 5 */}
-            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 shadow-lg">
-              <div className="w-14 h-14 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-xl flex items-center justify-center mb-5 shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              }
+              title="Auto Email"
+              description="Send quotes and invoices automatically. Professional and fast."
+            />
+            <FeatureCard
+              variant="elevated"
+              icon={
+                <svg className="w-6 h-6 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
-              </div>
-              <h3 className="text-xl font-bold text-primary-dark mb-3">Job Tracking</h3>
-              <p className="text-primary-dark/70 leading-relaxed">
-                Monitor every job from quote to completion. Keep your team and clients informed with real-time status updates.
-              </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 shadow-lg">
-              <div className="w-14 h-14 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-xl flex items-center justify-center mb-5 shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-primary-dark mb-3">Custom Branding</h3>
-              <p className="text-primary-dark/70 leading-relaxed">
-                Add your logo, colors, and business details. All documents and emails reflect your professional brand.
-              </p>
-            </div>
+              }
+              title="Job Tracking"
+              description="Track progress from lead to completion. Never lose track of where you are."
+            />
           </div>
         </div>
-      </section>
+      </MarketingSection>
 
-      {/* Industries Section */}
-      <section className="py-20 bg-white">
+      {/* How It Works Section */}
+      <MarketingSection id="how-it-works" variant="white" withTopDivider withBottomDivider>
         <div className="container mx-auto px-4 md:px-6">
-          <div className="text-center mb-12">
-            <div className="inline-block px-4 py-1.5 bg-primary-gold/10 text-primary-gold text-sm font-semibold rounded-full mb-4">
-              WHO WE SERVE
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-primary-dark mb-4">
-              Built for Service Professionals
-            </h2>
-          </div>
+          <SectionHeading
+            eyebrow="How It Works"
+            heading={<>From quote to invoice — <span className="text-primary-gold">without the chaos</span></>}
+          />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 max-w-5xl mx-auto">
-            {[
-              'Roofing', 'Plumbing', 'HVAC', 'Electrical',
-              'Landscaping', 'Painting', 'Fencing', 'Handyman',
-              'Cleaning', 'Carpentry', 'Flooring', 'Masonry'
-            ].map((industry) => (
-              <div
-                key={industry}
-                className="bg-white border-2 border-primary-blue/20 rounded-xl py-4 px-4 text-center hover:border-primary-gold hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-              >
-                <span className="text-sm font-semibold text-primary-dark">{industry}</span>
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-4 gap-8">
+              {/* Step 1 */}
+              <div className="text-center animate-fade-in-up">
+                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
+                  <span className="text-3xl font-bold text-white">1</span>
+                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+                </div>
+                <h3 className="text-lg font-bold text-primary-dark mb-2">Create a client</h3>
+                <p className="text-primary-dark/70 text-sm">
+                  Store contact details, job notes, and history in one place.
+                </p>
               </div>
-            ))}
+
+              {/* Step 2 */}
+              <div className="text-center animate-fade-in-up animation-delay-100">
+                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
+                  <span className="text-3xl font-bold text-white">2</span>
+                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+                </div>
+                <h3 className="text-lg font-bold text-primary-dark mb-2">Send a quote</h3>
+                <p className="text-primary-dark/70 text-sm">
+                  Build and send clear, professional quotes in minutes.
+                </p>
+              </div>
+
+              {/* Step 3 */}
+              <div className="text-center animate-fade-in-up animation-delay-200">
+                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
+                  <span className="text-3xl font-bold text-white">3</span>
+                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+                </div>
+                <h3 className="text-lg font-bold text-primary-dark mb-2">Schedule the job</h3>
+                <p className="text-primary-dark/70 text-sm">
+                  Book work directly on your calendar and stay organized.
+                </p>
+              </div>
+
+              {/* Step 4 */}
+              <div className="text-center animate-fade-in-up animation-delay-300">
+                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
+                  <span className="text-3xl font-bold text-white">4</span>
+                </div>
+                <h3 className="text-lg font-bold text-primary-dark mb-2">Invoice with confidence</h3>
+                <p className="text-primary-dark/70 text-sm">
+                  Turn completed work into clean, accurate invoices — without starting over.
+                </p>
+              </div>
+            </div>
+            <div className="text-center mt-12 space-y-2">
+              <p className="text-xl text-primary-dark/80 font-semibold">Everything stays connected.</p>
+              <p className="text-xl text-primary-dark/80 font-semibold">Everything stays visible.</p>
+            </div>
           </div>
         </div>
-      </section>
+      </MarketingSection>
 
-      {/* Support & Peace of Mind Section */}
-      <section className="py-20 md:py-24 bg-gradient-to-br from-primary-dark/5 to-white">
+      {/* Stats Band */}
+      <MarketingSection variant="gradient-dark">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
+                Built for <span className="text-primary-gold">real work</span>
+              </h2>
+              <p className="text-lg md:text-xl text-white/80">
+                The numbers that matter for service businesses
+              </p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+              <StatCard
+                icon={
+                  <svg className="w-8 h-8 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                }
+                value="3 min"
+                label="Average Quote Time"
+                description="From blank to sent"
+              />
+              <StatCard
+                icon={
+                  <svg className="w-8 h-8 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                value="1 click"
+                label="Quote to Invoice"
+                description="No re-entering data"
+              />
+              <StatCard
+                icon={
+                  <svg className="w-8 h-8 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                value="24/7"
+                label="Client Booking"
+                description="They book. You approve."
+              />
+            </div>
+          </div>
+        </div>
+      </MarketingSection>
+
+      {/* Solution Section */}
+      <MarketingSection variant="light">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="max-w-5xl mx-auto">
+            <SectionHeading
+              heading="The Job Dock brings it all together"
+              subheading="A simple, focused tool designed around how service businesses actually operate."
+            />
+            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 md:p-10 shadow-xl mb-8">
+              <h3 className="text-xl md:text-2xl font-bold text-primary-dark mb-6">With The Job Dock, you can:</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">Create and send professional quotes</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">Convert quotes into invoices</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">Schedule jobs without double-booking</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">Track clients, jobs, and status in one place</p>
+                </div>
+                <div className="flex items-start gap-3 md:col-span-2">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">Reduce admin without adding complexity</p>
+                </div>
+              </div>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-xl text-primary-dark/80 font-semibold">No learning curve.</p>
+              <p className="text-xl text-primary-dark/80 font-semibold">No unnecessary features.</p>
+              <p className="text-xl text-primary-dark/80 font-semibold">Just what you need — and nothing you don't.</p>
+            </div>
+          </div>
+        </div>
+      </MarketingSection>
+
+      {/* Testimonials */}
+      <MarketingSection variant="white" withTopDivider withBottomDivider>
+        <div className="container mx-auto px-4 md:px-6">
+          <SectionHeading
+            eyebrow="What Users Say"
+            heading="Built with feedback from real service pros"
+          />
+          <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6 md:gap-8">
+            <div className="bg-gradient-to-br from-primary-light to-white border-2 border-primary-blue/10 rounded-xl p-6 md:p-8 shadow-md hover:shadow-xl transition-shadow">
+              <div className="flex gap-1 mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <svg key={i} className="w-5 h-5 text-primary-gold fill-current" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-primary-dark/80 mb-4 leading-relaxed">
+                "Finally, a tool that doesn't try to do everything. It does exactly what I need for my contracting business."
+              </p>
+              <div className="border-t border-primary-blue/10 pt-4">
+                <p className="font-semibold text-primary-dark">Mike R.</p>
+                <p className="text-sm text-primary-dark/60">General Contractor</p>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-primary-light to-white border-2 border-primary-blue/10 rounded-xl p-6 md:p-8 shadow-md hover:shadow-xl transition-shadow">
+              <div className="flex gap-1 mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <svg key={i} className="w-5 h-5 text-primary-gold fill-current" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-primary-dark/80 mb-4 leading-relaxed">
+                "The scheduling feature alone saves me hours every week. No more back-and-forth texts with clients."
+              </p>
+              <div className="border-t border-primary-blue/10 pt-4">
+                <p className="font-semibold text-primary-dark">Sarah T.</p>
+                <p className="text-sm text-primary-dark/60">Landscaping Services</p>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-primary-light to-white border-2 border-primary-blue/10 rounded-xl p-6 md:p-8 shadow-md hover:shadow-xl transition-shadow">
+              <div className="flex gap-1 mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <svg key={i} className="w-5 h-5 text-primary-gold fill-current" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-primary-dark/80 mb-4 leading-relaxed">
+                "I can create a quote on my phone between jobs. That's a game-changer for keeping work moving."
+              </p>
+              <div className="border-t border-primary-blue/10 pt-4">
+                <p className="font-semibold text-primary-dark">James K.</p>
+                <p className="text-sm text-primary-dark/60">HVAC Specialist</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </MarketingSection>
+
+      {/* Why Different Section */}
+      <MarketingSection variant="gradient-blue">
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               {/* Left Column - Image */}
               <div className="order-2 lg:order-1 relative">
                 <div className="relative rounded-3xl overflow-hidden border-2 border-primary-blue/20 shadow-2xl">
-                  {/* Gradient overlay */}
                   <div className="absolute inset-0 bg-gradient-to-br from-primary-blue/10 via-transparent to-primary-dark/5 z-10 pointer-events-none"></div>
                   <img 
                     src="/marketing/team-planning.svg" 
@@ -203,22 +483,18 @@ const LandingPage = () => {
                     loading="lazy"
                   />
                 </div>
-                {/* Decorative accents */}
                 <div className="absolute -top-6 -left-6 w-28 h-28 bg-primary-gold/10 rounded-full blur-3xl"></div>
                 <div className="absolute -bottom-6 -right-6 w-36 h-36 bg-primary-blue/10 rounded-full blur-3xl"></div>
               </div>
 
               {/* Right Column - Content */}
               <div className="order-1 lg:order-2">
-                <div className="inline-block px-4 py-1.5 bg-primary-gold/10 text-primary-gold text-sm font-semibold rounded-full mb-4">
-                  BUILT FOR YOU
-                </div>
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-6 leading-tight">
-                  Focus on What You Do Best—<span className="text-primary-gold">We'll Handle the Rest</span>
-                </h2>
-                <p className="text-lg md:text-xl text-primary-dark/70 mb-8 leading-relaxed">
-                  Running a contracting business is demanding. Between job sites, client calls, and managing your team, the last thing you need is complicated software slowing you down.
-                </p>
+                <SectionHeading
+                  eyebrow="Why We're Different"
+                  heading="Built for real people, not enterprise checklists"
+                  subheading="Many tools try to be everything for everyone. The Job Dock is different."
+                  align="left"
+                />
                 
                 <div className="space-y-6">
                   <div className="flex gap-4">
@@ -228,137 +504,114 @@ const LandingPage = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-primary-dark mb-1">Simple & Intuitive</h3>
-                      <p className="text-primary-dark/70">Designed for busy contractors, not tech experts. Get up and running in minutes, not days.</p>
+                      <h3 className="text-lg font-bold text-primary-dark mb-1">Simplicity over complexity</h3>
+                      <p className="text-primary-dark/70">We strip away the bloat and focus on what actually matters.</p>
                     </div>
                   </div>
 
                   <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-primary-blue/10 rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                    <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
+                      <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-primary-dark mb-1">Real Support, Real People</h3>
-                      <p className="text-primary-dark/70">Questions? We're here to help. Get answers from people who understand your business.</p>
+                      <h3 className="text-lg font-bold text-primary-dark mb-1">Clarity over feature overload</h3>
+                      <p className="text-primary-dark/70">Every feature has a purpose. Nothing is there "just because."</p>
                     </div>
                   </div>
 
                   <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-primary-dark/10 rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-primary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
+                      <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-primary-dark mb-1">Save Hours Every Week</h3>
-                      <p className="text-primary-dark/70">Automate the paperwork and get back to doing what you love—growing your business.</p>
+                      <h3 className="text-lg font-bold text-primary-dark mb-1">Human workflows over rigid systems</h3>
+                      <p className="text-primary-dark/70">Work the way you want to, not the way some software says you should.</p>
                     </div>
                   </div>
                 </div>
+
+                <p className="text-lg text-primary-dark/80 mt-8 p-4 bg-white/50 border-l-4 border-primary-gold rounded italic">
+                  If you've ever thought "this software is more work than it's worth" — this is for you.
+                </p>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </MarketingSection>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 md:py-28 bg-gradient-to-br from-primary-blue/10 to-primary-light">
+      {/* Early Access Section */}
+      <MarketingSection id="early-access" variant="light" withTopDivider>
         <div className="container mx-auto px-4 md:px-6">
-          <div className="text-center mb-16">
-            <div className="inline-block px-4 py-1.5 bg-primary-gold/10 text-primary-gold text-sm font-semibold rounded-full mb-4">
-              PROCESS
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-primary-dark mb-4">
-              Start in <span className="text-primary-gold">Minutes</span>
-            </h2>
-            <p className="text-xl text-primary-dark/70 max-w-2xl mx-auto">
-              Get your business up and running in four simple steps
-            </p>
-          </div>
-
-          <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-4 gap-8">
-              {/* Step 1 */}
-              <div className="text-center">
-                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
-                  <span className="text-3xl font-bold text-white">1</span>
-                  {/* Connector line */}
-                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+          <div className="max-w-4xl mx-auto text-center">
+            <SectionHeading
+              eyebrow="Early Access"
+              heading="We're opening early access"
+              subheading="The Job Dock is currently being used by a small group of service businesses helping shape the product through real-world feedback."
+            />
+            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 md:p-10 shadow-xl mb-8">
+              <h3 className="text-xl md:text-2xl font-bold text-primary-dark mb-6">If you want:</h3>
+              <div className="space-y-4 text-left max-w-xl mx-auto">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">Early access to the platform</p>
                 </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">Create Account</h3>
-                <p className="text-primary-dark/70 text-sm">
-                  Sign up in 30 seconds. Add your company details and branding.
-                </p>
-              </div>
-
-              {/* Step 2 */}
-              <div className="text-center">
-                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
-                  <span className="text-3xl font-bold text-white">2</span>
-                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">A voice in how the product evolves</p>
                 </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">Add Clients & Services</h3>
-                <p className="text-primary-dark/70 text-sm">
-                  Import your existing clients or add them as you go.
-                </p>
-              </div>
-
-              {/* Step 3 */}
-              <div className="text-center">
-                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
-                  <span className="text-3xl font-bold text-white">3</span>
-                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-lg text-primary-dark/80">A simpler way to run your business</p>
                 </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">Send Your First Quote</h3>
-                <p className="text-primary-dark/70 text-sm">
-                  Create and send professional quotes instantly via email.
-                </p>
-              </div>
-
-              {/* Step 4 */}
-              <div className="text-center">
-                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
-                  <span className="text-3xl font-bold text-white">4</span>
-                </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">Grow Your Business</h3>
-                <p className="text-primary-dark/70 text-sm">
-                  Focus on the work. Let JobDock handle the paperwork.
-                </p>
               </div>
             </div>
+            <p className="text-lg text-primary-dark/70 mb-8">We'd love to have you.</p>
+            <MarketingButton to="/auth/register" variant="primary" size="lg" withArrow>
+              Request Early Access
+            </MarketingButton>
           </div>
         </div>
-      </section>
+      </MarketingSection>
 
-      {/* CTA Section */}
-      <section className="relative py-24 md:py-32 bg-gradient-to-br from-primary-dark via-primary-dark-secondary to-primary-blue text-white overflow-hidden">
+      {/* Closing CTA Section */}
+      <MarketingSection variant="gradient-dark">
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-grid-white"></div>
+          <div className="absolute inset-0 bg-blueprint-grid"></div>
         </div>
         <div className="container mx-auto px-4 md:px-6 relative text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
-            Ready to Make Your Business{' '}
-            <span className="text-primary-gold">Run Smoother?</span>
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight text-white">
+            Your work deserves <span className="text-primary-gold">better tools</span>
           </h2>
           <p className="text-xl text-white/90 mb-4 max-w-2xl mx-auto leading-relaxed">
-            Start your free trial today—no credit card required. See why contractors love having more time to focus on what matters.
+            You do great work.
           </p>
-          <p className="text-lg text-white/70 mb-10 max-w-xl mx-auto">
-            Set up takes minutes. Cancel anytime. We're here to help every step of the way.
+          <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto leading-relaxed">
+            Your systems should support that — not slow you down.
           </p>
-          <Link to="/auth/register">
-            <button className="group px-10 py-5 bg-primary-gold hover:bg-primary-gold/90 text-primary-dark font-bold rounded-xl shadow-2xl hover:shadow-3xl hover:scale-105 transition-all duration-200 text-lg">
-              Start Your Free Trial
-              <svg className="inline-block ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </button>
-          </Link>
-          <p className="mt-6 text-sm text-white/60">14-day trial • No credit card • Full access to all features</p>
+          <p className="text-lg text-white/80 mb-10 max-w-xl mx-auto">
+            Get early access to The Job Dock and simplify how you run jobs, quotes, and schedules.
+          </p>
+          <MarketingButton to="/auth/register" variant="primary" size="lg" withArrow>
+            Get Started
+          </MarketingButton>
         </div>
-      </section>
+      </MarketingSection>
     </MarketingLayout>
   )
 }
