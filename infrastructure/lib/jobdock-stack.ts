@@ -162,9 +162,8 @@ export class JobDockStack extends cdk.Stack {
       signInAliases: {
         email: true,
       },
-      autoVerify: {
-        email: true,
-      },
+      // Removed autoVerify since we auto-confirm users in the backend
+      // This prevents unnecessary verification emails from being sent
       passwordPolicy: {
         minLength: config.cognito.passwordPolicy.minLength,
         requireUppercase: config.cognito.passwordPolicy.requireUppercase,
