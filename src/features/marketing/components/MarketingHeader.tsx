@@ -41,7 +41,7 @@ const MarketingHeader = () => {
     setIsMobileMenuOpen(false)
     const element = document.getElementById(id)
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }
 
@@ -69,6 +69,17 @@ const MarketingHeader = () => {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
           <button
+            onClick={() => scrollToSection('features')}
+            className={`relative text-sm font-medium transition-colors pb-1 group ${
+              isScrolled 
+                ? 'text-primary-dark/70 hover:text-primary-dark' 
+                : 'text-white/80 hover:text-white'
+            }`}
+          >
+            Features
+            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
+          </button>
+          <button
             onClick={() => scrollToSection('how-it-works')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
               isScrolled 
@@ -80,14 +91,36 @@ const MarketingHeader = () => {
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
           </button>
           <button
-            onClick={() => scrollToSection('early-access')}
+            onClick={() => scrollToSection('benefits')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
               isScrolled 
                 ? 'text-primary-dark/70 hover:text-primary-dark' 
                 : 'text-white/80 hover:text-white'
             }`}
           >
-            Early Access
+            Benefits
+            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
+          </button>
+          <button
+            onClick={() => scrollToSection('testimonials')}
+            className={`relative text-sm font-medium transition-colors pb-1 group ${
+              isScrolled 
+                ? 'text-primary-dark/70 hover:text-primary-dark' 
+                : 'text-white/80 hover:text-white'
+            }`}
+          >
+            Testimonials
+            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
+          </button>
+          <button
+            onClick={() => scrollToSection('why-us')}
+            className={`relative text-sm font-medium transition-colors pb-1 group ${
+              isScrolled 
+                ? 'text-primary-dark/70 hover:text-primary-dark' 
+                : 'text-white/80 hover:text-white'
+            }`}
+          >
+            Why Us
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
           </button>
           <Link to="/auth/login">
@@ -131,16 +164,34 @@ const MarketingHeader = () => {
         <div className="mobile-menu md:hidden fixed inset-x-0 top-20 bg-white/98 backdrop-blur-sm shadow-2xl animate-slide-down">
           <nav className="container mx-auto px-4 py-6 flex flex-col gap-4">
             <button
+              onClick={() => scrollToSection('features')}
+              className="text-left px-4 py-3 text-base font-medium text-primary-dark hover:bg-primary-gold/10 rounded-lg transition-colors"
+            >
+              Features
+            </button>
+            <button
               onClick={() => scrollToSection('how-it-works')}
               className="text-left px-4 py-3 text-base font-medium text-primary-dark hover:bg-primary-gold/10 rounded-lg transition-colors"
             >
               How It Works
             </button>
             <button
-              onClick={() => scrollToSection('early-access')}
+              onClick={() => scrollToSection('benefits')}
               className="text-left px-4 py-3 text-base font-medium text-primary-dark hover:bg-primary-gold/10 rounded-lg transition-colors"
             >
-              Early Access
+              Benefits
+            </button>
+            <button
+              onClick={() => scrollToSection('testimonials')}
+              className="text-left px-4 py-3 text-base font-medium text-primary-dark hover:bg-primary-gold/10 rounded-lg transition-colors"
+            >
+              Testimonials
+            </button>
+            <button
+              onClick={() => scrollToSection('why-us')}
+              className="text-left px-4 py-3 text-base font-medium text-primary-dark hover:bg-primary-gold/10 rounded-lg transition-colors"
+            >
+              Why Us
             </button>
             <Link to="/auth/login" onClick={() => setIsMobileMenuOpen(false)}>
               <button className="w-full text-left px-4 py-3 text-base font-medium text-primary-dark hover:bg-primary-gold/10 rounded-lg transition-colors">

@@ -10,7 +10,7 @@ const LandingPage = () => {
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id)
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }
 
@@ -152,7 +152,7 @@ const LandingPage = () => {
       </MarketingSection>
 
       {/* Features Grid */}
-      <MarketingSection variant="gradient-dark">
+      <MarketingSection id="features" variant="gradient-dark">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-12 md:mb-16">
             <div className="inline-block px-4 py-1.5 bg-primary-gold/10 text-primary-gold text-sm font-bold tracking-wider rounded-full mb-4 uppercase">
@@ -344,7 +344,7 @@ const LandingPage = () => {
       </MarketingSection>
 
       {/* Solution Section */}
-      <MarketingSection variant="light">
+      <MarketingSection id="benefits" variant="light">
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-5xl mx-auto">
             <SectionHeading
@@ -406,7 +406,7 @@ const LandingPage = () => {
       </MarketingSection>
 
       {/* Testimonials */}
-      <MarketingSection variant="white" withTopDivider withBottomDivider>
+      <MarketingSection id="testimonials" variant="white" withTopDivider withBottomDivider>
         <div className="container mx-auto px-4 md:px-6">
           <SectionHeading
             eyebrow="What Users Say"
@@ -468,7 +468,7 @@ const LandingPage = () => {
       </MarketingSection>
 
       {/* Why Different Section */}
-      <MarketingSection variant="gradient-blue">
+      <MarketingSection id="why-us" variant="gradient-blue">
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">

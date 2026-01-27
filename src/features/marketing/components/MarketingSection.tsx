@@ -7,6 +7,7 @@ interface MarketingSectionProps {
   variant?: 'light' | 'white' | 'dark' | 'gradient-dark' | 'gradient-blue'
   withTopDivider?: boolean
   withBottomDivider?: boolean
+  id?: string
 }
 
 const MarketingSection = ({
@@ -15,6 +16,7 @@ const MarketingSection = ({
   variant = 'white',
   withTopDivider = false,
   withBottomDivider = false,
+  id,
 }: MarketingSectionProps) => {
   const variants = {
     light: 'bg-primary-light',
@@ -25,7 +27,7 @@ const MarketingSection = ({
   }
 
   return (
-    <section className={cn('relative py-16 md:py-24 overflow-hidden', variants[variant], className)}>
+    <section id={id} className={cn('relative py-16 md:py-24 overflow-hidden', variants[variant], className)}>
       {withTopDivider && <DividerTop />}
       {children}
       {withBottomDivider && <DividerBottom />}

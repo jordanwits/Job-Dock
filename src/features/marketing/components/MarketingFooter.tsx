@@ -6,7 +6,7 @@ const MarketingFooter = () => {
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id)
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }
 
@@ -85,6 +85,14 @@ const MarketingFooter = () => {
             <ul className="space-y-2.5 text-sm">
               <li>
                 <button
+                  onClick={() => scrollToSection('features')}
+                  className="text-white/70 hover:text-primary-gold transition-colors"
+                >
+                  Features
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => scrollToSection('how-it-works')}
                   className="text-white/70 hover:text-primary-gold transition-colors"
                 >
@@ -93,10 +101,26 @@ const MarketingFooter = () => {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToSection('early-access')}
+                  onClick={() => scrollToSection('benefits')}
                   className="text-white/70 hover:text-primary-gold transition-colors"
                 >
-                  Early Access
+                  Benefits
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => scrollToSection('testimonials')}
+                  className="text-white/70 hover:text-primary-gold transition-colors"
+                >
+                  Testimonials
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => scrollToSection('why-us')}
+                  className="text-white/70 hover:text-primary-gold transition-colors"
+                >
+                  Why Us
                 </button>
               </li>
               <li>
