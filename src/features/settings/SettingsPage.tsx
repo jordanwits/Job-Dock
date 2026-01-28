@@ -97,24 +97,33 @@ export const SettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-primary-light/70">Loading settings...</p>
+      <div className="space-y-6">
+        <div className="rounded-xl border border-white/5 bg-primary-dark-secondary/50 p-6 shadow-sm shadow-black/20">
+          <div className="h-6 w-48 bg-primary-dark rounded animate-pulse mb-6"></div>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 bg-primary-dark rounded-lg animate-pulse"></div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-primary-gold mb-2">Settings</h1>
-        <p className="text-primary-light/70">
+    <div className="space-y-8">
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold text-primary-light tracking-tight">
+          <span className="text-primary-gold">Settings</span>
+        </h1>
+        <p className="text-primary-light/60">
           Manage your company branding, email templates, and PDF templates
         </p>
       </div>
 
       {error && (
-        <Card className="bg-red-500/10 border-red-500">
-          <p className="text-red-500">{error}</p>
+        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20">
+          <p className="text-red-400">{error}</p>
         </Card>
       )}
 

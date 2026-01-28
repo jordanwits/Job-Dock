@@ -521,12 +521,14 @@ const SchedulingPage = () => {
   const error = jobsError || servicesError
 
   return (
-    <div className="space-y-6 h-full flex flex-col min-w-0">
+    <div className="h-full flex flex-col min-w-0 gap-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-gold">Scheduling</h1>
-          <p className="text-sm md:text-base text-primary-light/70 mt-1">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+            <span className="text-primary-gold">Scheduling</span>
+          </h1>
+          <p className="text-sm md:text-base text-primary-light/60">
             Manage your calendar, jobs, and services
           </p>
         </div>
@@ -564,9 +566,9 @@ const SchedulingPage = () => {
 
       {/* Error Display */}
       {error && (
-        <Card className="bg-red-500/10 border-red-500">
+        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-red-500">{error}</p>
+            <p className="text-sm text-red-400">{error}</p>
             <Button
               variant="ghost"
               size="sm"
@@ -583,9 +585,9 @@ const SchedulingPage = () => {
 
       {/* Job Confirmation Display */}
       {showJobConfirmation && (
-        <Card className="bg-green-500/10 border-green-500">
+        <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-green-500">✓ {jobConfirmationMessage}</p>
+            <p className="text-sm text-green-400">✓ {jobConfirmationMessage}</p>
             <Button
               variant="ghost"
               size="sm"
@@ -599,9 +601,9 @@ const SchedulingPage = () => {
 
       {/* Job Error Display */}
       {showJobError && (
-        <Card className="bg-red-500/10 border-red-500">
+        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-red-500">✗ {jobErrorMessage}</p>
+            <p className="text-sm text-red-400">✗ {jobErrorMessage}</p>
             <Button
               variant="ghost"
               size="sm"
@@ -615,9 +617,9 @@ const SchedulingPage = () => {
 
       {/* Service Confirmation Display */}
       {showServiceConfirmation && (
-        <Card className="bg-green-500/10 border-green-500">
+        <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-green-500">✓ {serviceConfirmationMessage}</p>
+            <p className="text-sm text-green-400">✓ {serviceConfirmationMessage}</p>
             <Button
               variant="ghost"
               size="sm"
@@ -630,15 +632,15 @@ const SchedulingPage = () => {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 md:gap-2 border-b border-primary-blue overflow-x-auto">
+      <div className="flex items-center gap-1 md:gap-2 border-b border-white/10 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-shrink-0">
         <button
           onClick={() => setActiveTab('calendar')}
           className={`
-            px-3 md:px-4 py-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base
+            px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base
             ${
               activeTab === 'calendar'
-                ? 'text-primary-gold border-b-2 border-primary-gold'
-                : 'text-primary-light/70 hover:text-primary-light'
+                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+                : 'text-primary-light/60 hover:text-primary-light/90'
             }
           `}
         >
@@ -647,11 +649,11 @@ const SchedulingPage = () => {
         <button
           onClick={() => setActiveTab('jobs')}
           className={`
-            px-3 md:px-4 py-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base
+            px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base
             ${
               activeTab === 'jobs'
-                ? 'text-primary-gold border-b-2 border-primary-gold'
-                : 'text-primary-light/70 hover:text-primary-light'
+                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+                : 'text-primary-light/60 hover:text-primary-light/90'
             }
           `}
         >
@@ -660,11 +662,11 @@ const SchedulingPage = () => {
         <button
           onClick={() => setActiveTab('services')}
           className={`
-            px-3 md:px-4 py-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base
+            px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base
             ${
               activeTab === 'services'
-                ? 'text-primary-gold border-b-2 border-primary-gold'
-                : 'text-primary-light/70 hover:text-primary-light'
+                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+                : 'text-primary-light/60 hover:text-primary-light/90'
             }
           `}
         >
@@ -673,11 +675,11 @@ const SchedulingPage = () => {
         <button
           onClick={() => setActiveTab('archived')}
           className={`
-            px-3 md:px-4 py-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base
+            px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base
             ${
               activeTab === 'archived'
-                ? 'text-primary-gold border-b-2 border-primary-gold'
-                : 'text-primary-light/70 hover:text-primary-light'
+                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+                : 'text-primary-light/60 hover:text-primary-light/90'
             }
           `}
         >
@@ -686,13 +688,13 @@ const SchedulingPage = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         {activeTab === 'calendar' && (
           <div className="h-full flex flex-col min-w-0">
             {/* To Be Scheduled List */}
             {toBeScheduledJobs.length > 0 && (
-              <div className="border-b border-primary-blue bg-primary-dark-secondary p-3">
-                <h3 className="text-sm font-semibold text-primary-gold mb-2">
+              <div className="border-b border-white/10 bg-primary-dark-secondary/50 p-4">
+                <h3 className="text-sm font-semibold text-primary-gold mb-3">
                   To Be Scheduled ({toBeScheduledJobs.length})
                 </h3>
                 <div className="flex gap-2 flex-wrap">
@@ -708,7 +710,7 @@ const SchedulingPage = () => {
                         setSelectedJob(job)
                         setShowJobDetail(true)
                       }}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all"
                       title="Drag to calendar to schedule"
                     >
                       <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

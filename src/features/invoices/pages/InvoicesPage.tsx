@@ -64,12 +64,14 @@ const InvoicesPage = () => {
   }, [showCreateForm, selectedInvoice])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-gold">Invoices</h1>
-          <p className="text-sm md:text-base text-primary-light/70 mt-1">
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+            <span className="text-primary-gold">Invoices</span>
+          </h1>
+          <p className="text-sm md:text-base text-primary-light/60">
             Create and manage invoices for your clients
           </p>
         </div>
@@ -84,9 +86,9 @@ const InvoicesPage = () => {
 
       {/* Error Display */}
       {error && (
-        <Card className="bg-red-500/10 border-red-500">
+        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-red-500">{error}</p>
+            <p className="text-sm text-red-400">{error}</p>
             <Button variant="ghost" size="sm" onClick={clearError}>
               Dismiss
             </Button>
@@ -96,9 +98,9 @@ const InvoicesPage = () => {
 
       {/* Confirmation Display */}
       {showConfirmation && (
-        <Card className="bg-green-500/10 border-green-500">
+        <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-green-500">✓ {confirmationMessage}</p>
+            <p className="text-sm text-green-400">✓ {confirmationMessage}</p>
             <Button variant="ghost" size="sm" onClick={() => setShowConfirmation(false)}>
               Dismiss
             </Button>

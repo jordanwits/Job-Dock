@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, addWeeks, subWeeks, addMonths, subMonths, addDays, subDays, startOfDay, getHours, getMinutes, setHours, setMinutes, addMinutes } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { Job } from '../types/job'
@@ -55,11 +55,9 @@ const Calendar = ({
     originalEndTime: null,
   })
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null)
-  const [dragOverHour, setDragOverHour] = useState<number | null>(null)
   const [previewEndTime, setPreviewEndTime] = useState<Date | null>(null)
   const [previewStartTime, setPreviewStartTime] = useState<Date | null>(null)
   const [dragTargetDay, setDragTargetDay] = useState<Date | null>(null)
-  const calendarRef = useRef<HTMLDivElement>(null)
   const weekColumnsRef = useRef<Map<number, DOMRect>>(new Map())
   
   const { updateJob } = useJobStore()
@@ -74,13 +72,6 @@ const Calendar = ({
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  // Helper function to snap to 15-minute increments
-  const snapTo15Minutes = (date: Date): Date => {
-    const minutes = getMinutes(date)
-    const snappedMinutes = Math.round(minutes / 15) * 15
-    return setMinutes(date, snappedMinutes)
-  }
 
   useEffect(() => {
     setSelectedDate(currentDate)
@@ -108,6 +99,9 @@ const Calendar = ({
   // Get jobs for a specific date (includes multi-day jobs that span this date)
   const getJobsForDate = (date: Date) => {
     return jobs.filter((job) => {
+      // Skip jobs without scheduled times
+      if (!job.startTime || !job.endTime) return false
+      
       const jobStartDate = startOfDay(new Date(job.startTime))
       const jobEndDate = startOfDay(new Date(job.endTime))
       const targetDate = startOfDay(date)
@@ -120,6 +114,9 @@ const Calendar = ({
   // Get jobs for a time slot (for day/week view)
   const getJobsForTimeSlot = (date: Date, hour: number) => {
     return jobs.filter((job) => {
+      // Skip jobs without scheduled times
+      if (!job.startTime) return false
+      
       const jobDate = new Date(job.startTime)
       return isSameDay(jobDate, date) && getHours(jobDate) === hour
     })
@@ -127,6 +124,9 @@ const Calendar = ({
 
   // Check if two jobs overlap in time
   const jobsOverlap = (job1: Job, job2: Job): boolean => {
+    // Jobs without times can't overlap
+    if (!job1.startTime || !job1.endTime || !job2.startTime || !job2.endTime) return false
+    
     const start1 = new Date(job1.startTime).getTime()
     const end1 = new Date(job1.endTime).getTime()
     const start2 = new Date(job2.startTime).getTime()
@@ -138,14 +138,18 @@ const Calendar = ({
   const calculateJobLayout = (dayJobs: Job[]) => {
     const layout: { [key: string]: { column: number; totalColumns: number } } = {}
     
-    // Sort jobs by start time, then by duration (longer first)
-    const sortedJobs = [...dayJobs].sort((a, b) => {
-      const startDiff = new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-      if (startDiff !== 0) return startDiff
-      const durationA = new Date(a.endTime).getTime() - new Date(a.startTime).getTime()
-      const durationB = new Date(b.endTime).getTime() - new Date(b.startTime).getTime()
-      return durationB - durationA
-    })
+    // Filter to only jobs with times, then sort by start time, then by duration (longer first)
+    const sortedJobs = [...dayJobs]
+      .filter((job): job is Job & { startTime: string; endTime: string } => 
+        job.startTime !== null && job.endTime !== null
+      )
+      .sort((a, b) => {
+        const startDiff = new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        if (startDiff !== 0) return startDiff
+        const durationA = new Date(a.endTime).getTime() - new Date(a.startTime).getTime()
+        const durationB = new Date(b.endTime).getTime() - new Date(b.startTime).getTime()
+        return durationB - durationA
+      })
 
     // Build overlap groups
     const groups: Job[][] = []
@@ -195,9 +199,13 @@ const Calendar = ({
   }
 
   // Drag and drop handlers
-  const handleDragStart = (e: React.MouseEvent, job: Job, type: 'move' | 'resize', dayIndex?: number) => {
+  const handleDragStart = (e: React.MouseEvent, job: Job, type: 'move' | 'resize') => {
     e.stopPropagation()
     e.preventDefault()
+    
+    // Skip if job doesn't have scheduled times
+    if (!job.startTime || !job.endTime) return
+    
     setDragState({
       job,
       type,
@@ -213,15 +221,7 @@ const Calendar = ({
     }
   }
 
-  const handleDragMove = (e: React.MouseEvent) => {
-    if (!dragState.job || !dragState.type) return
-    
-    // Visual feedback handled by CSS
-    const deltaY = e.clientY - dragState.startY
-    // We'll calculate the actual time change on drop
-  }
-
-  const handleMoveDrop = async () => {
+  const handleMoveDrop = useCallback(async () => {
     if (!dragState.job) return
 
     const { job, originalStartTime, originalEndTime } = dragState
@@ -275,93 +275,11 @@ const Calendar = ({
     setPreviewStartTime(null)
     setPreviewEndTime(null)
     setDragOverDate(null)
-    setDragOverHour(null)
     setDragTargetDay(null)
-  }
+  }, [dragState, previewStartTime, dragTargetDay, updateJob])
 
-  const handleDrop = async (date: Date, hour: number) => {
-    if (!dragState.job || !dragState.type) return
-
-    const { job, type, originalStartTime, originalEndTime } = dragState
-
-    try {
-      if (type === 'move') {
-        // Calculate new start and end times
-        const originalStart = new Date(originalStartTime!)
-        const originalEnd = new Date(originalEndTime!)
-        const duration = originalEnd.getTime() - originalStart.getTime()
-        
-        // Set new start time to the dropped hour, keeping original minutes, then snap to 15 minutes
-        let newStartTime = setHours(setMinutes(date, getMinutes(originalStart)), hour)
-        newStartTime = snapTo15Minutes(newStartTime)
-        const newEndTime = new Date(newStartTime.getTime() + duration)
-
-        await updateJob({
-          id: job.id,
-          startTime: newStartTime.toISOString(),
-          endTime: newEndTime.toISOString(),
-        })
-      }
-    } catch (error) {
-      console.error('Failed to update job:', error)
-    }
-
-    // Clear drag state
-    setDragState({
-      job: null,
-      type: null,
-      startY: 0,
-      startX: 0,
-      isDragging: false,
-      originalStartTime: null,
-      originalEndTime: null,
-    })
-    setDragOverDate(null)
-    setDragOverHour(null)
-  }
-
-  // Handle drop on a day (for month view - keeps same time, changes date)
-  const handleDropOnDay = async (date: Date) => {
-    if (!dragState.job || dragState.type !== 'move') return
-
-    const { job, originalStartTime, originalEndTime } = dragState
-
-    try {
-      // Calculate new start and end times - same time of day, different date
-      const originalStart = new Date(originalStartTime!)
-      const originalEnd = new Date(originalEndTime!)
-      const duration = originalEnd.getTime() - originalStart.getTime()
-      
-      // Keep the same time of day, but change the date, then snap to 15 minutes
-      let newStartTime = setHours(setMinutes(date, getMinutes(originalStart)), getHours(originalStart))
-      newStartTime = snapTo15Minutes(newStartTime)
-      const newEndTime = new Date(newStartTime.getTime() + duration)
-
-      await updateJob({
-        id: job.id,
-        startTime: newStartTime.toISOString(),
-        endTime: newEndTime.toISOString(),
-      })
-    } catch (error) {
-      console.error('Failed to update job:', error)
-    }
-
-    // Clear drag state
-    setDragState({
-      job: null,
-      type: null,
-      startY: 0,
-      startX: 0,
-      isDragging: false,
-      originalStartTime: null,
-      originalEndTime: null,
-    })
-    setDragOverDate(null)
-    setDragOverHour(null)
-  }
-
-  const handleResizeDrop = async (minutesChange: number) => {
-    if (!dragState.job || dragState.type !== 'resize') return
+  const handleResizeDrop = useCallback(async (minutesChange: number) => {
+    if (!dragState.job || dragState.type !== 'resize' || !dragState.job.startTime) return
 
     const { job, originalEndTime } = dragState
 
@@ -371,7 +289,7 @@ const Calendar = ({
       const newEndTime = addMinutes(new Date(originalEndTime!), snappedMinutesChange)
       
       // Ensure end time is after start time (at least 15 minutes)
-      const startTime = new Date(job.startTime)
+      const startTime = new Date(job.startTime!)
       if (newEndTime <= startTime) return
 
       await updateJob({
@@ -393,7 +311,7 @@ const Calendar = ({
       originalEndTime: null,
     })
     setPreviewEndTime(null)
-  }
+  }, [dragState, updateJob])
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -417,7 +335,7 @@ const Calendar = ({
       const minutesChange = Math.round((deltaY / pixelsPerHour) * 60)
       const snappedMinutesChange = Math.round(minutesChange / 15) * 15
 
-      if (dragState.type === 'resize' && dragState.originalEndTime) {
+      if (dragState.type === 'resize' && dragState.originalEndTime && dragState.job.startTime) {
         // Calculate real-time preview with 15-minute snapping for resize
         const newEndTime = addMinutes(new Date(dragState.originalEndTime), snappedMinutesChange)
         const startTime = new Date(dragState.job.startTime)
@@ -483,7 +401,7 @@ const Calendar = ({
         window.removeEventListener('mouseup', handleMouseUp)
       }
     }
-  }, [dragState, viewMode, previewStartTime, selectedDate, onJobClick])
+  }, [dragState, viewMode, previewStartTime, selectedDate, onJobClick, handleMoveDrop, handleResizeDrop])
 
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i)
@@ -527,6 +445,9 @@ const Calendar = ({
                 </div>
                 <div className="ml-12 md:ml-20 p-1 md:p-2 relative">
                   {timeSlotJobs.map((job) => {
+                    // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
+                    if (!job.startTime || !job.endTime) return null
+                    
                     const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
                     const isDragging = dragState.job?.id === job.id
                     const isResizing = isDragging && dragState.type === 'resize'
@@ -735,6 +656,9 @@ const Calendar = ({
                           }}
                         >
                           {timeSlotJobs.map((job) => {
+                            // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
+                            if (!job.startTime || !job.endTime) return null
+                            
                             const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
                             const isDragging = dragState.job?.id === job.id
                             const isResizing = isDragging && dragState.type === 'resize'
@@ -801,7 +725,7 @@ const Calendar = ({
                                 <div
                                   className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden"
                                   style={{ bottom: '16px' }}
-                                  onMouseDown={(e) => handleDragStart(e, job, 'move', dayIndex)}
+                                  onMouseDown={(e) => handleDragStart(e, job, 'move')}
                                 >
                                   <div className="font-medium text-primary-light truncate">
                                     {job.title}
@@ -863,7 +787,7 @@ const Calendar = ({
     const scaleSettings = getScaleSettings()
 
     return (
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto p-0.5">
         <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
           <div className="p-3 md:p-4 text-center">
             <h2 className="text-base md:text-xl font-semibold text-primary-light">
@@ -923,7 +847,7 @@ const Calendar = ({
                     // Keep same time, change date
                     const newStartTime = setHours(setMinutes(day, getMinutes(originalStart)), getHours(originalStart))
                     const originalJob = jobs.find(j => j.id === monthJobId)
-                    if (originalJob) {
+                    if (originalJob && originalJob.startTime && originalJob.endTime) {
                       const duration = new Date(originalJob.endTime).getTime() - new Date(originalJob.startTime).getTime()
                       const newEndTime = new Date(newStartTime.getTime() + duration)
                       await updateJob({
@@ -953,40 +877,45 @@ const Calendar = ({
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5 md:space-y-1">
-                  {dayJobs.slice(0, scaleSettings.maxItems).map((job) => (
-                    <div
-                      key={job.id}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('monthJobId', job.id)
-                        e.dataTransfer.setData('monthJobOriginalDate', job.startTime)
-                        e.dataTransfer.effectAllowed = 'move'
-                        e.currentTarget.style.opacity = '0.5'
-                      }}
-                      onDragEnd={(e) => {
-                        e.currentTarget.style.opacity = '1'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onJobClick(job)
-                      }}
-                      className={cn(
-                        'text-[10px] md:text-xs p-0.5 md:p-1 rounded truncate cursor-grab active:cursor-grabbing',
-                        'border-l-2',
-                        !isCurrentMonth && 'opacity-60',
-                        'hover:opacity-80',
-                        job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500 text-blue-300',
-                        job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500 text-yellow-300',
-                        job.status === 'completed' && 'bg-green-500/20 border-green-500 text-green-300',
-                        job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300',
-                        job.status === 'pending-confirmation' && 'bg-orange-500/20 border-orange-500 text-orange-300'
-                      )}
-                      title={job.title}
-                    >
-                      <span className="hidden sm:inline">{format(new Date(job.startTime), 'h:mm a')} {job.title}</span>
-                      <span className="sm:hidden">{format(new Date(job.startTime), 'h:mm')}</span>
-                    </div>
-                  ))}
+                  {dayJobs.slice(0, scaleSettings.maxItems).map((job) => {
+                    // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
+                    if (!job.startTime) return null
+                    
+                    return (
+                      <div
+                        key={job.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('monthJobId', job.id)
+                          e.dataTransfer.setData('monthJobOriginalDate', job.startTime!)
+                          e.dataTransfer.effectAllowed = 'move'
+                          e.currentTarget.style.opacity = '0.5'
+                        }}
+                        onDragEnd={(e) => {
+                          e.currentTarget.style.opacity = '1'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onJobClick(job)
+                        }}
+                        className={cn(
+                          'text-[10px] md:text-xs p-0.5 md:p-1 rounded truncate cursor-grab active:cursor-grabbing',
+                          'border-l-2',
+                          !isCurrentMonth && 'opacity-60',
+                          'hover:opacity-80',
+                          job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500 text-blue-300',
+                          job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500 text-yellow-300',
+                          job.status === 'completed' && 'bg-green-500/20 border-green-500 text-green-300',
+                          job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300',
+                          job.status === 'pending-confirmation' && 'bg-orange-500/20 border-orange-500 text-orange-300'
+                        )}
+                        title={job.title}
+                      >
+                        <span className="hidden sm:inline">{format(new Date(job.startTime), 'h:mm a')} {job.title}</span>
+                        <span className="sm:hidden">{format(new Date(job.startTime), 'h:mm')}</span>
+                      </div>
+                    )
+                  })}
                   {dayJobs.length > scaleSettings.maxItems && (
                     <div className={cn(
                       'text-[10px] md:text-xs text-primary-light/50',
@@ -1005,7 +934,7 @@ const Calendar = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-primary-dark-secondary rounded-lg border border-primary-blue">
+    <div className="flex flex-col h-full bg-primary-dark-secondary rounded-lg border border-primary-blue overflow-hidden">
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 md:p-4 border-b border-primary-blue">
         <div className="flex items-center gap-2">
