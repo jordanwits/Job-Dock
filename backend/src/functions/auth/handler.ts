@@ -97,7 +97,10 @@ async function handleRegister(
     // 2. Create tenant and user in database
     const tenantId = randomUUID()
     const tenantName = companyName || `${name}'s Company`
-    const subdomain = slugify(tenantName)
+    // Make subdomain unique by appending first 8 chars of UUID
+    const baseSubdomain = slugify(tenantName)
+    const uniqueId = tenantId.substring(0, 8)
+    const subdomain = `${baseSubdomain}-${uniqueId}`
     
     // Create tenant
     const tenant = await prisma.tenant.create({
