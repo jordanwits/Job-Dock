@@ -21,7 +21,7 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } fr
 const SchedulingPage = () => {
   const { user } = useAuthStore()
   const [searchParams] = useSearchParams()
-  
+
   const {
     jobs,
     selectedJob,
@@ -65,14 +65,17 @@ const SchedulingPage = () => {
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
-  
+
   // Initialize activeTab from URL query parameter or default to 'calendar'
   const tabParam = searchParams.get('tab')
-  const initialTab = (tabParam === 'jobs' || tabParam === 'services' || tabParam === 'calendar') 
-    ? tabParam 
-    : 'calendar'
-  const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services' | 'archived'>(initialTab as 'calendar' | 'jobs' | 'services' | 'archived')
-  
+  const initialTab =
+    tabParam === 'jobs' || tabParam === 'services' || tabParam === 'calendar'
+      ? tabParam
+      : 'calendar'
+  const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services' | 'archived'>(
+    initialTab as 'calendar' | 'jobs' | 'services' | 'archived'
+  )
+
   const [linkCopied, setLinkCopied] = useState(false)
   const [showFollowupModal, setShowFollowupModal] = useState(false)
   const [followupDefaults, setFollowupDefaults] = useState<{
@@ -89,7 +92,7 @@ const SchedulingPage = () => {
   const [editUpdateAll, setEditUpdateAll] = useState(false)
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [jobConfirmationMessage, setJobConfirmationMessage] = useState('')
-  
+
   // Conflict handling removed - double booking now allowed
   const [showJobError, setShowJobError] = useState(false)
   const [jobErrorMessage, setJobErrorMessage] = useState('')
@@ -102,16 +105,104 @@ const SchedulingPage = () => {
   const [deletedRecurrenceId, setDeletedRecurrenceId] = useState<string | null>(null)
   const [showJobDetail, setShowJobDetail] = useState(false)
 
+  // External drag state for "To Be Scheduled" chips on mobile
+  const [externalDragState, setExternalDragState] = useState<{
+    jobId: string | null
+    pointerId: number | null
+    isDragging: boolean
+  }>({
+    jobId: null,
+    pointerId: null,
+    isDragging: false,
+  })
+
+  // Detect if device is using coarse pointer (touch)
+  const [isCoarsePointer, setIsCoarsePointer] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const updatePointerType = () => {
+      setIsCoarsePointer(
+        window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0
+      )
+    }
+
+    const mediaQuery = window.matchMedia('(pointer: coarse)')
+    mediaQuery.addEventListener('change', updatePointerType)
+    return () => mediaQuery.removeEventListener('change', updatePointerType)
+  }, [])
+
+  // Handle external drag for "To Be Scheduled" chips on mobile
+  useEffect(() => {
+    if (!externalDragState.jobId) return
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (externalDragState.pointerId !== null && e.pointerId !== externalDragState.pointerId)
+        return
+
+      // Activate dragging on any movement
+      if (!externalDragState.isDragging) {
+        setExternalDragState(prev => ({ ...prev, isDragging: true }))
+      }
+    }
+
+    const handlePointerUpOrCancel = async (e: PointerEvent) => {
+      if (externalDragState.pointerId !== null && e.pointerId !== externalDragState.pointerId)
+        return
+
+      if (externalDragState.isDragging) {
+        // Find drop target under pointer
+        const element = document.elementFromPoint(e.clientX, e.clientY)
+        const dropZone = element?.closest('[data-drop-date]') as HTMLElement
+
+        if (dropZone && externalDragState.jobId) {
+          const dropDateStr = dropZone.getAttribute('data-drop-date')
+          const dropHourStr = dropZone.getAttribute('data-drop-hour')
+
+          if (dropDateStr) {
+            const dropDate = new Date(dropDateStr)
+            const dropHour = dropHourStr ? parseInt(dropHourStr, 10) : undefined
+
+            // Call the existing handleUnscheduledDrop function
+            await handleUnscheduledDrop(externalDragState.jobId, dropDate, dropHour)
+          }
+        }
+      }
+
+      // Clear drag state
+      setExternalDragState({
+        jobId: null,
+        pointerId: null,
+        isDragging: false,
+      })
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUpOrCancel)
+    window.addEventListener('pointercancel', handlePointerUpOrCancel)
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUpOrCancel)
+      window.removeEventListener('pointercancel', handlePointerUpOrCancel)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalDragState])
+
   // Filter out archived jobs for the calendar view
   const activeJobs = useMemo(() => {
     return jobs.filter(job => !job.archivedAt)
   }, [jobs])
-  
+
   // Split active jobs into scheduled and unscheduled
   const scheduledJobs = useMemo(() => {
     return activeJobs.filter(job => !job.toBeScheduled && job.startTime && job.endTime)
   }, [activeJobs])
-  
+
   const toBeScheduledJobs = useMemo(() => {
     return activeJobs.filter(job => job.toBeScheduled || !job.startTime || !job.endTime)
   }, [activeJobs])
@@ -178,12 +269,12 @@ const SchedulingPage = () => {
   }
 
   const handleUpdateJob = async (data: any) => {
-    console.log('📝 SchedulingPage: handleUpdateJob called', { 
-      editUpdateAll, 
+    console.log('📝 SchedulingPage: handleUpdateJob called', {
+      editUpdateAll,
       editingJobId: editingJob?.id,
       recurrenceId: editingJob?.recurrenceId,
       hasRecurrence: !!data.recurrence,
-      recurrenceData: data.recurrence
+      recurrenceData: data.recurrence,
     })
     try {
       if (editingJob) {
@@ -196,8 +287,8 @@ const SchedulingPage = () => {
         setSelectedJob(null)
         setShowJobDetail(false)
         clearJobsError()
-        const message = editUpdateAll 
-          ? 'All future jobs updated successfully' 
+        const message = editUpdateAll
+          ? 'All future jobs updated successfully'
           : 'Job updated successfully'
         setJobConfirmationMessage(message)
         setShowJobConfirmation(true)
@@ -464,7 +555,7 @@ const SchedulingPage = () => {
       setShowFollowupModal(true)
     }
   }
-  
+
   const handleScheduleJob = () => {
     if (selectedJob) {
       setEditingJob(selectedJob)
@@ -472,12 +563,12 @@ const SchedulingPage = () => {
       setShowJobForm(true)
     }
   }
-  
+
   const handleUnscheduledDrop = async (jobId: string, targetDate: Date, targetHour?: number) => {
     try {
       const job = jobs.find(j => j.id === jobId)
       if (!job) return
-      
+
       // Determine duration (in minutes)
       let durationMinutes = 60 // default
       if (job.serviceId) {
@@ -486,7 +577,7 @@ const SchedulingPage = () => {
           durationMinutes = service.duration
         }
       }
-      
+
       // Compute startTime
       let startTime: Date
       if (targetHour !== undefined) {
@@ -498,10 +589,10 @@ const SchedulingPage = () => {
         startTime = new Date(targetDate)
         startTime.setHours(9, 0, 0, 0)
       }
-      
+
       // Compute endTime
       const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
-      
+
       // Update the job
       await updateJob({
         id: jobId,
@@ -509,7 +600,7 @@ const SchedulingPage = () => {
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
       })
-      
+
       setJobConfirmationMessage('Job scheduled successfully')
       setShowJobConfirmation(true)
       setTimeout(() => setShowJobConfirmation(false), 3000)
@@ -535,28 +626,36 @@ const SchedulingPage = () => {
         <div className="flex items-center gap-2">
           {activeTab === 'calendar' && (
             <>
-              <Button 
-                onClick={() => setShowJobForm(true)} 
+              <Button
+                onClick={() => setShowJobForm(true)}
                 className="w-full sm:w-auto"
                 title="Keyboard shortcut: Ctrl+N or ⌘N"
               >
                 Schedule Job
               </Button>
-              <Button onClick={handleOpenBookingLink} variant="secondary" className="w-full sm:w-auto">
+              <Button
+                onClick={handleOpenBookingLink}
+                variant="secondary"
+                className="w-full sm:w-auto"
+              >
                 Booking Link
               </Button>
             </>
           )}
           {activeTab === 'services' && (
             <>
-              <Button 
-                onClick={() => setShowServiceForm(true)} 
+              <Button
+                onClick={() => setShowServiceForm(true)}
                 className="w-full sm:w-auto"
                 title="Keyboard shortcut: Ctrl+N or ⌘N"
               >
                 Create Service
               </Button>
-              <Button onClick={handleOpenBookingLink} variant="secondary" className="w-full sm:w-auto">
+              <Button
+                onClick={handleOpenBookingLink}
+                variant="secondary"
+                className="w-full sm:w-auto"
+              >
                 Booking Link
               </Button>
             </>
@@ -588,11 +687,7 @@ const SchedulingPage = () => {
         <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20 flex-shrink-0">
           <div className="flex items-center justify-between">
             <p className="text-sm text-green-400">✓ {jobConfirmationMessage}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowJobConfirmation(false)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setShowJobConfirmation(false)}>
               Dismiss
             </Button>
           </div>
@@ -604,11 +699,7 @@ const SchedulingPage = () => {
         <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20 flex-shrink-0">
           <div className="flex items-center justify-between">
             <p className="text-sm text-red-400">✗ {jobErrorMessage}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowJobError(false)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setShowJobError(false)}>
               Dismiss
             </Button>
           </div>
@@ -620,11 +711,7 @@ const SchedulingPage = () => {
         <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20 flex-shrink-0">
           <div className="flex items-center justify-between">
             <p className="text-sm text-green-400">✓ {serviceConfirmationMessage}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowServiceConfirmation(false)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setShowServiceConfirmation(false)}>
               Dismiss
             </Button>
           </div>
@@ -698,23 +785,53 @@ const SchedulingPage = () => {
                   To Be Scheduled ({toBeScheduledJobs.length})
                 </h3>
                 <div className="flex gap-2 flex-wrap">
-                  {toBeScheduledJobs.map((job) => (
+                  {toBeScheduledJobs.map(job => (
                     <div
                       key={job.id}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('jobId', job.id)
-                        e.dataTransfer.effectAllowed = 'move'
-                      }}
+                      draggable={!isCoarsePointer}
+                      onDragStart={
+                        !isCoarsePointer
+                          ? e => {
+                              e.dataTransfer.setData('jobId', job.id)
+                              e.dataTransfer.effectAllowed = 'move'
+                            }
+                          : undefined
+                      }
+                      onPointerDown={
+                        isCoarsePointer
+                          ? e => {
+                              e.stopPropagation()
+                              e.currentTarget.setPointerCapture(e.pointerId)
+                              setExternalDragState({
+                                jobId: job.id,
+                                pointerId: e.pointerId,
+                                isDragging: false,
+                              })
+                            }
+                          : undefined
+                      }
                       onClick={() => {
-                        setSelectedJob(job)
-                        setShowJobDetail(true)
+                        // Only trigger click if not dragging
+                        if (!externalDragState.isDragging) {
+                          setSelectedJob(job)
+                          setShowJobDetail(true)
+                        }
                       }}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all"
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all touch-none"
                       title="Drag to calendar to schedule"
                     >
-                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="w-4 h-4 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                       <span className="font-medium truncate max-w-[200px]">{job.title}</span>
                       <span className="text-xs text-amber-400/60">({job.contactName})</span>
@@ -723,7 +840,7 @@ const SchedulingPage = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Calendar */}
             <div className="flex-1 min-h-0">
               <Calendar
@@ -732,11 +849,11 @@ const SchedulingPage = () => {
                 currentDate={currentDate}
                 onDateChange={setCurrentDate}
                 onViewModeChange={setViewMode}
-                onJobClick={(job) => {
+                onJobClick={job => {
                   setSelectedJob(job)
                   setShowJobDetail(true)
                 }}
-                onDateClick={(date) => {
+                onDateClick={date => {
                   setCurrentDate(date)
                   setViewMode('day')
                 }}
@@ -756,11 +873,11 @@ const SchedulingPage = () => {
           <div className="h-full overflow-hidden p-6">
             <ArchivedJobsPage
               onJobRestore={handleRestoreJob}
-              onJobSelect={(job) => {
+              onJobSelect={job => {
                 setSelectedJob(job)
                 setShowJobDetail(true)
               }}
-              onPermanentDelete={(job) => {
+              onPermanentDelete={job => {
                 handlePermanentDeleteJob(job)
               }}
               deletedJobId={deletedJobId}
@@ -772,8 +889,8 @@ const SchedulingPage = () => {
         {activeTab === 'services' && (
           <div className="h-full overflow-y-auto">
             <ServiceList
-              onServiceClick={(id) => {
-                const service = services.find((s) => s.id === id)
+              onServiceClick={id => {
+                const service = services.find(s => s.id === id)
                 if (service) {
                   setSelectedService(service)
                   setShowServiceDetail(true)
@@ -793,7 +910,9 @@ const SchedulingPage = () => {
           setEditingJob(null)
           clearJobsError()
         }}
-        title={editingJob?.toBeScheduled ? 'Schedule Job' : editingJob ? 'Edit Job' : 'Schedule New Job'}
+        title={
+          editingJob?.toBeScheduled ? 'Schedule Job' : editingJob ? 'Edit Job' : 'Schedule New Job'
+        }
         size="xl"
       >
         <JobForm
@@ -871,7 +990,7 @@ const SchedulingPage = () => {
             </label>
             <textarea
               value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
+              onChange={e => setDeclineReason(e.target.value)}
               rows={3}
               className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
               placeholder="Let the client know why you can't accommodate this booking..."
@@ -887,10 +1006,7 @@ const SchedulingPage = () => {
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleDeclineJob}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
+            <Button onClick={handleDeclineJob} className="bg-red-600 hover:bg-red-700 text-white">
               Decline Booking
             </Button>
           </div>
@@ -972,14 +1088,16 @@ const SchedulingPage = () => {
           message={
             <div className="space-y-3">
               <p className="text-primary-light">
-                Are you sure you want to <strong className="text-red-400">PERMANENTLY</strong> delete this job?
+                Are you sure you want to <strong className="text-red-400">PERMANENTLY</strong>{' '}
+                delete this job?
               </p>
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
                 <p className="text-sm text-red-400 font-semibold mb-1">
                   ⚠️ This action cannot be undone!
                 </p>
                 <p className="text-sm text-primary-light/70">
-                  The job will be removed from the database{selectedJob.archivedAt ? ' and S3 archive' : ''}.
+                  The job will be removed from the database
+                  {selectedJob.archivedAt ? ' and S3 archive' : ''}.
                 </p>
               </div>
               <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
@@ -1064,10 +1182,8 @@ const SchedulingPage = () => {
           </p>
         </div>
       </Modal>
-
     </div>
   )
 }
 
 export default SchedulingPage
-
