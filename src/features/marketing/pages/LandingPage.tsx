@@ -38,10 +38,14 @@ const LandingPage = () => {
                   {landingPageContent.hero.description}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <MarketingButton to="/auth/register" variant="primary" size="lg" withArrow>
+                  <MarketingButton to="/request-access" variant="primary" size="lg" withArrow>
                     {landingPageContent.hero.primaryCta}
                   </MarketingButton>
-                  <MarketingButton onClick={() => scrollToSection('how-it-works')} variant="outline" size="lg">
+                  <MarketingButton
+                    onClick={() => scrollToSection('how-it-works')}
+                    variant="outline"
+                    size="lg"
+                  >
                     {landingPageContent.hero.secondaryCta}
                   </MarketingButton>
                 </div>
@@ -51,8 +55,8 @@ const LandingPage = () => {
               <div className="relative animate-fade-in-up animation-delay-200">
                 <div className="relative rounded-3xl overflow-hidden border-2 border-primary-gold/20 shadow-2xl">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary-dark/20 via-transparent to-primary-blue/10 z-10 pointer-events-none"></div>
-                  <img 
-                    src="/marketing/hero-contractor.svg" 
+                  <img
+                    src="/marketing/hero-contractor.svg"
                     alt={landingPageContent.hero.imageAlt}
                     className="w-full h-auto"
                     loading="eager"
@@ -72,8 +76,13 @@ const LandingPage = () => {
           <div className="max-w-5xl mx-auto">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
               {landingPageContent.trustBar.map((item, index) => (
-                <div key={index} className={`animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}>
-                  <div className="text-3xl md:text-4xl font-bold text-primary-gold mb-2">{item.value}</div>
+                <div
+                  key={index}
+                  className={`animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}
+                >
+                  <div className="text-3xl md:text-4xl font-bold text-primary-gold mb-2">
+                    {item.value}
+                  </div>
                   <div className="text-sm md:text-base text-primary-dark/70">{item.label}</div>
                 </div>
               ))}
@@ -91,23 +100,49 @@ const LandingPage = () => {
                 You don't need another <span className="text-primary-gold">bloated platform.</span>
               </h2>
               <p className="text-xl md:text-2xl text-primary-dark/70 leading-relaxed">
-                You need something that <span className="text-primary-gold font-semibold">actually fits how you work.</span>
+                You need something that{' '}
+                <span className="text-primary-gold font-semibold">actually fits how you work.</span>
               </p>
             </div>
             <div className="grid md:grid-cols-3 gap-6 md:gap-8">
               {landingPageContent.valueProposition.cards.map((card, index) => {
                 const icons = [
-                  <path key={index} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />,
-                  <path key={index} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />,
-                  <path key={index} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  <path
+                    key={index}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />,
+                  <path
+                    key={index}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />,
+                  <path
+                    key={index}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                  />,
                 ]
-                const bgColors = ['bg-primary-gold/10', 'bg-primary-blue/10', 'bg-primary-gold/10']
-                const iconColors = ['text-primary-gold', 'text-primary-blue', 'text-primary-gold']
-                
+                const bgColors = ['bg-primary-gold/10', 'bg-primary-gold/10', 'bg-primary-gold/10']
+                const iconColors = ['text-primary-gold', 'text-primary-gold', 'text-primary-gold']
+
                 return (
                   <div key={index} className="text-center p-6">
-                    <div className={`w-16 h-16 mx-auto mb-4 ${bgColors[index]} rounded-full flex items-center justify-center`}>
-                      <svg className={`w-8 h-8 ${iconColors[index]}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div
+                      className={`w-16 h-16 mx-auto mb-4 ${bgColors[index]} rounded-full flex items-center justify-center`}
+                    >
+                      <svg
+                        className={`w-8 h-8 ${iconColors[index]}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         {icons[index]}
                       </svg>
                     </div>
@@ -126,23 +161,29 @@ const LandingPage = () => {
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-8 text-center leading-tight">
-              Running your business shouldn't feel <span className="text-primary-gold">this complicated</span>
+              Running your business shouldn't feel{' '}
+              <span className="text-primary-gold">this complicated</span>
             </h2>
             <p className="text-lg md:text-xl text-primary-dark/70 mb-8 text-center">
               {landingPageContent.problem.subtitle}
             </p>
             <div className="space-y-4 mb-8 max-w-2xl mx-auto">
               {landingPageContent.problem.problems.map((problem, index) => (
-                <div key={index} className={`flex items-start gap-3 animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}>
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-blue/20 flex items-center justify-center mt-1">
-                    <div className="w-2 h-2 rounded-full bg-primary-blue"></div>
+                <div
+                  key={index}
+                  className={`flex items-start gap-3 animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}
+                >
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-gold/20 flex items-center justify-center mt-1">
+                    <div className="w-2 h-2 rounded-full bg-primary-gold"></div>
                   </div>
                   <p className="text-lg text-primary-dark/80">{problem}</p>
                 </div>
               ))}
             </div>
             <div className="text-center max-w-2xl mx-auto space-y-4 pt-8 border-t-2 border-primary-gold/20">
-              <p className="text-xl text-primary-dark/80 font-bold">{landingPageContent.problem.conclusion.headline}</p>
+              <p className="text-xl text-primary-dark/80 font-bold">
+                {landingPageContent.problem.conclusion.headline}
+              </p>
               <p className="text-lg text-primary-dark/70">
                 {landingPageContent.problem.conclusion.description}
               </p>
@@ -169,8 +210,18 @@ const LandingPage = () => {
             <FeatureCard
               variant="elevated"
               icon={
-                <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg
+                  className="w-6 h-6 text-primary-gold"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
               }
               title="Professional Quotes"
@@ -179,8 +230,18 @@ const LandingPage = () => {
             <FeatureCard
               variant="elevated"
               icon={
-                <svg className="w-6 h-6 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                <svg
+                  className="w-6 h-6 text-primary-blue"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  />
                 </svg>
               }
               title="Fast Invoicing"
@@ -189,8 +250,18 @@ const LandingPage = () => {
             <FeatureCard
               variant="elevated"
               icon={
-                <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg
+                  className="w-6 h-6 text-primary-gold"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
                 </svg>
               }
               title="Smart Scheduling"
@@ -199,8 +270,18 @@ const LandingPage = () => {
             <FeatureCard
               variant="elevated"
               icon={
-                <svg className="w-6 h-6 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <svg
+                  className="w-6 h-6 text-primary-blue"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
                 </svg>
               }
               title="Client Management"
@@ -209,8 +290,18 @@ const LandingPage = () => {
             <FeatureCard
               variant="elevated"
               icon={
-                <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                <svg
+                  className="w-6 h-6 text-primary-gold"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
                 </svg>
               }
               title="Auto Email"
@@ -219,8 +310,18 @@ const LandingPage = () => {
             <FeatureCard
               variant="elevated"
               icon={
-                <svg className="w-6 h-6 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                <svg
+                  className="w-6 h-6 text-primary-blue"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
                 </svg>
               }
               title="Job Tracking"
@@ -235,7 +336,11 @@ const LandingPage = () => {
         <div className="container mx-auto px-4 md:px-6">
           <SectionHeading
             eyebrow="How It Works"
-            heading={<>From quote to invoice — <span className="text-primary-gold">without the chaos</span></>}
+            heading={
+              <>
+                From quote to invoice — <span className="text-primary-gold">without the chaos</span>
+              </>
+            }
           />
 
           <div className="max-w-6xl mx-auto">
@@ -281,15 +386,21 @@ const LandingPage = () => {
                 <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
                   <span className="text-3xl font-bold text-white">4</span>
                 </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">Invoice with confidence</h3>
+                <h3 className="text-lg font-bold text-primary-dark mb-2">
+                  Invoice with confidence
+                </h3>
                 <p className="text-primary-dark/70 text-sm">
                   Turn completed work into clean, accurate invoices — without starting over.
                 </p>
               </div>
             </div>
             <div className="text-center mt-12 space-y-2">
-              <p className="text-xl text-primary-dark/80 font-semibold">Everything stays connected.</p>
-              <p className="text-xl text-primary-dark/80 font-semibold">Everything stays visible.</p>
+              <p className="text-xl text-primary-dark/80 font-semibold">
+                Everything stays connected.
+              </p>
+              <p className="text-xl text-primary-dark/80 font-semibold">
+                Everything stays visible.
+              </p>
             </div>
           </div>
         </div>
@@ -310,8 +421,18 @@ const LandingPage = () => {
             <div className="grid md:grid-cols-3 gap-6 md:gap-8">
               <StatCard
                 icon={
-                  <svg className="w-8 h-8 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <svg
+                    className="w-8 h-8 text-primary-gold"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
                   </svg>
                 }
                 value="3 min"
@@ -320,8 +441,18 @@ const LandingPage = () => {
               />
               <StatCard
                 icon={
-                  <svg className="w-8 h-8 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-8 h-8 text-primary-gold"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 }
                 value="1 click"
@@ -330,8 +461,18 @@ const LandingPage = () => {
               />
               <StatCard
                 icon={
-                  <svg className="w-8 h-8 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-8 h-8 text-primary-gold"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 }
                 value="24/7"
@@ -352,54 +493,116 @@ const LandingPage = () => {
               subheading="A simple, focused tool designed around how service businesses actually operate."
             />
             <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 md:p-10 shadow-xl mb-8">
-              <h3 className="text-xl md:text-2xl font-bold text-primary-dark mb-6">With The Job Dock, you can:</h3>
+              <h3 className="text-xl md:text-2xl font-bold text-primary-dark mb-6">
+                With The Job Dock, you can:
+              </h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
-                  <p className="text-lg text-primary-dark/80">Create and send professional quotes</p>
+                  <p className="text-lg text-primary-dark/80">
+                    Create and send professional quotes
+                  </p>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                   <p className="text-lg text-primary-dark/80">Convert quotes into invoices</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
-                  <p className="text-lg text-primary-dark/80">Schedule jobs without double-booking</p>
+                  <p className="text-lg text-primary-dark/80">
+                    Schedule jobs without double-booking
+                  </p>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
-                  <p className="text-lg text-primary-dark/80">Track clients, jobs, and status in one place</p>
+                  <p className="text-lg text-primary-dark/80">
+                    Track clients, jobs, and status in one place
+                  </p>
                 </div>
                 <div className="flex items-start gap-3 md:col-span-2">
                   <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
-                  <p className="text-lg text-primary-dark/80">Reduce admin without adding complexity</p>
+                  <p className="text-lg text-primary-dark/80">
+                    Reduce admin without adding complexity
+                  </p>
                 </div>
               </div>
             </div>
             <div className="text-center space-y-2">
               <p className="text-xl text-primary-dark/80 font-semibold">No learning curve.</p>
               <p className="text-xl text-primary-dark/80 font-semibold">No unnecessary features.</p>
-              <p className="text-xl text-primary-dark/80 font-semibold">Just what you need — and nothing you don't.</p>
+              <p className="text-xl text-primary-dark/80 font-semibold">
+                Just what you need — and nothing you don't.
+              </p>
             </div>
           </div>
         </div>
@@ -414,8 +617,8 @@ const LandingPage = () => {
               <div className="order-2 lg:order-1 relative">
                 <div className="relative rounded-3xl overflow-hidden border-2 border-primary-blue/20 shadow-2xl">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary-blue/10 via-transparent to-primary-dark/5 z-10 pointer-events-none"></div>
-                  <img 
-                    src="/marketing/team-planning.svg" 
+                  <img
+                    src="/marketing/team-planning.svg"
                     alt="Team of contractors collaborating and planning projects"
                     className="w-full h-auto"
                     loading="lazy"
@@ -433,47 +636,90 @@ const LandingPage = () => {
                   subheading="Many tools try to be everything for everyone. The Job Dock is different."
                   align="left"
                 />
-                
+
                 <div className="space-y-6">
                   <div className="flex gap-4">
                     <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="w-6 h-6 text-primary-gold"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-primary-dark mb-1">Simplicity over complexity</h3>
-                      <p className="text-primary-dark/70">We strip away the bloat and focus on what actually matters.</p>
+                      <h3 className="text-lg font-bold text-primary-dark mb-1">
+                        Simplicity over complexity
+                      </h3>
+                      <p className="text-primary-dark/70">
+                        We strip away the bloat and focus on what actually matters.
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex gap-4">
                     <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="w-6 h-6 text-primary-gold"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-primary-dark mb-1">Clarity over feature overload</h3>
-                      <p className="text-primary-dark/70">Every feature has a purpose. Nothing is there "just because."</p>
+                      <h3 className="text-lg font-bold text-primary-dark mb-1">
+                        Clarity over feature overload
+                      </h3>
+                      <p className="text-primary-dark/70">
+                        Every feature has a purpose. Nothing is there "just because."
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex gap-4">
                     <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="w-6 h-6 text-primary-gold"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-primary-dark mb-1">Human workflows over rigid systems</h3>
-                      <p className="text-primary-dark/70">Work the way you want to, not the way some software says you should.</p>
+                      <h3 className="text-lg font-bold text-primary-dark mb-1">
+                        Human workflows over rigid systems
+                      </h3>
+                      <p className="text-primary-dark/70">
+                        Work the way you want to, not the way some software says you should.
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 <p className="text-lg text-primary-dark/80 mt-8 p-4 bg-white/50 border-l-4 border-primary-gold rounded italic">
-                  If you've ever thought "this software is more work than it's worth" — this is for you.
+                  If you've ever thought "this software is more work than it's worth" — this is for
+                  you.
                 </p>
               </div>
             </div>
@@ -495,24 +741,54 @@ const LandingPage = () => {
               <div className="space-y-4 text-left max-w-xl mx-auto">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                   <p className="text-lg text-primary-dark/80">Early access to the platform</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                   <p className="text-lg text-primary-dark/80">A voice in how the product evolves</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg className="w-5 h-5 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                   <p className="text-lg text-primary-dark/80">A simpler way to run your business</p>
@@ -520,34 +796,10 @@ const LandingPage = () => {
               </div>
             </div>
             <p className="text-lg text-primary-dark/70 mb-8">We'd love to have you.</p>
-            <MarketingButton to="/auth/register" variant="primary" size="lg" withArrow>
+            <MarketingButton to="/request-access" variant="primary" size="lg" withArrow>
               Request Early Access
             </MarketingButton>
           </div>
-        </div>
-      </MarketingSection>
-
-      {/* Closing CTA Section */}
-      <MarketingSection variant="gradient-dark">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-blueprint-grid"></div>
-        </div>
-        <div className="container mx-auto px-4 md:px-6 relative text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight text-white">
-            Your work deserves <span className="text-primary-gold">better tools</span>
-          </h2>
-          <p className="text-xl text-white/90 mb-4 max-w-2xl mx-auto leading-relaxed">
-            You do great work.
-          </p>
-          <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Your systems should support that — not slow you down.
-          </p>
-          <p className="text-lg text-white/80 mb-10 max-w-xl mx-auto">
-            Get early access to The Job Dock and simplify how you run jobs, quotes, and schedules.
-          </p>
-          <MarketingButton to="/auth/register" variant="primary" size="lg" withArrow>
-            Get Started
-          </MarketingButton>
         </div>
       </MarketingSection>
     </MarketingLayout>
