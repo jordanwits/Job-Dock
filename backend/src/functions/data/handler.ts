@@ -5,6 +5,7 @@ import { extractTenantId } from '../../lib/middleware'
 import { ensureTenantExists, getDefaultTenantId } from '../../lib/tenant'
 import { ApiError } from '../../lib/errors'
 import { verifyApprovalToken } from '../../lib/approvalTokens'
+import { randomUUID } from 'crypto'
 
 type ResourceKey = keyof typeof dataServices
 
@@ -202,6 +203,60 @@ We look forward to working with you!',
     }
   }
 
+  // Special handling for early access request (no auth, public endpoint)
+  if (event.path?.includes('/early-access/request') && event.httpMethod === 'POST') {
+    try {
+      const payload = parseBody(event)
+      const { name, email } = payload
+
+      if (!name || !email) {
+        return errorResponse('Name and email are required', 400)
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        return errorResponse('Invalid email format', 400)
+      }
+
+      const { default: prisma } = await import('../../lib/db')
+
+      // Upsert request (update if already exists, create if not)
+      await prisma.earlyAccessRequest.upsert({
+        where: { email },
+        update: {
+          name,
+          updatedAt: new Date(),
+        },
+        create: {
+          id: randomUUID(),
+          name,
+          email,
+        },
+      })
+
+      // Send notification email to admin
+      const { sendEmail, buildEarlyAccessRequestEmail } = await import('../../lib/email')
+      const emailPayload = buildEarlyAccessRequestEmail({ name, email })
+
+      // Default admin email, can be overridden by env var
+      const adminEmail =
+        process.env.EARLY_ACCESS_ADMIN_EMAILS?.split(',')[0] || 'jordan@westwavecreative.com'
+
+      await sendEmail({
+        ...emailPayload,
+        to: adminEmail,
+      })
+
+      return successResponse({
+        message: 'Request submitted successfully',
+      })
+    } catch (error: any) {
+      console.error('Early access request error:', error)
+      return errorResponse(error.message || 'Failed to submit request', 500)
+    }
+  }
+
   // Special handling for billing webhook (no auth, raw body required)
   if (event.path?.includes('/billing/webhook') && event.httpMethod === 'POST') {
     try {
@@ -276,6 +331,136 @@ We look forward to working with you!',
       }
 
       return errorResponse('Billing route not found', 404)
+    }
+
+    // Handle early access endpoints
+    if (resource === 'early-access') {
+      console.log('[EARLY-ACCESS] Handling early access request:', {
+        resource,
+        id,
+        action,
+        method: event.httpMethod,
+      })
+      const { default: prisma } = await import('../../lib/db')
+
+      // GET /early-access/requests - List pending requests (admin only)
+      if (id === 'requests' && event.httpMethod === 'GET') {
+        const context = await extractContext(event)
+        const adminEmails = (process.env.EARLY_ACCESS_ADMIN_EMAILS || 'jordan@westwavecreative.com')
+          .split(',')
+          .map(e => e.trim().toLowerCase())
+
+        if (!adminEmails.includes(context.userEmail.toLowerCase())) {
+          return errorResponse('Unauthorized: Admin access required', 403)
+        }
+
+        const requests = await prisma.earlyAccessRequest.findMany({
+          orderBy: [{ approvedAt: 'asc' }, { createdAt: 'desc' }],
+        })
+
+        return successResponse(requests)
+      }
+
+      // POST /early-access/approve - Approve a request (admin only)
+      if (id === 'approve' && event.httpMethod === 'POST') {
+        const context = await extractContext(event)
+        const adminEmails = (process.env.EARLY_ACCESS_ADMIN_EMAILS || 'jordan@westwavecreative.com')
+          .split(',')
+          .map(e => e.trim().toLowerCase())
+
+        if (!adminEmails.includes(context.userEmail.toLowerCase())) {
+          return errorResponse('Unauthorized: Admin access required', 403)
+        }
+
+        const payload = parseBody(event)
+        const { email, requestId } = payload
+
+        if (!email && !requestId) {
+          return errorResponse('Email or requestId is required', 400)
+        }
+
+        // Get the request
+        const request = requestId
+          ? await prisma.earlyAccessRequest.findUnique({ where: { id: requestId } })
+          : await prisma.earlyAccessRequest.findUnique({ where: { email } })
+
+        if (!request) {
+          return errorResponse('Request not found', 404)
+        }
+
+        // Add to allowlist
+        await prisma.earlyAccessAllowlist.upsert({
+          where: { email: request.email },
+          update: {
+            approvedBy: context.userEmail,
+          },
+          create: {
+            id: randomUUID(),
+            email: request.email,
+            approvedBy: context.userEmail,
+          },
+        })
+
+        // Mark request as approved
+        const updatedRequest = await prisma.earlyAccessRequest.update({
+          where: { id: request.id },
+          data: {
+            approvedAt: new Date(),
+            approvedBy: context.userEmail,
+          },
+        })
+
+        // Send approval email to user
+        try {
+          const { buildEarlyAccessApprovalEmail, sendEmail } = await import('../../lib/email')
+
+          // Get the base URL from environment or construct it
+          const baseUrl = process.env.PUBLIC_APP_URL || 'https://thejobdock.com'
+          const signupUrl = `${baseUrl}/auth/register`
+
+          const emailPayload = buildEarlyAccessApprovalEmail({
+            name: request.name,
+            email: request.email,
+            signupUrl,
+          })
+
+          await sendEmail(emailPayload)
+          console.log(`✅ Sent approval email to ${request.email}`)
+        } catch (emailError) {
+          console.error('Failed to send approval email:', emailError)
+          // Don't fail the approval if email fails
+        }
+
+        return successResponse(updatedRequest)
+      }
+
+      // DELETE /early-access/delete - Delete a request (admin only)
+      if (id === 'delete' && event.httpMethod === 'DELETE') {
+        const context = await extractContext(event)
+        const adminEmails = (process.env.EARLY_ACCESS_ADMIN_EMAILS || 'jordan@westwavecreative.com')
+          .split(',')
+          .map(e => e.trim().toLowerCase())
+
+        if (!adminEmails.includes(context.userEmail.toLowerCase())) {
+          return errorResponse('Unauthorized: Admin access required', 403)
+        }
+
+        const payload = parseBody(event)
+        const { requestId } = payload
+
+        if (!requestId) {
+          return errorResponse('requestId is required', 400)
+        }
+
+        // Delete the request
+        await prisma.earlyAccessRequest.delete({
+          where: { id: requestId },
+        })
+
+        return successResponse({ message: 'Request deleted successfully' })
+      }
+
+      return errorResponse('Early access route not found', 404)
     }
 
     // Handle onboarding endpoints with authentication

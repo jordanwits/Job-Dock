@@ -4,6 +4,7 @@ import { settingsApi, TenantSettings } from '@/lib/api/settings'
 import { CompanyBrandingSection } from './CompanyBrandingSection'
 import { EmailTemplatesSection } from './EmailTemplatesSection'
 import { PdfTemplatesSection } from './PdfTemplatesSection'
+import { EarlyAccessSection } from './EarlyAccessSection'
 
 export const SettingsPage = () => {
   const [settings, setSettings] = useState<TenantSettings | null>(null)
@@ -49,7 +50,7 @@ export const SettingsPage = () => {
   }
 
   const handleFieldChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData(prev => ({ ...prev, [field]: value }))
     setHasUnsavedChanges(true)
   }
 
@@ -101,7 +102,7 @@ export const SettingsPage = () => {
         <div className="rounded-xl border border-white/5 bg-primary-dark-secondary/50 p-6 shadow-sm shadow-black/20">
           <div className="h-6 w-48 bg-primary-dark rounded animate-pulse mb-6"></div>
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3].map(i => (
               <div key={i} className="h-20 bg-primary-dark rounded-lg animate-pulse"></div>
             ))}
           </div>
@@ -127,6 +128,8 @@ export const SettingsPage = () => {
         </Card>
       )}
 
+      <EarlyAccessSection />
+
       <CompanyBrandingSection
         formData={formData}
         settings={settings}
@@ -149,4 +152,3 @@ export const SettingsPage = () => {
     </div>
   )
 }
-

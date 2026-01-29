@@ -46,9 +46,7 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
     // Send via Resend
     try {
       // Build FROM address with optional display name
-      const fromAddress = fromName 
-        ? `${fromName} <${EMAIL_FROM_ADDRESS}>`
-        : EMAIL_FROM_ADDRESS
+      const fromAddress = fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS
 
       await resendClient.emails.send({
         from: fromAddress,
@@ -58,11 +56,15 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
         ...(textBody && { text: textBody }),
         ...(replyTo && { reply_to: replyTo }),
       })
-      
-      console.log(`✅ Email sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`)
+
+      console.log(
+        `✅ Email sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`
+      )
     } catch (error) {
       console.error('❌ Failed to send email via Resend:', error)
-      throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new Error(
+        `Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
     }
   } else {
     // Log to console in dev mode
@@ -86,9 +88,7 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
   if (EMAIL_PROVIDER === 'resend' && resendClient) {
     try {
       // Build FROM address with optional display name
-      const fromAddress = fromName 
-        ? `${fromName} <${EMAIL_FROM_ADDRESS}>`
-        : EMAIL_FROM_ADDRESS
+      const fromAddress = fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS
 
       // Convert Buffer attachments to base64 strings for Resend
       const resendAttachments = attachments.map(attachment => ({
@@ -106,10 +106,14 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
         ...(resendAttachments.length > 0 && { attachments: resendAttachments }),
       })
 
-      console.log(`✅ Email with attachments sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`)
+      console.log(
+        `✅ Email with attachments sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`
+      )
     } catch (error) {
       console.error('❌ Failed to send email with attachments via Resend:', error)
-      throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new Error(
+        `Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
     }
   } else {
     // Log to console in dev mode
@@ -138,11 +142,11 @@ export function buildClientConfirmationEmail(data: {
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
 }): EmailPayload {
   const { clientName, serviceName, startTime, endTime, location, tenantName, breaks } = data
-  
+
   // Detect if this is a multi-day job
   const durationMs = endTime.getTime() - startTime.getTime()
   const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
-  
+
   const dateStr = startTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -165,20 +169,22 @@ export function buildClientConfirmationEmail(data: {
   })
 
   const subject = `Your booking is confirmed - ${serviceName}`
-  
+
   // Build breaks section if present
   let breaksHtml = ''
   if (breaks && breaks.length > 0) {
-    const breaksList = breaks.map(b => {
-      const bStart = new Date(b.startTime)
-      const bEnd = new Date(b.endTime)
-      const reason = b.reason ? ` (${b.reason})` : ''
-      if (isMultiDay) {
-        return `<li style="margin: 5px 0;">${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}</li>`
-      } else {
-        return `<li style="margin: 5px 0;">${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}</li>`
-      }
-    }).join('')
+    const breaksList = breaks
+      .map(b => {
+        const bStart = new Date(b.startTime)
+        const bEnd = new Date(b.endTime)
+        const reason = b.reason ? ` (${b.reason})` : ''
+        if (isMultiDay) {
+          return `<li style="margin: 5px 0;">${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}</li>`
+        } else {
+          return `<li style="margin: 5px 0;">${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}</li>`
+        }
+      })
+      .join('')
     breaksHtml = `
       <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
         <p style="margin: 5px 0 10px 0;"><strong>📅 Schedule Notes:</strong></p>
@@ -199,9 +205,10 @@ export function buildClientConfirmationEmail(data: {
         <p>Your booking has been confirmed! Here are the details:</p>
         <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          ${isMultiDay 
-            ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${dateStr} through ${endDateStr}</p>`
-            : `<p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
+          ${
+            isMultiDay
+              ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${dateStr} through ${endDateStr}</p>`
+              : `<p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
                <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>`
           }
           ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
@@ -219,16 +226,18 @@ export function buildClientConfirmationEmail(data: {
   // Build breaks section for text version
   let breaksText = ''
   if (breaks && breaks.length > 0) {
-    const breaksList = breaks.map(b => {
-      const bStart = new Date(b.startTime)
-      const bEnd = new Date(b.endTime)
-      const reason = b.reason ? ` (${b.reason})` : ''
-      if (isMultiDay) {
-        return `  - ${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}`
-      } else {
-        return `  - ${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}`
-      }
-    }).join('\n')
+    const breaksList = breaks
+      .map(b => {
+        const bStart = new Date(b.startTime)
+        const bEnd = new Date(b.endTime)
+        const reason = b.reason ? ` (${b.reason})` : ''
+        if (isMultiDay) {
+          return `  - ${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}`
+        } else {
+          return `  - ${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}`
+        }
+      })
+      .join('\n')
     breaksText = `
 
 Schedule Notes:
@@ -245,9 +254,10 @@ Hi ${clientName},
 Your booking has been confirmed! Here are the details:
 
 Service: ${serviceName}
-${isMultiDay 
-  ? `Duration: ${dateStr} through ${endDateStr}`
-  : `Date: ${dateStr}
+${
+  isMultiDay
+    ? `Duration: ${dateStr} through ${endDateStr}`
+    : `Date: ${dateStr}
 Time: ${startTimeStr} - ${endTimeStr}`
 }
 ${location ? `Location: ${location}` : ''}
@@ -277,7 +287,7 @@ export function buildClientPendingEmail(data: {
   endTime: Date
 }): EmailPayload {
   const { clientName, serviceName, startTime, endTime } = data
-  
+
   const dateStr = startTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -291,7 +301,7 @@ export function buildClientPendingEmail(data: {
 
   const bookingId = `#${Date.now().toString().slice(-6)}`
   const subject = `Booking request received ${bookingId} - ${serviceName}`
-  
+
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -347,8 +357,18 @@ export function buildContractorNotificationEmail(data: {
   location?: string
   isPending: boolean
 }): EmailPayload {
-  const { contractorName, serviceName, clientName, clientEmail, clientPhone, startTime, endTime, location, isPending } = data
-  
+  const {
+    contractorName,
+    serviceName,
+    clientName,
+    clientEmail,
+    clientPhone,
+    startTime,
+    endTime,
+    location,
+    isPending,
+  } = data
+
   const dateStr = startTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -364,10 +384,10 @@ export function buildContractorNotificationEmail(data: {
     minute: '2-digit',
   })
 
-  const subject = isPending 
+  const subject = isPending
     ? `New booking request for ${serviceName}`
     : `New booking for ${serviceName}`
-  
+
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -429,11 +449,11 @@ export function buildClientBookingConfirmedEmail(data: {
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
 }): EmailPayload {
   const { clientName, serviceName, startTime, endTime, location, breaks } = data
-  
+
   // Detect if this is a multi-day job
   const durationMs = endTime.getTime() - startTime.getTime()
   const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
-  
+
   const dateStr = startTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -457,20 +477,22 @@ export function buildClientBookingConfirmedEmail(data: {
 
   const bookingId = `#${Date.now().toString().slice(-6)}`
   const subject = `Your booking has been confirmed ${bookingId} - ${serviceName}`
-  
+
   // Build breaks section if present
   let breaksHtml = ''
   if (breaks && breaks.length > 0) {
-    const breaksList = breaks.map(b => {
-      const bStart = new Date(b.startTime)
-      const bEnd = new Date(b.endTime)
-      const reason = b.reason ? ` (${b.reason})` : ''
-      if (isMultiDay) {
-        return `<li style="margin: 5px 0;">${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}</li>`
-      } else {
-        return `<li style="margin: 5px 0;">${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}</li>`
-      }
-    }).join('')
+    const breaksList = breaks
+      .map(b => {
+        const bStart = new Date(b.startTime)
+        const bEnd = new Date(b.endTime)
+        const reason = b.reason ? ` (${b.reason})` : ''
+        if (isMultiDay) {
+          return `<li style="margin: 5px 0;">${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}</li>`
+        } else {
+          return `<li style="margin: 5px 0;">${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}</li>`
+        }
+      })
+      .join('')
     breaksHtml = `
       <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
         <p style="margin: 5px 0 10px 0;"><strong>📅 Schedule Notes:</strong></p>
@@ -491,9 +513,10 @@ export function buildClientBookingConfirmedEmail(data: {
         <p>Great news! Your booking request has been confirmed.</p>
         <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          ${isMultiDay 
-            ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${dateStr} through ${endDateStr}</p>`
-            : `<p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
+          ${
+            isMultiDay
+              ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${dateStr} through ${endDateStr}</p>`
+              : `<p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
                <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>`
           }
           ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
@@ -507,16 +530,18 @@ export function buildClientBookingConfirmedEmail(data: {
   // Build breaks section for text version
   let breaksText = ''
   if (breaks && breaks.length > 0) {
-    const breaksList = breaks.map(b => {
-      const bStart = new Date(b.startTime)
-      const bEnd = new Date(b.endTime)
-      const reason = b.reason ? ` (${b.reason})` : ''
-      if (isMultiDay) {
-        return `  - ${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}`
-      } else {
-        return `  - ${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}`
-      }
-    }).join('\n')
+    const breaksList = breaks
+      .map(b => {
+        const bStart = new Date(b.startTime)
+        const bEnd = new Date(b.endTime)
+        const reason = b.reason ? ` (${b.reason})` : ''
+        if (isMultiDay) {
+          return `  - ${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}`
+        } else {
+          return `  - ${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}`
+        }
+      })
+      .join('\n')
     breaksText = `
 
 Schedule Notes:
@@ -533,9 +558,10 @@ Hi ${clientName},
 Great news! Your booking request has been confirmed.
 
 Service: ${serviceName}
-${isMultiDay 
-  ? `Duration: ${dateStr} through ${endDateStr}`
-  : `Date: ${dateStr}
+${
+  isMultiDay
+    ? `Duration: ${dateStr} through ${endDateStr}`
+    : `Date: ${dateStr}
 Time: ${startTimeStr} - ${endTimeStr}`
 }
 ${location ? `Location: ${location}` : ''}
@@ -562,7 +588,7 @@ export function buildClientBookingDeclinedEmail(data: {
   reason?: string
 }): EmailPayload {
   const { clientName, serviceName, startTime, reason } = data
-  
+
   const dateStr = startTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -575,7 +601,7 @@ export function buildClientBookingDeclinedEmail(data: {
   })
 
   const subject = `Booking request declined - ${serviceName}`
-  
+
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -633,24 +659,26 @@ export async function sendQuoteEmail(data: {
   }
 
   const clientName = quoteData.contactName || 'Valued Customer'
-  
+
   // Get custom email template from settings
   const prisma = (await import('./db')).default
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId },
   })
-  
+
   // Use custom template or default
   let subject = settings?.quoteEmailSubject || `Quote {{quote_number}} from {{company_name}}`
-  let bodyTemplate = settings?.quoteEmailBody || `Hi {{customer_name}},\n\nPlease find attached quote {{quote_number}}.\n\nWe look forward to working with you!`
-  
+  let bodyTemplate =
+    settings?.quoteEmailBody ||
+    `Hi {{customer_name}},\n\nPlease find attached quote {{quote_number}}.\n\nWe look forward to working with you!`
+
   // Replace template variables
   const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
   subject = subject
     .replace(/\{\{company_name\}\}/g, companyName)
     .replace(/\{\{quote_number\}\}/g, quoteData.quoteNumber)
     .replace(/\{\{customer_name\}\}/g, clientName)
-  
+
   bodyTemplate = bodyTemplate
     .replace(/\{\{company_name\}\}/g, companyName)
     .replace(/\{\{quote_number\}\}/g, quoteData.quoteNumber)
@@ -665,14 +693,17 @@ export async function sendQuoteEmail(data: {
     : 'N/A'
 
   // Convert body template newlines to HTML
-  const bodyHtml = bodyTemplate.split('\n').map(line => `<p>${line}</p>`).join('')
-  
+  const bodyHtml = bodyTemplate
+    .split('\n')
+    .map(line => `<p>${line}</p>`)
+    .join('')
+
   // Generate approval token and URLs
   const approvalToken = generateApprovalToken('quote', quoteData.id, tenantId)
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
   const acceptUrl = `${publicAppUrl}/public/quote/${quoteData.id}/accept?token=${approvalToken}`
   const declineUrl = `${publicAppUrl}/public/quote/${quoteData.id}/decline?token=${approvalToken}`
-  
+
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -767,6 +798,114 @@ This quote is valid until ${validUntilText}. Please contact us if you would like
 }
 
 /**
+ * Email template: Early access request notification (to admin)
+ */
+export function buildEarlyAccessRequestEmail(data: { name: string; email: string }): EmailPayload {
+  const { name, email } = data
+
+  const subject = `New Early Access Request from ${name}`
+
+  const htmlBody = `
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #D4AF37;">New Early Access Request</h2>
+        <p>Someone has requested early access to JobDock:</p>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Name:</strong> ${name}</p>
+          <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
+        </div>
+        <p>To approve this request and grant signup access, log into the JobDock admin panel and navigate to Settings → Early Access.</p>
+      </body>
+    </html>
+  `
+
+  const textBody = `
+New Early Access Request
+
+Someone has requested early access to JobDock:
+
+Name: ${name}
+Email: ${email}
+
+To approve this request and grant signup access, log into the JobDock admin panel and navigate to Settings → Early Access.
+  `.trim()
+
+  return {
+    to: '',
+    subject,
+    htmlBody,
+    textBody,
+    replyTo: email,
+  }
+}
+
+/**
+ * Email template: Early access approval notification (to user)
+ */
+export function buildEarlyAccessApprovalEmail(data: {
+  name: string
+  email: string
+  signupUrl: string
+}): EmailPayload {
+  const { name, signupUrl } = data
+
+  const subject = `Welcome to JobDock - Your Access is Approved!`
+
+  const htmlBody = `
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #D4AF37;">Welcome to JobDock!</h2>
+        <p>Hi ${name},</p>
+        <p>Great news! Your early access request has been approved.</p>
+        <p>You can now create your account and start using JobDock to manage your jobs, quotes, and schedules.</p>
+        <div style="margin: 30px 0; text-align: center;">
+          <a href="${signupUrl}" style="display: inline-block; padding: 15px 30px; background: #D4AF37; color: #1A1F36; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            Create Your Account
+          </a>
+        </div>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="background: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all;">
+          ${signupUrl}
+        </p>
+        <p>If you have any questions, just reply to this email.</p>
+        <p>Looking forward to having you on board!</p>
+        <p style="margin-top: 30px; color: #666;">
+          Best,<br/>
+          The JobDock Team
+        </p>
+      </body>
+    </html>
+  `
+
+  const textBody = `
+Welcome to JobDock!
+
+Hi ${name},
+
+Great news! Your early access request has been approved.
+
+You can now create your account and start using JobDock to manage your jobs, quotes, and schedules.
+
+Create your account here:
+${signupUrl}
+
+If you have any questions, just reply to this email.
+
+Looking forward to having you on board!
+
+Best,
+The JobDock Team
+  `.trim()
+
+  return {
+    to: data.email,
+    subject,
+    htmlBody,
+    textBody,
+  }
+}
+
+/**
  * Build and send invoice email with PDF attachment
  */
 export async function sendInvoiceEmail(data: {
@@ -782,24 +921,26 @@ export async function sendInvoiceEmail(data: {
   }
 
   const clientName = invoiceData.contactName || 'Valued Customer'
-  
+
   // Get custom email template from settings
   const prisma = (await import('./db')).default
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId },
   })
-  
+
   // Use custom template or default
   let subject = settings?.invoiceEmailSubject || `Invoice {{invoice_number}} from {{company_name}}`
-  let bodyTemplate = settings?.invoiceEmailBody || `Hi {{customer_name}},\n\nPlease find attached invoice {{invoice_number}}.\n\nThank you for your business!`
-  
+  let bodyTemplate =
+    settings?.invoiceEmailBody ||
+    `Hi {{customer_name}},\n\nPlease find attached invoice {{invoice_number}}.\n\nThank you for your business!`
+
   // Replace template variables
   const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
   subject = subject
     .replace(/\{\{company_name\}\}/g, companyName)
     .replace(/\{\{invoice_number\}\}/g, invoiceData.invoiceNumber)
     .replace(/\{\{customer_name\}\}/g, clientName)
-  
+
   bodyTemplate = bodyTemplate
     .replace(/\{\{company_name\}\}/g, companyName)
     .replace(/\{\{invoice_number\}\}/g, invoiceData.invoiceNumber)
@@ -817,27 +958,30 @@ export async function sendInvoiceEmail(data: {
     invoiceData.paymentStatus === 'paid'
       ? 'Paid in Full'
       : invoiceData.paymentStatus === 'partial'
-      ? 'Partially Paid'
-      : 'Payment Pending'
+        ? 'Partially Paid'
+        : 'Payment Pending'
 
   const statusColor =
     invoiceData.paymentStatus === 'paid'
       ? '#4CAF50'
       : invoiceData.paymentStatus === 'partial'
-      ? '#FFA500'
-      : '#ff6b6b'
+        ? '#FFA500'
+        : '#ff6b6b'
 
   const balance = invoiceData.total - invoiceData.paidAmount
 
   // Convert body template newlines to HTML
-  const bodyHtml = bodyTemplate.split('\n').map(line => `<p>${line}</p>`).join('')
-  
+  const bodyHtml = bodyTemplate
+    .split('\n')
+    .map(line => `<p>${line}</p>`)
+    .join('')
+
   // Generate approval token and URLs
   const approvalToken = generateApprovalToken('invoice', invoiceData.id, tenantId)
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
   const acceptUrl = `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}`
   const declineUrl = `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}`
-  
+
   const htmlBody = `
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -938,4 +1082,3 @@ Thank you for your business!
     ],
   })
 }
-

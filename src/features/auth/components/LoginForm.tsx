@@ -71,10 +71,10 @@ const LoginForm = () => {
       <div className="text-center text-sm text-primary-light/70">
         Don't have an account?{' '}
         <Link
-          to="/auth/register"
+          to="/request-access"
           className="text-primary-gold hover:text-primary-gold/80 font-medium transition-colors"
         >
-          Sign up
+          Request access
         </Link>
       </div>
     </form>
@@ -82,4 +82,3 @@ const LoginForm = () => {
 }
 
 export default LoginForm
-

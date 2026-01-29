@@ -80,6 +80,23 @@ async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
+    // Check early access enforcement
+    const enforceEarlyAccess = process.env.EARLY_ACCESS_ENFORCE === 'true'
+
+    if (enforceEarlyAccess) {
+      // Check if email is in allowlist
+      const allowlistEntry = await prisma.earlyAccessAllowlist.findUnique({
+        where: { email: email.toLowerCase() },
+      })
+
+      if (!allowlistEntry) {
+        return errorResponse(
+          'Early access is required. Please request access at /request-access to join the waitlist.',
+          403
+        )
+      }
+    }
+
     // 1. Register user in Cognito
     const cognitoResponse = await registerUser(email, password, name)
     const cognitoId = cognitoResponse.UserSub!

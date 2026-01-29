@@ -1,5 +1,6 @@
 // Marketing pages
 export { default as LandingPage } from './pages/LandingPage'
+export { default as RequestAccessPage } from './pages/RequestAccessPage'
 export { default as PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 export { default as TermsOfServicePage } from './pages/TermsOfServicePage'
 export { default as EmailPolicyPage } from './pages/EmailPolicyPage'

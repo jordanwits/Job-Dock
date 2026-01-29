@@ -11,12 +11,7 @@ export interface HeaderProps {
   onMenuClick?: () => void
 }
 
-const Header = ({
-  user,
-  companyLogoUrl,
-  onLogout,
-  onMenuClick,
-}: HeaderProps) => {
+const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-primary-blue bg-primary-dark-secondary/95 backdrop-blur supports-[backdrop-filter]:bg-primary-dark-secondary/60">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -91,9 +86,9 @@ const Header = ({
                   Login
                 </Button>
               </Link>
-              <Link to="/auth/register">
+              <Link to="/request-access">
                 <Button variant="primary" size="sm">
-                  Sign Up
+                  Request Access
                 </Button>
               </Link>
             </>

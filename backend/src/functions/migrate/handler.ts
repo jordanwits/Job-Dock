@@ -470,6 +470,34 @@ const PENDING_MIGRATIONS = [
     description:
       'Reset all users onboarding status so everyone sees the onboarding flow at least once',
   },
+  {
+    name: '20260129000002_add_early_access_tables',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "early_access_requests" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "email" TEXT NOT NULL,
+        "approvedAt" TIMESTAMP(3),
+        "approvedBy" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "early_access_requests_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "early_access_requests_email_key" ON "early_access_requests"("email")`,
+      `CREATE INDEX IF NOT EXISTS "early_access_requests_email_idx" ON "early_access_requests"("email")`,
+      `CREATE INDEX IF NOT EXISTS "early_access_requests_approvedAt_idx" ON "early_access_requests"("approvedAt")`,
+      `CREATE TABLE IF NOT EXISTS "early_access_allowlist" (
+        "id" TEXT NOT NULL,
+        "email" TEXT NOT NULL,
+        "approvedBy" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "early_access_allowlist_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "early_access_allowlist_email_key" ON "early_access_allowlist"("email")`,
+      `CREATE INDEX IF NOT EXISTS "early_access_allowlist_email_idx" ON "early_access_allowlist"("email")`,
+    ],
+    description: 'Add early access request and allowlist tables for gated signup',
+  },
 ]
 
 export const handler = async (

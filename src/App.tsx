@@ -14,6 +14,7 @@ import { SettingsPage } from '@/features/settings'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
 import {
   LandingPage,
+  RequestAccessPage,
   PrivacyPolicyPage,
   TermsOfServicePage,
   EmailPolicyPage,
@@ -56,6 +57,7 @@ function App() {
       <Routes>
         {/* Public Marketing Pages */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/request-access" element={<RequestAccessPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/email-policy" element={<EmailPolicyPage />} />

@@ -343,3 +343,27 @@ model StripeWebhookEvent {
   @@index([stripeEventId])
   @@map("stripe_webhook_events")
 }
+
+model EarlyAccessRequest {
+  id         String    @id @default(uuid())
+  name       String
+  email      String    @unique
+  approvedAt DateTime?
+  approvedBy String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([email])
+  @@index([approvedAt])
+  @@map("early_access_requests")
+}
+
+model EarlyAccessAllowlist {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  approvedBy String?
+  createdAt  DateTime @default(now())
+
+  @@index([email])
+  @@map("early_access_allowlist")
+}
