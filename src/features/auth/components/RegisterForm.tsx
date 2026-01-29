@@ -73,7 +73,7 @@ const RegisterForm = () => {
           label="Password"
           placeholder="Enter a strong password"
           error={errors.password?.message}
-          helperText="Must be at least 8 characters with uppercase, lowercase, number, and special character"
+          helperText="Must be at least 12 characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
           {...register('password')}
         />
 
@@ -103,4 +103,3 @@ const RegisterForm = () => {
 }
 
 export default RegisterForm
-

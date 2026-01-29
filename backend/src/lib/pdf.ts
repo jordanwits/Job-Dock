@@ -88,19 +88,19 @@ async function loadTemplateFromS3(templateKey: string): Promise<PDFDocument | nu
   try {
     const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
     const FILES_BUCKET = process.env.FILES_BUCKET || ''
-    
+
     const command = new GetObjectCommand({
       Bucket: FILES_BUCKET,
       Key: templateKey,
     })
-    
+
     const response = await s3Client.send(command)
     const pdfBuffer = await response.Body?.transformToByteArray()
-    
+
     if (!pdfBuffer) {
       throw new Error('Failed to fetch PDF template')
     }
-    
+
     return await PDFDocument.load(pdfBuffer)
   } catch (error) {
     console.error('Error loading PDF template:', error)
@@ -115,22 +115,22 @@ async function embedLogoFromS3(pdfDoc: PDFDocument, logoKey: string): Promise<an
   try {
     const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
     const FILES_BUCKET = process.env.FILES_BUCKET || ''
-    
+
     const command = new GetObjectCommand({
       Bucket: FILES_BUCKET,
       Key: logoKey,
     })
-    
+
     const response = await s3Client.send(command)
     const logoBuffer = await response.Body?.transformToByteArray()
-    
+
     if (!logoBuffer) {
       throw new Error('Failed to fetch logo')
     }
-    
+
     // Determine image type from key
     const ext = logoKey.split('.').pop()?.toLowerCase()
-    
+
     if (ext === 'png') {
       return await pdfDoc.embedPng(logoBuffer)
     } else if (ext === 'jpg' || ext === 'jpeg') {
@@ -149,10 +149,14 @@ async function embedLogoFromS3(pdfDoc: PDFDocument, logoKey: string): Promise<an
 /**
  * Generate a PDF buffer for a quote
  */
-export async function generateQuotePDF(quote: QuoteData, tenantName?: string, companyInfo?: CompanyInfo): Promise<Buffer> {
+export async function generateQuotePDF(
+  quote: QuoteData,
+  tenantName?: string,
+  companyInfo?: CompanyInfo
+): Promise<Buffer> {
   let pdfDoc: PDFDocument
   let page: any
-  
+
   // Load template if available, otherwise create blank PDF
   if (companyInfo?.templateKey) {
     const templateDoc = await loadTemplateFromS3(companyInfo.templateKey)
@@ -170,7 +174,7 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
     pdfDoc = await PDFDocument.create()
     page = pdfDoc.addPage([595, 842]) // A4 size
   }
-  
+
   const { width, height } = page.getSize()
 
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica)
@@ -186,7 +190,7 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
       const logoWidth = 80
       const aspectRatio = logo.height / logo.width
       logoHeight = logoWidth * aspectRatio
-      
+
       // Draw logo at top left
       page.drawImage(logo, {
         x: 50,
@@ -194,7 +198,7 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
         width: logoWidth,
         height: logoHeight,
       })
-      
+
       y -= logoHeight + 20
     }
   }
@@ -217,7 +221,7 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
     font: fontRegular,
     color: mediumGray,
   })
-  
+
   // Add company contact info if available
   if (companyInfo?.email || companyInfo?.phone) {
     y -= 15
@@ -285,7 +289,7 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
   }
 
   // Client information
-  y -= 40  // Space after header
+  y -= 40 // Space after header
   page.drawText('Bill To:', {
     x: 50,
     y,
@@ -300,7 +304,13 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
     y -= 15
   }
   if (quote.contactCompany) {
-    page.drawText(quote.contactCompany, { x: 50, y, size: 10, font: fontRegular, color: mediumGray })
+    page.drawText(quote.contactCompany, {
+      x: 50,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
     y -= 15
   }
   if (quote.contactEmail) {
@@ -339,9 +349,27 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
     }
 
     page.drawText(desc, { x: 50, y, size: 9, font: fontRegular, color: mediumGray })
-    page.drawText(item.quantity.toString(), { x: 320, y, size: 9, font: fontRegular, color: mediumGray })
-    page.drawText(formatCurrency(item.unitPrice), { x: 380, y, size: 9, font: fontRegular, color: mediumGray })
-    page.drawText(formatCurrency(item.total), { x: 480, y, size: 9, font: fontRegular, color: mediumGray })
+    page.drawText(item.quantity.toString(), {
+      x: 320,
+      y,
+      size: 9,
+      font: fontRegular,
+      color: mediumGray,
+    })
+    page.drawText(formatCurrency(item.unitPrice), {
+      x: 380,
+      y,
+      size: 9,
+      font: fontRegular,
+      color: mediumGray,
+    })
+    page.drawText(formatCurrency(item.total), {
+      x: 480,
+      y,
+      size: 9,
+      font: fontRegular,
+      color: mediumGray,
+    })
 
     y -= 20
   }
@@ -351,20 +379,79 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
   const totalsX = 380
 
   page.drawText('Subtotal:', { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
-  page.drawText(formatCurrency(quote.subtotal), { x: 480, y, size: 10, font: fontRegular, color: mediumGray })
+  page.drawText(formatCurrency(quote.subtotal), {
+    x: 480,
+    y,
+    size: 10,
+    font: fontRegular,
+    color: mediumGray,
+  })
 
   y -= 20
   if (quote.taxRate > 0) {
-    page.drawText(`Tax (${(quote.taxRate * 100).toFixed(1)}%):`, { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
-    page.drawText(formatCurrency(quote.taxAmount), { x: 480, y, size: 10, font: fontRegular, color: mediumGray })
+    page.drawText(`Tax (${(quote.taxRate * 100).toFixed(1)}%):`, {
+      x: totalsX,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
+    page.drawText(formatCurrency(quote.taxAmount), {
+      x: 480,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
     y -= 20
   }
 
   if (quote.discount > 0) {
-    const discountLabel = quote.discountReason ? `Discount (${quote.discountReason}):` : 'Discount:'
-    page.drawText(discountLabel, { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
-    page.drawText(`-${formatCurrency(quote.discount)}`, { x: 480, y, size: 10, font: fontRegular, color: mediumGray })
-    y -= 20
+    page.drawText('Discount:', { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
+    page.drawText(`-${formatCurrency(quote.discount)}`, {
+      x: 480,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
+    y -= 15
+    if (quote.discountReason) {
+      // Wrap discount reason text to avoid overflow (max width ~35 chars for 9pt font)
+      const maxCharsPerLine = 35
+      const words = quote.discountReason.split(' ')
+      let currentLine = '  '
+
+      for (const word of words) {
+        if ((currentLine + word).length <= maxCharsPerLine) {
+          currentLine += (currentLine === '  ' ? '' : ' ') + word
+        } else {
+          page.drawText(currentLine, {
+            x: totalsX,
+            y,
+            size: 9,
+            font: fontRegular,
+            color: mediumGray,
+          })
+          y -= 12
+          currentLine = '  ' + word
+        }
+      }
+
+      // Draw remaining text
+      if (currentLine.trim()) {
+        page.drawText(currentLine, {
+          x: totalsX,
+          y,
+          size: 9,
+          font: fontRegular,
+          color: mediumGray,
+        })
+        y -= 20
+      }
+    } else {
+      y -= 5
+    }
   }
 
   // Line above total
@@ -377,7 +464,13 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
 
   y -= 10
   page.drawText('Total:', { x: totalsX, y, size: 12, font: fontBold, color: darkGray })
-  page.drawText(formatCurrency(quote.total), { x: 480, y, size: 14, font: fontBold, color: goldColor })
+  page.drawText(formatCurrency(quote.total), {
+    x: 480,
+    y,
+    size: 14,
+    font: fontBold,
+    color: goldColor,
+  })
 
   // Notes
   if (quote.notes) {
@@ -385,7 +478,7 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
     if (y > 80) {
       page.drawText('Notes:', { x: 50, y, size: 10, font: fontBold, color: darkGray })
       y -= 15
-      
+
       // Truncate notes if too long
       let notes = quote.notes
       if (notes.length > 200) {
@@ -411,10 +504,14 @@ export async function generateQuotePDF(quote: QuoteData, tenantName?: string, co
 /**
  * Generate a PDF buffer for an invoice
  */
-export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: string, companyInfo?: CompanyInfo): Promise<Buffer> {
+export async function generateInvoicePDF(
+  invoice: InvoiceData,
+  tenantName?: string,
+  companyInfo?: CompanyInfo
+): Promise<Buffer> {
   let pdfDoc: PDFDocument
   let page: any
-  
+
   // Load template if available, otherwise create blank PDF
   if (companyInfo?.templateKey) {
     const templateDoc = await loadTemplateFromS3(companyInfo.templateKey)
@@ -432,7 +529,7 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
     pdfDoc = await PDFDocument.create()
     page = pdfDoc.addPage([595, 842]) // A4 size
   }
-  
+
   const { width, height } = page.getSize()
 
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica)
@@ -448,7 +545,7 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
       const logoWidth = 80
       const aspectRatio = logo.height / logo.width
       logoHeight = logoWidth * aspectRatio
-      
+
       // Draw logo at top left
       page.drawImage(logo, {
         x: 50,
@@ -456,7 +553,7 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
         width: logoWidth,
         height: logoHeight,
       })
-      
+
       y -= logoHeight + 20
     }
   }
@@ -479,7 +576,7 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
     font: fontRegular,
     color: mediumGray,
   })
-  
+
   // Add company contact info if available
   if (companyInfo?.email || companyInfo?.phone) {
     y -= 15
@@ -560,16 +657,18 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
 
   // Payment status badge
   rightY -= 20
-  const statusText = invoice.paymentStatus === 'paid' 
-    ? 'PAID' 
-    : invoice.paymentStatus === 'partial' 
-    ? 'PARTIAL' 
-    : 'UNPAID'
-  const statusColor = invoice.paymentStatus === 'paid' 
-    ? greenColor 
-    : invoice.paymentStatus === 'partial' 
-    ? orangeColor 
-    : redColor
+  const statusText =
+    invoice.paymentStatus === 'paid'
+      ? 'PAID'
+      : invoice.paymentStatus === 'partial'
+        ? 'PARTIAL'
+        : 'UNPAID'
+  const statusColor =
+    invoice.paymentStatus === 'paid'
+      ? greenColor
+      : invoice.paymentStatus === 'partial'
+        ? orangeColor
+        : redColor
 
   page.drawText(statusText, {
     x: width - 100,
@@ -580,7 +679,7 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
   })
 
   // Client information
-  y -= 40  // Space after header
+  y -= 40 // Space after header
   page.drawText('Bill To:', {
     x: 50,
     y,
@@ -595,11 +694,23 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
     y -= 15
   }
   if (invoice.contactCompany) {
-    page.drawText(invoice.contactCompany, { x: 50, y, size: 10, font: fontRegular, color: mediumGray })
+    page.drawText(invoice.contactCompany, {
+      x: 50,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
     y -= 15
   }
   if (invoice.contactEmail) {
-    page.drawText(invoice.contactEmail, { x: 50, y, size: 10, font: fontRegular, color: mediumGray })
+    page.drawText(invoice.contactEmail, {
+      x: 50,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
     y -= 15
   }
 
@@ -632,9 +743,27 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
     }
 
     page.drawText(desc, { x: 50, y, size: 9, font: fontRegular, color: mediumGray })
-    page.drawText(item.quantity.toString(), { x: 320, y, size: 9, font: fontRegular, color: mediumGray })
-    page.drawText(formatCurrency(item.unitPrice), { x: 380, y, size: 9, font: fontRegular, color: mediumGray })
-    page.drawText(formatCurrency(item.total), { x: 480, y, size: 9, font: fontRegular, color: mediumGray })
+    page.drawText(item.quantity.toString(), {
+      x: 320,
+      y,
+      size: 9,
+      font: fontRegular,
+      color: mediumGray,
+    })
+    page.drawText(formatCurrency(item.unitPrice), {
+      x: 380,
+      y,
+      size: 9,
+      font: fontRegular,
+      color: mediumGray,
+    })
+    page.drawText(formatCurrency(item.total), {
+      x: 480,
+      y,
+      size: 9,
+      font: fontRegular,
+      color: mediumGray,
+    })
 
     y -= 20
   }
@@ -644,20 +773,79 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
   const totalsX = 380
 
   page.drawText('Subtotal:', { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
-  page.drawText(formatCurrency(invoice.subtotal), { x: 480, y, size: 10, font: fontRegular, color: mediumGray })
+  page.drawText(formatCurrency(invoice.subtotal), {
+    x: 480,
+    y,
+    size: 10,
+    font: fontRegular,
+    color: mediumGray,
+  })
 
   y -= 20
   if (invoice.taxRate > 0) {
-    page.drawText(`Tax (${(invoice.taxRate * 100).toFixed(1)}%):`, { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
-    page.drawText(formatCurrency(invoice.taxAmount), { x: 480, y, size: 10, font: fontRegular, color: mediumGray })
+    page.drawText(`Tax (${(invoice.taxRate * 100).toFixed(1)}%):`, {
+      x: totalsX,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
+    page.drawText(formatCurrency(invoice.taxAmount), {
+      x: 480,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
     y -= 20
   }
 
   if (invoice.discount > 0) {
-    const discountLabel = invoice.discountReason ? `Discount (${invoice.discountReason}):` : 'Discount:'
-    page.drawText(discountLabel, { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
-    page.drawText(`-${formatCurrency(invoice.discount)}`, { x: 480, y, size: 10, font: fontRegular, color: mediumGray })
-    y -= 20
+    page.drawText('Discount:', { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
+    page.drawText(`-${formatCurrency(invoice.discount)}`, {
+      x: 480,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: mediumGray,
+    })
+    y -= 15
+    if (invoice.discountReason) {
+      // Wrap discount reason text to avoid overflow (max width ~35 chars for 9pt font)
+      const maxCharsPerLine = 35
+      const words = invoice.discountReason.split(' ')
+      let currentLine = '  '
+
+      for (const word of words) {
+        if ((currentLine + word).length <= maxCharsPerLine) {
+          currentLine += (currentLine === '  ' ? '' : ' ') + word
+        } else {
+          page.drawText(currentLine, {
+            x: totalsX,
+            y,
+            size: 9,
+            font: fontRegular,
+            color: mediumGray,
+          })
+          y -= 12
+          currentLine = '  ' + word
+        }
+      }
+
+      // Draw remaining text
+      if (currentLine.trim()) {
+        page.drawText(currentLine, {
+          x: totalsX,
+          y,
+          size: 9,
+          font: fontRegular,
+          color: mediumGray,
+        })
+        y -= 20
+      }
+    } else {
+      y -= 5
+    }
   }
 
   // Line above total
@@ -670,19 +858,43 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
 
   y -= 10
   page.drawText('Total:', { x: totalsX, y, size: 12, font: fontBold, color: darkGray })
-  page.drawText(formatCurrency(invoice.total), { x: 480, y, size: 14, font: fontBold, color: goldColor })
+  page.drawText(formatCurrency(invoice.total), {
+    x: 480,
+    y,
+    size: 14,
+    font: fontBold,
+    color: goldColor,
+  })
 
   // Payment information
   if (invoice.paidAmount > 0) {
     y -= 25
     page.drawText('Paid:', { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
-    page.drawText(formatCurrency(invoice.paidAmount), { x: 480, y, size: 10, font: fontRegular, color: greenColor })
+    page.drawText(formatCurrency(invoice.paidAmount), {
+      x: 480,
+      y,
+      size: 10,
+      font: fontRegular,
+      color: greenColor,
+    })
 
     const balance = invoice.total - invoice.paidAmount
     if (balance > 0) {
       y -= 20
-      page.drawText('Balance Due:', { x: totalsX, y, size: 10, font: fontRegular, color: mediumGray })
-      page.drawText(formatCurrency(balance), { x: 480, y, size: 10, font: fontRegular, color: redColor })
+      page.drawText('Balance Due:', {
+        x: totalsX,
+        y,
+        size: 10,
+        font: fontRegular,
+        color: mediumGray,
+      })
+      page.drawText(formatCurrency(balance), {
+        x: 480,
+        y,
+        size: 10,
+        font: fontRegular,
+        color: redColor,
+      })
     }
   }
 
@@ -692,7 +904,7 @@ export async function generateInvoicePDF(invoice: InvoiceData, tenantName?: stri
     if (y > 80) {
       page.drawText('Notes:', { x: 50, y, size: 10, font: fontBold, color: darkGray })
       y -= 15
-      
+
       let notes = invoice.notes
       if (notes.length > 200) {
         notes = notes.substring(0, 197) + '...'

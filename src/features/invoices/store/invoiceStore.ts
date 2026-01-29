@@ -11,7 +11,7 @@ interface InvoiceState {
   searchQuery: string
   statusFilter: 'all' | 'draft' | 'sent' | 'overdue' | 'cancelled'
   paymentStatusFilter: 'all' | 'pending' | 'partial' | 'paid'
-  
+
   // Actions
   fetchInvoices: () => Promise<void>
   getInvoiceById: (id: string) => Promise<void>
@@ -19,7 +19,10 @@ interface InvoiceState {
   updateInvoice: (data: UpdateInvoiceData) => Promise<void>
   deleteInvoice: (id: string) => Promise<void>
   sendInvoice: (id: string) => Promise<void>
-  convertQuoteToInvoice: (quote: Quote, options?: { paymentTerms?: string; dueDate?: string }) => Promise<Invoice>
+  convertQuoteToInvoice: (
+    quote: Quote,
+    options?: { paymentTerms?: string; dueDate?: string }
+  ) => Promise<Invoice>
   setSelectedInvoice: (invoice: Invoice | null) => void
   setSearchQuery: (query: string) => void
   setStatusFilter: (status: 'all' | 'draft' | 'sent' | 'overdue' | 'cancelled') => void
@@ -66,7 +69,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const newInvoice = await invoicesService.create(data)
-      set((state) => ({
+      set(state => ({
         invoices: [newInvoice, ...state.invoices],
         isLoading: false,
       }))
@@ -84,14 +87,10 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const updatedInvoice = await invoicesService.update(data.id, data)
-      set((state) => ({
-        invoices: state.invoices.map((i) =>
-          i.id === data.id ? updatedInvoice : i
-        ),
+      set(state => ({
+        invoices: state.invoices.map(i => (i.id === data.id ? updatedInvoice : i)),
         selectedInvoice:
-          state.selectedInvoice?.id === data.id
-            ? updatedInvoice
-            : state.selectedInvoice,
+          state.selectedInvoice?.id === data.id ? updatedInvoice : state.selectedInvoice,
         isLoading: false,
       }))
     } catch (error: any) {
@@ -107,10 +106,9 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       await invoicesService.delete(id)
-      set((state) => ({
-        invoices: state.invoices.filter((i) => i.id !== id),
-        selectedInvoice:
-          state.selectedInvoice?.id === id ? null : state.selectedInvoice,
+      set(state => ({
+        invoices: state.invoices.filter(i => i.id !== id),
+        selectedInvoice: state.selectedInvoice?.id === id ? null : state.selectedInvoice,
         isLoading: false,
       }))
     } catch (error: any) {
@@ -126,14 +124,9 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const updatedInvoice = await invoicesService.send(id)
-      set((state) => ({
-        invoices: state.invoices.map((i) =>
-          i.id === id ? updatedInvoice : i
-        ),
-        selectedInvoice:
-          state.selectedInvoice?.id === id
-            ? updatedInvoice
-            : state.selectedInvoice,
+      set(state => ({
+        invoices: state.invoices.map(i => (i.id === id ? updatedInvoice : i)),
+        selectedInvoice: state.selectedInvoice?.id === id ? updatedInvoice : state.selectedInvoice,
         isLoading: false,
       }))
     } catch (error: any) {
@@ -145,7 +138,10 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     }
   },
 
-  convertQuoteToInvoice: async (quote: Quote, options?: { paymentTerms?: string; dueDate?: string }) => {
+  convertQuoteToInvoice: async (
+    quote: Quote,
+    options?: { paymentTerms?: string; dueDate?: string }
+  ) => {
     set({ isLoading: true, error: null })
     try {
       // Calculate due date from payment terms if not provided
@@ -169,14 +165,17 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
 
       const invoiceData: CreateInvoiceData = {
         contactId: quote.contactId,
-        lineItems: quote.lineItems.map((item) => ({
+        lineItems: quote.lineItems.map(item => ({
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
         })),
         taxRate: quote.taxRate,
         discount: quote.discount,
-        notes: quote.notes ? `Converted from ${quote.quoteNumber}\n\n${quote.notes}` : `Converted from ${quote.quoteNumber}`,
+        discountReason: quote.discountReason,
+        notes: quote.notes
+          ? `Converted from ${quote.quoteNumber}\n\n${quote.notes}`
+          : `Converted from ${quote.quoteNumber}`,
         dueDate,
         paymentTerms: options?.paymentTerms || 'Net 30',
         status: 'draft',
@@ -184,7 +183,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       }
 
       const newInvoice = await invoicesService.create(invoiceData)
-      set((state) => ({
+      set(state => ({
         invoices: [newInvoice, ...state.invoices],
         isLoading: false,
       }))
@@ -218,4 +217,3 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     set({ error: null })
   },
 }))
-

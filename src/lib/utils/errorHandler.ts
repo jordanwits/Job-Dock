@@ -19,27 +19,39 @@ function getCognitoErrorMessage(errorMessage: string): string {
   const lowerMessage = errorMessage.toLowerCase()
 
   // Common Cognito error patterns
-  if (lowerMessage.includes('notauthorizedexception') || lowerMessage.includes('incorrect username or password')) {
+  if (
+    lowerMessage.includes('notauthorizedexception') ||
+    lowerMessage.includes('incorrect username or password')
+  ) {
     return 'Incorrect email or password. Please check your credentials and try again.'
   }
 
-  if (lowerMessage.includes('usernotfoundexception') || lowerMessage.includes('user does not exist')) {
+  if (
+    lowerMessage.includes('usernotfoundexception') ||
+    lowerMessage.includes('user does not exist')
+  ) {
     return 'No account found with this email address. Please check your email or sign up for a new account.'
   }
 
-  if (lowerMessage.includes('usernotconfirmedexception') || lowerMessage.includes('user is not confirmed')) {
+  if (
+    lowerMessage.includes('usernotconfirmedexception') ||
+    lowerMessage.includes('user is not confirmed')
+  ) {
     return 'Your account has not been confirmed. Please check your email for a confirmation link.'
   }
 
-  if (lowerMessage.includes('invalidpasswordexception') || lowerMessage.includes('invalid password')) {
-    return 'Password does not meet security requirements. Must include uppercase, lowercase, number, and special character.'
+  if (
+    lowerMessage.includes('invalidpasswordexception') ||
+    lowerMessage.includes('invalid password')
+  ) {
+    return 'Password does not meet security requirements. Must be at least 12 characters with uppercase, lowercase, number, and special character.'
   }
 
   if (lowerMessage.includes('invalidparameterexception')) {
     if (lowerMessage.includes('password')) {
       // Check for specific password requirement violations
       if (lowerMessage.includes('length') || lowerMessage.includes('too short')) {
-        return 'Password must be at least 8 characters long.'
+        return 'Password must be at least 12 characters long.'
       }
       if (lowerMessage.includes('uppercase')) {
         return 'Password must contain at least one uppercase letter.'
@@ -54,20 +66,30 @@ function getCognitoErrorMessage(errorMessage: string): string {
         return 'Password must contain at least one special character (!@#$%^&*).'
       }
       // Generic password requirement message
-      return 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
+      return 'Password must be at least 12 characters and include uppercase, lowercase, number, and special character.'
     }
     return 'Invalid information provided. Please check your input and try again.'
   }
 
-  if (lowerMessage.includes('userexistsexception') || lowerMessage.includes('user already exists')) {
+  if (
+    lowerMessage.includes('userexistsexception') ||
+    lowerMessage.includes('user already exists')
+  ) {
     return 'An account with this email already exists. Please sign in instead.'
   }
 
-  if (lowerMessage.includes('limitexceededexception') || lowerMessage.includes('attempt limit exceeded')) {
+  if (
+    lowerMessage.includes('limitexceededexception') ||
+    lowerMessage.includes('attempt limit exceeded')
+  ) {
     return 'Too many login attempts. Please wait a few minutes and try again.'
   }
 
-  if (lowerMessage.includes('network') || lowerMessage.includes('timeout') || lowerMessage.includes('econnrefused')) {
+  if (
+    lowerMessage.includes('network') ||
+    lowerMessage.includes('timeout') ||
+    lowerMessage.includes('econnrefused')
+  ) {
     return 'Unable to connect to the server. Please check your internet connection and try again.'
   }
 
@@ -91,26 +113,29 @@ function getCognitoErrorMessage(errorMessage: string): string {
 /**
  * Extract user-friendly error message from axios error
  */
-export function getErrorMessage(error: unknown, fallback: string = 'An unexpected error occurred. Please try again.'): string {
+export function getErrorMessage(
+  error: unknown,
+  fallback: string = 'An unexpected error occurred. Please try again.'
+): string {
   // Handle axios errors
   if (error && typeof error === 'object' && 'isAxiosError' in error) {
     const axiosError = error as AxiosError<ApiErrorResponse>
-    
+
     // Try to get message from response data
     if (axiosError.response?.data) {
       const data = axiosError.response.data
-      
+
       // Check for error.message format (from backend)
       if (data.error?.message) {
         return getCognitoErrorMessage(data.error.message)
       }
-      
+
       // Check for direct message property
       if (data.message) {
         return getCognitoErrorMessage(data.message)
       }
     }
-    
+
     // Handle HTTP status codes
     const status = axiosError.response?.status
     if (status === 400) {
@@ -131,26 +156,26 @@ export function getErrorMessage(error: unknown, fallback: string = 'An unexpecte
     if (status === 503) {
       return 'The service is temporarily unavailable. Please try again later.'
     }
-    
+
     // Network errors
     if (axiosError.code === 'ECONNABORTED' || axiosError.message.includes('timeout')) {
       return 'The request took too long. Please check your connection and try again.'
     }
-    
+
     if (axiosError.message) {
       return getCognitoErrorMessage(axiosError.message)
     }
   }
-  
+
   // Handle Error objects
   if (error instanceof Error) {
     return getCognitoErrorMessage(error.message)
   }
-  
+
   // Handle string errors
   if (typeof error === 'string') {
     return getCognitoErrorMessage(error)
   }
-  
+
   return fallback
 }

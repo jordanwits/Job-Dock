@@ -14,7 +14,13 @@ interface InvoiceDetailProps {
   onJobCreateFailed?: (error: string) => void
 }
 
-const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFailed }: InvoiceDetailProps) => {
+const InvoiceDetail = ({
+  invoice,
+  isOpen,
+  onClose,
+  onJobCreated,
+  onJobCreateFailed,
+}: InvoiceDetailProps) => {
   const { updateInvoice, deleteInvoice, sendInvoice, isLoading } = useInvoiceStore()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -145,13 +151,16 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
 
   // Invoice is overdue if due date is more than 1 day in the past
   // (not on the due date itself, but the day after)
-  const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
-    const dueDate = new Date(invoice.dueDate)
-    const oneDayAgo = new Date()
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-    oneDayAgo.setHours(23, 59, 59, 999)
-    return dueDate < oneDayAgo
-  })()
+  const isOverdue =
+    invoice.dueDate &&
+    invoice.paymentStatus !== 'paid' &&
+    (() => {
+      const dueDate = new Date(invoice.dueDate)
+      const oneDayAgo = new Date()
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+      oneDayAgo.setHours(23, 59, 59, 999)
+      return dueDate < oneDayAgo
+    })()
 
   if (isEditing) {
     return (
@@ -209,7 +218,10 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
                     ? 'Resend Invoice'
                     : 'Send Invoice'}
               </Button>
-              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto whitespace-nowrap">
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="w-full sm:w-auto whitespace-nowrap"
+              >
                 Edit
               </Button>
             </div>
@@ -365,12 +377,19 @@ const InvoiceDetail = ({ invoice, isOpen, onClose, onJobCreated, onJobCreateFail
                 <span className="text-primary-light">{formatCurrency(invoice.taxAmount)}</span>
               </div>
               {invoice.discount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-primary-light/70">
-                    Discount{invoice.discountReason && ` (${invoice.discountReason})`}
-                  </span>
-                  <span className="text-primary-light">-{formatCurrency(invoice.discount)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-primary-light/70">Discount</span>
+                    <span className="text-primary-light">-{formatCurrency(invoice.discount)}</span>
+                  </div>
+                  {invoice.discountReason && (
+                    <div className="text-xs -mt-1 pr-20">
+                      <span className="text-primary-light/50 italic pl-2 block">
+                        {invoice.discountReason}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
               <div className="flex justify-between pt-2 border-t border-primary-blue text-lg font-bold">
                 <span className="text-primary-light">Total</span>

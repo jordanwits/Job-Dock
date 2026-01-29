@@ -17,9 +17,15 @@ interface QuoteDetailProps {
   onJobCreateFailed?: (error: string) => void
 }
 
-const QuoteDetail = ({ quote, isOpen, onClose, onJobCreated, onJobCreateFailed }: QuoteDetailProps) => {
+const QuoteDetail = ({
+  quote,
+  isOpen,
+  onClose,
+  onJobCreated,
+  onJobCreateFailed,
+}: QuoteDetailProps) => {
   const { updateQuote, deleteQuote, sendQuote, isLoading } = useQuoteStore()
-  const { convertQuoteToInvoice, isLoading: isConverting } = useInvoiceStore()
+  const { convertQuoteToInvoice, setSelectedInvoice, isLoading: isConverting } = useInvoiceStore()
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -65,8 +71,9 @@ const QuoteDetail = ({ quote, isOpen, onClose, onJobCreated, onJobCreateFailed }
       setTimeout(() => {
         setShowConfirmation(false)
         onClose()
-        // Navigate to the new invoice
-        navigate(`/invoices`)
+        // Set the newly created invoice as selected and navigate to invoices page
+        setSelectedInvoice(invoice)
+        navigate(`/app/invoices`)
       }, 2000)
     } catch (error) {
       // Error handled by store
@@ -190,7 +197,10 @@ const QuoteDetail = ({ quote, isOpen, onClose, onJobCreated, onJobCreateFailed }
                   Convert to Invoice
                 </Button>
               )}
-              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto py-2 whitespace-nowrap">
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="w-full sm:w-auto py-2 whitespace-nowrap"
+              >
                 Edit
               </Button>
             </div>
@@ -296,12 +306,19 @@ const QuoteDetail = ({ quote, isOpen, onClose, onJobCreated, onJobCreateFailed }
                 <span className="text-primary-light">{formatCurrency(quote.taxAmount)}</span>
               </div>
               {quote.discount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-primary-light/70">
-                    Discount{quote.discountReason && ` (${quote.discountReason})`}
-                  </span>
-                  <span className="text-primary-light">-{formatCurrency(quote.discount)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-primary-light/70">Discount</span>
+                    <span className="text-primary-light">-{formatCurrency(quote.discount)}</span>
+                  </div>
+                  {quote.discountReason && (
+                    <div className="text-xs -mt-1 pr-20">
+                      <span className="text-primary-light/50 italic pl-2 block">
+                        {quote.discountReason}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
               <div className="flex justify-between pt-2 border-t border-primary-blue text-lg font-bold">
                 <span className="text-primary-light">Total</span>
