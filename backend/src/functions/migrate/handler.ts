@@ -1,6 +1,6 @@
 /**
  * Database Migration Lambda
- * 
+ *
  * This Lambda function runs database migrations using direct SQL.
  * It can be invoked manually via AWS CLI.
  */
@@ -10,7 +10,7 @@ import prisma from '../../lib/db'
 
 interface MigrationEvent {
   action?: 'deploy' | 'status' | 'sql'
-  sql?: string  // Custom SQL to run (for action='sql')
+  sql?: string // Custom SQL to run (for action='sql')
 }
 
 interface MigrationResult {
@@ -255,9 +255,9 @@ const PENDING_MIGRATIONS = [
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'jobs_serviceId_fkey') THEN
           ALTER TABLE "jobs" ADD CONSTRAINT "jobs_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "services"("id") ON DELETE SET NULL ON UPDATE CASCADE;
         END IF;
-      END $$`
+      END $$`,
     ],
-    description: 'Initial schema - creates all base tables, indexes, and constraints'
+    description: 'Initial schema - creates all base tables, indexes, and constraints',
   },
   {
     name: '20250107000000_add_tenant_settings',
@@ -287,9 +287,9 @@ const PENDING_MIGRATIONS = [
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tenant_settings_tenantId_fkey') THEN
           ALTER TABLE "tenant_settings" ADD CONSTRAINT "tenant_settings_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
         END IF;
-      END $$`
+      END $$`,
     ],
-    description: 'Add tenant settings table for company branding and email templates'
+    description: 'Add tenant settings table for company branding and email templates',
   },
   {
     name: '20260107000001_add_job_recurrence',
@@ -335,18 +335,18 @@ const PENDING_MIGRATIONS = [
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_recurrences_tenantId_fkey') THEN
           ALTER TABLE "job_recurrences" ADD CONSTRAINT "job_recurrences_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
         END IF;
-      END $$`
+      END $$`,
     ],
-    description: 'Add job recurrence support for repeating scheduled jobs'
+    description: 'Add job recurrence support for repeating scheduled jobs',
   },
   {
     name: '20260108000000_add_invoice_approval_status',
     statements: [
       `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "approvalStatus" TEXT NOT NULL DEFAULT 'none'`,
       `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "approvalAt" TIMESTAMP(3)`,
-      `CREATE INDEX IF NOT EXISTS "invoices_approvalStatus_idx" ON "invoices"("approvalStatus")`
+      `CREATE INDEX IF NOT EXISTS "invoices_approvalStatus_idx" ON "invoices"("approvalStatus")`,
     ],
-    description: 'Add approval status and timestamp to invoices for customer approval workflow'
+    description: 'Add approval status and timestamp to invoices for customer approval workflow',
   },
   {
     name: '20260108000001_add_job_quote_invoice_linking',
@@ -367,44 +367,37 @@ const PENDING_MIGRATIONS = [
          ) THEN
            ALTER TABLE "jobs" ADD CONSTRAINT "jobs_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
          END IF;
-       END $$`
+       END $$`,
     ],
-    description: 'Link jobs to quotes and invoices for integrated workflow'
+    description: 'Link jobs to quotes and invoices for integrated workflow',
   },
   {
     name: '20260108000002_add_quote_title',
-    statements: [
-      `ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "title" TEXT`
-    ],
-    description: 'Add optional title field to quotes'
+    statements: [`ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "title" TEXT`],
+    description: 'Add optional title field to quotes',
   },
   {
     name: '20260108000003_add_job_breaks',
-    statements: [
-      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "breaks" JSONB`
-    ],
-    description: 'Add breaks column to jobs table for job timeline pauses'
+    statements: [`ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "breaks" JSONB`],
+    description: 'Add breaks column to jobs table for job timeline pauses',
   },
   {
     name: '20260108000004_add_invoice_title',
-    statements: [
-      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "title" TEXT`
-    ],
-    description: 'Add optional title field to invoices'
+    statements: [`ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "title" TEXT`],
+    description: 'Add optional title field to invoices',
   },
   {
     name: '20260112000000_add_job_price',
-    statements: [
-      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "price" DECIMAL(10,2)`
-    ],
-    description: 'Add optional price field to jobs'
+    statements: [`ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "price" DECIMAL(10,2)`],
+    description: 'Add optional price field to jobs',
   },
   {
     name: '20260112000001_add_custom_recurrence_days',
     statements: [
-      `ALTER TABLE "job_recurrences" ADD COLUMN IF NOT EXISTS "daysOfWeek" INTEGER[] DEFAULT ARRAY[]::INTEGER[]`
+      `ALTER TABLE "job_recurrences" ADD COLUMN IF NOT EXISTS "daysOfWeek" INTEGER[] DEFAULT ARRAY[]::INTEGER[]`,
     ],
-    description: 'Add custom days of week selection for job recurrence (for patterns like every Tue and Thu)'
+    description:
+      'Add custom days of week selection for job recurrence (for patterns like every Tue and Thu)',
   },
   {
     name: '20260112000002_provision_dave_witbeck',
@@ -414,9 +407,9 @@ const PENDING_MIGRATIONS = [
        ON CONFLICT (subdomain) DO NOTHING`,
       `INSERT INTO "users" (id, "cognitoId", email, name, "tenantId", role, "createdAt", "updatedAt")
        VALUES ('3deb2df8-aa9f-4a68-add2-05b13a8e2d7c', '2478a438-4021-7015-fed6-c19cc19201f7', 'davewitbeck@gmail.com', 'Dave Witbeck', '91aa5603-ed59-42fe-9b32-6d13a5ccf4e4', 'owner', NOW(), NOW())
-       ON CONFLICT ("cognitoId") DO NOTHING`
+       ON CONFLICT ("cognitoId") DO NOTHING`,
     ],
-    description: 'Provision database records for Dave Witbeck (manually created Cognito user)'
+    description: 'Provision database records for Dave Witbeck (manually created Cognito user)',
   },
   {
     name: '20260113000000_add_job_archival',
@@ -425,9 +418,9 @@ const PENDING_MIGRATIONS = [
       `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "archivedAt" TIMESTAMP(3)`,
       `CREATE INDEX IF NOT EXISTS "jobs_deletedAt_idx" ON "jobs"("deletedAt")`,
       `CREATE INDEX IF NOT EXISTS "jobs_archivedAt_idx" ON "jobs"("archivedAt")`,
-      `CREATE INDEX IF NOT EXISTS "jobs_endTime_idx" ON "jobs"("endTime")`
+      `CREATE INDEX IF NOT EXISTS "jobs_endTime_idx" ON "jobs"("endTime")`,
     ],
-    description: 'Add deletedAt and archivedAt fields to jobs for data retention management'
+    description: 'Add deletedAt and archivedAt fields to jobs for data retention management',
   },
   {
     name: '20260116000000_add_stripe_billing',
@@ -448,18 +441,27 @@ const PENDING_MIGRATIONS = [
         CONSTRAINT "stripe_webhook_events_pkey" PRIMARY KEY ("id")
       )`,
       `CREATE UNIQUE INDEX IF NOT EXISTS "stripe_webhook_events_stripeEventId_key" ON "stripe_webhook_events"("stripeEventId")`,
-      `CREATE INDEX IF NOT EXISTS "stripe_webhook_events_stripeEventId_idx" ON "stripe_webhook_events"("stripeEventId")`
+      `CREATE INDEX IF NOT EXISTS "stripe_webhook_events_stripeEventId_idx" ON "stripe_webhook_events"("stripeEventId")`,
     ],
-    description: 'Add Stripe billing fields to tenants and create webhook idempotency table'
+    description: 'Add Stripe billing fields to tenants and create webhook idempotency table',
   },
   {
     name: '20260126000000_add_discount_reason',
     statements: [
       `ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "discountReason" TEXT`,
-      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "discountReason" TEXT`
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "discountReason" TEXT`,
     ],
-    description: 'Add discountReason field to quotes and invoices for tracking discount justification'
-  }
+    description:
+      'Add discountReason field to quotes and invoices for tracking discount justification',
+  },
+  {
+    name: '20260129000000_add_user_onboarding',
+    statements: [
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "onboardingCompletedAt" TIMESTAMP(3)`,
+    ],
+    description:
+      'Add onboardingCompletedAt field to users for tracking first-run onboarding completion',
+  },
 ]
 
 export const handler = async (
@@ -467,16 +469,16 @@ export const handler = async (
   context: Context
 ): Promise<MigrationResult> => {
   console.log('Migration Lambda invoked', { event, requestId: context.awsRequestId })
-  
+
   const action = event.action || 'deploy'
   const timestamp = new Date().toISOString()
-  
+
   try {
     switch (action) {
       case 'deploy': {
         console.log('Running pending migrations...')
         const results: string[] = []
-        
+
         // First, ensure _prisma_migrations table exists
         console.log('Ensuring _prisma_migrations table exists...')
         await prisma.$executeRawUnsafe(`
@@ -491,30 +493,34 @@ export const handler = async (
             "applied_steps_count" INTEGER NOT NULL DEFAULT 0
           )
         `)
-        
+
         for (const migration of PENDING_MIGRATIONS) {
           console.log(`Checking migration: ${migration.name}`)
-          
+
           // Check if migration was already applied
-          const existingMigration = await prisma.$queryRawUnsafe<any[]>(`
+          const existingMigration = await prisma
+            .$queryRawUnsafe<any[]>(
+              `
             SELECT migration_name FROM _prisma_migrations 
             WHERE migration_name = '${migration.name}'
-          `).catch(() => [])
-          
+          `
+            )
+            .catch(() => [])
+
           if (existingMigration.length > 0) {
             console.log(`Migration ${migration.name} already applied, skipping`)
             results.push(`✓ ${migration.name} (already applied)`)
             continue
           }
-          
+
           console.log(`Running migration: ${migration.name}`)
-          
+
           // Run each SQL statement separately
           for (const statement of migration.statements) {
             console.log(`  Executing: ${statement.substring(0, 80)}...`)
             await prisma.$executeRawUnsafe(statement)
           }
-          
+
           // Record the migration in _prisma_migrations table
           await prisma.$executeRawUnsafe(`
             INSERT INTO _prisma_migrations (id, checksum, migration_name, logs, rolled_back_at, started_at, applied_steps_count, finished_at)
@@ -529,86 +535,89 @@ export const handler = async (
               NOW()
             )
           `)
-          
+
           results.push(`✓ ${migration.name} (applied)`)
           console.log(`Migration ${migration.name} completed`)
         }
-        
+
         return {
           success: true,
           action,
           message: 'Migrations completed',
           output: results.join('\n'),
-          timestamp
+          timestamp,
         }
       }
-      
+
       case 'status': {
         console.log('Checking migration status...')
-        
+
         // Get applied migrations
-        const appliedMigrations = await prisma.$queryRawUnsafe<any[]>(`
+        const appliedMigrations = await prisma
+          .$queryRawUnsafe<any[]>(
+            `
           SELECT migration_name, finished_at 
           FROM _prisma_migrations 
           ORDER BY finished_at DESC
-        `).catch(() => [])
-        
+        `
+          )
+          .catch(() => [])
+
         const appliedNames = new Set(appliedMigrations.map(m => m.migration_name))
-        
+
         const statusLines: string[] = [
           'Applied migrations:',
           ...appliedMigrations.map(m => `  ✓ ${m.migration_name}`),
           '',
           'Pending migrations:',
-          ...PENDING_MIGRATIONS
-            .filter(m => !appliedNames.has(m.name))
-            .map(m => `  ○ ${m.name} - ${m.description}`),
+          ...PENDING_MIGRATIONS.filter(m => !appliedNames.has(m.name)).map(
+            m => `  ○ ${m.name} - ${m.description}`
+          ),
         ]
-        
+
         if (PENDING_MIGRATIONS.every(m => appliedNames.has(m.name))) {
           statusLines.push('  (none - all migrations applied)')
         }
-        
+
         return {
           success: true,
           action,
           message: 'Status check complete',
           output: statusLines.join('\n'),
-          timestamp
+          timestamp,
         }
       }
-      
+
       case 'sql': {
         if (!event.sql) {
           throw new Error('sql parameter is required for action=sql')
         }
-        
+
         console.log('Running custom SQL:', event.sql)
-        
+
         // Run the custom SQL
         const result = await prisma.$executeRawUnsafe(event.sql)
-        
+
         return {
           success: true,
           action,
           message: 'SQL executed successfully',
           output: `Affected rows: ${result}`,
-          timestamp
+          timestamp,
         }
       }
-      
+
       default:
         throw new Error(`Unknown action: ${action}. Valid actions: deploy, status, sql`)
     }
-    
   } catch (error: any) {
     console.error('Migration failed:', error)
-    
+
     return {
       success: false,
       action,
       error: error.message,
-      timestamp
+      timestamp,
     }
   } finally {
     await prisma.$disconnect()

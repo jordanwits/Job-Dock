@@ -11,6 +11,8 @@ export interface ModalProps {
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
   closeOnOverlayClick?: boolean
+  transparentBackdrop?: boolean
+  mobilePosition?: 'center' | 'bottom'
 }
 
 const Modal = ({
@@ -21,6 +23,8 @@ const Modal = ({
   footer,
   size = 'md',
   closeOnOverlayClick = true,
+  transparentBackdrop = false,
+  mobilePosition = 'center',
 }: ModalProps) => {
   useEffect(() => {
     if (isOpen) {
@@ -54,15 +58,23 @@ const Modal = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+      className={cn(
+        'fixed inset-0 z-50 flex p-2 sm:p-4',
+        mobilePosition === 'bottom'
+          ? 'items-end sm:items-center justify-center'
+          : 'items-center justify-center overflow-y-auto'
+      )}
       onClick={closeOnOverlayClick ? onClose : undefined}
     >
       <div
         className={cn(
-          'relative w-full rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl my-auto max-h-[95vh] sm:max-h-[90vh] flex flex-col',
+          'relative w-full rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl flex flex-col',
+          mobilePosition === 'bottom'
+            ? 'max-h-[60vh] sm:max-h-[90vh] sm:my-auto'
+            : 'my-auto max-h-[95vh] sm:max-h-[90vh]',
           sizes[size]
         )}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         {(title || closeOnOverlayClick) && (
@@ -76,12 +88,7 @@ const Modal = ({
                 className="text-primary-light hover:text-primary-gold transition-colors flex-shrink-0"
                 aria-label="Close modal"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -107,7 +114,10 @@ const Modal = ({
 
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm -z-10"
+        className={cn(
+          'fixed inset-0 -z-10',
+          transparentBackdrop ? 'bg-black/20' : 'bg-black/50 backdrop-blur-sm'
+        )}
         onClick={closeOnOverlayClick ? onClose : undefined}
       />
     </div>
@@ -117,4 +127,3 @@ const Modal = ({
 }
 
 export default Modal
-

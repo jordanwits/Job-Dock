@@ -9,6 +9,7 @@ export interface User {
   email: string
   name: string
   tenantId: string
+  onboardingCompletedAt?: string | null
 }
 
 interface AuthState {
@@ -70,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (data) => {
+      register: async data => {
         set({ isLoading: true, error: null })
         try {
           const response = await authService.register(data)
@@ -99,7 +100,7 @@ export const useAuthStore = create<AuthState>()(
 
       refreshAccessToken: async () => {
         const currentRefreshToken = get().refreshToken || localStorage.getItem('refresh_token')
-        
+
         if (!currentRefreshToken) {
           console.warn('No refresh token available')
           return false
@@ -156,7 +157,10 @@ export const useAuthStore = create<AuthState>()(
           await authService.resetPassword(email)
           set({ isLoading: false })
         } catch (error: any) {
-          const friendlyMessage = getErrorMessage(error, 'Failed to send reset email. Please try again.')
+          const friendlyMessage = getErrorMessage(
+            error,
+            'Failed to send reset email. Please try again.'
+          )
           set({
             error: friendlyMessage,
             isLoading: false,
@@ -199,7 +203,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
+      partialize: state => ({
         user: state.user,
         token: state.token,
         refreshToken: state.refreshToken,
@@ -208,4 +212,3 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 )
-

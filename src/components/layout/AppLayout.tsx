@@ -13,12 +13,7 @@ export interface AppLayoutProps {
   onLogout?: () => void
 }
 
-const AppLayout = ({
-  children,
-  sidebarItems = [],
-  user,
-  onLogout,
-}: AppLayoutProps) => {
+const AppLayout = ({ children, sidebarItems = [], user, onLogout }: AppLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>()
 
@@ -42,24 +37,22 @@ const AppLayout = ({
 
   return (
     <div className="min-h-screen bg-primary-dark">
-      <Header 
-        user={user} 
+      <Header
+        user={user}
         companyLogoUrl={companyLogoUrl}
         onLogout={onLogout}
         onMenuClick={() => setSidebarOpen(!sidebarOpen)}
       />
       <div className="flex">
         {sidebarItems.length > 0 && (
-          <Sidebar 
-            items={sidebarItems} 
+          <Sidebar
+            items={sidebarItems}
             isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
           />
         )}
         <main className="flex-1 lg:ml-64 min-w-0">
-          <div className="container mx-auto p-4 md:p-6 space-y-6 min-w-0">
-            {children}
-          </div>
+          <div className="container mx-auto p-4 md:p-6 space-y-6 min-w-0">{children}</div>
         </main>
       </div>
     </div>
@@ -67,4 +60,3 @@ const AppLayout = ({
 }
 
 export default AppLayout
-

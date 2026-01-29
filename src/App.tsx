@@ -12,7 +12,13 @@ import { SchedulingPage } from '@/features/scheduling'
 import { PublicBookingPage } from '@/features/booking'
 import { SettingsPage } from '@/features/settings'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
-import { LandingPage, PrivacyPolicyPage, TermsOfServicePage, EmailPolicyPage } from '@/features/marketing'
+import {
+  LandingPage,
+  PrivacyPolicyPage,
+  TermsOfServicePage,
+  EmailPolicyPage,
+} from '@/features/marketing'
+import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/onboarding'
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -45,6 +51,8 @@ function App() {
     <BrowserRouter>
       <ScrollToTop />
       <SessionMonitor />
+      <OnboardingManager />
+      <AppTourOverlay />
       <Routes>
         {/* Public Marketing Pages */}
         <Route path="/" element={<LandingPage />} />
@@ -64,6 +72,16 @@ function App() {
         <Route path="/auth/login" element={<LoginPage />} />
         <Route path="/auth/register" element={<RegisterPage />} />
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Onboarding Route - Protected but no sidebar */}
+        <Route
+          path="/app/onboarding"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <OnboardingPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Protected App Routes - All under /app */}
         <Route
@@ -168,18 +186,11 @@ function App() {
           }
         />
 
-
         {/* Redirect unknown routes */}
-        <Route
-          path="*"
-          element={
-            <Navigate to={isAuthenticated ? '/app' : '/'} replace />
-          }
-        />
+        <Route path="*" element={<Navigate to={isAuthenticated ? '/app' : '/'} replace />} />
       </Routes>
     </BrowserRouter>
   )
 }
 
 export default App
-

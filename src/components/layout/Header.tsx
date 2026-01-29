@@ -11,7 +11,12 @@ export interface HeaderProps {
   onMenuClick?: () => void
 }
 
-const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) => {
+const Header = ({
+  user,
+  companyLogoUrl,
+  onLogout,
+  onMenuClick,
+}: HeaderProps) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-primary-blue bg-primary-dark-secondary/95 backdrop-blur supports-[backdrop-filter]:bg-primary-dark-secondary/60">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -24,11 +29,16 @@ const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) =>
               aria-label="Toggle menu"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
           )}
-          <Link to={user ? "/app" : "/"} className="flex items-center space-x-2">
+          <Link to={user ? '/app' : '/'} className="flex items-center space-x-2">
             <span className="text-xl md:text-2xl font-bold text-primary-gold">JobDock</span>
           </Link>
         </div>
@@ -95,4 +105,3 @@ const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) =>
 }
 
 export default Header
-

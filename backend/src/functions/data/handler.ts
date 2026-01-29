@@ -9,14 +9,12 @@ import { verifyApprovalToken } from '../../lib/approvalTokens'
 type ResourceKey = keyof typeof dataServices
 
 interface ParsedPath {
-  resource?: ResourceKey
+  resource?: ResourceKey | string
   id?: string
   action?: string
 }
 
-export async function handler(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
+export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   if (event.httpMethod === 'OPTIONS') {
     return corsResponse()
   }
@@ -26,12 +24,12 @@ export async function handler(
     try {
       console.log('Running database migration...')
       const { default: prisma } = await import('../../lib/db')
-      
+
       // Run raw SQL migration
       await prisma.$executeRawUnsafe(`
         ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "recurrenceId" TEXT;
       `)
-      
+
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "job_recurrences" (
           "id" TEXT NOT NULL,
@@ -56,13 +54,23 @@ export async function handler(
           CONSTRAINT "job_recurrences_pkey" PRIMARY KEY ("id")
         );
       `)
-      
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "job_recurrences_tenantId_idx" ON "job_recurrences"("tenantId");`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "job_recurrences_contactId_idx" ON "job_recurrences"("contactId");`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "job_recurrences_serviceId_idx" ON "job_recurrences"("serviceId");`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "job_recurrences_status_idx" ON "job_recurrences"("status");`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "jobs_recurrenceId_idx" ON "jobs"("recurrenceId");`)
-      
+
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "job_recurrences_tenantId_idx" ON "job_recurrences"("tenantId");`
+      )
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "job_recurrences_contactId_idx" ON "job_recurrences"("contactId");`
+      )
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "job_recurrences_serviceId_idx" ON "job_recurrences"("serviceId");`
+      )
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "job_recurrences_status_idx" ON "job_recurrences"("status");`
+      )
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "jobs_recurrenceId_idx" ON "jobs"("recurrenceId");`
+      )
+
       // Add foreign keys with existence checks
       await prisma.$executeRawUnsafe(`
         DO $$ 
@@ -74,7 +82,7 @@ export async function handler(
           END IF;
         END $$;
       `)
-      
+
       await prisma.$executeRawUnsafe(`
         DO $$ 
         BEGIN
@@ -85,7 +93,7 @@ export async function handler(
           END IF;
         END $$;
       `)
-      
+
       await prisma.$executeRawUnsafe(`
         DO $$ 
         BEGIN
@@ -96,7 +104,7 @@ export async function handler(
           END IF;
         END $$;
       `)
-      
+
       await prisma.$executeRawUnsafe(`
         DO $$ 
         BEGIN
@@ -107,7 +115,7 @@ export async function handler(
           END IF;
         END $$;
       `)
-      
+
       // Create tenant_settings table
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "tenant_settings" (
@@ -136,10 +144,14 @@ We look forward to working with you!',
           CONSTRAINT "tenant_settings_pkey" PRIMARY KEY ("id")
         );
       `)
-      
-      await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "tenant_settings_tenantId_key" ON "tenant_settings"("tenantId");`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tenant_settings_tenantId_idx" ON "tenant_settings"("tenantId");`)
-      
+
+      await prisma.$executeRawUnsafe(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "tenant_settings_tenantId_key" ON "tenant_settings"("tenantId");`
+      )
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "tenant_settings_tenantId_idx" ON "tenant_settings"("tenantId");`
+      )
+
       await prisma.$executeRawUnsafe(`
         DO $$ 
         BEGIN
@@ -150,28 +162,38 @@ We look forward to working with you!',
           END IF;
         END $$;
       `)
-      
+
       // Add invoice approval status columns
-      await prisma.$executeRawUnsafe(`ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "approvalStatus" TEXT DEFAULT 'none';`)
-      await prisma.$executeRawUnsafe(`ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "approvalAt" TIMESTAMP(3);`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "invoices_approvalStatus_idx" ON "invoices"("approvalStatus");`)
-      
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "approvalStatus" TEXT DEFAULT 'none';`
+      )
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "approvalAt" TIMESTAMP(3);`
+      )
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "invoices_approvalStatus_idx" ON "invoices"("approvalStatus");`
+      )
+
       // Add title column to quotes table
       await prisma.$executeRawUnsafe(`ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "title" TEXT;`)
-      
+
       // Add toBeScheduled support (2026-01-14)
       console.log('Adding toBeScheduled column...')
-      await prisma.$executeRawUnsafe(`ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "toBeScheduled" BOOLEAN DEFAULT false NOT NULL;`)
-      
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "toBeScheduled" BOOLEAN DEFAULT false NOT NULL;`
+      )
+
       console.log('Making startTime nullable...')
       await prisma.$executeRawUnsafe(`ALTER TABLE "jobs" ALTER COLUMN "startTime" DROP NOT NULL;`)
-      
+
       console.log('Making endTime nullable...')
       await prisma.$executeRawUnsafe(`ALTER TABLE "jobs" ALTER COLUMN "endTime" DROP NOT NULL;`)
-      
+
       console.log('Adding toBeScheduled index...')
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "jobs_toBeScheduled_idx" ON "jobs"("toBeScheduled");`)
-      
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "jobs_toBeScheduled_idx" ON "jobs"("toBeScheduled");`
+      )
+
       console.log('✅ Migration completed successfully')
       return successResponse({ message: 'Migration completed successfully' })
     } catch (error: any) {
@@ -187,10 +209,10 @@ We look forward to working with you!',
       if (!signature) {
         return errorResponse('Missing stripe-signature header', 400)
       }
-      
+
       // Use raw body if available, otherwise use event.body
       const rawBody = event.body || ''
-      
+
       const result = await dataServices.billing.handleWebhook(rawBody, signature)
       return successResponse(result)
     } catch (error) {
@@ -204,8 +226,14 @@ We look forward to working with you!',
 
   try {
     const { resource, id, action } = parsePath(event)
-    console.log('[HANDLER v2.1] Parsed path:', { resource, id, action, method: event.httpMethod, path: event.path })
-    
+    console.log('[HANDLER v2.1] Parsed path:', {
+      resource,
+      id,
+      action,
+      method: event.httpMethod,
+      path: event.path,
+    })
+
     // Handle billing endpoints with authentication
     if (resource === 'billing') {
       const { default: prisma } = await import('../../lib/db')
@@ -213,54 +241,121 @@ We look forward to working with you!',
       const tenantId = context.tenantId
       const userId = context.userId
       const userEmail = context.userEmail
-      
+
       // Check if user is owner (but allow status check for all authenticated users)
       const user = await prisma.user.findUnique({
         where: { cognitoId: userId },
         select: { role: true },
       })
-      
+
       // Allow status check for any authenticated user, but other billing actions require owner
       const billingAction = id // In billing routes, the second segment is the action
-      
+
       if (billingAction === 'status' && event.httpMethod === 'GET') {
         const status = await dataServices.billing.getStatus(tenantId)
         return successResponse(status)
       }
-      
+
       // For other billing actions, require owner role
       if (!user || user.role !== 'owner') {
         return errorResponse('Only tenant owners can manage billing', 403)
       }
-      
+
       if (billingAction === 'embedded-checkout-session' && event.httpMethod === 'POST') {
-        const result = await dataServices.billing.createEmbeddedCheckoutSession(tenantId, userId, userEmail)
+        const result = await dataServices.billing.createEmbeddedCheckoutSession(
+          tenantId,
+          userId,
+          userEmail
+        )
         return successResponse(result)
       }
-      
+
       if (billingAction === 'portal-session' && event.httpMethod === 'POST') {
         const result = await dataServices.billing.createPortalSession(tenantId)
         return successResponse(result)
       }
-      
+
       return errorResponse('Billing route not found', 404)
     }
-    
+
+    // Handle onboarding endpoints with authentication
+    if (resource === 'onboarding') {
+      console.log('[ONBOARDING] Handling onboarding request:', {
+        resource,
+        id,
+        action,
+        method: event.httpMethod,
+      })
+      const { default: prisma } = await import('../../lib/db')
+      const context = await extractContext(event)
+      const userId = context.userId // This is the Cognito sub
+      console.log('[ONBOARDING] Extracted context, userId:', userId)
+
+      // GET /onboarding - get onboarding status for current user
+      if (!id && event.httpMethod === 'GET') {
+        const user = await prisma.user.findUnique({
+          where: { cognitoId: userId },
+          select: { onboardingCompletedAt: true },
+        })
+
+        if (!user) {
+          return errorResponse('User not found', 404)
+        }
+
+        return successResponse({
+          onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
+          isCompleted: !!user.onboardingCompletedAt,
+        })
+      }
+
+      // POST /onboarding/complete - mark onboarding as complete
+      if (id === 'complete' && event.httpMethod === 'POST') {
+        const user = await prisma.user.update({
+          where: { cognitoId: userId },
+          data: { onboardingCompletedAt: new Date() },
+          select: { onboardingCompletedAt: true },
+        })
+
+        return successResponse({
+          onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
+          isCompleted: true,
+        })
+      }
+
+      // POST /onboarding/reset - reset onboarding status (for testing)
+      if (id === 'reset' && event.httpMethod === 'POST') {
+        const user = await prisma.user.update({
+          where: { cognitoId: userId },
+          data: { onboardingCompletedAt: null },
+          select: { onboardingCompletedAt: true },
+        })
+
+        return successResponse({
+          onboardingCompletedAt: null,
+          isCompleted: false,
+        })
+      }
+
+      return errorResponse('Onboarding route not found', 404)
+    }
+
     // Check if this is a public booking endpoint that doesn't require authentication
-    const isPublicBookingEndpoint = 
-      resource === 'services' && (
-        (event.httpMethod === 'GET' && id === 'public') ||
-        (id && id !== 'public' && event.httpMethod === 'GET' && (action === 'availability' || !action)) ||
-        (id && id !== 'public' && event.httpMethod === 'POST' && action === 'book')
-      )
-    
+    const isPublicBookingEndpoint =
+      resource === 'services' &&
+      ((event.httpMethod === 'GET' && id === 'public') ||
+        (id &&
+          id !== 'public' &&
+          event.httpMethod === 'GET' &&
+          (action === 'availability' || !action)) ||
+        (id && id !== 'public' && event.httpMethod === 'POST' && action === 'book'))
+
     // Check if this is a public approval endpoint (quote/invoice approval from email links)
-    const isPublicApprovalEndpoint = 
-      event.httpMethod === 'POST' && id && (
-        (resource === 'quotes' && (action === 'approve-public' || action === 'decline-public')) ||
-        (resource === 'invoices' && (action === 'approve-public' || action === 'decline-public'))
-      )
-    
+    const isPublicApprovalEndpoint =
+      event.httpMethod === 'POST' &&
+      id &&
+      ((resource === 'quotes' && (action === 'approve-public' || action === 'decline-public')) ||
+        (resource === 'invoices' && (action === 'approve-public' || action === 'decline-public')))
+
     // For public endpoints, determine tenant ID from the resource itself
     let tenantId: string
     if (isPublicBookingEndpoint) {
@@ -271,7 +366,7 @@ We look forward to working with you!',
     } else {
       tenantId = await resolveTenantId(event)
     }
-    
+
     if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint) {
       await ensureTenantExists(tenantId)
     }
@@ -290,13 +385,16 @@ We look forward to working with you!',
           where: { id: tenantId },
           select: { stripeSubscriptionStatus: true },
         })
-        
-        const hasActiveSubscription = 
-          tenant?.stripeSubscriptionStatus === 'active' || 
+
+        const hasActiveSubscription =
+          tenant?.stripeSubscriptionStatus === 'active' ||
           tenant?.stripeSubscriptionStatus === 'trialing'
-        
+
         if (!hasActiveSubscription) {
-          return errorResponse('Subscription required. Please visit the billing page to activate your account.', 402)
+          return errorResponse(
+            'Subscription required. Please visit the billing page to activate your account.',
+            402
+          )
         }
       }
     }
@@ -330,11 +428,13 @@ We look forward to working with you!',
           const deleteAll = event.queryStringParameters?.deleteAll === 'true'
           // Check if permanent delete is requested
           const permanent = event.queryStringParameters?.permanent === 'true'
-          
+
           if (resource === 'jobs' && permanent && 'permanentDelete' in service) {
-            return successResponse(await (service as typeof dataServices.jobs).permanentDelete(tenantId, id, deleteAll))
+            return successResponse(
+              await (service as typeof dataServices.jobs).permanentDelete(tenantId, id, deleteAll)
+            )
           }
-          
+
           // Default: soft delete (or regular delete for other resources)
           return successResponse(await service.delete(tenantId, id, deleteAll))
         }
@@ -376,13 +476,18 @@ async function handleGet(
     }
     return (service as typeof dataServices.services).getAllActiveForTenant(tenantIdParam)
   }
-  
+
   if (resource === 'services' && id && action === 'availability') {
     const startDateStr = event.queryStringParameters?.startDate
     const endDateStr = event.queryStringParameters?.endDate
     const startDate = startDateStr ? new Date(startDateStr) : undefined
     const endDate = endDateStr ? new Date(endDateStr) : undefined
-    return (service as typeof dataServices.services).getAvailability(tenantId, id, startDate, endDate)
+    return (service as typeof dataServices.services).getAvailability(
+      tenantId,
+      id,
+      startDate,
+      endDate
+    )
   }
 
   // Contacts import status endpoint
@@ -405,7 +510,13 @@ async function handleGet(
     const showDeleted = event.queryStringParameters?.showDeleted === 'true'
     const startDate = startDateStr ? new Date(startDateStr) : undefined
     const endDate = endDateStr ? new Date(endDateStr) : undefined
-    return (service as typeof dataServices.jobs).getAll(tenantId, startDate, endDate, includeArchived, showDeleted)
+    return (service as typeof dataServices.jobs).getAll(
+      tenantId,
+      startDate,
+      endDate,
+      includeArchived,
+      showDeleted
+    )
   }
 
   if ('getAll' in service) {
@@ -426,15 +537,15 @@ async function handlePost(
   // Handle settings actions (id is actually the action for settings routes)
   if (resource === 'settings' && id) {
     const payload = parseBody(event)
-    
+
     if (id === 'get-upload-url') {
       return (service as typeof dataServices.settings).getUploadUrl(tenantId, payload)
     }
-    
+
     if (id === 'confirm-upload') {
       return (service as typeof dataServices.settings).confirmUpload(tenantId, payload)
     }
-    
+
     throw new ApiError('Invalid action for settings', 400)
   }
 
@@ -449,7 +560,12 @@ async function handlePost(
       // If no auth context (public booking), contractorEmail remains undefined
       // We could fetch tenant owner email here if needed
     }
-    return (service as typeof dataServices.services).bookSlot(tenantId, id, payload, contractorEmail)
+    return (service as typeof dataServices.services).bookSlot(
+      tenantId,
+      id,
+      payload,
+      contractorEmail
+    )
   }
 
   if (resource === 'jobs' && id && action === 'confirm') {
@@ -557,7 +673,7 @@ async function handlePut(
   event: APIGatewayProxyEvent
 ) {
   const payload = parseBody(event)
-  
+
   // Settings uses a different signature (no id parameter)
   if ('update' in service && typeof service.update === 'function') {
     // Check if it's the settings service (has only 2 params)
@@ -566,7 +682,7 @@ async function handlePut(
     }
     return service.update(tenantId, id!, payload)
   }
-  
+
   throw new Error('Update method not available')
 }
 
@@ -616,21 +732,22 @@ async function getTenantIdFromResource(
   id: string
 ): Promise<string> {
   const { default: prisma } = await import('../../lib/db')
-  
-  const record = resource === 'quotes'
-    ? await prisma.quote.findUnique({ where: { id }, select: { tenantId: true } })
-    : await prisma.invoice.findUnique({ where: { id }, select: { tenantId: true } })
-  
+
+  const record =
+    resource === 'quotes'
+      ? await prisma.quote.findUnique({ where: { id }, select: { tenantId: true } })
+      : await prisma.invoice.findUnique({ where: { id }, select: { tenantId: true } })
+
   if (!record) {
     throw new ApiError(`${resource === 'quotes' ? 'Quote' : 'Invoice'} not found`, 404)
   }
-  
+
   return record.tenantId
 }
 
 async function resolveTenantId(event: APIGatewayProxyEvent) {
   const authHeader = event.headers.Authorization || event.headers.authorization
-  
+
   try {
     return await extractTenantId(event)
   } catch (error) {
@@ -640,18 +757,17 @@ async function resolveTenantId(event: APIGatewayProxyEvent) {
       console.error('Failed to resolve tenant for authenticated request:', error)
       throw new Error('Authentication failed: Unable to determine tenant')
     }
-    
+
     // For unauthenticated requests in development, allow fallback to demo tenant
     // In production, this should be disabled via environment variable
     const isDevelopment = process.env.NODE_ENV !== 'production'
     const fallback = getDefaultTenantId()
-    
+
     if (!fallback || !isDevelopment) {
       throw new Error('Tenant ID not provided')
     }
-    
+
     console.warn('Using fallback tenant for unauthenticated request:', fallback)
     return fallback
   }
 }
-

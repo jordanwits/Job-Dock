@@ -1,11 +1,14 @@
 /**
  * Authentication Lambda Handler
- * 
+ *
  * Handles: register, login, refresh, logout
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { CognitoIdentityProviderClient, AdminConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider'
+import {
+  CognitoIdentityProviderClient,
+  AdminConfirmSignUpCommand,
+} from '@aws-sdk/client-cognito-identity-provider'
 import { registerUser, loginUser, refreshAccessToken, verifyToken } from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
 import prisma from '../../lib/db'
@@ -16,9 +19,7 @@ const cognitoClient = new CognitoIdentityProviderClient({
 })
 const USER_POOL_ID = process.env.USER_POOL_ID!
 
-export async function handler(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
+export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return corsResponse()
@@ -70,9 +71,7 @@ function buildRouteKey(event: APIGatewayProxyEvent): string {
   return `${httpMethod} ${normalizedPath}`
 }
 
-async function handleRegister(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
+async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}')
   const { email, password, name, companyName } = body
 
@@ -101,7 +100,7 @@ async function handleRegister(
     const baseSubdomain = slugify(tenantName)
     const uniqueId = tenantId.substring(0, 8)
     const subdomain = `${baseSubdomain}-${uniqueId}`
-    
+
     // Create tenant
     const tenant = await prisma.tenant.create({
       data: {
@@ -128,16 +127,20 @@ async function handleRegister(
 
     // 4. Return token and user info
     // Use IdToken (not AccessToken) because it contains user claims like email, sub, etc
-    return successResponse({
-      token: tokens.IdToken,
-      refreshToken: tokens.RefreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        tenantId: user.tenantId,
+    return successResponse(
+      {
+        token: tokens.IdToken,
+        refreshToken: tokens.RefreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          tenantId: user.tenantId,
+          onboardingCompletedAt: null,
+        },
       },
-    }, 201)
+      201
+    )
   } catch (error: any) {
     console.error('Registration error:', error)
     return errorResponse(error.message || 'Registration failed', 500)
@@ -153,9 +156,7 @@ function slugify(value: string): string {
     .substring(0, 50)
 }
 
-async function handleLogin(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
+async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}')
   const { email, password } = body
 
@@ -180,14 +181,12 @@ async function handleLogin(
         email: true,
         name: true,
         tenantId: true,
+        onboardingCompletedAt: true,
       },
     })
 
     if (!user) {
-      return errorResponse(
-        'User is not provisioned in JobDock. Please contact support.',
-        404
-      )
+      return errorResponse('User is not provisioned in JobDock. Please contact support.', 404)
     }
 
     // 4. Return tokens and user info including tenantId
@@ -200,6 +199,7 @@ async function handleLogin(
         email: user.email,
         name: user.name,
         tenantId: user.tenantId,
+        onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
   } catch (error: any) {
@@ -208,9 +208,7 @@ async function handleLogin(
   }
 }
 
-async function handleRefresh(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
+async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}')
   const { refreshToken } = body
 
@@ -233,14 +231,12 @@ async function handleRefresh(
         email: true,
         name: true,
         tenantId: true,
+        onboardingCompletedAt: true,
       },
     })
 
     if (!user) {
-      return errorResponse(
-        'User not found in JobDock database',
-        404
-      )
+      return errorResponse('User not found in JobDock database', 404)
     }
 
     // 4. Return new tokens and user info
@@ -252,6 +248,7 @@ async function handleRefresh(
         email: user.email,
         name: user.name,
         tenantId: user.tenantId,
+        onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
   } catch (error: any) {
@@ -260,10 +257,7 @@ async function handleRefresh(
   }
 }
 
-async function handleLogout(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
+async function handleLogout(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   // TODO: Implement logout (revoke tokens)
   return successResponse({ message: 'Logged out successfully' })
 }
-
