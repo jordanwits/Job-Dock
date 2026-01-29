@@ -462,6 +462,14 @@ const PENDING_MIGRATIONS = [
     description:
       'Add onboardingCompletedAt field to users for tracking first-run onboarding completion',
   },
+  {
+    name: '20260129000001_reset_all_user_onboarding',
+    statements: [
+      `UPDATE "users" SET "onboardingCompletedAt" = NULL WHERE "onboardingCompletedAt" IS NOT NULL`,
+    ],
+    description:
+      'Reset all users onboarding status so everyone sees the onboarding flow at least once',
+  },
 ]
 
 export const handler = async (
