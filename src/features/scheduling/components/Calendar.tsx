@@ -42,6 +42,8 @@ interface DragState {
   type: 'move' | 'resize' | 'month-move' | null
   startY: number
   startX: number
+  grabOffsetY: number // Pointer offset from top of card on drag start (aligns drop time with UI)
+  slotHeight: number // Actual rendered slot height at drag start (for accurate mobile calculations)
   isDragging: boolean
   hasMoved: boolean // Track if pointer has moved at all (even < 5px)
   originalStartTime: Date | null
@@ -74,6 +76,8 @@ const Calendar = ({
     type: null,
     startY: 0,
     startX: 0,
+    grabOffsetY: 0,
+    slotHeight: 60,
     isDragging: false,
     hasMoved: false,
     originalStartTime: null,
@@ -94,6 +98,8 @@ const Calendar = ({
     offsetY: number
   } | null>(null)
   const weekColumnsRef = useRef<Map<number, DOMRect>>(new Map())
+  const dayViewRef = useRef<HTMLDivElement | null>(null)
+  const weekViewRef = useRef<HTMLDivElement | null>(null)
   const dragOriginRef = useRef<HTMLElement | null>(null)
   const isDraggingRef = useRef(false) // True only after crossing drag threshold
   const justDraggedRef = useRef(false) // Used to suppress the post-drag click
@@ -286,23 +292,43 @@ const Calendar = ({
     isDraggingRef.current = false
     justDraggedRef.current = false
 
-    // Initialize drag ghost (fixed overlay that follows pointer)
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setDragGhost({
-      isVisible: false,
-      x: rect.left,
-      y: rect.top,
-      width: rect.width,
-      height: rect.height,
-      offsetX: e.clientX - rect.left,
-      offsetY: e.clientY - rect.top,
-    })
+    const grabOffsetY = e.clientY - rect.top
+
+    // Measure actual slot height at drag start for accurate mobile calculations
+    // Find a time slot element and measure its actual rendered height
+    let slotHeight = window.innerWidth < 768 ? 60 : 80 // Default fallback
+    const timeSlotEl = document.querySelector('[data-drop-hour]') as HTMLElement
+    if (timeSlotEl) {
+      const measuredHeight = timeSlotEl.getBoundingClientRect().height
+      if (measuredHeight > 0) {
+        slotHeight = measuredHeight
+      }
+    }
+
+    // Initialize drag ghost (fixed overlay that follows pointer) - only for move operations
+    if (type === 'move') {
+      setDragGhost({
+        isVisible: false,
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+        offsetX: e.clientX - rect.left,
+        offsetY: grabOffsetY,
+      })
+    } else {
+      // Clear ghost for resize operations
+      setDragGhost(null)
+    }
 
     setDragState({
       job,
       type,
       startY: e.clientY,
       startX: e.clientX,
+      grabOffsetY,
+      slotHeight,
       isDragging: false, // Will be set to true when pointer moves beyond threshold
       hasMoved: false, // Track if pointer has moved at all
       originalStartTime: new Date(job.startTime),
@@ -316,72 +342,79 @@ const Calendar = ({
     }
   }
 
-  const handleMoveDrop = useCallback(async () => {
-    if (!dragState.job) return
+  const handleMoveDrop = useCallback(
+    async (finalStartTime?: Date) => {
+      if (!dragState.job) return
 
-    const { job, originalStartTime, originalEndTime } = dragState
+      const { job, originalStartTime, originalEndTime } = dragState
 
-    try {
-      const originalStart = new Date(originalStartTime!)
-      const originalEnd = new Date(originalEndTime!)
-      const duration = originalEnd.getTime() - originalStart.getTime()
+      try {
+        const originalStart = new Date(originalStartTime!)
+        const originalEnd = new Date(originalEndTime!)
+        const duration = originalEnd.getTime() - originalStart.getTime()
 
-      // Calculate new start time from preview or original
-      let newStartTime: Date
-      if (previewStartTime) {
-        // Use preview time (vertical drag for day/week view)
-        newStartTime = new Date(previewStartTime)
-      } else {
-        newStartTime = new Date(originalStart)
+        // Calculate new start time from preview or original
+        let newStartTime: Date
+        if (finalStartTime) {
+          newStartTime = new Date(finalStartTime)
+        } else if (previewStartTime) {
+          // Use preview time (vertical drag for day/week view)
+          newStartTime = new Date(previewStartTime)
+        } else {
+          newStartTime = new Date(originalStart)
+        }
+
+        // For week view: use dragTargetDay if dragged to different day
+        if (dragTargetDay && !isSameDay(dragTargetDay, originalStart)) {
+          newStartTime = setHours(
+            setMinutes(dragTargetDay, getMinutes(newStartTime)),
+            getHours(newStartTime)
+          )
+        }
+
+        const newEndTime = new Date(newStartTime.getTime() + duration)
+
+        // Only update if something actually changed
+        if (newStartTime.getTime() !== originalStart.getTime()) {
+          await updateJob({
+            id: job.id,
+            startTime: newStartTime.toISOString(),
+            endTime: newEndTime.toISOString(),
+          })
+        }
+      } catch (error) {
+        console.error('Failed to update job:', error)
       }
 
-      // For week view: use dragTargetDay if dragged to different day
-      if (dragTargetDay && !isSameDay(dragTargetDay, originalStart)) {
-        newStartTime = setHours(
-          setMinutes(dragTargetDay, getMinutes(newStartTime)),
-          getHours(newStartTime)
-        )
-      }
+      // Clear drag state and preview
+      isDraggingRef.current = false
+      dragOriginRef.current = null
+      setJustFinishedDrag(true)
+      setDragGhost(null) // Clear ghost immediately
+      setDragState({
+        job: null,
+        type: null,
+        startY: 0,
+        startX: 0,
+        grabOffsetY: 0,
+        slotHeight: 60,
+        isDragging: false,
+        hasMoved: false,
+        originalStartTime: null,
+        originalEndTime: null,
+      })
+      setPreviewStartTime(null)
+      setPreviewEndTime(null)
+      setDragOverDate(null)
+      setDragTargetDay(null)
 
-      const newEndTime = new Date(newStartTime.getTime() + duration)
-
-      // Only update if something actually changed
-      if (newStartTime.getTime() !== originalStart.getTime()) {
-        await updateJob({
-          id: job.id,
-          startTime: newStartTime.toISOString(),
-          endTime: newEndTime.toISOString(),
-        })
-      }
-    } catch (error) {
-      console.error('Failed to update job:', error)
-    }
-
-    // Clear drag state and preview
-    isDraggingRef.current = false
-    dragOriginRef.current = null
-    setJustFinishedDrag(true)
-    setDragGhost(null) // Clear ghost immediately
-    setDragState({
-      job: null,
-      type: null,
-      startY: 0,
-      startX: 0,
-      isDragging: false,
-      hasMoved: false,
-      originalStartTime: null,
-      originalEndTime: null,
-    })
-    setPreviewStartTime(null)
-    setPreviewEndTime(null)
-    setDragOverDate(null)
-    setDragTargetDay(null)
-
-    // Re-enable transitions after a brief delay (allows card to appear at new position without animation)
-    setTimeout(() => {
-      setJustFinishedDrag(false)
-    }, 100)
-  }, [dragState, previewStartTime, dragTargetDay, updateJob])
+      // Re-enable transitions after a brief delay (allows card to appear at new position without animation)
+      setTimeout(() => {
+        setJustFinishedDrag(false)
+      }, 100)
+    },
+    [dragState, previewStartTime, dragTargetDay, updateJob]
+  )
 
   const handleResizeDrop = useCallback(
     async (minutesChange: number) => {
@@ -415,6 +448,8 @@ const Calendar = ({
         type: null,
         startY: 0,
         startX: 0,
+        grabOffsetY: 0,
+        slotHeight: 60,
         isDragging: false,
         hasMoved: false,
         originalStartTime: null,
@@ -433,14 +468,26 @@ const Calendar = ({
   useEffect(() => {
     let rafId: number | null = null
 
+    // Pure delta-based calculation - most reliable for mobile
+    // Uses the measured slot height from drag start and computes new time from original + delta
+    const computeNewStartTimeFromDelta = (deltaY: number): Date => {
+      const slotHeight = dragState.slotHeight || 60
+      // Each slotHeight pixels = 1 hour = 60 minutes
+      const minutesChange = (deltaY / slotHeight) * 60
+      const snappedMinutesChange = Math.round(minutesChange / 15) * 15
+      return addMinutes(new Date(dragState.originalStartTime!), snappedMinutesChange)
+    }
+
     const handlePointerMove = (e: PointerEvent) => {
       if (!dragState.job) return
 
       // Only respond to the pointer that initiated the drag
       if (dragState.pointerId !== undefined && e.pointerId !== dragState.pointerId) return
 
-      const deltaY = e.clientY - dragState.startY
-      const deltaX = e.clientX - dragState.startX
+      const clientX = e.clientX
+      const clientY = e.clientY
+      const deltaY = clientY - dragState.startY
+      const deltaX = clientX - dragState.startX
       const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
       // Mark that pointer has moved (even if < 5px)
@@ -456,7 +503,10 @@ const Calendar = ({
       // Activate dragging
       if (!dragState.isDragging) {
         isDraggingRef.current = true
-        setDragGhost(prev => (prev ? { ...prev, isVisible: true } : prev))
+        // Only show drag ghost for move operations, not resize
+        if (dragState.type === 'move') {
+          setDragGhost(prev => (prev ? { ...prev, isVisible: true } : prev))
+        }
         // Capture pointer only once we commit to dragging
         if (dragState.pointerId !== undefined) {
           try {
@@ -474,19 +524,22 @@ const Calendar = ({
       }
 
       rafId = requestAnimationFrame(() => {
-        // Update ghost position every frame so it looks "picked up"
-        setDragGhost(prev => {
-          if (!prev) return prev
-          return { ...prev, x: e.clientX - prev.offsetX, y: e.clientY - prev.offsetY }
-        })
+        // Update ghost position every frame so it looks "picked up" - only for move operations
+        if (dragState.type === 'move') {
+          setDragGhost(prev => {
+            if (!prev) return prev
+            return { ...prev, x: clientX - prev.offsetX, y: clientY - prev.offsetY }
+          })
+        }
 
         // Smooth "picked up" movement (pixel-perfect)
-        if (dragState.type === 'move') {
+        if (dragState.type === 'move' || dragState.type === 'month-move') {
           setDragOffset({ x: deltaX, y: deltaY })
         }
 
-        const pixelsPerHour = viewMode === 'day' ? 80 : viewMode === 'week' ? 80 : 80
-        const minutesChange = Math.round((deltaY / pixelsPerHour) * 60)
+        // Use the measured slot height from drag start for accurate calculations
+        const slotHeight = dragState.slotHeight || 60
+        const minutesChange = Math.round((deltaY / slotHeight) * 60)
         const snappedMinutesChange = Math.round(minutesChange / 15) * 15
 
         if (dragState.type === 'resize' && dragState.originalEndTime && dragState.job.startTime) {
@@ -499,17 +552,13 @@ const Calendar = ({
             setPreviewEndTime(newEndTime)
           }
         } else if (dragState.type === 'move' && dragState.originalStartTime) {
-          // For day/week view: Calculate real-time preview with 15-minute snapping for move
-          const newStartTime = addMinutes(
-            new Date(dragState.originalStartTime),
-            snappedMinutesChange
-          )
+          // Pure delta-based calculation - most reliable for mobile
+          const newStartTime = computeNewStartTimeFromDelta(deltaY)
           setPreviewStartTime(newStartTime)
-
-          // For week view, detect which day column we're over
           if (viewMode === 'week') {
+            // For week view, also detect which day column we're over
             weekColumnsRef.current.forEach((rect, dayIndex) => {
-              if (e.clientX >= rect.left && e.clientX <= rect.right) {
+              if (clientX >= rect.left && clientX <= rect.right) {
                 const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 })
                 const targetDay = addDays(weekStart, dayIndex)
                 setDragTargetDay(targetDay)
@@ -518,7 +567,7 @@ const Calendar = ({
           }
         } else if (dragState.type === 'month-move' && dragState.originalStartTime) {
           // For month view: Use elementFromPoint to detect drop target
-          const element = document.elementFromPoint(e.clientX, e.clientY)
+          const element = document.elementFromPoint(clientX, clientY)
           const dropCell = element?.closest('[data-drop-date]') as HTMLElement
           if (dropCell) {
             const dropDateStr = dropCell.getAttribute('data-drop-date')
@@ -557,6 +606,8 @@ const Calendar = ({
           type: null,
           startY: 0,
           startX: 0,
+          grabOffsetY: 0,
+          slotHeight: 60,
           isDragging: false,
           hasMoved: false,
           originalStartTime: null,
@@ -574,8 +625,9 @@ const Calendar = ({
         setDragOffset({ x: 0, y: 0 })
         setDragGhost(null)
         const deltaY = e.clientY - dragState.startY
-        const pixelsPerHour = viewMode === 'day' ? 80 : 80
-        const minutesChange = Math.round((deltaY / pixelsPerHour) * 60)
+        // Use measured slot height for accurate resize calculation
+        const slotHeight = dragState.slotHeight || 60
+        const minutesChange = Math.round((deltaY / slotHeight) * 60)
         handleResizeDrop(minutesChange)
       } else if (dragState.type === 'move') {
         // Suppress the click that can fire after dragging ends
@@ -584,8 +636,10 @@ const Calendar = ({
         dragOriginRef.current = null
         setDragOffset({ x: 0, y: 0 })
         // Don't clear ghost yet - let handleMoveDrop handle it
-        // Save the moved job
-        handleMoveDrop()
+        // Save the moved job - use delta-based calculation for accuracy
+        const deltaY = e.clientY - dragState.startY
+        const finalStartTime = computeNewStartTimeFromDelta(deltaY)
+        handleMoveDrop(finalStartTime)
       } else if (
         dragState.type === 'month-move' &&
         dragOverDate &&
@@ -622,6 +676,8 @@ const Calendar = ({
           type: null,
           startY: 0,
           startX: 0,
+          grabOffsetY: 0,
+          slotHeight: 60,
           isDragging: false,
           hasMoved: false,
           originalStartTime: null,
@@ -667,7 +723,7 @@ const Calendar = ({
     const jobLayout = calculateJobLayout(dayJobs)
 
     return (
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" ref={dayViewRef}>
         <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
           <div className="p-3 md:p-4 text-center">
             <h2 className="text-base md:text-xl font-semibold text-primary-light">
@@ -734,7 +790,9 @@ const Calendar = ({
                         ? getHours(previewEndTime) * 60 + getMinutes(previewEndTime)
                         : getHours(originalEndTime) * 60 + getMinutes(originalEndTime)
                     const duration = endMinutes - startMinutes
-                    const height = (duration / 60) * 80
+                    // Use responsive pixels per hour: 60px on mobile, 80px on desktop
+                    const pixelsPerHour = window.innerWidth < 768 ? 60 : 80
+                    const height = (duration / 60) * pixelsPerHour
 
                     // Calculate transform for move drag
                     const translateX = isMoving ? dragOffset.x : 0
@@ -759,7 +817,7 @@ const Calendar = ({
                             'bg-orange-500/20 border-orange-500'
                         )}
                         style={{
-                          top: `${topOffset * (80 / 60)}px`,
+                          top: `${topOffset * (pixelsPerHour / 60)}px`,
                           height: `${height}px`,
                           left: `${leftPercent}%`,
                           width: `calc(${widthPercent}% - 0.5rem)`,
@@ -774,7 +832,7 @@ const Calendar = ({
                       >
                         {/* Main content area - draggable */}
                         <div
-                          className="absolute top-0 left-0 right-0 p-2 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none"
+                          className="absolute top-0 left-0 right-0 p-2 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto"
                           style={{ bottom: '24px' }}
                           onPointerDown={e => {
                             e.stopPropagation()
@@ -790,22 +848,26 @@ const Calendar = ({
                             onJobClick(job)
                           }}
                         >
-                          <div className="text-sm font-medium text-primary-light">{job.title}</div>
-                          <div className="text-xs text-primary-light/70">
+                          <div className="text-sm font-medium text-primary-light pointer-events-none">
+                            {job.title}
+                          </div>
+                          <div className="text-xs text-primary-light/70 pointer-events-none">
                             {format(displayStartTime, 'h:mm a')} -{' '}
                             {format(displayEndTime, 'h:mm a')}
                             {isResizing && ' (resizing...)'}
                             {isMoving && ' (moving...)'}
                           </div>
                           {job.contactName && (
-                            <div className="text-xs text-primary-light/60">{job.contactName}</div>
+                            <div className="text-xs text-primary-light/60 pointer-events-none">
+                              {job.contactName}
+                            </div>
                           )}
                         </div>
 
                         {/* Resize handle - bottom 24px always accessible */}
                         <div
-                          className="absolute bottom-0 left-0 right-0 cursor-ns-resize group-hover:bg-white/5 hover:!bg-white/10 transition-colors flex items-center justify-center z-10 touch-none"
-                          style={{ height: '24px' }}
+                          className="absolute bottom-0 left-0 right-0 cursor-ns-resize group-hover:bg-white/5 hover:!bg-white/10 transition-colors flex items-center justify-center touch-none"
+                          style={{ height: '24px', zIndex: 20 }}
                           onPointerDown={e => {
                             e.stopPropagation()
                             handleDragStart(e, job, 'resize')
@@ -843,7 +905,7 @@ const Calendar = ({
             }
           }
         `}</style>
-        <div className="flex-1 overflow-auto week-slot-height min-w-0">
+        <div className="flex-1 overflow-auto week-slot-height min-w-0" ref={weekViewRef}>
           <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
             <div className="p-3 md:p-4 text-center">
               <h2 className="text-base md:text-xl font-semibold text-primary-light">
@@ -877,6 +939,7 @@ const Calendar = ({
               return (
                 <div
                   key={day.toISOString()}
+                  data-day-column={dayIndex}
                   className={cn(
                     'w-[100px] md:flex-1 md:min-w-0 flex-shrink-0 border-r border-primary-blue/30 last:border-r-0',
                     dragState.type === 'move' &&
@@ -1018,7 +1081,7 @@ const Calendar = ({
                               >
                                 {/* Main content area - draggable */}
                                 <div
-                                  className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none"
+                                  className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto"
                                   style={{ bottom: '16px' }}
                                   onPointerDown={e => {
                                     e.stopPropagation()
@@ -1034,10 +1097,10 @@ const Calendar = ({
                                     onJobClick(job)
                                   }}
                                 >
-                                  <div className="font-medium text-primary-light truncate">
+                                  <div className="font-medium text-primary-light truncate pointer-events-none">
                                     {job.title}
                                   </div>
-                                  <div className="text-primary-light/70 truncate">
+                                  <div className="text-primary-light/70 truncate pointer-events-none">
                                     <span className="hidden sm:inline">
                                       {format(displayStartTime, 'h:mm a')}
                                     </span>
@@ -1055,8 +1118,8 @@ const Calendar = ({
 
                                 {/* Resize handle - bottom 16px always accessible */}
                                 <div
-                                  className="absolute bottom-0 left-0 right-0 cursor-ns-resize group-hover:bg-white/5 hover:!bg-white/10 transition-colors flex items-center justify-center z-10 touch-none"
-                                  style={{ height: '16px' }}
+                                  className="absolute bottom-0 left-0 right-0 cursor-ns-resize group-hover:bg-white/5 hover:!bg-white/10 transition-colors flex items-center justify-center touch-none"
+                                  style={{ height: '16px', zIndex: 20 }}
                                   onPointerDown={e => {
                                     e.stopPropagation()
                                     handleDragStart(e, job, 'resize')
@@ -1209,6 +1272,11 @@ const Calendar = ({
                     // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
                     if (!job.startTime || !job.endTime) return null
 
+                    const isDragging = dragState.job?.id === job.id
+                    const isMonthMoving = isDragging && dragState.type === 'month-move'
+                    const translateX = isMonthMoving ? dragOffset.x : 0
+                    const translateY = isMonthMoving ? dragOffset.y : 0
+
                     return (
                       <div
                         key={job.id}
@@ -1242,19 +1310,13 @@ const Calendar = ({
                             'bg-orange-500/20 border-orange-500 text-orange-300'
                         )}
                         style={{
-                          opacity:
-                            dragState.job?.id === job.id &&
-                            dragState.type === 'month-move' &&
-                            dragState.isDragging
-                              ? 0
-                              : undefined,
-                          pointerEvents:
-                            dragState.job?.id === job.id &&
-                            dragState.type === 'month-move' &&
-                            dragState.isDragging
-                              ? 'none'
-                              : undefined,
-                          transition: justFinishedDrag ? 'none' : undefined,
+                          transform: isMonthMoving
+                            ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                            : undefined,
+                          transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
+                          willChange: isMonthMoving ? 'transform' : undefined,
+                          zIndex: isMonthMoving && dragState.isDragging ? 50 : undefined,
+                          pointerEvents: isMonthMoving && dragState.isDragging ? 'none' : undefined,
                         }}
                         title={job.title}
                       >
@@ -1286,8 +1348,8 @@ const Calendar = ({
 
   return (
     <div className="flex flex-col h-full bg-primary-dark-secondary rounded-lg border border-primary-blue overflow-hidden select-none">
-      {/* Drag ghost overlay (follows pointer for real-time movement) */}
-      {dragGhost?.isVisible && dragState.job && (
+      {/* Drag ghost overlay (follows pointer for real-time movement) - only for move operations */}
+      {dragGhost?.isVisible && dragState.job && dragState.type === 'move' && (
         <div
           className="fixed pointer-events-none z-[9999] rounded-lg border-l-4 shadow-2xl opacity-95"
           style={{
@@ -1320,9 +1382,37 @@ const Calendar = ({
           }}
         >
           <div className="p-2">
-            <div className="text-sm font-medium text-primary-light">{dragState.job.title}</div>
-            {dragState.job.contactName && (
-              <div className="text-xs text-primary-light/60">{dragState.job.contactName}</div>
+            {previewStartTime && dragState.originalEndTime ? (
+              <>
+                <div className="text-sm font-medium text-primary-light">
+                  {format(previewStartTime, 'h:mm a')} -{' '}
+                  {format(
+                    new Date(
+                      previewStartTime.getTime() +
+                        (new Date(dragState.originalEndTime).getTime() -
+                          new Date(dragState.originalStartTime!).getTime())
+                    ),
+                    'h:mm a'
+                  )}
+                </div>
+                <div className="text-xs text-primary-light/60">
+                  {Math.round(
+                    (new Date(dragState.originalEndTime).getTime() -
+                      new Date(dragState.originalStartTime!).getTime()) /
+                      60000
+                  )}{' '}
+                  min
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-sm font-medium text-primary-light">
+                  {dragState.job.startTime &&
+                    dragState.job.endTime &&
+                    `${format(new Date(dragState.job.startTime), 'h:mm a')} - ${format(new Date(dragState.job.endTime), 'h:mm a')}`}
+                </div>
+                <div className="text-xs text-primary-light/60">Dragging...</div>
+              </>
             )}
           </div>
         </div>
