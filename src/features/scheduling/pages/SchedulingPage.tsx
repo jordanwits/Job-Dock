@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJobStore } from '../store/jobStore'
 import { useServiceStore } from '../store/serviceStore'
@@ -105,16 +105,28 @@ const SchedulingPage = () => {
   const [deletedRecurrenceId, setDeletedRecurrenceId] = useState<string | null>(null)
   const [showJobDetail, setShowJobDetail] = useState(false)
 
-  // External drag state for "To Be Scheduled" chips on mobile
+  // External drag state for "To Be Scheduled" chips
   const [externalDragState, setExternalDragState] = useState<{
     jobId: string | null
     pointerId: number | null
     isDragging: boolean
+    hasMoved: boolean
   }>({
     jobId: null,
     pointerId: null,
     isDragging: false,
+    hasMoved: false,
   })
+  const externalDragRef = useRef(false) // Track drag state to prevent clicks
+  const [externalDragGhost, setExternalDragGhost] = useState<{
+    isVisible: boolean
+    x: number
+    y: number
+    width: number
+    height: number
+    offsetX: number
+    offsetY: number
+  } | null>(null)
 
   // Detect if device is using coarse pointer (touch)
   const [isCoarsePointer, setIsCoarsePointer] = useState(() => {
@@ -136,18 +148,41 @@ const SchedulingPage = () => {
     return () => mediaQuery.removeEventListener('change', updatePointerType)
   }, [])
 
-  // Handle external drag for "To Be Scheduled" chips on mobile
+  // Handle external drag for "To Be Scheduled" chips
   useEffect(() => {
     if (!externalDragState.jobId) return
+
+    let rafId: number | null = null
 
     const handlePointerMove = (e: PointerEvent) => {
       if (externalDragState.pointerId !== null && e.pointerId !== externalDragState.pointerId)
         return
 
+      // Mark that pointer has moved
+      if (!externalDragState.hasMoved) {
+        setExternalDragState(prev => ({ ...prev, hasMoved: true }))
+      }
+
       // Activate dragging on any movement
       if (!externalDragState.isDragging) {
-        setExternalDragState(prev => ({ ...prev, isDragging: true }))
+        setExternalDragState(prev => {
+          // Show ghost when dragging starts
+          setExternalDragGhost(prev => (prev ? { ...prev, isVisible: true } : prev))
+          return { ...prev, isDragging: true }
+        })
       }
+
+      // Update ghost position every frame for smooth movement
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+
+      rafId = requestAnimationFrame(() => {
+        setExternalDragGhost(prev => {
+          if (!prev) return prev
+          return { ...prev, x: e.clientX - prev.offsetX, y: e.clientY - prev.offsetY }
+        })
+      })
     }
 
     const handlePointerUpOrCancel = async (e: PointerEvent) => {
@@ -174,10 +209,13 @@ const SchedulingPage = () => {
       }
 
       // Clear drag state
+      externalDragRef.current = false
+      setExternalDragGhost(null)
       setExternalDragState({
         jobId: null,
         pointerId: null,
         isDragging: false,
+        hasMoved: false,
       })
     }
 
@@ -186,6 +224,9 @@ const SchedulingPage = () => {
     window.addEventListener('pointercancel', handlePointerUpOrCancel)
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUpOrCancel)
       window.removeEventListener('pointercancel', handlePointerUpOrCancel)
@@ -611,8 +652,48 @@ const SchedulingPage = () => {
 
   const error = jobsError || servicesError
 
+  // Get the job being dragged for the ghost overlay
+  const draggedJob = externalDragState.jobId
+    ? jobs.find(j => j.id === externalDragState.jobId)
+    : null
+
   return (
     <div className="h-full flex flex-col min-w-0 gap-6">
+      {/* Drag ghost overlay for "To Be Scheduled" chips */}
+      {externalDragGhost?.isVisible && draggedJob && (
+        <div
+          className="fixed pointer-events-none z-[9999] rounded-lg border border-amber-500/30 shadow-2xl opacity-95 bg-amber-500/10"
+          style={{
+            left: 0,
+            top: 0,
+            width: externalDragGhost.width,
+            height: externalDragGhost.height,
+            transform: `translate3d(${externalDragGhost.x}px, ${externalDragGhost.y}px, 0) scale(1.03)`,
+            willChange: 'transform',
+          }}
+        >
+          <div className="inline-flex items-center gap-2 px-3 py-2 h-full">
+            <svg
+              className="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="font-medium truncate max-w-[200px] text-amber-400">
+              {draggedJob.title}
+            </span>
+            <span className="text-xs text-amber-400/60">({draggedJob.contactName})</span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
         <div className="space-y-1">
@@ -785,58 +866,73 @@ const SchedulingPage = () => {
                   To Be Scheduled ({toBeScheduledJobs.length})
                 </h3>
                 <div className="flex gap-2 flex-wrap">
-                  {toBeScheduledJobs.map(job => (
-                    <div
-                      key={job.id}
-                      draggable={!isCoarsePointer}
-                      onDragStart={
-                        !isCoarsePointer
-                          ? e => {
-                              e.dataTransfer.setData('jobId', job.id)
-                              e.dataTransfer.effectAllowed = 'move'
-                            }
-                          : undefined
-                      }
-                      onPointerDown={
-                        isCoarsePointer
-                          ? e => {
-                              e.stopPropagation()
-                              e.currentTarget.setPointerCapture(e.pointerId)
-                              setExternalDragState({
-                                jobId: job.id,
-                                pointerId: e.pointerId,
-                                isDragging: false,
-                              })
-                            }
-                          : undefined
-                      }
-                      onClick={() => {
-                        // Only trigger click if not dragging
-                        if (!externalDragState.isDragging) {
+                  {toBeScheduledJobs.map(job => {
+                    const isDragging =
+                      externalDragState.jobId === job.id && externalDragState.isDragging
+                    return (
+                      <div
+                        key={job.id}
+                        onPointerDown={e => {
+                          // Use pointer-based drag for ALL devices (mouse + touch)
+                          e.stopPropagation()
+                          e.currentTarget.setPointerCapture(e.pointerId)
+                          externalDragRef.current = true
+
+                          // Initialize drag ghost
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setExternalDragGhost({
+                            isVisible: false,
+                            x: rect.left,
+                            y: rect.top,
+                            width: rect.width,
+                            height: rect.height,
+                            offsetX: e.clientX - rect.left,
+                            offsetY: e.clientY - rect.top,
+                          })
+
+                          setExternalDragState({
+                            jobId: job.id,
+                            pointerId: e.pointerId,
+                            isDragging: false,
+                            hasMoved: false,
+                          })
+                        }}
+                        onClick={() => {
+                          // Prevent click entirely if we're dragging or have started a drag
+                          if (
+                            externalDragRef.current ||
+                            externalDragState.isDragging ||
+                            externalDragState.hasMoved
+                          ) {
+                            return
+                          }
                           setSelectedJob(job)
                           setShowJobDetail(true)
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all touch-none"
-                      title="Drag to calendar to schedule"
-                    >
-                      <svg
-                        className="w-4 h-4 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all touch-none"
+                        style={{
+                          opacity: isDragging ? 0.15 : undefined,
+                        }}
+                        title="Drag to calendar to schedule"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span className="font-medium truncate max-w-[200px]">{job.title}</span>
-                      <span className="text-xs text-amber-400/60">({job.contactName})</span>
-                    </div>
-                  ))}
+                        <svg
+                          className="w-4 h-4 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="font-medium truncate max-w-[200px]">{job.title}</span>
+                        <span className="text-xs text-amber-400/60">({job.contactName})</span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

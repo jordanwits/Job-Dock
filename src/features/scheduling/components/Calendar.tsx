@@ -43,6 +43,7 @@ interface DragState {
   startY: number
   startX: number
   isDragging: boolean
+  hasMoved: boolean // Track if pointer has moved at all (even < 5px)
   originalStartTime: Date | null
   originalEndTime: Date | null
   pointerId?: number
@@ -74,6 +75,7 @@ const Calendar = ({
     startY: 0,
     startX: 0,
     isDragging: false,
+    hasMoved: false,
     originalStartTime: null,
     originalEndTime: null,
   })
@@ -81,7 +83,20 @@ const Calendar = ({
   const [previewEndTime, setPreviewEndTime] = useState<Date | null>(null)
   const [previewStartTime, setPreviewStartTime] = useState<Date | null>(null)
   const [dragTargetDay, setDragTargetDay] = useState<Date | null>(null)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [dragGhost, setDragGhost] = useState<{
+    isVisible: boolean
+    x: number
+    y: number
+    width: number
+    height: number
+    offsetX: number
+    offsetY: number
+  } | null>(null)
   const weekColumnsRef = useRef<Map<number, DOMRect>>(new Map())
+  const dragOriginRef = useRef<HTMLElement | null>(null)
+  const isDraggingRef = useRef(false) // True only after crossing drag threshold
+  const justDraggedRef = useRef(false) // Used to suppress the post-drag click
 
   const { updateJob } = useJobStore()
 
@@ -243,15 +258,32 @@ const Calendar = ({
   }
 
   // Drag and drop handlers
-  const handleDragStart = (e: React.PointerEvent, job: Job, type: 'move' | 'resize') => {
+  const handleDragStart = (
+    e: React.PointerEvent,
+    job: Job,
+    type: 'move' | 'resize' | 'month-move'
+  ) => {
     e.stopPropagation()
-    e.preventDefault()
 
     // Skip if job doesn't have scheduled times
     if (!job.startTime || !job.endTime) return
 
-    // Capture pointer to ensure we get all events even if pointer leaves element
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // Start a *potential* drag. We'll only start the actual drag once we pass the threshold.
+    dragOriginRef.current = e.currentTarget as HTMLElement
+    isDraggingRef.current = false
+    justDraggedRef.current = false
+
+    // Initialize drag ghost (fixed overlay that follows pointer)
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setDragGhost({
+      isVisible: false,
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: rect.height,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+    })
 
     setDragState({
       job,
@@ -259,10 +291,12 @@ const Calendar = ({
       startY: e.clientY,
       startX: e.clientX,
       isDragging: false, // Will be set to true when pointer moves beyond threshold
+      hasMoved: false, // Track if pointer has moved at all
       originalStartTime: new Date(job.startTime),
       originalEndTime: new Date(job.endTime),
       pointerId: e.pointerId,
     })
+    setDragOffset({ x: 0, y: 0 })
     // For week view, initialize target day
     if (type === 'move') {
       setDragTargetDay(new Date(job.startTime))
@@ -311,12 +345,15 @@ const Calendar = ({
     }
 
     // Clear drag state and preview
+    isDraggingRef.current = false
+    dragOriginRef.current = null
     setDragState({
       job: null,
       type: null,
       startY: 0,
       startX: 0,
       isDragging: false,
+      hasMoved: false,
       originalStartTime: null,
       originalEndTime: null,
     })
@@ -350,12 +387,15 @@ const Calendar = ({
       }
 
       // Clear drag state and preview
+      isDraggingRef.current = false
+      dragOriginRef.current = null
       setDragState({
         job: null,
         type: null,
         startY: 0,
         startX: 0,
         isDragging: false,
+        hasMoved: false,
         originalStartTime: null,
         originalEndTime: null,
       })
@@ -365,6 +405,8 @@ const Calendar = ({
   )
 
   useEffect(() => {
+    let rafId: number | null = null
+
     const handlePointerMove = (e: PointerEvent) => {
       if (!dragState.job) return
 
@@ -375,6 +417,11 @@ const Calendar = ({
       const deltaX = e.clientX - dragState.startX
       const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
+      // Mark that pointer has moved (even if < 5px)
+      if (!dragState.hasMoved && distance > 0) {
+        setDragState(prev => ({ ...prev, hasMoved: true }))
+      }
+
       // Only activate drag if pointer moved more than 5 pixels
       if (!dragState.isDragging && distance < 5) {
         return
@@ -382,51 +429,82 @@ const Calendar = ({
 
       // Activate dragging
       if (!dragState.isDragging) {
+        isDraggingRef.current = true
+        setDragGhost(prev => (prev ? { ...prev, isVisible: true } : prev))
+        // Capture pointer only once we commit to dragging
+        if (dragState.pointerId !== undefined) {
+          try {
+            dragOriginRef.current?.setPointerCapture(dragState.pointerId)
+          } catch {
+            // ignore
+          }
+        }
         setDragState(prev => ({ ...prev, isDragging: true }))
       }
 
-      const pixelsPerHour = viewMode === 'day' ? 80 : viewMode === 'week' ? 80 : 80
-      const minutesChange = Math.round((deltaY / pixelsPerHour) * 60)
-      const snappedMinutesChange = Math.round(minutesChange / 15) * 15
-
-      if (dragState.type === 'resize' && dragState.originalEndTime && dragState.job.startTime) {
-        // Calculate real-time preview with 15-minute snapping for resize
-        const newEndTime = addMinutes(new Date(dragState.originalEndTime), snappedMinutesChange)
-        const startTime = new Date(dragState.job.startTime)
-
-        // Only update preview if end time is after start time
-        if (newEndTime > startTime) {
-          setPreviewEndTime(newEndTime)
-        }
-      } else if (dragState.type === 'move' && dragState.originalStartTime) {
-        // For day/week view: Calculate real-time preview with 15-minute snapping for move
-        const newStartTime = addMinutes(new Date(dragState.originalStartTime), snappedMinutesChange)
-        setPreviewStartTime(newStartTime)
-
-        // For week view, detect which day column we're over
-        if (viewMode === 'week') {
-          weekColumnsRef.current.forEach((rect, dayIndex) => {
-            if (e.clientX >= rect.left && e.clientX <= rect.right) {
-              const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 })
-              const targetDay = addDays(weekStart, dayIndex)
-              setDragTargetDay(targetDay)
-            }
-          })
-        }
-      } else if (dragState.type === 'month-move' && dragState.originalStartTime) {
-        // For month view: Use elementFromPoint to detect drop target
-        const element = document.elementFromPoint(e.clientX, e.clientY)
-        const dropCell = element?.closest('[data-drop-date]') as HTMLElement
-        if (dropCell) {
-          const dropDateStr = dropCell.getAttribute('data-drop-date')
-          if (dropDateStr) {
-            const dropDate = new Date(dropDateStr)
-            setDragOverDate(dropDate)
-          }
-        } else {
-          setDragOverDate(null)
-        }
+      // Use requestAnimationFrame for smooth updates
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
       }
+
+      rafId = requestAnimationFrame(() => {
+        // Update ghost position every frame so it looks "picked up"
+        setDragGhost(prev => {
+          if (!prev) return prev
+          return { ...prev, x: e.clientX - prev.offsetX, y: e.clientY - prev.offsetY }
+        })
+
+        // Smooth "picked up" movement (pixel-perfect)
+        if (dragState.type === 'move') {
+          setDragOffset({ x: deltaX, y: deltaY })
+        }
+
+        const pixelsPerHour = viewMode === 'day' ? 80 : viewMode === 'week' ? 80 : 80
+        const minutesChange = Math.round((deltaY / pixelsPerHour) * 60)
+        const snappedMinutesChange = Math.round(minutesChange / 15) * 15
+
+        if (dragState.type === 'resize' && dragState.originalEndTime && dragState.job.startTime) {
+          // Calculate real-time preview with 15-minute snapping for resize
+          const newEndTime = addMinutes(new Date(dragState.originalEndTime), snappedMinutesChange)
+          const startTime = new Date(dragState.job.startTime)
+
+          // Only update preview if end time is after start time
+          if (newEndTime > startTime) {
+            setPreviewEndTime(newEndTime)
+          }
+        } else if (dragState.type === 'move' && dragState.originalStartTime) {
+          // For day/week view: Calculate real-time preview with 15-minute snapping for move
+          const newStartTime = addMinutes(
+            new Date(dragState.originalStartTime),
+            snappedMinutesChange
+          )
+          setPreviewStartTime(newStartTime)
+
+          // For week view, detect which day column we're over
+          if (viewMode === 'week') {
+            weekColumnsRef.current.forEach((rect, dayIndex) => {
+              if (e.clientX >= rect.left && e.clientX <= rect.right) {
+                const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 })
+                const targetDay = addDays(weekStart, dayIndex)
+                setDragTargetDay(targetDay)
+              }
+            })
+          }
+        } else if (dragState.type === 'month-move' && dragState.originalStartTime) {
+          // For month view: Use elementFromPoint to detect drop target
+          const element = document.elementFromPoint(e.clientX, e.clientY)
+          const dropCell = element?.closest('[data-drop-date]') as HTMLElement
+          if (dropCell) {
+            const dropDateStr = dropCell.getAttribute('data-drop-date')
+            if (dropDateStr) {
+              const dropDate = new Date(dropDateStr)
+              setDragOverDate(dropDate)
+            }
+          } else {
+            setDragOverDate(null)
+          }
+        }
+      })
     }
 
     const handlePointerUpOrCancel = (e: PointerEvent) => {
@@ -435,29 +513,51 @@ const Calendar = ({
       // Only respond to the pointer that initiated the drag
       if (dragState.pointerId !== undefined && e.pointerId !== dragState.pointerId) return
 
-      // If we never started dragging (pointer didn't move enough), treat it as a click
+      // Cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+        rafId = null
+      }
+
+      // If we didn't actually drag, do nothing here.
+      // Clicks should be handled by onClick handlers so the modal opens ONLY on click.
       if (!dragState.isDragging) {
-        const job = dragState.job
+        isDraggingRef.current = false
+        dragOriginRef.current = null
+        setDragOffset({ x: 0, y: 0 })
+        setDragGhost(null)
         setDragState({
           job: null,
           type: null,
           startY: 0,
           startX: 0,
           isDragging: false,
+          hasMoved: false,
           originalStartTime: null,
           originalEndTime: null,
         })
-        onJobClick(job)
         return
       }
 
       // We actually dragged, so save the changes
       if (dragState.type === 'resize') {
+        // Suppress the click that can fire after dragging ends
+        justDraggedRef.current = true
+        isDraggingRef.current = false
+        dragOriginRef.current = null
+        setDragOffset({ x: 0, y: 0 })
+        setDragGhost(null)
         const deltaY = e.clientY - dragState.startY
         const pixelsPerHour = viewMode === 'day' ? 80 : 80
         const minutesChange = Math.round((deltaY / pixelsPerHour) * 60)
         handleResizeDrop(minutesChange)
       } else if (dragState.type === 'move') {
+        // Suppress the click that can fire after dragging ends
+        justDraggedRef.current = true
+        isDraggingRef.current = false
+        dragOriginRef.current = null
+        setDragOffset({ x: 0, y: 0 })
+        setDragGhost(null)
         // Save the moved job
         handleMoveDrop()
       } else if (
@@ -485,12 +585,18 @@ const Calendar = ({
         })
 
         // Clear drag state
+        isDraggingRef.current = false
+        justDraggedRef.current = true
+        dragOriginRef.current = null
+        setDragOffset({ x: 0, y: 0 })
+        setDragGhost(null)
         setDragState({
           job: null,
           type: null,
           startY: 0,
           startX: 0,
           isDragging: false,
+          hasMoved: false,
           originalStartTime: null,
           originalEndTime: null,
         })
@@ -503,6 +609,9 @@ const Calendar = ({
       window.addEventListener('pointerup', handlePointerUpOrCancel)
       window.addEventListener('pointercancel', handlePointerUpOrCancel)
       return () => {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId)
+        }
         window.removeEventListener('pointermove', handlePointerMove)
         window.removeEventListener('pointerup', handlePointerUpOrCancel)
         window.removeEventListener('pointercancel', handlePointerUpOrCancel)
@@ -596,13 +705,8 @@ const Calendar = ({
                     const height = (duration / 60) * 80
 
                     // Calculate transform for move drag
-                    let translateY = 0
-                    if (isMoving && previewStartTime && dragState.originalStartTime) {
-                      const timeDiffMs =
-                        previewStartTime.getTime() - dragState.originalStartTime.getTime()
-                      const minutesDiff = timeDiffMs / (1000 * 60)
-                      translateY = (minutesDiff / 60) * 80
-                    }
+                    const translateX = isMoving ? dragOffset.x : 0
+                    const translateY = isMoving ? dragOffset.y : 0
 
                     // Calculate width and position for overlapping events
                     const widthPercent = layout.totalColumns > 1 ? 100 / layout.totalColumns : 100
@@ -627,15 +731,31 @@ const Calendar = ({
                           height: `${height}px`,
                           left: `${leftPercent}%`,
                           width: `calc(${widthPercent}% - 0.5rem)`,
-                          transform: isMoving ? `translateY(${translateY}px)` : undefined,
+                          transform: isMoving
+                            ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                            : undefined,
                           transition: isMoving ? 'none' : 'all 0.2s ease',
+                          willChange: isMoving ? 'transform' : undefined,
+                          opacity: isMoving && dragState.isDragging ? 0.15 : 1,
                         }}
                       >
                         {/* Main content area - draggable */}
                         <div
                           className="absolute top-0 left-0 right-0 p-2 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none"
                           style={{ bottom: '24px' }}
-                          onPointerDown={e => handleDragStart(e, job, 'move')}
+                          onPointerDown={e => {
+                            e.stopPropagation()
+                            handleDragStart(e, job, 'move')
+                          }}
+                          onClick={e => {
+                            e.stopPropagation()
+                            if (justDraggedRef.current) {
+                              justDraggedRef.current = false
+                              return
+                            }
+                            if (dragState.isDragging) return
+                            onJobClick(job)
+                          }}
                         >
                           <div className="text-sm font-medium text-primary-light">{job.title}</div>
                           <div className="text-xs text-primary-light/70">
@@ -823,14 +943,8 @@ const Calendar = ({
                             const topPosition = (topOffset / 60) * 100
 
                             // Calculate transform for move drag
-                            let translateY = 0
-                            if (isMoving && previewStartTime && dragState.originalStartTime) {
-                              const timeDiffMs =
-                                previewStartTime.getTime() - dragState.originalStartTime.getTime()
-                              const minutesDiff = timeDiffMs / (1000 * 60)
-                              // Calculate based on slot height (80px for md, 48px for mobile)
-                              translateY = (minutesDiff / 60) * 80 // Will be adjusted by CSS
-                            }
+                            const translateX = isMoving ? dragOffset.x : 0
+                            const translateY = isMoving ? dragOffset.y : 0
 
                             // Calculate width and position for overlapping events
                             const widthPercent =
@@ -858,15 +972,30 @@ const Calendar = ({
                                   height: `calc(var(--slot-height) * ${height} / 100)`,
                                   left: `${leftPercent}%`,
                                   width: `calc(${widthPercent}% - 0.25rem)`,
-                                  transform: isMoving ? `translateY(${translateY}px)` : undefined,
+                                  transform: isMoving
+                                    ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                                    : undefined,
                                   transition: isMoving ? 'none' : 'all 0.2s ease',
+                                  willChange: isMoving ? 'transform' : undefined,
                                 }}
                               >
                                 {/* Main content area - draggable */}
                                 <div
                                   className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none"
                                   style={{ bottom: '16px' }}
-                                  onPointerDown={e => handleDragStart(e, job, 'move')}
+                                  onPointerDown={e => {
+                                    e.stopPropagation()
+                                    handleDragStart(e, job, 'move')
+                                  }}
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    if (justDraggedRef.current) {
+                                      justDraggedRef.current = false
+                                      return
+                                    }
+                                    if (dragState.isDragging) return
+                                    onJobClick(job)
+                                  }}
                                 >
                                   <div className="font-medium text-primary-light truncate">
                                     {job.title}
@@ -968,7 +1097,7 @@ const Calendar = ({
             const isCurrentMonth = isSameMonth(day, selectedDate)
             const isSelected = isSameDay(day, selectedDate)
             const isDropTarget =
-              dragOverDate && isSameDay(dragOverDate, day) && dragState.type === 'move'
+              dragOverDate && isSameDay(dragOverDate, day) && dragState.type === 'month-move'
 
             return (
               <div
@@ -1041,53 +1170,24 @@ const Calendar = ({
                 <div className="space-y-0.5 md:space-y-1">
                   {dayJobs.slice(0, scaleSettings.maxItems).map(job => {
                     // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
-                    if (!job.startTime) return null
+                    if (!job.startTime || !job.endTime) return null
 
                     return (
                       <div
                         key={job.id}
-                        draggable={!isCoarsePointer}
-                        onDragStart={
-                          !isCoarsePointer
-                            ? e => {
-                                e.dataTransfer.setData('monthJobId', job.id)
-                                e.dataTransfer.setData('monthJobOriginalDate', job.startTime!)
-                                e.dataTransfer.effectAllowed = 'move'
-                                e.currentTarget.style.opacity = '0.5'
-                              }
-                            : undefined
-                        }
-                        onDragEnd={
-                          !isCoarsePointer
-                            ? e => {
-                                e.currentTarget.style.opacity = '1'
-                              }
-                            : undefined
-                        }
-                        onPointerDown={
-                          isCoarsePointer
-                            ? e => {
-                                e.stopPropagation()
-                                e.currentTarget.setPointerCapture(e.pointerId)
-                                setDragState({
-                                  job,
-                                  type: 'month-move',
-                                  startY: e.clientY,
-                                  startX: e.clientX,
-                                  isDragging: false,
-                                  originalStartTime: new Date(job.startTime!),
-                                  originalEndTime: job.endTime ? new Date(job.endTime) : null,
-                                  pointerId: e.pointerId,
-                                })
-                              }
-                            : undefined
-                        }
+                        onPointerDown={e => {
+                          // Month view: use pointer-based drag for ALL devices (mouse + touch)
+                          e.stopPropagation()
+                          handleDragStart(e, job, 'month-move')
+                        }}
                         onClick={e => {
                           e.stopPropagation()
-                          // Only trigger click if not dragging
-                          if (!dragState.isDragging) {
-                            onJobClick(job)
+                          if (justDraggedRef.current) {
+                            justDraggedRef.current = false
+                            return
                           }
+                          if (dragState.isDragging) return
+                          onJobClick(job)
                         }}
                         className={cn(
                           'text-[10px] md:text-xs p-0.5 md:p-1 rounded truncate cursor-grab active:cursor-grabbing touch-none',
@@ -1104,6 +1204,14 @@ const Calendar = ({
                           job.status === 'pending-confirmation' &&
                             'bg-orange-500/20 border-orange-500 text-orange-300'
                         )}
+                        style={{
+                          opacity:
+                            dragState.job?.id === job.id &&
+                            dragState.type === 'month-move' &&
+                            dragState.isDragging
+                              ? 0.15
+                              : undefined,
+                        }}
                         title={job.title}
                       >
                         <span className="hidden sm:inline">
@@ -1134,6 +1242,48 @@ const Calendar = ({
 
   return (
     <div className="flex flex-col h-full bg-primary-dark-secondary rounded-lg border border-primary-blue overflow-hidden">
+      {/* Drag ghost overlay (follows pointer for real-time movement) */}
+      {dragGhost?.isVisible && dragState.job && (
+        <div
+          className="fixed pointer-events-none z-[9999] rounded-lg border-l-4 shadow-2xl opacity-95"
+          style={{
+            left: 0,
+            top: 0,
+            width: dragGhost.width,
+            height: dragGhost.height,
+            transform: `translate3d(${dragGhost.x}px, ${dragGhost.y}px, 0) scale(1.03)`,
+            willChange: 'transform',
+            background:
+              dragState.job.status === 'scheduled'
+                ? 'rgba(59, 130, 246, 0.25)'
+                : dragState.job.status === 'in-progress'
+                  ? 'rgba(234, 179, 8, 0.25)'
+                  : dragState.job.status === 'completed'
+                    ? 'rgba(34, 197, 94, 0.25)'
+                    : dragState.job.status === 'cancelled'
+                      ? 'rgba(239, 68, 68, 0.25)'
+                      : 'rgba(249, 115, 22, 0.25)',
+            borderLeftColor:
+              dragState.job.status === 'scheduled'
+                ? 'rgb(59, 130, 246)'
+                : dragState.job.status === 'in-progress'
+                  ? 'rgb(234, 179, 8)'
+                  : dragState.job.status === 'completed'
+                    ? 'rgb(34, 197, 94)'
+                    : dragState.job.status === 'cancelled'
+                      ? 'rgb(239, 68, 68)'
+                      : 'rgb(249, 115, 22)',
+          }}
+        >
+          <div className="p-2">
+            <div className="text-sm font-medium text-primary-light">{dragState.job.title}</div>
+            {dragState.job.contactName && (
+              <div className="text-xs text-primary-light/60">{dragState.job.contactName}</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 md:p-4 border-b border-primary-blue">
         <div className="flex items-center gap-2">
