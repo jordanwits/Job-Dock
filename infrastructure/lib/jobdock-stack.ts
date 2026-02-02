@@ -44,7 +44,9 @@ export class JobDockStack extends cdk.Stack {
 
     this.vpc = new ec2.Vpc(this, 'VPC', {
       maxAzs: 2, // Multi-AZ for high availability
-      natGateways: useNatInstance ? 0 : config.env === 'prod' ? 2 : 1, // Use NAT instance for cost savings
+      // IMPORTANT: we manage egress routing ourselves (NAT instance OR NAT gateways)
+      // to avoid CloudFormation route conflicts when switching strategies.
+      natGateways: 0,
       subnetConfiguration: [
         {
           cidrMask: 24,
@@ -59,7 +61,17 @@ export class JobDockStack extends cdk.Stack {
       ],
     })
 
-    // Create NAT Instance if using instance strategy (saves ~$10/mo vs NAT Gateway)
+    // --- Egress strategy ---
+    //
+    // We always create the "0.0.0.0/0" routes with stable logical IDs:
+    // - PrivateSubnetNatRoute0
+    // - PrivateSubnetNatRoute1
+    //
+    // This allows switching between NAT instance and NAT gateway without
+    // conflicting routes being created.
+
+    // Create NAT Instance if using instance strategy (cheaper, but requires management)
+    let natInstanceId: string | undefined
     if (useNatInstance) {
       // Use Amazon Linux 2023 with NAT configured
       const natInstanceSecurityGroup = new ec2.SecurityGroup(this, 'NatInstanceSecurityGroup', {
@@ -116,15 +128,7 @@ EOF
 systemctl enable iptables-restore.service
 `),
       })
-
-      // Add route from private subnets to NAT instance (replaces NAT Gateway route)
-      this.vpc.privateSubnets.forEach((subnet, index) => {
-        new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
-          routeTableId: subnet.routeTable.routeTableId,
-          destinationCidrBlock: '0.0.0.0/0',
-          instanceId: natInstance.instanceId,
-        })
-      })
+      natInstanceId = natInstance.instanceId
 
       new cdk.CfnOutput(this, 'NatInstanceId', {
         value: natInstance.instanceId,
@@ -132,6 +136,54 @@ systemctl enable iptables-restore.service
         exportName: `JobDock-${config.env}-NatInstanceId`,
       })
     }
+
+    // Create NAT Gateways if using gateway strategy (reliable, managed, costs more)
+    const natGatewayIds: string[] = []
+    if (!useNatInstance) {
+      const publicSubnets = this.vpc.publicSubnets
+
+      // Create one NAT gateway per AZ (or per public subnet)
+      publicSubnets.forEach((subnet, index) => {
+        const eip = new ec2.CfnEIP(this, `NatEip${index}`, {
+          domain: 'vpc',
+        })
+
+        const natGateway = new ec2.CfnNatGateway(this, `NatGateway${index}`, {
+          subnetId: subnet.subnetId,
+          allocationId: eip.attrAllocationId,
+        })
+        natGateway.node.addDependency(eip)
+
+        natGatewayIds[index] = natGateway.ref
+      })
+    }
+
+    // Create/maintain the private subnet default routes with stable logical IDs.
+    // In instance mode: route → NAT instance
+    // In gateway mode:  route → NAT gateway (same AZ index if available, else first)
+    this.vpc.privateSubnets.forEach((subnet, index) => {
+      const natGatewayId = natGatewayIds[index] ?? natGatewayIds[0]
+
+      if (useNatInstance) {
+        if (!natInstanceId) {
+          throw new Error('NAT instance ID was not set (unexpected)')
+        }
+        new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
+          routeTableId: subnet.routeTable.routeTableId,
+          destinationCidrBlock: '0.0.0.0/0',
+          instanceId: natInstanceId,
+        })
+      } else {
+        if (!natGatewayId) {
+          throw new Error('NAT gateway ID was not set (unexpected)')
+        }
+        new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
+          routeTableId: subnet.routeTable.routeTableId,
+          destinationCidrBlock: '0.0.0.0/0',
+          natGatewayId: natGatewayId,
+        })
+      }
+    })
 
     // Helper to select correct private subnet type
     const privateSubnetSelection = { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
@@ -407,6 +459,22 @@ systemctl enable iptables-restore.service
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: config.env !== 'prod',
         metricsEnabled: true,
+      },
+    })
+
+    // Add Gateway Response for 504 errors (integration timeout) to include CORS headers
+    this.api.addGatewayResponse('GatewayResponse504', {
+      type: apigateway.ResponseType.INTEGRATION_TIMEOUT,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,Authorization,X-Tenant-ID'",
+        'Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,OPTIONS'",
+      },
+      templates: {
+        'application/json': JSON.stringify({
+          message: 'Gateway timeout. The request took too long to process.',
+          statusCode: 504,
+        }),
       },
     })
 

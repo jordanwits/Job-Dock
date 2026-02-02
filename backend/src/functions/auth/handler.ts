@@ -174,6 +174,7 @@ function slugify(value: string): string {
 }
 
 async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const startTime = Date.now()
   const body = JSON.parse(event.body || '{}')
   const { email, password } = body
 
@@ -182,15 +183,24 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
   }
 
   try {
+    console.log(`[Login] Starting login for: ${email}`)
+
     // 1. Authenticate with Cognito
+    const cognitoStart = Date.now()
+    console.log(`[Login] Step 1: Authenticating with Cognito...`)
     const tokens = await loginUser(email, password)
+    console.log(`[Login] Step 1 complete: Cognito auth took ${Date.now() - cognitoStart}ms`)
 
     // 2. Decode the ID token to get Cognito user ID
-    // The token is a JWT, we can use our verifyToken function
+    const verifyStart = Date.now()
+    console.log(`[Login] Step 2: Verifying token...`)
     const { verifyToken } = await import('../../lib/auth')
     const cognitoUser = await verifyToken(tokens.IdToken!)
+    console.log(`[Login] Step 2 complete: Token verification took ${Date.now() - verifyStart}ms`)
 
     // 3. Look up user in database by Cognito ID
+    const dbStart = Date.now()
+    console.log(`[Login] Step 3: Looking up user in database...`)
     const user = await prisma.user.findUnique({
       where: { cognitoId: cognitoUser.sub },
       select: {
@@ -201,10 +211,14 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         onboardingCompletedAt: true,
       },
     })
+    console.log(`[Login] Step 3 complete: Database lookup took ${Date.now() - dbStart}ms`)
 
     if (!user) {
       return errorResponse('User is not provisioned in JobDock. Please contact support.', 404)
     }
+
+    const totalTime = Date.now() - startTime
+    console.log(`[Login] Success! Total time: ${totalTime}ms`)
 
     // 4. Return tokens and user info including tenantId
     // Use IdToken (not AccessToken) because it contains user claims like email, sub, etc
@@ -220,7 +234,8 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
       },
     })
   } catch (error: any) {
-    console.error('Login error:', error)
+    const totalTime = Date.now() - startTime
+    console.error(`[Login] Error after ${totalTime}ms:`, error)
     return errorResponse(error.message || 'Login failed', 500)
   }
 }

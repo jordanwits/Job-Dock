@@ -1,6 +1,6 @@
 /**
  * API Service Layer
- * 
+ *
  * This file provides the real API service implementations.
  * Switch between mock and real services using environment variables.
  */
@@ -19,8 +19,27 @@ const useMockData = appEnv.isMock
 // Real API implementations
 const realAuthService = {
   login: async (email: string, password: string) => {
-    const response = await apiClient.post('/auth/login', { email, password })
-    return response.data
+    // Use publicApiClient for login since we don't have auth token yet
+    try {
+      console.log('🔐 Attempting login for:', email)
+      const response = await publicApiClient.post('/auth/login', { email, password })
+      console.log('✅ Login successful:', response.data)
+      return response.data
+    } catch (error: any) {
+      console.error('❌ Login error:', error)
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: {
+          url: error.config?.url,
+          baseURL: error.config?.baseURL,
+          method: error.config?.method,
+        },
+      })
+      throw error
+    }
   },
 
   register: async (data: {
@@ -29,7 +48,8 @@ const realAuthService = {
     name: string
     companyName: string
   }) => {
-    const response = await apiClient.post('/auth/register', data)
+    // Use publicApiClient for register since we don't have auth token yet
+    const response = await publicApiClient.post('/auth/register', data)
     return response.data
   },
 
@@ -44,7 +64,8 @@ const realAuthService = {
   },
 
   resetPassword: async (email: string) => {
-    const response = await apiClient.post('/auth/reset-password', { email })
+    // Use publicApiClient for reset password since user is not authenticated
+    const response = await publicApiClient.post('/auth/reset-password', { email })
     return response.data
   },
 }
@@ -81,7 +102,11 @@ const realContactsService = {
     return response.data
   },
 
-  importInit: async (fileName: string, csvContent: string, fieldMapping: Record<string, string>) => {
+  importInit: async (
+    fileName: string,
+    csvContent: string,
+    fieldMapping: Record<string, string>
+  ) => {
     const response = await apiClient.post('/contacts/import/init', {
       fileName,
       csvContent,
@@ -100,7 +125,11 @@ const realContactsService = {
     return response.data
   },
 
-  importResolveConflict: async (sessionId: string, conflictId: string, resolution: 'update' | 'skip') => {
+  importResolveConflict: async (
+    sessionId: string,
+    conflictId: string,
+    resolution: 'update' | 'skip'
+  ) => {
     const response = await apiClient.post('/contacts/import/resolve-conflict', {
       sessionId,
       conflictId,
@@ -175,7 +204,12 @@ const realInvoicesService = {
 }
 
 const realJobsService = {
-  getAll: async (startDate?: Date, endDate?: Date, includeArchived?: boolean, showDeleted?: boolean) => {
+  getAll: async (
+    startDate?: Date,
+    endDate?: Date,
+    includeArchived?: boolean,
+    showDeleted?: boolean
+  ) => {
     const params: any = {}
     if (startDate) params.startDate = startDate.toISOString()
     if (endDate) params.endDate = endDate.toISOString()
@@ -196,12 +230,12 @@ const realJobsService = {
   },
 
   update: async (id: string, data: Partial<CreateJobData & { updateAll?: boolean }>) => {
-    console.log('🌐 API Service: Sending PUT request to /jobs/' + id, { 
+    console.log('🌐 API Service: Sending PUT request to /jobs/' + id, {
       updateAll: data.updateAll,
       dataKeys: Object.keys(data),
       hasRecurrence: !!data.recurrence,
       recurrenceData: data.recurrence,
-      fullPayload: data
+      fullPayload: data,
     })
     const response = await apiClient.put(`/jobs/${id}`, data)
     console.log('✅ API Service: PUT response received', response.data)
@@ -250,7 +284,7 @@ const realServicesService = {
     const response = await publicApiClient.get(`/services/${id}`)
     return response.data
   },
-  
+
   // Get all active services for a tenant (for public booking)
   getAllActiveForTenant: async (tenantId: string) => {
     const response = await publicApiClient.get(`/services/public?tenantId=${tenantId}`)
@@ -294,9 +328,7 @@ const realServicesService = {
 
 // Export services (mock or real based on environment)
 export const authService = useMockData ? mockServices.auth : realAuthService
-export const contactsService = useMockData
-  ? mockServices.contacts
-  : realContactsService
+export const contactsService = useMockData ? mockServices.contacts : realContactsService
 export const quotesService = useMockData ? mockServices.quotes : realQuotesService
 export const invoicesService = useMockData ? mockServices.invoices : realInvoicesService
 export const jobsService = useMockData ? mockServices.jobs : realJobsService
@@ -307,12 +339,12 @@ const realBillingService = {
     const response = await apiClient.get('/billing/status')
     return response.data
   },
-  
+
   createEmbeddedCheckoutSession: async () => {
     const response = await apiClient.post('/billing/embedded-checkout-session')
     return response.data
   },
-  
+
   createPortalSession: async () => {
     const response = await apiClient.post('/billing/portal-session')
     return response.data
@@ -331,4 +363,3 @@ export const services = {
   services: servicesService,
   billing: billingService,
 }
-

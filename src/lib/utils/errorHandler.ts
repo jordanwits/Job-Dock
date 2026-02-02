@@ -162,6 +162,22 @@ export function getErrorMessage(
       return 'The request took too long. Please check your connection and try again.'
     }
 
+    // CORS errors
+    if (
+      axiosError.message.includes('CORS') ||
+      axiosError.message.includes('Access-Control-Allow-Origin')
+    ) {
+      return 'Unable to connect to the server. This may be a CORS configuration issue. Please try again or contact support.'
+    }
+
+    // Network errors (no response)
+    if (axiosError.code === 'ERR_NETWORK' || !axiosError.response) {
+      if (axiosError.message.includes('504') || axiosError.message.includes('Gateway Timeout')) {
+        return 'The server is taking too long to respond. This may be due to a cold start or high load. Please try again in a moment.'
+      }
+      return 'Unable to connect to the server. Please check your internet connection and try again.'
+    }
+
     if (axiosError.message) {
       return getCognitoErrorMessage(axiosError.message)
     }

@@ -4,6 +4,14 @@ import { appEnv } from '@/lib/env'
 const API_URL = appEnv.apiUrl
 const DEFAULT_TENANT_ID = appEnv.defaultTenantId
 
+// Log API configuration for debugging
+console.log('🔧 API Client Configuration:', {
+  API_URL,
+  DEFAULT_TENANT_ID,
+  isMock: appEnv.isMock,
+  dataMode: appEnv.dataMode,
+})
+
 export const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -14,12 +22,12 @@ export const apiClient = axios.create({
 
 // Request interceptor for adding auth tokens
 apiClient.interceptors.request.use(
-  (config) => {
+  config => {
     const token = localStorage.getItem('auth_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    
+
     // For authenticated requests, prefer tenant_id from localStorage
     // For unauthenticated requests (public booking), fall back to DEFAULT_TENANT_ID
     const tenantId = localStorage.getItem('tenant_id')
@@ -29,10 +37,10 @@ apiClient.interceptors.request.use(
       // Only use DEFAULT_TENANT_ID for unauthenticated requests
       config.headers['X-Tenant-ID'] = DEFAULT_TENANT_ID
     }
-    
+
     return config
   },
-  (error) => {
+  error => {
     return Promise.reject(error)
   }
 )
@@ -49,61 +57,64 @@ function subscribeTokenRefresh(callback: (token: string) => void) {
 
 // Function to notify all queued requests when token is refreshed
 function onRefreshed(token: string) {
-  refreshSubscribers.forEach((callback) => callback(token))
+  refreshSubscribers.forEach(callback => callback(token))
   refreshSubscribers = []
 }
 
 // Response interceptor for error handling and auto-refresh
 apiClient.interceptors.response.use(
-  (response) => {
+  response => {
     return response
   },
-  async (error) => {
+  async error => {
     const originalRequest = error.config
-    
+
     // Check for authentication errors
-    const errorMessage = error.response?.data?.error?.message?.toLowerCase() || 
-                        error.response?.data?.message?.toLowerCase() || 
-                        error.message?.toLowerCase() || ''
-    
-    const isTokenError = errorMessage.includes('token') || 
-                         errorMessage.includes('jwt') || 
-                         errorMessage.includes('expired') ||
-                         errorMessage.includes('invalid token') ||
-                         errorMessage.includes('malformed')
-    
-    const isAuthError = error.response?.status === 401 || 
-                       (error.response?.status === 500 && isTokenError)
-    
+    const errorMessage =
+      error.response?.data?.error?.message?.toLowerCase() ||
+      error.response?.data?.message?.toLowerCase() ||
+      error.message?.toLowerCase() ||
+      ''
+
+    const isTokenError =
+      errorMessage.includes('token') ||
+      errorMessage.includes('jwt') ||
+      errorMessage.includes('expired') ||
+      errorMessage.includes('invalid token') ||
+      errorMessage.includes('malformed')
+
+    const isAuthError =
+      error.response?.status === 401 || (error.response?.status === 500 && isTokenError)
+
     // Try to refresh token on auth errors (except for auth endpoints themselves)
     if (isAuthError && !originalRequest._retry && !originalRequest.url?.includes('/auth/')) {
       originalRequest._retry = true
-      
+
       // If already refreshing, queue this request
       if (isRefreshingToken) {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
           subscribeTokenRefresh((token: string) => {
             originalRequest.headers.Authorization = `Bearer ${token}`
             resolve(apiClient(originalRequest))
           })
         })
       }
-      
+
       isRefreshingToken = true
       const refreshToken = localStorage.getItem('refresh_token')
-      
+
       if (refreshToken) {
         try {
           // Attempt to refresh the token
           const { useAuthStore } = await import('@/features/auth/store/authStore')
           const success = await useAuthStore.getState().refreshAccessToken()
-          
+
           if (success) {
             const newToken = localStorage.getItem('auth_token')
             if (newToken) {
               isRefreshingToken = false
               onRefreshed(newToken)
-              
+
               // Retry original request with new token
               originalRequest.headers.Authorization = `Bearer ${newToken}`
               return apiClient(originalRequest)
@@ -113,36 +124,36 @@ apiClient.interceptors.response.use(
           console.error('Token refresh failed:', refreshError)
         }
       }
-      
+
       isRefreshingToken = false
-      
+
       // If refresh failed, handle session timeout
       if (!isHandlingSessionTimeout) {
         isHandlingSessionTimeout = true
-        
-        const message = isTokenError 
-          ? 'Your session has expired. Please log in again.' 
+
+        const message = isTokenError
+          ? 'Your session has expired. Please log in again.'
           : 'Authentication failed. Please log in again.'
-        
+
         console.warn('Session timeout:', message)
-        
+
         // Clear auth state
         localStorage.removeItem('auth_token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('tenant_id')
-        
+
         try {
           localStorage.removeItem('auth-storage')
         } catch (e) {
           console.error('Failed to clear auth storage:', e)
         }
-        
+
         setTimeout(() => {
           window.location.href = `/auth/login?session=expired&message=${encodeURIComponent(message)}`
         }, 100)
       }
     }
-    
+
     return Promise.reject(error)
   }
 )
@@ -157,8 +168,57 @@ export const publicApiClient = axios.create({
   timeout: 30000,
 })
 
+// Add request interceptor to log requests
+publicApiClient.interceptors.request.use(
+  config => {
+    console.log('🌐 Making request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`,
+    })
+    return config
+  },
+  error => {
+    console.error('❌ Request interceptor error:', error)
+    return Promise.reject(error)
+  }
+)
+
+// Add response interceptor to publicApiClient for better error handling
+publicApiClient.interceptors.response.use(
+  response => {
+    console.log('✅ Response received:', {
+      status: response.status,
+      url: response.config.url,
+    })
+    return response
+  },
+  error => {
+    // Log network errors for debugging
+    if (!error.response) {
+      console.error('🌐 Network error (no response):', {
+        message: error.message,
+        code: error.code,
+        config: {
+          url: error.config?.url,
+          baseURL: error.config?.baseURL,
+          fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown',
+          method: error.config?.method,
+        },
+      })
+    } else {
+      console.error('❌ Response error:', {
+        status: error.response.status,
+        data: error.response.data,
+        url: error.config?.url,
+      })
+    }
+    return Promise.reject(error)
+  }
+)
+
 // No auth interceptor for public client - it's completely unauthenticated
 // The backend will determine the tenant from the service ID
 
 export default apiClient
-

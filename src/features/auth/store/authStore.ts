@@ -61,12 +61,17 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem('refresh_token', response.refreshToken)
           localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
+          console.error('Login error in store:', error)
           const friendlyMessage = getErrorMessage(error, 'Login failed. Please try again.')
           set({
             error: friendlyMessage,
             isLoading: false,
             isAuthenticated: false,
           })
+          // Ensure we always reset loading state, even if error handling fails
+          setTimeout(() => {
+            set({ isLoading: false })
+          }, 100)
           throw error
         }
       },

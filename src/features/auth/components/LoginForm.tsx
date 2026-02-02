@@ -18,9 +18,19 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormData) => {
     clearError()
     try {
-      await login(data.email, data.password)
-    } catch (error) {
-      // Error is handled by the store
+      // Add a timeout safeguard - if login takes more than 35 seconds, force reset
+      const loginPromise = login(data.email, data.password)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Login request timed out. Please check your connection and try again.'))
+        }, 35000)
+      })
+
+      await Promise.race([loginPromise, timeoutPromise])
+    } catch (error: any) {
+      // Error is handled by the store, but log it here for debugging
+      console.error('Login form error:', error)
+      // The store will set the error message, so we don't need to do anything here
     }
   }
 

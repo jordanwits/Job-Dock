@@ -99,7 +99,7 @@ export const configs: Record<string, Config> = {
     domain: 'thejobdock.com',
     emailFromAddress: 'noreply@thejobdock.com',
     network: {
-      natStrategy: 'instance', // Cost-optimized for now. Change to 'gateway' when scaling to many users
+      natStrategy: 'gateway', // Switched to NAT Gateway for reliability - Lambda needs internet access for Cognito
     },
     database: {
       engine: 'rds-postgresql',
@@ -107,7 +107,7 @@ export const configs: Record<string, Config> = {
       instanceSize: 'MICRO', // Free tier eligible
     },
     lambda: {
-      timeout: 30,
+      timeout: 60, // Increased from 30 to 60 seconds to handle cold starts and database connections
       memorySize: 1024,
     },
     cognito: {
