@@ -6,11 +6,17 @@ import { generateApprovalToken } from './approvalTokens'
 const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'console'
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'noreply@thejobdock.com'
+const ENVIRONMENT = process.env.ENVIRONMENT || process.env.NODE_ENV || 'dev'
 
 // Initialize Resend client if enabled
 let resendClient: Resend | null = null
 if (EMAIL_PROVIDER === 'resend' && RESEND_API_KEY) {
   resendClient = new Resend(RESEND_API_KEY)
+  console.log('✅ Resend client initialized')
+} else {
+  console.warn(
+    `⚠️ Resend not initialized. EMAIL_PROVIDER=${EMAIL_PROVIDER}, RESEND_API_KEY=${RESEND_API_KEY ? 'SET' : 'NOT SET'}`
+  )
 }
 
 export interface EmailPayload {
@@ -42,13 +48,24 @@ export interface EmailWithAttachment {
 export async function sendEmail(payload: EmailPayload): Promise<void> {
   const { to, subject, htmlBody, textBody, fromName, replyTo } = payload
 
+  // In production, do not silently "succeed" if Resend is selected but not configured.
+  if (EMAIL_PROVIDER === 'resend' && !RESEND_API_KEY) {
+    const msg = 'RESEND_API_KEY is not configured for EMAIL_PROVIDER=resend'
+    if (ENVIRONMENT === 'prod' || ENVIRONMENT === 'production') {
+      throw new Error(msg)
+    }
+    console.warn(`[WARNING] ${msg} (falling back to console output)`)
+  }
+
   if (EMAIL_PROVIDER === 'resend' && resendClient) {
     // Send via Resend
     try {
       // Build FROM address with optional display name
       const fromAddress = fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS
 
-      await resendClient.emails.send({
+      console.log(`📧 Attempting to send email via Resend to ${to}: ${subject}`)
+
+      const result = await resendClient.emails.send({
         from: fromAddress,
         to,
         subject,
@@ -57,18 +74,30 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
         ...(replyTo && { reply_to: replyTo }),
       })
 
+      const emailId =
+        (result as any)?.data?.id ?? (result as any)?.id ?? (result as any)?.data ?? 'unknown'
       console.log(
-        `✅ Email sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`
+        `✅ Email sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''} (ID: ${emailId})`
       )
     } catch (error) {
       console.error('❌ Failed to send email via Resend:', error)
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+        })
+      }
       throw new Error(
         `Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
     }
   } else {
     // Log to console in dev mode
-    console.log('\n📧 =============== EMAIL (Dev Mode) ===============')
+    console.log('\n📧 =============== EMAIL (Dev Mode - Resend Not Configured) ===============')
+    console.log(`EMAIL_PROVIDER: ${EMAIL_PROVIDER}`)
+    console.log(`RESEND_API_KEY: ${RESEND_API_KEY ? 'SET' : 'NOT SET'}`)
+    console.log(`resendClient: ${resendClient ? 'INITIALIZED' : 'NULL'}`)
     console.log(`To: ${to}`)
     console.log(`From: ${fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS}`)
     if (replyTo) console.log(`Reply-To: ${replyTo}`)
@@ -84,6 +113,15 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
  */
 export async function sendEmailWithAttachments(payload: EmailWithAttachment): Promise<void> {
   const { to, subject, htmlBody, textBody, fromName, replyTo, attachments = [] } = payload
+
+  // In production, do not silently "succeed" if Resend is selected but not configured.
+  if (EMAIL_PROVIDER === 'resend' && !RESEND_API_KEY) {
+    const msg = 'RESEND_API_KEY is not configured for EMAIL_PROVIDER=resend'
+    if (ENVIRONMENT === 'prod' || ENVIRONMENT === 'production') {
+      throw new Error(msg)
+    }
+    console.warn(`[WARNING] ${msg} (falling back to console output)`)
+  }
 
   if (EMAIL_PROVIDER === 'resend' && resendClient) {
     try {

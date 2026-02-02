@@ -236,7 +236,36 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
   } catch (error: any) {
     const totalTime = Date.now() - startTime
     console.error(`[Login] Error after ${totalTime}ms:`, error)
-    return errorResponse(error.message || 'Login failed', 500)
+
+    // Cognito auth failures should not be treated as 500s.
+    // The AWS SDK typically throws errors with `name` like "NotAuthorizedException".
+    const errorName: string | undefined =
+      typeof error?.name === 'string'
+        ? error.name
+        : typeof error?.__type === 'string'
+          ? error.__type
+          : undefined
+
+    if (errorName === 'NotAuthorizedException') {
+      return errorResponse('Incorrect email or password', 401)
+    }
+    if (errorName === 'UserNotFoundException') {
+      return errorResponse('Incorrect email or password', 401)
+    }
+    if (errorName === 'PasswordResetRequiredException') {
+      return errorResponse(
+        'Password reset required. Please reset your password and try again.',
+        403
+      )
+    }
+    if (errorName === 'UserNotConfirmedException') {
+      return errorResponse(
+        'User is not confirmed. Please check your email for a confirmation link.',
+        403
+      )
+    }
+
+    return errorResponse(error?.message || 'Login failed', 500)
   }
 }
 

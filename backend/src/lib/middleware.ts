@@ -1,6 +1,6 @@
 /**
  * Lambda Middleware
- * 
+ *
  * Request/response middleware for Lambda functions
  */
 
@@ -17,20 +17,20 @@ export interface LambdaContext {
  * Extract tenant ID from request
  * Priority: JWT token (if authenticated) > X-Tenant-ID header (for public/unauthenticated) > error
  */
-export async function extractTenantId(
-  event: APIGatewayProxyEvent
-): Promise<string> {
+export async function extractTenantId(event: APIGatewayProxyEvent): Promise<string> {
+  const headers = event.headers ?? {}
+
   // If Authorization header is present, ALWAYS resolve via JWT token
   // This prevents authenticated users from tampering with X-Tenant-ID
-  const authHeader = event.headers.Authorization || event.headers.authorization
+  const authHeader = headers.Authorization || headers.authorization
   if (authHeader) {
     const token = authHeader.replace('Bearer ', '')
     return await getTenantIdFromToken(token)
   }
 
-  // For unauthenticated requests (public booking, webhooks, etc.), 
+  // For unauthenticated requests (public booking, webhooks, etc.),
   // allow X-Tenant-ID header
-  const tenantIdHeader = event.headers['x-tenant-id'] || event.headers['X-Tenant-ID']
+  const tenantIdHeader = headers['x-tenant-id'] || headers['X-Tenant-ID']
   if (tenantIdHeader) {
     return tenantIdHeader
   }
@@ -41,10 +41,9 @@ export async function extractTenantId(
 /**
  * Extract user context from request
  */
-export async function extractContext(
-  event: APIGatewayProxyEvent
-): Promise<LambdaContext> {
-  const authHeader = event.headers.Authorization || event.headers.authorization
+export async function extractContext(event: APIGatewayProxyEvent): Promise<LambdaContext> {
+  const headers = event.headers ?? {}
+  const authHeader = headers.Authorization || headers.authorization
   if (!authHeader) {
     const { ApiError } = await import('./errors')
     throw new ApiError('Authorization header required', 401)
@@ -66,10 +65,7 @@ export async function extractContext(
 /**
  * Create success response
  */
-export function successResponse(
-  data: any,
-  statusCode: number = 200
-): APIGatewayProxyResult {
+export function successResponse(data: any, statusCode: number = 200): APIGatewayProxyResult {
   return {
     statusCode,
     headers: {
@@ -128,4 +124,3 @@ export function corsResponse(): APIGatewayProxyResult {
     body: '',
   }
 }
-

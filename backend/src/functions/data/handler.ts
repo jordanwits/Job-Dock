@@ -931,7 +931,8 @@ async function getTenantIdFromResource(
 }
 
 async function resolveTenantId(event: APIGatewayProxyEvent) {
-  const authHeader = event.headers.Authorization || event.headers.authorization
+  const headers = event.headers ?? {}
+  const authHeader = headers.Authorization || headers.authorization
 
   try {
     return await extractTenantId(event)

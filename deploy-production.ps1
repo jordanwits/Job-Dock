@@ -53,39 +53,11 @@ if (-not $SkipDomainCheck) {
         Write-Host "  6. Wait for status to show 'Issued' (usually 5-10 minutes)" -ForegroundColor White
         Write-Host ""
         
-        if (-not $Domain) {
-            $Domain = Read-Host "Enter your production domain (or press Enter to configure manually later)"
-        }
-        
-        if ($Domain) {
-            if (-not $CertificateArn) {
-                $CertificateArn = Read-Host "Enter your ACM certificate ARN (or press Enter to skip for now)"
-            }
-            
-            if ($Domain -and $CertificateArn) {
-                Write-Host ""
-                Write-Host "Updating infrastructure/config.ts..." -ForegroundColor Yellow
-                
-                # Update config file
-                $configContent = $configContent -replace "// domain: 'app\.yourdomain\.com',", "domain: '$Domain',"
-                $configContent = $configContent -replace "// cloudfrontCertificateArn: 'arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERTIFICATE_ID',", "cloudfrontCertificateArn: '$CertificateArn',"
-                
-                Set-Content -Path $configPath -Value $configContent
-                
-                Write-Host "✅ Configuration updated!" -ForegroundColor Green
-                Write-Host ""
-            } else {
-                Write-Host ""
-                Write-Host "Skipping domain configuration. You can deploy without a custom domain," -ForegroundColor Yellow
-                Write-Host "and the app will be available at the CloudFront URL." -ForegroundColor Yellow
-                Write-Host ""
-                Read-Host "Press Enter to continue"
-            }
-        } else {
-            Write-Host ""
-            Write-Host "Proceeding without custom domain. App will use default CloudFront URL." -ForegroundColor Yellow
-            Write-Host ""
-        }
+        # Skip interactive domain setup - use existing config or CloudFront URL
+        Write-Host ""
+        Write-Host "Proceeding without custom domain. App will use default CloudFront URL." -ForegroundColor Yellow
+        Write-Host "(To configure a custom domain later, update infrastructure/config.ts manually)" -ForegroundColor Gray
+        Write-Host ""
     } else {
         Write-Host "✅ Domain and certificate configured" -ForegroundColor Green
         Write-Host ""
@@ -117,31 +89,12 @@ try {
     exit 1
 }
 
-# Step 3: Check SES configuration
-if (-not $SkipSESCheck) {
-    Write-Host "Step 3: Amazon SES Email Configuration" -ForegroundColor Yellow
-    Write-Host "---------------------------------------" -ForegroundColor Yellow
-    Write-Host ""
-
-    Write-Host "Important: Verify your email sending domain in SES" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  1. Go to: https://console.aws.amazon.com/ses/home?region=us-east-1" -ForegroundColor White
-    Write-Host "  2. Under 'Verified identities', verify 'jordan@westwavecreative.com'" -ForegroundColor White
-    Write-Host "  3. If SES is in sandbox mode, request production access to send to any email" -ForegroundColor White
-    Write-Host ""
-
-    $sesConfirm = Read-Host "Have you verified your SES sending identity? (y/n)"
-    if ($sesConfirm -ne "y") {
-        Write-Host ""
-        Write-Host "Please verify your SES identity before continuing." -ForegroundColor Yellow
-        Write-Host "You can continue deployment, but emails won't be sent until this is done." -ForegroundColor Yellow
-        Write-Host ""
-        Read-Host "Press Enter to continue anyway, or Ctrl+C to exit"
-    }
-} else {
-    Write-Host "Skipping SES check (--SkipSESCheck flag)" -ForegroundColor Yellow
-    Write-Host ""
-}
+# Step 3: Email configuration (Resend, not SES)
+Write-Host "Step 3: Email Configuration (Resend)" -ForegroundColor Yellow
+Write-Host "---------------------------------------" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Using Resend for email sending (RESEND_API_KEY from .env)" -ForegroundColor Cyan
+Write-Host ""
 
 # Step 4: Deploy infrastructure
 if (-not $SkipInfrastructure) {
@@ -160,13 +113,34 @@ if (-not $SkipInfrastructure) {
     Write-Host "  • CloudFront distribution for frontend" -ForegroundColor White
     Write-Host ""
     
-    Write-Host "⚠️  Note: This will incur AWS charges beyond the free tier." -ForegroundColor Yellow
+    Write-Host "[INFO] This will incur AWS charges beyond the free tier." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Proceeding with deployment..." -ForegroundColor Cyan
     Write-Host ""
     
-    $deployConfirm = Read-Host "Continue with deployment? (y/n)"
-    if ($deployConfirm -ne "y") {
-        Write-Host "Deployment cancelled." -ForegroundColor Red
-        exit 0
+    Write-Host ""
+    Write-Host "Loading RESEND_API_KEY from .env.local or .env..." -ForegroundColor Yellow
+    $envFileToRead = $null
+    if (Test-Path ".env.local") {
+        $envFileToRead = ".env.local"
+    } elseif (Test-Path ".env") {
+        $envFileToRead = ".env"
+    }
+
+    if ($envFileToRead) {
+        $envContent = Get-Content $envFileToRead -Raw
+        if ($envContent -match 'RESEND_API_KEY\s*=\s*(.+)') {
+            $env:RESEND_API_KEY = $matches[1].Trim()
+            Write-Host "[SUCCESS] RESEND_API_KEY loaded from $envFileToRead" -ForegroundColor Green
+        } else {
+            Write-Host "[WARNING] RESEND_API_KEY not found in $envFileToRead" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "[WARNING] No .env.local or .env file found" -ForegroundColor Yellow
+    }
+    
+    if (-not $env:RESEND_API_KEY) {
+        Write-Host "[WARNING] RESEND_API_KEY is not set - emails will not send!" -ForegroundColor Red
     }
     
     Write-Host ""
@@ -186,7 +160,11 @@ if (-not $SkipInfrastructure) {
     
     Write-Host ""
     Write-Host "Deploying to AWS (this may take 10-15 minutes)..." -ForegroundColor Yellow
-    npm run deploy:prod -- -c env=prod
+    $resendStatus = if ($env:RESEND_API_KEY) { 'SET' } else { 'NOT SET' }
+    Write-Host "  (RESEND_API_KEY is $resendStatus)" -ForegroundColor Gray
+    
+    # Run CDK deploy (script already includes --context env=prod)
+    npm run deploy:prod
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Deployment failed" -ForegroundColor Red
@@ -197,10 +175,26 @@ if (-not $SkipInfrastructure) {
     Pop-Location
     
     Write-Host ""
+    Write-Host "Verifying Resend API key in production Lambda..." -ForegroundColor Yellow
+    $query = "Stacks[0].Outputs[?OutputKey=='JobDock-prod-DataLambdaName'].OutputValue"
+    $lambdaName = aws cloudformation describe-stacks --stack-name "JobDockStack-prod" --query $query --output text 2>$null
+    if ($lambdaName) {
+        $resendKey = aws lambda get-function-configuration --function-name $lambdaName --query "Environment.Variables.RESEND_API_KEY" --output text 2>$null
+        if ($resendKey -and $resendKey -ne "null" -and $resendKey -ne "") {
+            Write-Host "[SUCCESS] RESEND_API_KEY is set in production Lambda" -ForegroundColor Green
+        } else {
+            Write-Host "[ERROR] RESEND_API_KEY is NOT set in production Lambda!" -ForegroundColor Red
+            Write-Host "   Emails will not send. Please redeploy with RESEND_API_KEY set." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "[WARNING] Could not verify Lambda configuration (stack may still be deploying)" -ForegroundColor Yellow
+    }
+    
+    Write-Host ""
     Write-Host "✅ Infrastructure deployed successfully!" -ForegroundColor Green
     Write-Host ""
 } else {
-    Write-Host "Skipping infrastructure deployment (--SkipInfrastructure flag)" -ForegroundColor Yellow
+    Write-Host "Skipping infrastructure deployment (`--SkipInfrastructure flag)" -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -214,7 +208,9 @@ npm install
 
 Write-Host ""
 Write-Host "Pulling CloudFormation outputs to .env files..." -ForegroundColor Yellow
-npm run sync:aws:env -- --env=prod --region=us-east-1
+# NOTE: npm on Windows can treat "--env/--region" as npm CLI flags and NOT pass them to the script.
+# Use npx directly so the arguments reliably reach scripts/sync-aws-env.ts.
+npx --yes tsx scripts/sync-aws-env.ts --env=prod --region=us-east-1
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Environment variables synced" -ForegroundColor Green
@@ -240,7 +236,7 @@ if (-not $SkipMigrations) {
         exit 1
     }
 } else {
-    Write-Host "Skipping migrations (--SkipMigrations flag)" -ForegroundColor Yellow
+    Write-Host "Skipping migrations (`--SkipMigrations flag)" -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -289,7 +285,7 @@ if (-not $SkipFrontend) {
         Write-Host ""
     }
 } else {
-    Write-Host "Skipping frontend deployment (--SkipFrontend flag)" -ForegroundColor Yellow
+    Write-Host "Skipping frontend deployment (`--SkipFrontend flag)" -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -310,12 +306,12 @@ Write-Host "API URL: $apiUrl" -ForegroundColor Cyan
 Write-Host "Cognito User Pool: $userPoolId" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Visit the frontend URL to test your deployment" -ForegroundColor White
-Write-Host "  2. Create your first user account" -ForegroundColor White
-Write-Host "  3. Set up billing alerts in AWS Console" -ForegroundColor White
-Write-Host "  4. Configure your DNS if using a custom domain" -ForegroundColor White
+Write-Host 'Next steps:' -ForegroundColor Yellow
+Write-Host '  1. Visit the frontend URL to test your deployment' -ForegroundColor White
+Write-Host '  2. Create your first user account' -ForegroundColor White
+Write-Host '  3. Set up billing alerts in AWS Console' -ForegroundColor White
+Write-Host '  4. Configure your DNS if using a custom domain' -ForegroundColor White
 Write-Host ""
-Write-Host "For future deployments, use:" -ForegroundColor Cyan
-Write-Host "  .\deploy-production.ps1 -SkipInfrastructure -SkipDomainCheck -SkipMigrations" -ForegroundColor White
+Write-Host 'For future deployments, use:' -ForegroundColor Cyan
+Write-Host '  .\deploy-production.ps1 -SkipInfrastructure -SkipDomainCheck -SkipMigrations' -ForegroundColor White
 Write-Host ""
