@@ -97,6 +97,7 @@ const Calendar = ({
   const dragOriginRef = useRef<HTMLElement | null>(null)
   const isDraggingRef = useRef(false) // True only after crossing drag threshold
   const justDraggedRef = useRef(false) // Used to suppress the post-drag click
+  const [justFinishedDrag, setJustFinishedDrag] = useState(false) // Disable transitions after drop
 
   const { updateJob } = useJobStore()
 
@@ -130,6 +131,18 @@ const Calendar = ({
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Disable text selection globally when dragging
+  useEffect(() => {
+    if (dragState.isDragging) {
+      document.body.style.userSelect = 'none'
+      document.body.style.webkitUserSelect = 'none'
+      return () => {
+        document.body.style.userSelect = ''
+        document.body.style.webkitUserSelect = ''
+      }
+    }
+  }, [dragState.isDragging])
 
   useEffect(() => {
     setSelectedDate(currentDate)
@@ -347,6 +360,8 @@ const Calendar = ({
     // Clear drag state and preview
     isDraggingRef.current = false
     dragOriginRef.current = null
+    setJustFinishedDrag(true)
+    setDragGhost(null) // Clear ghost immediately
     setDragState({
       job: null,
       type: null,
@@ -361,6 +376,11 @@ const Calendar = ({
     setPreviewEndTime(null)
     setDragOverDate(null)
     setDragTargetDay(null)
+
+    // Re-enable transitions after a brief delay (allows card to appear at new position without animation)
+    setTimeout(() => {
+      setJustFinishedDrag(false)
+    }, 100)
   }, [dragState, previewStartTime, dragTargetDay, updateJob])
 
   const handleResizeDrop = useCallback(
@@ -389,6 +409,7 @@ const Calendar = ({
       // Clear drag state and preview
       isDraggingRef.current = false
       dragOriginRef.current = null
+      setJustFinishedDrag(true)
       setDragState({
         job: null,
         type: null,
@@ -400,6 +421,11 @@ const Calendar = ({
         originalEndTime: null,
       })
       setPreviewEndTime(null)
+
+      // Re-enable transitions after a brief delay
+      setTimeout(() => {
+        setJustFinishedDrag(false)
+      }, 50)
     },
     [dragState, updateJob]
   )
@@ -557,7 +583,7 @@ const Calendar = ({
         isDraggingRef.current = false
         dragOriginRef.current = null
         setDragOffset({ x: 0, y: 0 })
-        setDragGhost(null)
+        // Don't clear ghost yet - let handleMoveDrop handle it
         // Save the moved job
         handleMoveDrop()
       } else if (
@@ -589,6 +615,7 @@ const Calendar = ({
         justDraggedRef.current = true
         dragOriginRef.current = null
         setDragOffset({ x: 0, y: 0 })
+        setJustFinishedDrag(true)
         setDragGhost(null)
         setDragState({
           job: null,
@@ -601,6 +628,11 @@ const Calendar = ({
           originalEndTime: null,
         })
         setDragOverDate(null)
+
+        // Re-enable transitions after a brief delay
+        setTimeout(() => {
+          setJustFinishedDrag(false)
+        }, 50)
       }
     }
 
@@ -649,7 +681,7 @@ const Calendar = ({
             return (
               <div
                 key={hour}
-                className="border-b border-primary-blue/30 min-h-[60px] md:min-h-[80px] relative"
+                className="border-b border-primary-blue/30 min-h-[60px] md:min-h-[80px] relative select-none"
                 data-drop-date={selectedDate.toISOString()}
                 data-drop-hour={hour}
                 onDragOver={e => {
@@ -717,7 +749,7 @@ const Calendar = ({
                         key={job.id}
                         className={cn(
                           'absolute rounded-lg border-l-4 select-none group',
-                          isDragging ? 'z-[100] shadow-2xl' : 'z-10',
+                          isDragging ? 'z-0' : 'z-10',
                           dragState.job && !isDragging && 'pointer-events-none',
                           job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
                           job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
@@ -734,9 +766,10 @@ const Calendar = ({
                           transform: isMoving
                             ? `translate3d(${translateX}px, ${translateY}px, 0)`
                             : undefined,
-                          transition: isMoving ? 'none' : 'all 0.2s ease',
+                          transition: isMoving || justFinishedDrag ? 'none' : 'all 0.2s ease',
                           willChange: isMoving ? 'transform' : undefined,
-                          opacity: isMoving && dragState.isDragging ? 0.15 : 1,
+                          opacity: isMoving && dragState.isDragging ? 0 : 1,
+                          pointerEvents: isMoving && dragState.isDragging ? 'none' : undefined,
                         }}
                       >
                         {/* Main content area - draggable */}
@@ -888,7 +921,7 @@ const Calendar = ({
                       return (
                         <div
                           key={hour}
-                          className="h-12 md:h-20 border-b border-primary-blue/30 relative"
+                          className="h-12 md:h-20 border-b border-primary-blue/30 relative select-none"
                           data-drop-date={day.toISOString()}
                           data-drop-hour={hour}
                           onDragOver={e => {
@@ -957,7 +990,7 @@ const Calendar = ({
                                 key={job.id}
                                 className={cn(
                                   'absolute rounded text-xs border-l-2 select-none group',
-                                  isDragging ? 'z-[100] shadow-2xl' : 'z-10',
+                                  isDragging ? 'z-0' : 'z-10',
                                   dragState.job && !isDragging && 'pointer-events-none',
                                   job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
                                   job.status === 'in-progress' &&
@@ -975,8 +1008,12 @@ const Calendar = ({
                                   transform: isMoving
                                     ? `translate3d(${translateX}px, ${translateY}px, 0)`
                                     : undefined,
-                                  transition: isMoving ? 'none' : 'all 0.2s ease',
+                                  transition:
+                                    isMoving || justFinishedDrag ? 'none' : 'all 0.2s ease',
                                   willChange: isMoving ? 'transform' : undefined,
+                                  opacity: isMoving && dragState.isDragging ? 0 : 1,
+                                  pointerEvents:
+                                    isMoving && dragState.isDragging ? 'none' : undefined,
                                 }}
                               >
                                 {/* Main content area - draggable */}
@@ -1104,7 +1141,7 @@ const Calendar = ({
                 key={day.toISOString()}
                 className={cn(
                   scaleSettings.minHeight,
-                  'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative',
+                  'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative select-none',
                   isToday(day) && 'bg-primary-gold/10',
                   isSelected && 'ring-2 ring-primary-gold',
                   isDropTarget && 'bg-primary-gold/20 ring-2 ring-primary-gold'
@@ -1209,8 +1246,15 @@ const Calendar = ({
                             dragState.job?.id === job.id &&
                             dragState.type === 'month-move' &&
                             dragState.isDragging
-                              ? 0.15
+                              ? 0
                               : undefined,
+                          pointerEvents:
+                            dragState.job?.id === job.id &&
+                            dragState.type === 'month-move' &&
+                            dragState.isDragging
+                              ? 'none'
+                              : undefined,
+                          transition: justFinishedDrag ? 'none' : undefined,
                         }}
                         title={job.title}
                       >
@@ -1241,7 +1285,7 @@ const Calendar = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-primary-dark-secondary rounded-lg border border-primary-blue overflow-hidden">
+    <div className="flex flex-col h-full bg-primary-dark-secondary rounded-lg border border-primary-blue overflow-hidden select-none">
       {/* Drag ghost overlay (follows pointer for real-time movement) */}
       {dragGhost?.isVisible && dragState.job && (
         <div

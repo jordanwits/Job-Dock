@@ -911,7 +911,8 @@ const SchedulingPage = () => {
                         }}
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all touch-none"
                         style={{
-                          opacity: isDragging ? 0.15 : undefined,
+                          opacity: isDragging ? 0 : undefined,
+                          pointerEvents: isDragging ? 'none' : undefined,
                         }}
                         title="Drag to calendar to schedule"
                       >
