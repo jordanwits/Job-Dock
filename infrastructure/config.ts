@@ -1,6 +1,6 @@
 /**
  * Infrastructure Configuration
- * 
+ *
  * Configure your AWS infrastructure settings here
  */
 
@@ -13,6 +13,9 @@ export interface Config {
   email?: string
   emailFromAddress?: string
   cloudfrontCertificateArn?: string
+  network: {
+    natStrategy: 'gateway' | 'instance' // 'instance' saves ~$10/mo but less HA, 'gateway' for production scale
+  }
   database: {
     engine: 'aurora-postgresql' | 'rds-postgresql'
     minCapacity?: number // ACU (Aurora Capacity Units) - only for Aurora
@@ -41,6 +44,9 @@ export const configs: Record<string, Config> = {
     region: 'us-east-1',
     defaultTenantId: 'demo-tenant',
     emailFromAddress: 'noreply@thejobdock.com',
+    network: {
+      natStrategy: 'instance', // Cost-optimized: ~$3/mo vs ~$32/mo for gateway
+    },
     database: {
       engine: 'rds-postgresql',
       instanceClass: 't3',
@@ -64,6 +70,9 @@ export const configs: Record<string, Config> = {
     env: 'staging',
     region: 'us-east-1',
     emailFromAddress: 'noreply@thejobdock.com',
+    network: {
+      natStrategy: 'gateway', // Use gateway for staging to test production-like setup
+    },
     database: {
       engine: 'aurora-postgresql',
       minCapacity: 1,
@@ -89,6 +98,9 @@ export const configs: Record<string, Config> = {
     // Custom domain for Vercel deployment
     domain: 'thejobdock.com',
     emailFromAddress: 'noreply@thejobdock.com',
+    network: {
+      natStrategy: 'instance', // Cost-optimized for now. Change to 'gateway' when scaling to many users
+    },
     database: {
       engine: 'rds-postgresql',
       instanceClass: 't3',
@@ -113,4 +125,3 @@ export const configs: Record<string, Config> = {
 export function getConfig(env: string = 'dev'): Config {
   return configs[env] || configs.dev
 }
-

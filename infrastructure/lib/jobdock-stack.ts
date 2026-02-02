@@ -40,9 +40,11 @@ export class JobDockStack extends cdk.Stack {
     // ============================================
     // 1. VPC & Networking
     // ============================================
+    const useNatInstance = config.network.natStrategy === 'instance'
+
     this.vpc = new ec2.Vpc(this, 'VPC', {
       maxAzs: 2, // Multi-AZ for high availability
-      natGateways: config.env === 'prod' ? 2 : 1, // Redundant NAT for prod
+      natGateways: useNatInstance ? 0 : config.env === 'prod' ? 2 : 1, // Use NAT instance for cost savings
       subnetConfiguration: [
         {
           cidrMask: 24,
@@ -56,6 +58,83 @@ export class JobDockStack extends cdk.Stack {
         },
       ],
     })
+
+    // Create NAT Instance if using instance strategy (saves ~$10/mo vs NAT Gateway)
+    if (useNatInstance) {
+      // Use Amazon Linux 2023 with NAT configured
+      const natInstanceSecurityGroup = new ec2.SecurityGroup(this, 'NatInstanceSecurityGroup', {
+        vpc: this.vpc,
+        description: 'Security group for NAT instance',
+        allowAllOutbound: true,
+      })
+
+      // Allow traffic from private subnets
+      natInstanceSecurityGroup.addIngressRule(
+        ec2.Peer.ipv4(this.vpc.vpcCidrBlock),
+        ec2.Port.allTraffic(),
+        'Allow traffic from VPC'
+      )
+
+      // Use t4g.nano for cost optimization (~$3/mo)
+      const natInstance = new ec2.Instance(this, 'NatInstance', {
+        vpc: this.vpc,
+        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.NANO),
+        machineImage: ec2.MachineImage.latestAmazonLinux2023({
+          cpuType: ec2.AmazonLinuxCpuType.ARM_64,
+        }),
+        vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+        securityGroup: natInstanceSecurityGroup,
+        sourceDestCheck: false, // Required for NAT
+        userData: ec2.UserData.custom(`#!/bin/bash
+# Enable IP forwarding
+echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+sysctl -p
+
+# Configure NAT
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+iptables -A FORWARD -i eth0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -i eth0 -o eth0 -j ACCEPT
+
+# Persist iptables rules
+mkdir -p /etc/iptables
+iptables-save > /etc/iptables/rules.v4
+
+# Restore on boot
+cat > /etc/systemd/system/iptables-restore.service <<EOF
+[Unit]
+Description=Restore iptables rules
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/iptables-restore /etc/iptables/rules.v4
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable iptables-restore.service
+`),
+      })
+
+      // Add route from private subnets to NAT instance (replaces NAT Gateway route)
+      this.vpc.privateSubnets.forEach((subnet, index) => {
+        new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
+          routeTableId: subnet.routeTable.routeTableId,
+          destinationCidrBlock: '0.0.0.0/0',
+          instanceId: natInstance.instanceId,
+        })
+      })
+
+      new cdk.CfnOutput(this, 'NatInstanceId', {
+        value: natInstance.instanceId,
+        description: 'NAT Instance ID (change to NAT Gateway when scaling)',
+        exportName: `JobDock-${config.env}-NatInstanceId`,
+      })
+    }
+
+    // Helper to select correct private subnet type
+    const privateSubnetSelection = { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
 
     // Security Group for Database
     const dbSecurityGroup = new ec2.SecurityGroup(this, 'DatabaseSecurityGroup', {
@@ -84,9 +163,7 @@ export class JobDockStack extends cdk.Stack {
     const databaseSubnetGroup = new rds.SubnetGroup(this, 'DatabaseSubnetGroup', {
       vpc: this.vpc,
       description: 'Subnet group for database',
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      vpcSubnets: privateSubnetSelection,
     })
 
     // Use regular RDS PostgreSQL for dev/prod (Free Tier eligible)
@@ -108,9 +185,7 @@ export class JobDockStack extends cdk.Stack {
           ec2.InstanceSize[instanceSize as keyof typeof ec2.InstanceSize]
         ),
         vpc: this.vpc,
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        },
+        vpcSubnets: privateSubnetSelection,
         subnetGroup: databaseSubnetGroup,
         securityGroups: [dbSecurityGroup],
         databaseName: 'jobdock',
@@ -132,9 +207,7 @@ export class JobDockStack extends cdk.Stack {
         }),
         defaultDatabaseName: 'jobdock',
         vpc: this.vpc,
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        },
+        vpcSubnets: privateSubnetSelection,
         subnetGroup: databaseSubnetGroup,
         securityGroups: [dbSecurityGroup],
         writer: rds.ClusterInstance.serverlessV2('writer', {
@@ -389,9 +462,7 @@ export class JobDockStack extends cdk.Stack {
       handler: 'handler',
       bundling: commonBundlingOptions,
       vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      vpcSubnets: privateSubnetSelection,
       securityGroups: [lambdaSecurityGroup],
       role: lambdaRole,
       timeout: cdk.Duration.seconds(config.lambda.timeout),
@@ -441,9 +512,7 @@ export class JobDockStack extends cdk.Stack {
       handler: 'handler',
       bundling: commonBundlingOptions,
       vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      vpcSubnets: privateSubnetSelection,
       securityGroups: [lambdaSecurityGroup],
       role: lambdaRole,
       timeout: cdk.Duration.seconds(config.lambda.timeout),
@@ -493,9 +562,7 @@ export class JobDockStack extends cdk.Stack {
       handler: 'handler',
       bundling: commonBundlingOptions,
       vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      vpcSubnets: privateSubnetSelection,
       securityGroups: [lambdaSecurityGroup],
       timeout: cdk.Duration.seconds(300), // 5 minutes for migrations
       memorySize: 1024, // More memory for Prisma
@@ -525,9 +592,7 @@ export class JobDockStack extends cdk.Stack {
       handler: 'handler',
       bundling: commonBundlingOptions,
       vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      vpcSubnets: privateSubnetSelection,
       securityGroups: [lambdaSecurityGroup],
       role: lambdaRole,
       timeout: cdk.Duration.minutes(5), // Allow time for processing many jobs
