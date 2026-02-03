@@ -39,7 +39,7 @@ interface CalendarProps {
 
 interface DragState {
   job: Job | null
-  type: 'move' | 'resize' | 'month-move' | null
+  type: 'move' | 'resize' | 'month-move' | 'week-all-day-move' | null
   startY: number
   startX: number
   grabOffsetY: number // Pointer offset from top of card on drag start (aligns drop time with UI)
@@ -188,11 +188,45 @@ const Calendar = ({
     })
   }
 
-  // Get jobs for a time slot (for day/week view)
+  // Check if job spans multiple calendar days
+  const isMultiDayJob = (job: Job): boolean => {
+    if (!job.startTime || !job.endTime) return false
+    const start = startOfDay(new Date(job.startTime))
+    const end = startOfDay(new Date(job.endTime))
+    return start.getTime() !== end.getTime()
+  }
+
+  // Get all dates a job spans within visible calendar range
+  const getJobDateRange = (job: Job, calendarStart: Date, calendarEnd: Date): Date[] => {
+    if (!job.startTime || !job.endTime) return []
+    const jobStart = startOfDay(new Date(job.startTime))
+    const jobEnd = startOfDay(new Date(job.endTime))
+    const rangeStart = jobStart > calendarStart ? jobStart : calendarStart
+    const rangeEnd = jobEnd < calendarEnd ? jobEnd : calendarEnd
+    if (rangeStart > rangeEnd) return []
+    return eachDayOfInterval({ start: rangeStart, end: rangeEnd })
+  }
+
+  // Get jobs active on a specific date (for day/week view)
+  const getJobsActiveOnDate = (date: Date): Job[] => {
+    return jobs.filter(job => {
+      if (!job.startTime || !job.endTime) return false
+      const jobStart = new Date(job.startTime)
+      const jobEnd = new Date(job.endTime)
+      const targetDate = startOfDay(date)
+      const targetEnd = addDays(targetDate, 1)
+      // Job is active if it overlaps with the target date
+      return jobStart < targetEnd && jobEnd > targetDate
+    })
+  }
+
+  // Get jobs for a time slot (for day/week view) - excludes multi-day jobs
   const getJobsForTimeSlot = (date: Date, hour: number) => {
     return jobs.filter(job => {
       // Skip jobs without scheduled times
       if (!job.startTime) return false
+      // Skip multi-day jobs (they'll be shown as full-day bars)
+      if (isMultiDayJob(job)) return false
 
       const jobDate = new Date(job.startTime)
       return isSameDay(jobDate, date) && getHours(jobDate) === hour
@@ -307,7 +341,7 @@ const Calendar = ({
     }
 
     // Initialize drag ghost (fixed overlay that follows pointer) - only for move operations
-    if (type === 'move') {
+    if (type === 'move' || type === 'week-all-day-move') {
       setDragGhost({
         isVisible: false,
         x: rect.left,
@@ -337,7 +371,7 @@ const Calendar = ({
     })
     setDragOffset({ x: 0, y: 0 })
     // For week view, initialize target day
-    if (type === 'move') {
+    if (type === 'move' || type === 'week-all-day-move') {
       setDragTargetDay(new Date(job.startTime))
     }
   }
@@ -488,7 +522,11 @@ const Calendar = ({
       const clientY = e.clientY
       const deltaY = clientY - dragState.startY
       const deltaX = clientX - dragState.startX
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      // For week-all-day-move, only consider horizontal movement
+      const distance =
+        dragState.type === 'week-all-day-move'
+          ? Math.abs(deltaX)
+          : Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
       // Mark that pointer has moved (even if < 5px)
       if (!dragState.hasMoved && distance > 0) {
@@ -504,7 +542,7 @@ const Calendar = ({
       if (!dragState.isDragging) {
         isDraggingRef.current = true
         // Only show drag ghost for move operations, not resize
-        if (dragState.type === 'move') {
+        if (dragState.type === 'move' || dragState.type === 'week-all-day-move') {
           setDragGhost(prev => (prev ? { ...prev, isVisible: true } : prev))
         }
         // Capture pointer only once we commit to dragging
@@ -525,16 +563,29 @@ const Calendar = ({
 
       rafId = requestAnimationFrame(() => {
         // Update ghost position every frame so it looks "picked up" - only for move operations
-        if (dragState.type === 'move') {
+        if (dragState.type === 'move' || dragState.type === 'week-all-day-move') {
           setDragGhost(prev => {
             if (!prev) return prev
+            // For week-all-day-move, only update X position (horizontal movement)
+            if (dragState.type === 'week-all-day-move') {
+              return { ...prev, x: clientX - prev.offsetX, y: prev.y }
+            }
             return { ...prev, x: clientX - prev.offsetX, y: clientY - prev.offsetY }
           })
         }
 
         // Smooth "picked up" movement (pixel-perfect)
-        if (dragState.type === 'move' || dragState.type === 'month-move') {
-          setDragOffset({ x: deltaX, y: deltaY })
+        if (
+          dragState.type === 'move' ||
+          dragState.type === 'month-move' ||
+          dragState.type === 'week-all-day-move'
+        ) {
+          // For week-all-day-move, only allow horizontal movement
+          if (dragState.type === 'week-all-day-move') {
+            setDragOffset({ x: deltaX, y: 0 })
+          } else {
+            setDragOffset({ x: deltaX, y: deltaY })
+          }
         }
 
         // Use the measured slot height from drag start for accurate calculations
@@ -565,6 +616,15 @@ const Calendar = ({
               }
             })
           }
+        } else if (dragState.type === 'week-all-day-move' && dragState.originalStartTime) {
+          // For week view all-day jobs: Only detect which day column we're over (horizontal movement only)
+          weekColumnsRef.current.forEach((rect, dayIndex) => {
+            if (clientX >= rect.left && clientX <= rect.right) {
+              const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 })
+              const targetDay = addDays(weekStart, dayIndex)
+              setDragTargetDay(targetDay)
+            }
+          })
         } else if (dragState.type === 'month-move' && dragState.originalStartTime) {
           // For month view: Use elementFromPoint to detect drop target
           const element = document.elementFromPoint(clientX, clientY)
@@ -640,6 +700,63 @@ const Calendar = ({
         const deltaY = e.clientY - dragState.startY
         const finalStartTime = computeNewStartTimeFromDelta(deltaY)
         handleMoveDrop(finalStartTime)
+      } else if (
+        dragState.type === 'week-all-day-move' &&
+        dragTargetDay &&
+        dragState.job.startTime &&
+        dragState.job.endTime
+      ) {
+        // Handle week view all-day job drop - only change date, keep time
+        const originalStart = new Date(dragState.originalStartTime!)
+        const originalEnd = new Date(dragState.originalEndTime!)
+        const duration = originalEnd.getTime() - originalStart.getTime()
+
+        // Calculate the day offset
+        const originalStartDay = startOfDay(originalStart)
+        const targetStartDay = startOfDay(dragTargetDay)
+        const dayOffset = Math.round(
+          (targetStartDay.getTime() - originalStartDay.getTime()) / (24 * 60 * 60 * 1000)
+        )
+
+        // Only update if the day actually changed
+        if (dayOffset !== 0) {
+          const newStartTime = addDays(originalStart, dayOffset)
+          const newEndTime = addDays(originalEnd, dayOffset)
+
+          updateJob({
+            id: dragState.job.id,
+            startTime: newStartTime.toISOString(),
+            endTime: newEndTime.toISOString(),
+          }).catch(error => {
+            console.error('Failed to move job:', error)
+          })
+        }
+
+        // Clear drag state
+        isDraggingRef.current = false
+        justDraggedRef.current = true
+        dragOriginRef.current = null
+        setDragOffset({ x: 0, y: 0 })
+        setJustFinishedDrag(true)
+        setDragGhost(null)
+        setDragState({
+          job: null,
+          type: null,
+          startY: 0,
+          startX: 0,
+          grabOffsetY: 0,
+          slotHeight: 60,
+          isDragging: false,
+          hasMoved: false,
+          originalStartTime: null,
+          originalEndTime: null,
+        })
+        setDragTargetDay(null)
+
+        // Re-enable transitions after a brief delay
+        setTimeout(() => {
+          setJustFinishedDrag(false)
+        }, 50)
       } else if (
         dragState.type === 'month-move' &&
         dragOverDate &&
@@ -719,7 +836,8 @@ const Calendar = ({
 
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i)
-    const dayJobs = getJobsForDate(selectedDate)
+    const allDayJobs = getJobsActiveOnDate(selectedDate).filter(job => isMultiDayJob(job))
+    const dayJobs = getJobsForDate(selectedDate).filter(job => !isMultiDayJob(job))
     const jobLayout = calculateJobLayout(dayJobs)
 
     return (
@@ -731,6 +849,59 @@ const Calendar = ({
             </h2>
           </div>
         </div>
+
+        {/* All-day / Multi-day jobs section */}
+        {allDayJobs.length > 0 && (
+          <div className="border-b border-primary-blue/30 bg-primary-dark-secondary/50">
+            <div className="p-2 md:p-3">
+              <div className="text-xs md:text-sm font-medium text-primary-light/70 mb-2">
+                All Day
+              </div>
+              <div className="space-y-1">
+                {allDayJobs.map(job => {
+                  const jobStart = new Date(job.startTime!)
+                  const jobEnd = new Date(job.endTime!)
+                  const isStartDay = isSameDay(jobStart, selectedDate)
+                  const isEndDay = isSameDay(jobEnd, selectedDate)
+                  const dateRange =
+                    isStartDay && isEndDay
+                      ? format(selectedDate, 'MMM d')
+                      : isStartDay
+                        ? `${format(jobStart, 'MMM d')} - ${format(jobEnd, 'MMM d')}`
+                        : isEndDay
+                          ? `${format(jobStart, 'MMM d')} - ${format(jobEnd, 'MMM d')}`
+                          : `${format(jobStart, 'MMM d')} - ${format(jobEnd, 'MMM d')}`
+
+                  return (
+                    <div
+                      key={job.id}
+                      className={cn(
+                        'rounded-lg border-l-4 p-2 cursor-pointer hover:opacity-90 transition-all',
+                        job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
+                        job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
+                        job.status === 'completed' && 'bg-green-500/20 border-green-500',
+                        job.status === 'cancelled' && 'bg-red-500/20 border-red-500',
+                        job.status === 'pending-confirmation' &&
+                          'bg-orange-500/20 border-orange-500'
+                      )}
+                      onClick={e => {
+                        e.stopPropagation()
+                        onJobClick(job)
+                      }}
+                    >
+                      <div className="text-sm font-medium text-primary-light">{job.title}</div>
+                      <div className="text-xs text-primary-light/70">{dateRange}</div>
+                      {job.contactName && (
+                        <div className="text-xs text-primary-light/60">{job.contactName}</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="relative">
           {hours.map(hour => {
             const timeSlotJobs = getJobsForTimeSlot(selectedDate, hour)
@@ -904,6 +1075,21 @@ const Calendar = ({
               --slot-height: 80px;
             }
           }
+          .multi-day-job-bar {
+            /* When start-index is 0 (rendering in the start column), span from this column */
+            width: calc(var(--span-days) * (100px + 1px) - 1px);
+            right: auto;
+          }
+          @media (min-width: 768px) {
+            .multi-day-job-bar {
+              /* On desktop, columns are flex-1, so use percentage */
+              width: calc(var(--span-days) * ((100vw - 3rem) / 7 + 1px) - 1px);
+              top: var(--top-desktop, 0) !important;
+            }
+            .single-day-job-after-multiday {
+              margin-top: var(--margin-top-desktop, 0) !important;
+            }
+          }
         `}</style>
         <div className="flex-1 overflow-auto week-slot-height min-w-0" ref={weekViewRef}>
           <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
@@ -916,7 +1102,13 @@ const Calendar = ({
           <div className="flex overflow-x-auto min-w-0">
             {/* Time column */}
             <div className="w-12 md:w-20 flex-shrink-0 border-r border-primary-blue/30 sticky left-0 bg-primary-dark-secondary z-10">
+              {/* Empty space for day headers */}
               <div className="h-10 md:h-12 border-b border-primary-blue/30"></div>
+              {/* All-day slot label */}
+              <div className="h-7 md:h-9 border-b border-primary-blue/30 p-1 md:p-2 text-xs text-primary-light/70 font-normal">
+                All Day
+              </div>
+              {/* Time slots */}
               {hours.map(hour => (
                 <div
                   key={hour}
@@ -933,210 +1125,319 @@ const Calendar = ({
             </div>
 
             {/* Day columns */}
-            {weekDays.map((day, dayIndex) => {
-              const dayJobs = getJobsForDate(day)
-              const jobLayout = calculateJobLayout(dayJobs)
-              return (
-                <div
-                  key={day.toISOString()}
-                  data-day-column={dayIndex}
-                  className={cn(
-                    'w-[100px] md:flex-1 md:min-w-0 flex-shrink-0 border-r border-primary-blue/30 last:border-r-0',
-                    dragState.type === 'move' &&
-                      dragTargetDay &&
-                      isSameDay(dragTargetDay, day) &&
-                      'bg-primary-gold/5'
-                  )}
-                  ref={el => {
-                    if (el) {
-                      weekColumnsRef.current.set(dayIndex, el.getBoundingClientRect())
-                    }
-                  }}
-                >
-                  {/* Day header */}
+            <div className="flex flex-1 min-w-0">
+              {weekDays.map((day, dayIndex) => {
+                const dayJobs = getJobsForDate(day).filter(job => !isMultiDayJob(job))
+                const jobLayout = calculateJobLayout(dayJobs)
+                const allDayJobs = getJobsActiveOnDate(day).filter(job => isMultiDayJob(job))
+
+                return (
                   <div
+                    key={day.toISOString()}
+                    data-day-column={dayIndex}
                     className={cn(
-                      'h-10 md:h-12 border-b border-primary-blue/30 p-1 md:p-2 text-center cursor-pointer hover:bg-primary-blue/10',
-                      isToday(day) && 'bg-primary-gold/20'
+                      'w-[100px] md:flex-1 md:min-w-0 flex-shrink-0 border-r border-primary-blue/30 last:border-r-0 flex flex-col',
+                      dragState.type === 'move' &&
+                        dragTargetDay &&
+                        isSameDay(dragTargetDay, day) &&
+                        'bg-primary-gold/5'
                     )}
-                    onClick={() => onDateClick(day)}
+                    ref={el => {
+                      if (el) {
+                        weekColumnsRef.current.set(dayIndex, el.getBoundingClientRect())
+                      }
+                    }}
                   >
-                    <div className="text-xs text-primary-light/70">
-                      <span className="hidden sm:inline">{format(day, 'EEE')}</span>
-                      <span className="sm:hidden">{format(day, 'EEEEE')}</span>
-                    </div>
+                    {/* Day header */}
                     <div
                       className={cn(
-                        'text-xs md:text-sm font-medium',
-                        isToday(day) ? 'text-primary-gold' : 'text-primary-light',
-                        isSameDay(day, selectedDate) &&
-                          'ring-2 ring-primary-gold rounded-full w-5 h-5 md:w-6 md:h-6 mx-auto flex items-center justify-center'
+                        'h-10 md:h-12 border-b border-primary-blue/30 cursor-pointer hover:bg-primary-blue/10 flex-shrink-0',
+                        isToday(day) && 'bg-primary-gold/20'
                       )}
+                      onClick={() => onDateClick(day)}
                     >
-                      {format(day, 'd')}
+                      <div className="p-1 md:p-2 text-center w-full">
+                        <div className="text-xs text-primary-light/70">
+                          <span className="hidden sm:inline">{format(day, 'EEE')}</span>
+                          <span className="sm:hidden">{format(day, 'EEEEE')}</span>
+                        </div>
+                        <div
+                          className={cn(
+                            'text-xs md:text-sm font-medium',
+                            isToday(day) ? 'text-primary-gold' : 'text-primary-light',
+                            isSameDay(day, selectedDate) &&
+                              'ring-2 ring-primary-gold rounded-full w-5 h-5 md:w-6 md:h-6 mx-auto flex items-center justify-center'
+                          )}
+                        >
+                          {format(day, 'd')}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* All-day slot - dedicated row for multi-day jobs */}
+                    <div className="h-7 md:h-9 border-b border-primary-blue/30 relative flex-shrink-0 overflow-visible">
+                      {/* Render multi-day jobs on the first day they appear in this week */}
+                      {allDayJobs
+                        .filter(job => {
+                          if (!job.startTime || !job.endTime) return false
+                          const jobStartDay = startOfDay(new Date(job.startTime))
+                          const jobEndDay = startOfDay(new Date(job.endTime))
+
+                          // Calculate the first day this job appears in the week
+                          const firstDayInWeek = jobStartDay < weekStart ? weekStart : jobStartDay
+
+                          // Only render on the first day the job appears in this week
+                          return isSameDay(startOfDay(day), firstDayInWeek)
+                        })
+                        .map(job => {
+                          if (!job.startTime || !job.endTime) return null
+
+                          const jobStartDay = startOfDay(new Date(job.startTime))
+                          const jobEndDay = startOfDay(new Date(job.endTime))
+
+                          // Find which days in the week this job spans
+                          const visibleStart = jobStartDay < weekStart ? weekStart : jobStartDay
+                          const visibleEnd = jobEndDay > weekEnd ? weekEnd : jobEndDay
+
+                          // Find start and end day indices in the week
+                          const startDayIndex = weekDays.findIndex(d =>
+                            isSameDay(startOfDay(d), visibleStart)
+                          )
+                          const endDayIndex = weekDays.findIndex(d =>
+                            isSameDay(startOfDay(d), visibleEnd)
+                          )
+
+                          if (startDayIndex === -1 || endDayIndex === -1) return null
+
+                          const spanDays = endDayIndex - startDayIndex + 1
+                          const isDragging = dragState.job?.id === job.id
+                          const isMoving = isDragging && dragState.type === 'week-all-day-move'
+                          const translateX = isMoving ? dragOffset.x : 0
+                          const translateY = isMoving ? dragOffset.y : 0
+
+                          const isJobStart = isSameDay(jobStartDay, visibleStart)
+                          const isJobEnd = isSameDay(jobEndDay, visibleEnd)
+
+                          // Calculate position: negative left to span backwards from this column
+                          const columnOffset = dayIndex - startDayIndex
+                          // Each column is 100% of its container, plus 1px border between columns
+                          const leftOffset =
+                            columnOffset > 0 ? `calc(-${columnOffset} * (100% + 1px))` : '0.125rem'
+
+                          return (
+                            <div
+                              key={job.id}
+                              className={cn(
+                                'absolute multi-day-job-bar text-[10px] md:text-xs border-l-2 truncate cursor-grab active:cursor-grabbing hover:opacity-90 z-20 flex items-center',
+                                job.status === 'scheduled' &&
+                                  'bg-blue-500/20 border-blue-500 text-blue-300',
+                                job.status === 'in-progress' &&
+                                  'bg-yellow-500/20 border-yellow-500 text-yellow-300',
+                                job.status === 'completed' &&
+                                  'bg-green-500/20 border-green-500 text-green-300',
+                                job.status === 'cancelled' &&
+                                  'bg-red-500/20 border-red-500 text-red-300',
+                                job.status === 'pending-confirmation' &&
+                                  'bg-orange-500/20 border-orange-500 text-orange-300',
+                                isJobStart && 'rounded-l',
+                                isJobEnd && 'rounded-r'
+                              )}
+                              style={{
+                                left: leftOffset,
+                                top: 0,
+                                bottom: 0,
+                                width: `calc(${spanDays} * 100% + ${spanDays - 1} * 1px)`,
+                                paddingLeft: '0.125rem',
+                                paddingRight: '0.125rem',
+                                transform: isMoving
+                                  ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                                  : undefined,
+                                transition: isMoving || justFinishedDrag ? 'none' : 'all 0.2s ease',
+                                opacity: isMoving && dragState.isDragging ? 0.5 : 1,
+                              }}
+                              onPointerDown={e => {
+                                e.stopPropagation()
+                                handleDragStart(e, job, 'week-all-day-move')
+                              }}
+                              onClick={e => {
+                                e.stopPropagation()
+                                if (justDraggedRef.current) {
+                                  justDraggedRef.current = false
+                                  return
+                                }
+                                if (dragState.isDragging) return
+                                onJobClick(job)
+                              }}
+                              title={job.title}
+                            >
+                              {job.title}
+                            </div>
+                          )
+                        })}
+                    </div>
+
+                    {/* Time slots */}
+                    <div className="relative">
+                      {hours.map(hour => {
+                        const timeSlotJobs = getJobsForTimeSlot(day, hour)
+                        return (
+                          <div
+                            key={hour}
+                            className="h-12 md:h-20 border-b border-primary-blue/30 relative select-none"
+                            data-drop-date={day.toISOString()}
+                            data-drop-hour={hour}
+                            onDragOver={e => {
+                              e.preventDefault()
+                              e.currentTarget.classList.add('bg-primary-gold/10')
+                            }}
+                            onDragLeave={e => {
+                              e.currentTarget.classList.remove('bg-primary-gold/10')
+                            }}
+                            onDrop={e => {
+                              e.preventDefault()
+                              e.currentTarget.classList.remove('bg-primary-gold/10')
+                              const jobId = e.dataTransfer.getData('jobId')
+                              if (jobId && onUnscheduledDrop) {
+                                onUnscheduledDrop(jobId, day, hour)
+                              }
+                            }}
+                          >
+                            {timeSlotJobs.map(job => {
+                              // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
+                              if (!job.startTime || !job.endTime) return null
+
+                              const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
+                              const isDragging = dragState.job?.id === job.id
+                              const isResizing = isDragging && dragState.type === 'resize'
+                              const isMoving = isDragging && dragState.type === 'move'
+
+                              // Always use original job times for position
+                              const originalStartTime = new Date(job.startTime)
+                              const originalEndTime = new Date(job.endTime)
+
+                              // Calculate display times for the text
+                              const displayStartTime =
+                                isMoving && previewStartTime ? previewStartTime : originalStartTime
+                              const displayEndTime =
+                                isResizing && previewEndTime ? previewEndTime : originalEndTime
+
+                              // Position based on original job time
+                              const topOffset = getMinutes(originalStartTime)
+
+                              // Height based on duration (use preview end for resize)
+                              const originalStartMinutes =
+                                getHours(originalStartTime) * 60 + getMinutes(originalStartTime)
+                              const endMinutes =
+                                isResizing && previewEndTime
+                                  ? getHours(previewEndTime) * 60 + getMinutes(previewEndTime)
+                                  : getHours(originalEndTime) * 60 + getMinutes(originalEndTime)
+                              const duration = endMinutes - originalStartMinutes
+
+                              // Use CSS custom property for responsive height
+                              const height = (duration / 60) * 100
+                              const topPosition = (topOffset / 60) * 100
+
+                              // Calculate transform for move drag
+                              const translateX = isMoving ? dragOffset.x : 0
+                              const translateY = isMoving ? dragOffset.y : 0
+
+                              // Calculate width and position for overlapping events
+                              const widthPercent =
+                                layout.totalColumns > 1 ? 100 / layout.totalColumns : 100
+                              const leftPercent =
+                                layout.totalColumns > 1 ? layout.column * widthPercent : 0
+
+                              return (
+                                <div
+                                  key={job.id}
+                                  className={cn(
+                                    'absolute rounded text-xs border-l-2 select-none group',
+                                    isDragging ? 'z-0' : 'z-10',
+                                    dragState.job && !isDragging && 'pointer-events-none',
+                                    job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
+                                    job.status === 'in-progress' &&
+                                      'bg-yellow-500/20 border-yellow-500',
+                                    job.status === 'completed' &&
+                                      'bg-green-500/20 border-green-500',
+                                    job.status === 'cancelled' && 'bg-red-500/20 border-red-500',
+                                    job.status === 'pending-confirmation' &&
+                                      'bg-orange-500/20 border-orange-500'
+                                  )}
+                                  style={{
+                                    top: `calc(var(--slot-height) * ${topPosition} / 100)`,
+                                    height: `calc(var(--slot-height) * ${height} / 100)`,
+                                    left: `${leftPercent}%`,
+                                    width: `calc(${widthPercent}% - 0.25rem)`,
+                                    transform: isMoving
+                                      ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                                      : undefined,
+                                    transition:
+                                      isMoving || justFinishedDrag ? 'none' : 'all 0.2s ease',
+                                    willChange: isMoving ? 'transform' : undefined,
+                                    opacity: isMoving && dragState.isDragging ? 0 : 1,
+                                    pointerEvents:
+                                      isMoving && dragState.isDragging ? 'none' : undefined,
+                                  }}
+                                >
+                                  {/* Main content area - draggable */}
+                                  <div
+                                    className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto"
+                                    style={{ bottom: '16px' }}
+                                    onPointerDown={e => {
+                                      e.stopPropagation()
+                                      handleDragStart(e, job, 'move')
+                                    }}
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      if (justDraggedRef.current) {
+                                        justDraggedRef.current = false
+                                        return
+                                      }
+                                      if (dragState.isDragging) return
+                                      onJobClick(job)
+                                    }}
+                                  >
+                                    <div className="font-medium text-primary-light truncate pointer-events-none">
+                                      {job.title}
+                                    </div>
+                                    <div className="text-primary-light/70 truncate pointer-events-none">
+                                      <span className="hidden sm:inline">
+                                        {format(displayStartTime, 'h:mm a')}
+                                      </span>
+                                      <span className="sm:hidden">
+                                        {format(displayStartTime, 'h:mm')}
+                                      </span>
+                                      {(isResizing || isMoving) && (
+                                        <span className="hidden sm:inline">
+                                          {' '}
+                                          - {format(displayEndTime, 'h:mm a')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Resize handle - bottom 16px always accessible */}
+                                  <div
+                                    className="absolute bottom-0 left-0 right-0 cursor-ns-resize group-hover:bg-white/5 hover:!bg-white/10 transition-colors flex items-center justify-center touch-none"
+                                    style={{ height: '16px', zIndex: 20 }}
+                                    onPointerDown={e => {
+                                      e.stopPropagation()
+                                      handleDragStart(e, job, 'resize')
+                                    }}
+                                  >
+                                    <div className="w-6 h-0.5 bg-primary-light/30 group-hover:bg-primary-light/50 rounded-full pointer-events-none"></div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
-
-                  {/* Time slots */}
-                  <div className="relative">
-                    {hours.map(hour => {
-                      const timeSlotJobs = getJobsForTimeSlot(day, hour)
-                      return (
-                        <div
-                          key={hour}
-                          className="h-12 md:h-20 border-b border-primary-blue/30 relative select-none"
-                          data-drop-date={day.toISOString()}
-                          data-drop-hour={hour}
-                          onDragOver={e => {
-                            e.preventDefault()
-                            e.currentTarget.classList.add('bg-primary-gold/10')
-                          }}
-                          onDragLeave={e => {
-                            e.currentTarget.classList.remove('bg-primary-gold/10')
-                          }}
-                          onDrop={e => {
-                            e.preventDefault()
-                            e.currentTarget.classList.remove('bg-primary-gold/10')
-                            const jobId = e.dataTransfer.getData('jobId')
-                            if (jobId && onUnscheduledDrop) {
-                              onUnscheduledDrop(jobId, day, hour)
-                            }
-                          }}
-                        >
-                          {timeSlotJobs.map(job => {
-                            // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
-                            if (!job.startTime || !job.endTime) return null
-
-                            const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
-                            const isDragging = dragState.job?.id === job.id
-                            const isResizing = isDragging && dragState.type === 'resize'
-                            const isMoving = isDragging && dragState.type === 'move'
-
-                            // Always use original job times for position
-                            const originalStartTime = new Date(job.startTime)
-                            const originalEndTime = new Date(job.endTime)
-
-                            // Calculate display times for the text
-                            const displayStartTime =
-                              isMoving && previewStartTime ? previewStartTime : originalStartTime
-                            const displayEndTime =
-                              isResizing && previewEndTime ? previewEndTime : originalEndTime
-
-                            // Position based on original job time
-                            const topOffset = getMinutes(originalStartTime)
-
-                            // Height based on duration (use preview end for resize)
-                            const originalStartMinutes =
-                              getHours(originalStartTime) * 60 + getMinutes(originalStartTime)
-                            const endMinutes =
-                              isResizing && previewEndTime
-                                ? getHours(previewEndTime) * 60 + getMinutes(previewEndTime)
-                                : getHours(originalEndTime) * 60 + getMinutes(originalEndTime)
-                            const duration = endMinutes - originalStartMinutes
-
-                            // Use CSS custom property for responsive height
-                            const height = (duration / 60) * 100
-                            const topPosition = (topOffset / 60) * 100
-
-                            // Calculate transform for move drag
-                            const translateX = isMoving ? dragOffset.x : 0
-                            const translateY = isMoving ? dragOffset.y : 0
-
-                            // Calculate width and position for overlapping events
-                            const widthPercent =
-                              layout.totalColumns > 1 ? 100 / layout.totalColumns : 100
-                            const leftPercent =
-                              layout.totalColumns > 1 ? layout.column * widthPercent : 0
-
-                            return (
-                              <div
-                                key={job.id}
-                                className={cn(
-                                  'absolute rounded text-xs border-l-2 select-none group',
-                                  isDragging ? 'z-0' : 'z-10',
-                                  dragState.job && !isDragging && 'pointer-events-none',
-                                  job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
-                                  job.status === 'in-progress' &&
-                                    'bg-yellow-500/20 border-yellow-500',
-                                  job.status === 'completed' && 'bg-green-500/20 border-green-500',
-                                  job.status === 'cancelled' && 'bg-red-500/20 border-red-500',
-                                  job.status === 'pending-confirmation' &&
-                                    'bg-orange-500/20 border-orange-500'
-                                )}
-                                style={{
-                                  top: `calc(var(--slot-height) * ${topPosition} / 100)`,
-                                  height: `calc(var(--slot-height) * ${height} / 100)`,
-                                  left: `${leftPercent}%`,
-                                  width: `calc(${widthPercent}% - 0.25rem)`,
-                                  transform: isMoving
-                                    ? `translate3d(${translateX}px, ${translateY}px, 0)`
-                                    : undefined,
-                                  transition:
-                                    isMoving || justFinishedDrag ? 'none' : 'all 0.2s ease',
-                                  willChange: isMoving ? 'transform' : undefined,
-                                  opacity: isMoving && dragState.isDragging ? 0 : 1,
-                                  pointerEvents:
-                                    isMoving && dragState.isDragging ? 'none' : undefined,
-                                }}
-                              >
-                                {/* Main content area - draggable */}
-                                <div
-                                  className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto"
-                                  style={{ bottom: '16px' }}
-                                  onPointerDown={e => {
-                                    e.stopPropagation()
-                                    handleDragStart(e, job, 'move')
-                                  }}
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    if (justDraggedRef.current) {
-                                      justDraggedRef.current = false
-                                      return
-                                    }
-                                    if (dragState.isDragging) return
-                                    onJobClick(job)
-                                  }}
-                                >
-                                  <div className="font-medium text-primary-light truncate pointer-events-none">
-                                    {job.title}
-                                  </div>
-                                  <div className="text-primary-light/70 truncate pointer-events-none">
-                                    <span className="hidden sm:inline">
-                                      {format(displayStartTime, 'h:mm a')}
-                                    </span>
-                                    <span className="sm:hidden">
-                                      {format(displayStartTime, 'h:mm')}
-                                    </span>
-                                    {(isResizing || isMoving) && (
-                                      <span className="hidden sm:inline">
-                                        {' '}
-                                        - {format(displayEndTime, 'h:mm a')}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Resize handle - bottom 16px always accessible */}
-                                <div
-                                  className="absolute bottom-0 left-0 right-0 cursor-ns-resize group-hover:bg-white/5 hover:!bg-white/10 transition-colors flex items-center justify-center touch-none"
-                                  style={{ height: '16px', zIndex: 20 }}
-                                  onPointerDown={e => {
-                                    e.stopPropagation()
-                                    handleDragStart(e, job, 'resize')
-                                  }}
-                                >
-                                  <div className="w-6 h-0.5 bg-primary-light/30 group-hover:bg-primary-light/50 rounded-full pointer-events-none"></div>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </div>
       </>
@@ -1170,8 +1471,40 @@ const Calendar = ({
 
     const scaleSettings = getScaleSettings()
 
+    // Month view "all-day lane" sizing.
+    // Multi-day pills are absolutely positioned and can overflow into adjacent day cells.
+    // We reserve lane height in-flow so normal (timed) jobs never overlap those pills.
+    const monthLaneStepMobileRem = 1.25
+    const monthLaneStepDesktopRem = 1.5
+
+    // Group multi-day jobs by their first visible day to avoid duplicates
+    const multiDayJobMap = new Map<string, Job>()
+    jobs.forEach(job => {
+      if (job.startTime && job.endTime && isMultiDayJob(job)) {
+        const jobDates = getJobDateRange(job, calendarStart, calendarEnd)
+        if (jobDates.length > 0) {
+          const firstDate = jobDates[0].toISOString()
+          if (!multiDayJobMap.has(firstDate) || jobDates.length > 1) {
+            multiDayJobMap.set(job.id, job)
+          }
+        }
+      }
+    })
+    const multiDayJobs = Array.from(multiDayJobMap.values())
+
     return (
       <div className="flex-1 overflow-auto p-0.5">
+        <style>{`
+          /* Month view helpers for multi-day layout */
+          @media (min-width: 768px) {
+            .month-multi-day-pill {
+              top: var(--top-desktop, 0) !important;
+            }
+            .month-multiday-lane-spacer {
+              height: var(--spacer-height-desktop, 0) !important;
+            }
+          }
+        `}</style>
         <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
           <div className="p-3 md:p-4 text-center">
             <h2 className="text-base md:text-xl font-semibold text-primary-light">
@@ -1179,7 +1512,7 @@ const Calendar = ({
             </h2>
           </div>
         </div>
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 relative">
           {/* Week day headers */}
           {weekDays.map(day => (
             <div
@@ -1192,19 +1525,55 @@ const Calendar = ({
           ))}
 
           {/* Calendar days */}
-          {days.map(day => {
-            const dayJobs = getJobsForDate(day)
+          {days.map((day, dayIndex) => {
+            // Calculate which column this day is in (0-6)
+            const dayColumn = dayIndex % 7
+
+            // Get all jobs for this day
+            const allDayJobs = getJobsForDate(day)
+            // Separate single-day and multi-day jobs
+            const singleDayJobs = allDayJobs.filter(job => !isMultiDayJob(job))
+            const multiDayJobsForDay = allDayJobs.filter(job => isMultiDayJob(job))
+
+            // Calculate which multi-day jobs should render on this day (for rendering pills)
+            const multiDayJobsToRender = multiDayJobsForDay
+              .map(job => {
+                const jobDates = getJobDateRange(job, calendarStart, calendarEnd)
+                if (jobDates.length === 0) return null
+                const jobStartDay = startOfDay(new Date(job.startTime!))
+                const jobEndDay = startOfDay(new Date(job.endTime!))
+                const isJobStartDay = isSameDay(day, jobStartDay)
+                const isWeekStart = dayColumn === 0
+                const thisWeekStart = startOfWeek(day, { weekStartsOn: 0 })
+                const shouldRender =
+                  isJobStartDay ||
+                  (isWeekStart &&
+                    jobStartDay < thisWeekStart &&
+                    jobDates.some(d => isSameDay(d, day)))
+                if (!shouldRender) return null
+                return { job, jobStartDay, jobEndDay, isJobStartDay, jobDates }
+              })
+              .filter((item): item is NonNullable<typeof item> => item !== null)
+              .sort((a, b) => a.jobStartDay.getTime() - b.jobStartDay.getTime())
+
+            // Count ALL multi-day jobs active on this day (for spacing calculation)
+            // multiDayJobsForDay already includes all multi-day jobs that span this day,
+            // regardless of where their pill is rendered
+            const allMultiDayJobsActiveOnDay = multiDayJobsForDay.length
+
             const isCurrentMonth = isSameMonth(day, selectedDate)
             const isSelected = isSameDay(day, selectedDate)
             const isDropTarget =
               dragOverDate && isSameDay(dragOverDate, day) && dragState.type === 'month-move'
+            const isFirstColumn = dayColumn === 0
+            const isLastColumn = dayColumn === 6
 
             return (
               <div
                 key={day.toISOString()}
                 className={cn(
                   scaleSettings.minHeight,
-                  'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative select-none',
+                  'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative select-none overflow-visible',
                   isToday(day) && 'bg-primary-gold/10',
                   isSelected && 'ring-2 ring-primary-gold',
                   isDropTarget && 'bg-primary-gold/20 ring-2 ring-primary-gold'
@@ -1267,21 +1636,44 @@ const Calendar = ({
                 >
                   {format(day, 'd')}
                 </div>
-                <div className="space-y-0.5 md:space-y-1">
-                  {dayJobs.slice(0, scaleSettings.maxItems).map(job => {
-                    // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
-                    if (!job.startTime || !job.endTime) return null
+                <div className="space-y-0.5 md:space-y-1 relative z-10">
+                  {/* Multi-day job pills - handle week wrapping */}
+                  {multiDayJobsToRender.map((jobData, jobIndex) => {
+                    const { job, jobStartDay, jobEndDay, isJobStartDay, jobDates } = jobData
 
                     const isDragging = dragState.job?.id === job.id
                     const isMonthMoving = isDragging && dragState.type === 'month-move'
                     const translateX = isMonthMoving ? dragOffset.x : 0
                     const translateY = isMonthMoving ? dragOffset.y : 0
 
+                    // Calculate the segment: from this day to end of week or end of job, whichever comes first
+                    const thisWeekEnd = endOfWeek(day, { weekStartsOn: 0 })
+                    const segmentEnd = jobEndDay < thisWeekEnd ? jobEndDay : thisWeekEnd
+
+                    // Get all dates in this segment that are part of the job, starting from current day
+                    const segmentDates = eachDayOfInterval({ start: day, end: segmentEnd })
+                    const validSegmentDates = segmentDates.filter(d =>
+                      jobDates.some(jd => isSameDay(jd, d))
+                    )
+
+                    if (validSegmentDates.length === 0) return null
+
+                    // Calculate how many days this segment spans from the current day
+                    const segmentSpanDays = validSegmentDates.length
+                    const daysUntilEndOfRow = 7 - dayColumn
+                    const segmentSpansToEndOfRow = segmentSpanDays >= daysUntilEndOfRow
+                    const segmentEndsOnJobEnd =
+                      validSegmentDates[validSegmentDates.length - 1]?.getTime() ===
+                      jobEndDay.getTime()
+
+                    // Lane positioning for stacking multi-day segments
+                    const topOffsetMobile = jobIndex * monthLaneStepMobileRem
+                    const topOffsetDesktop = jobIndex * monthLaneStepDesktopRem
+
                     return (
                       <div
-                        key={job.id}
+                        key={`${job.id}-${day.toISOString()}`}
                         onPointerDown={e => {
-                          // Month view: use pointer-based drag for ALL devices (mouse + touch)
                           e.stopPropagation()
                           handleDragStart(e, job, 'month-move')
                         }}
@@ -1294,6 +1686,84 @@ const Calendar = ({
                           if (dragState.isDragging) return
                           onJobClick(job)
                         }}
+                        className={cn(
+                          'month-multi-day-pill text-[10px] md:text-xs p-0.5 md:p-1 leading-4 cursor-grab active:cursor-grabbing touch-none border-l-2 truncate',
+                          'hover:opacity-80',
+                          !isCurrentMonth && 'opacity-60',
+                          job.status === 'scheduled' &&
+                            'bg-blue-500/20 border-blue-500 text-blue-300',
+                          job.status === 'in-progress' &&
+                            'bg-yellow-500/20 border-yellow-500 text-yellow-300',
+                          job.status === 'completed' &&
+                            'bg-green-500/20 border-green-500 text-green-300',
+                          job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300',
+                          job.status === 'pending-confirmation' &&
+                            'bg-orange-500/20 border-orange-500 text-orange-300',
+                          isJobStartDay && 'rounded-l', // Rounded on left only if job starts here
+                          (segmentEndsOnJobEnd || segmentSpansToEndOfRow) && 'rounded-r' // Rounded on right if end of job or row
+                        )}
+                        style={
+                          {
+                            position: 'absolute',
+                            left: '0.125rem',
+                            top: `${topOffsetMobile}rem`,
+                            width: `calc(${Math.min(segmentSpanDays, daysUntilEndOfRow)} * (100% + 0.25rem + 1px) - 0.25rem)`,
+                            '--top-desktop': `${topOffsetDesktop}rem`,
+                            transform: isMonthMoving
+                              ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                              : undefined,
+                            transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
+                            willChange: isMonthMoving ? 'transform' : undefined,
+                            zIndex: isMonthMoving && dragState.isDragging ? 50 : 5,
+                            pointerEvents:
+                              isMonthMoving && dragState.isDragging ? 'none' : undefined,
+                          } as React.CSSProperties & { '--top-desktop': string }
+                        }
+                        title={job.title}
+                      >
+                        {isJobStartDay ? (
+                          <>
+                            <span className="hidden sm:inline">
+                              {format(new Date(job.startTime!), 'h:mm a')} {job.title}
+                            </span>
+                            <span className="sm:hidden">
+                              {format(new Date(job.startTime!), 'h:mm')}
+                            </span>
+                          </>
+                        ) : (
+                          <span>{job.title}</span>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* Reserve lane height for multi-day pills (prevents overlap with timed jobs). */}
+                  {allMultiDayJobsActiveOnDay > 0 && (
+                    <div
+                      aria-hidden="true"
+                      className="month-multiday-lane-spacer pointer-events-none"
+                      style={
+                        {
+                          height: `${allMultiDayJobsActiveOnDay * monthLaneStepMobileRem}rem`,
+                          '--spacer-height-desktop': `${allMultiDayJobsActiveOnDay * monthLaneStepDesktopRem}rem`,
+                        } as React.CSSProperties & { '--spacer-height-desktop': string }
+                      }
+                    />
+                  )}
+
+                  {/* Single-day jobs - positioned below multi-day jobs */}
+                  {singleDayJobs.slice(0, scaleSettings.maxItems).map((job, singleJobIndex) => {
+                    // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
+                    if (!job.startTime || !job.endTime) return null
+
+                    const isDragging = dragState.job?.id === job.id
+                    const isMonthMoving = isDragging && dragState.type === 'month-move'
+                    const translateX = isMonthMoving ? dragOffset.x : 0
+                    const translateY = isMonthMoving ? dragOffset.y : 0
+
+                    return (
+                      <div
+                        key={job.id}
                         className={cn(
                           'text-[10px] md:text-xs p-0.5 md:p-1 rounded truncate cursor-grab active:cursor-grabbing touch-none',
                           'border-l-2',
@@ -1309,14 +1779,31 @@ const Calendar = ({
                           job.status === 'pending-confirmation' &&
                             'bg-orange-500/20 border-orange-500 text-orange-300'
                         )}
-                        style={{
-                          transform: isMonthMoving
-                            ? `translate3d(${translateX}px, ${translateY}px, 0)`
-                            : undefined,
-                          transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
-                          willChange: isMonthMoving ? 'transform' : undefined,
-                          zIndex: isMonthMoving && dragState.isDragging ? 50 : undefined,
-                          pointerEvents: isMonthMoving && dragState.isDragging ? 'none' : undefined,
+                        style={
+                          {
+                            transform: isMonthMoving
+                              ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                              : undefined,
+                            transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
+                            willChange: isMonthMoving ? 'transform' : undefined,
+                            zIndex: isMonthMoving && dragState.isDragging ? 50 : 1, // Lower z-index than multi-day jobs (5)
+                            pointerEvents:
+                              isMonthMoving && dragState.isDragging ? 'none' : undefined,
+                          } as React.CSSProperties
+                        }
+                        onPointerDown={e => {
+                          // Month view: use pointer-based drag for ALL devices (mouse + touch)
+                          e.stopPropagation()
+                          handleDragStart(e, job, 'month-move')
+                        }}
+                        onClick={e => {
+                          e.stopPropagation()
+                          if (justDraggedRef.current) {
+                            justDraggedRef.current = false
+                            return
+                          }
+                          if (dragState.isDragging) return
+                          onJobClick(job)
                         }}
                         title={job.title}
                       >
@@ -1327,14 +1814,14 @@ const Calendar = ({
                       </div>
                     )
                   })}
-                  {dayJobs.length > scaleSettings.maxItems && (
+                  {singleDayJobs.length > scaleSettings.maxItems && (
                     <div
                       className={cn(
                         'text-[10px] md:text-xs text-primary-light/50',
                         !isCurrentMonth && 'opacity-60'
                       )}
                     >
-                      +{dayJobs.length - scaleSettings.maxItems} more
+                      +{singleDayJobs.length - scaleSettings.maxItems} more
                     </div>
                   )}
                 </div>
@@ -1349,74 +1836,76 @@ const Calendar = ({
   return (
     <div className="flex flex-col h-full bg-primary-dark-secondary rounded-lg border border-primary-blue overflow-hidden select-none">
       {/* Drag ghost overlay (follows pointer for real-time movement) - only for move operations */}
-      {dragGhost?.isVisible && dragState.job && dragState.type === 'move' && (
-        <div
-          className="fixed pointer-events-none z-[9999] rounded-lg border-l-4 shadow-2xl opacity-95"
-          style={{
-            left: 0,
-            top: 0,
-            width: dragGhost.width,
-            height: dragGhost.height,
-            transform: `translate3d(${dragGhost.x}px, ${dragGhost.y}px, 0) scale(1.03)`,
-            willChange: 'transform',
-            background:
-              dragState.job.status === 'scheduled'
-                ? 'rgba(59, 130, 246, 0.25)'
-                : dragState.job.status === 'in-progress'
-                  ? 'rgba(234, 179, 8, 0.25)'
-                  : dragState.job.status === 'completed'
-                    ? 'rgba(34, 197, 94, 0.25)'
-                    : dragState.job.status === 'cancelled'
-                      ? 'rgba(239, 68, 68, 0.25)'
-                      : 'rgba(249, 115, 22, 0.25)',
-            borderLeftColor:
-              dragState.job.status === 'scheduled'
-                ? 'rgb(59, 130, 246)'
-                : dragState.job.status === 'in-progress'
-                  ? 'rgb(234, 179, 8)'
-                  : dragState.job.status === 'completed'
-                    ? 'rgb(34, 197, 94)'
-                    : dragState.job.status === 'cancelled'
-                      ? 'rgb(239, 68, 68)'
-                      : 'rgb(249, 115, 22)',
-          }}
-        >
-          <div className="p-2">
-            {previewStartTime && dragState.originalEndTime ? (
-              <>
-                <div className="text-sm font-medium text-primary-light">
-                  {format(previewStartTime, 'h:mm a')} -{' '}
-                  {format(
-                    new Date(
-                      previewStartTime.getTime() +
-                        (new Date(dragState.originalEndTime).getTime() -
-                          new Date(dragState.originalStartTime!).getTime())
-                    ),
-                    'h:mm a'
-                  )}
-                </div>
-                <div className="text-xs text-primary-light/60">
-                  {Math.round(
-                    (new Date(dragState.originalEndTime).getTime() -
-                      new Date(dragState.originalStartTime!).getTime()) /
-                      60000
-                  )}{' '}
-                  min
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-sm font-medium text-primary-light">
-                  {dragState.job.startTime &&
-                    dragState.job.endTime &&
-                    `${format(new Date(dragState.job.startTime), 'h:mm a')} - ${format(new Date(dragState.job.endTime), 'h:mm a')}`}
-                </div>
-                <div className="text-xs text-primary-light/60">Dragging...</div>
-              </>
-            )}
+      {dragGhost?.isVisible &&
+        dragState.job &&
+        (dragState.type === 'move' || dragState.type === 'week-all-day-move') && (
+          <div
+            className="fixed pointer-events-none z-[9999] rounded-lg border-l-4 shadow-2xl opacity-95"
+            style={{
+              left: 0,
+              top: 0,
+              width: dragGhost.width,
+              height: dragGhost.height,
+              transform: `translate3d(${dragGhost.x}px, ${dragGhost.y}px, 0) scale(1.03)`,
+              willChange: 'transform',
+              background:
+                dragState.job.status === 'scheduled'
+                  ? 'rgba(59, 130, 246, 0.25)'
+                  : dragState.job.status === 'in-progress'
+                    ? 'rgba(234, 179, 8, 0.25)'
+                    : dragState.job.status === 'completed'
+                      ? 'rgba(34, 197, 94, 0.25)'
+                      : dragState.job.status === 'cancelled'
+                        ? 'rgba(239, 68, 68, 0.25)'
+                        : 'rgba(249, 115, 22, 0.25)',
+              borderLeftColor:
+                dragState.job.status === 'scheduled'
+                  ? 'rgb(59, 130, 246)'
+                  : dragState.job.status === 'in-progress'
+                    ? 'rgb(234, 179, 8)'
+                    : dragState.job.status === 'completed'
+                      ? 'rgb(34, 197, 94)'
+                      : dragState.job.status === 'cancelled'
+                        ? 'rgb(239, 68, 68)'
+                        : 'rgb(249, 115, 22)',
+            }}
+          >
+            <div className="p-2">
+              {previewStartTime && dragState.originalEndTime ? (
+                <>
+                  <div className="text-sm font-medium text-primary-light">
+                    {format(previewStartTime, 'h:mm a')} -{' '}
+                    {format(
+                      new Date(
+                        previewStartTime.getTime() +
+                          (new Date(dragState.originalEndTime).getTime() -
+                            new Date(dragState.originalStartTime!).getTime())
+                      ),
+                      'h:mm a'
+                    )}
+                  </div>
+                  <div className="text-xs text-primary-light/60">
+                    {Math.round(
+                      (new Date(dragState.originalEndTime).getTime() -
+                        new Date(dragState.originalStartTime!).getTime()) /
+                        60000
+                    )}{' '}
+                    min
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-sm font-medium text-primary-light">
+                    {dragState.job.startTime &&
+                      dragState.job.endTime &&
+                      `${format(new Date(dragState.job.startTime), 'h:mm a')} - ${format(new Date(dragState.job.endTime), 'h:mm a')}`}
+                  </div>
+                  <div className="text-xs text-primary-light/60">Dragging...</div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 md:p-4 border-b border-primary-blue">
