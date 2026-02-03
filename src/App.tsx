@@ -37,7 +37,7 @@ function App() {
 
   const sidebarItems = [
     { label: 'Dashboard', href: '/app' },
-    { label: 'CRM', href: '/app/crm' },
+    { label: 'Contacts', href: '/app/crm' },
     { label: 'Quotes', href: '/app/quotes' },
     { label: 'Invoices', href: '/app/invoices' },
     { label: 'Calendar', href: '/app/scheduling' },

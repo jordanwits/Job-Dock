@@ -29,7 +29,7 @@ const CRMPage = () => {
     try {
       const newContact = await createContact(data)
       setShowCreateForm(false)
-      
+
       if (scheduleJob && newContact) {
         // Store the new contact info and open job scheduling modal
         setNewContactId(newContact.id)
@@ -74,22 +74,22 @@ const CRMPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
-            <span className="text-primary-gold">CRM</span>
+            <span className="text-primary-gold">Contacts</span>
           </h1>
           <p className="text-sm md:text-base text-primary-light/60">
             Manage your contacts, customers, and leads
           </p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button 
-            onClick={() => setShowImportModal(true)} 
+          <Button
+            onClick={() => setShowImportModal(true)}
             variant="outline"
             className="flex-1 sm:flex-initial"
           >
             Import CSV
           </Button>
-          <Button 
-            onClick={() => setShowCreateForm(true)} 
+          <Button
+            onClick={() => setShowCreateForm(true)}
             className="flex-1 sm:flex-initial"
             title="Keyboard shortcut: Ctrl+N or ⌘N"
           >
@@ -156,7 +156,7 @@ const CRMPage = () => {
             setShowConfirmation(true)
             setTimeout(() => setShowConfirmation(false), 3000)
           }}
-          onJobCreateFailed={(error) => {
+          onJobCreateFailed={error => {
             // Error is already displayed by the job store
           }}
         />
@@ -189,10 +189,8 @@ const CRMPage = () => {
         onClose={() => setShowImportModal(false)}
         onImportComplete={handleImportComplete}
       />
-
     </div>
   )
 }
 
 export default CRMPage
-

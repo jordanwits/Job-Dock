@@ -18,7 +18,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     path: '/app/crm',
-    title: 'CRM (Customer Management)',
+    title: 'Contacts',
     description:
       'Manage all your contacts in one place. Add customers, track their information, and keep notes about your interactions.',
   },
