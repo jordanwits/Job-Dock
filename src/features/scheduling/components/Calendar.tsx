@@ -64,13 +64,20 @@ const Calendar = ({
   // Set initial scale based on screen size
   const getInitialScale = () => {
     if (typeof window !== 'undefined') {
-      return window.innerWidth < 768 ? 75 : 100
+      return window.innerWidth < 768 ? 100 : 125
     }
-    return 100
+    return 125
   }
 
   const [selectedDate, setSelectedDate] = useState(currentDate)
   const [calendarScale, setCalendarScale] = useState<number>(getInitialScale())
+  const [viewportHeight, setViewportHeight] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerHeight
+    }
+    return 800
+  })
+  const [calendarContainerHeight, setCalendarContainerHeight] = useState<number | null>(null)
   const [dragState, setDragState] = useState<DragState>({
     job: null,
     type: null,
@@ -100,6 +107,7 @@ const Calendar = ({
   const weekColumnsRef = useRef<Map<number, DOMRect>>(new Map())
   const dayViewRef = useRef<HTMLDivElement | null>(null)
   const weekViewRef = useRef<HTMLDivElement | null>(null)
+  const monthViewRef = useRef<HTMLDivElement | null>(null)
   const dragOriginRef = useRef<HTMLElement | null>(null)
   const isDraggingRef = useRef(false) // True only after crossing drag threshold
   const justDraggedRef = useRef(false) // Used to suppress the post-drag click
@@ -127,16 +135,50 @@ const Calendar = ({
     return () => mediaQuery.removeEventListener('change', updatePointerType)
   }, [])
 
-  // Update scale when window is resized
+  // Update scale and viewport height when window is resized
   useEffect(() => {
     const handleResize = () => {
       const isMobile = window.innerWidth < 768
-      setCalendarScale(isMobile ? 75 : 100)
+      setCalendarScale(isMobile ? 100 : 125)
+      setViewportHeight(window.innerHeight)
     }
 
+    handleResize() // Initial call
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Measure calendar container height when it's available
+  useEffect(() => {
+    if (!monthViewRef.current || viewMode !== 'month') return
+
+    const measureContainer = () => {
+      if (monthViewRef.current) {
+        const rect = monthViewRef.current.getBoundingClientRect()
+        setCalendarContainerHeight(rect.height)
+      }
+    }
+
+    // Initial measurement
+    measureContainer()
+
+    // Use ResizeObserver to track calendar container size changes
+    let resizeObserver: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(measureContainer)
+      resizeObserver.observe(monthViewRef.current)
+    }
+
+    // Also measure on window resize
+    window.addEventListener('resize', measureContainer)
+    
+    return () => {
+      window.removeEventListener('resize', measureContainer)
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      }
+    }
+  }, [viewMode])
 
   // Disable text selection globally when dragging
   useEffect(() => {
@@ -1453,19 +1495,52 @@ const Calendar = ({
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+    // Calculate number of weeks in the calendar view
+    const weeksInView = Math.ceil(days.length / 7)
+
     // Calculate visible items and cell height based on scale
     const getScaleSettings = () => {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+      
+      // For mobile, calculate dynamic height based on available space
+      if (isMobile && weeksInView > 0) {
+        // Use calendar container height if available, otherwise fall back to viewport
+        const containerHeight = calendarContainerHeight || viewportHeight
+        
+        // Account for header, week day labels, and padding
+        // Header: ~50px, week labels: ~30px, padding: ~10px
+        const reservedHeight = 90
+        const availableHeight = Math.max(400, containerHeight - reservedHeight) // Minimum 400px available
+        
+        // Calculate height per week, then divide by 7 for each day cell
+        const heightPerWeek = availableHeight / weeksInView
+        const cellHeight = Math.max(80, Math.floor(heightPerWeek / 7)) // Minimum 80px
+        
+        // Determine max items based on cell height
+        let maxItems = 2
+        if (cellHeight >= 120) maxItems = 3
+        if (cellHeight >= 150) maxItems = 4
+        if (cellHeight >= 180) maxItems = 5
+        
+        return { 
+          maxItems, 
+          minHeight: `min-h-[${cellHeight}px]`,
+          dynamicHeight: cellHeight
+        }
+      }
+      
+      // Desktop uses fixed heights based on scale
       switch (calendarScale) {
-        case 75:
-          return { maxItems: 1, minHeight: 'min-h-[75px] md:min-h-[90px]' }
         case 100:
-          return { maxItems: 2, minHeight: 'min-h-[90px] md:min-h-[120px]' }
+          return { maxItems: 2, minHeight: 'min-h-[120px] md:min-h-[150px]' }
         case 125:
-          return { maxItems: 3, minHeight: 'min-h-[120px] md:min-h-[160px]' }
+          return { maxItems: 3, minHeight: 'min-h-[150px] md:min-h-[200px]' }
         case 150:
-          return { maxItems: 4, minHeight: 'min-h-[150px] md:min-h-[200px]' }
+          return { maxItems: 4, minHeight: 'min-h-[180px] md:min-h-[240px]' }
+        case 175:
+          return { maxItems: 5, minHeight: 'min-h-[210px] md:min-h-[280px]' }
         default:
-          return { maxItems: 2, minHeight: 'min-h-[90px] md:min-h-[120px]' }
+          return { maxItems: 3, minHeight: 'min-h-[150px] md:min-h-[200px]' }
       }
     }
 
@@ -1493,7 +1568,7 @@ const Calendar = ({
     const multiDayJobs = Array.from(multiDayJobMap.values())
 
     return (
-      <div className="flex-1 overflow-auto p-0.5">
+      <div ref={monthViewRef} className="flex-1 overflow-auto p-0.5">
         <style>{`
           /* Month view helpers for multi-day layout */
           @media (min-width: 768px) {
@@ -1572,12 +1647,17 @@ const Calendar = ({
               <div
                 key={day.toISOString()}
                 className={cn(
-                  scaleSettings.minHeight,
+                  // Only use Tailwind minHeight class on desktop (when dynamicHeight is not set)
+                  !scaleSettings.dynamicHeight && scaleSettings.minHeight,
                   'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative select-none overflow-visible',
                   isToday(day) && 'bg-primary-gold/10',
-                  isSelected && 'ring-2 ring-primary-gold',
                   isDropTarget && 'bg-primary-gold/20 ring-2 ring-primary-gold'
                 )}
+                style={
+                  scaleSettings.dynamicHeight
+                    ? { minHeight: `${scaleSettings.dynamicHeight}px` }
+                    : undefined
+                }
                 data-drop-date={day.toISOString()}
                 onClick={() => {
                   setSelectedDate(day)
@@ -1982,7 +2062,7 @@ const Calendar = ({
           {viewMode === 'month' && (
             <div className="hidden md:flex items-center gap-1 border-l border-primary-blue/50 pl-2">
               <span className="text-xs text-primary-light/70 mr-1">Zoom:</span>
-              {[75, 100, 125, 150].map(scale => (
+              {[100, 125, 150, 175].map(scale => (
                 <button
                   key={scale}
                   onClick={() => setCalendarScale(scale)}
