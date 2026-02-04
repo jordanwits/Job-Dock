@@ -1988,14 +1988,17 @@ const Calendar = ({
         )}
 
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 md:p-4 border-b border-primary-blue">
-        <div className="flex items-center gap-2">
+      <div 
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 md:p-4 border-b border-primary-blue overflow-hidden flex-shrink-0"
+        style={{ touchAction: 'none', overscrollBehavior: 'none' }}
+      >
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-h-0">
           <button
             onClick={() => navigateDate('prev')}
-            className="p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors flex-shrink-0"
             aria-label="Previous"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -2006,27 +2009,27 @@ const Calendar = ({
           </button>
           <button
             onClick={goToToday}
-            className="px-3 md:px-4 py-2 rounded-lg bg-primary-gold/20 hover:bg-primary-gold/30 text-primary-gold font-medium transition-colors text-sm md:text-base"
+            className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg bg-primary-gold/20 hover:bg-primary-gold/30 text-primary-gold font-medium transition-colors text-xs sm:text-sm md:text-base whitespace-nowrap flex-shrink-0"
           >
             Today
           </button>
           <button
             onClick={() => navigateDate('next')}
-            className="p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors flex-shrink-0"
             aria-label="Next"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap min-w-0 min-h-0">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-h-0">
             <button
               onClick={() => onViewModeChange('day')}
               className={cn(
-                'px-4 py-2 rounded-lg font-medium transition-colors text-sm',
+                'px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap',
                 viewMode === 'day'
                   ? 'bg-primary-gold text-primary-dark'
                   : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
@@ -2037,7 +2040,7 @@ const Calendar = ({
             <button
               onClick={() => onViewModeChange('week')}
               className={cn(
-                'px-4 py-2 rounded-lg font-medium transition-colors text-sm',
+                'px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap',
                 viewMode === 'week'
                   ? 'bg-primary-gold text-primary-dark'
                   : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
@@ -2048,7 +2051,7 @@ const Calendar = ({
             <button
               onClick={() => onViewModeChange('month')}
               className={cn(
-                'px-4 py-2 rounded-lg font-medium transition-colors text-sm',
+                'px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap',
                 viewMode === 'month'
                   ? 'bg-primary-gold text-primary-dark'
                   : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
@@ -2060,7 +2063,7 @@ const Calendar = ({
 
           {/* Zoom Control - Only show in month view and hidden on mobile */}
           {viewMode === 'month' && (
-            <div className="hidden md:flex items-center gap-1 border-l border-primary-blue/50 pl-2">
+            <div className="hidden md:flex items-center gap-1 border-l border-primary-blue/50 pl-2 flex-shrink-0">
               <span className="text-xs text-primary-light/70 mr-1">Zoom:</span>
               {[100, 125, 150, 175].map(scale => (
                 <button
