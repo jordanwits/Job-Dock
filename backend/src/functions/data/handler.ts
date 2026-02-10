@@ -195,6 +195,14 @@ We look forward to working with you!',
         `CREATE INDEX IF NOT EXISTS "jobs_toBeScheduled_idx" ON "jobs"("toBeScheduled");`
       )
 
+      // Add notes and markup to documents for photo annotations
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "notes" TEXT;`
+      )
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "markup" JSONB;`
+      )
+
       console.log('✅ Migration completed successfully')
       return successResponse({ message: 'Migration completed successfully' })
     } catch (error: any) {
@@ -684,6 +692,25 @@ async function handleGet(
     return (service as typeof dataServices.contacts).importStatus(tenantId, sessionId)
   }
 
+  // Get unconverted accepted quotes for invoices
+  if (resource === 'invoices' && id === 'unconverted-quotes') {
+    try {
+      return await (service as typeof dataServices.invoices).getUnconvertedAcceptedQuotes(tenantId)
+    } catch (error: any) {
+      console.error('Error fetching unconverted quotes:', error)
+      throw new ApiError(
+        `Failed to fetch unconverted quotes: ${error.message || 'Unknown error'}`,
+        500
+      )
+    }
+  }
+
+  // Time entries: filter by jobLogId when provided
+  if (resource === 'time-entries' && !id) {
+    const jobLogId = event.queryStringParameters?.jobLogId
+    return (service as typeof dataServices['time-entries']).getAll(tenantId, jobLogId)
+  }
+
   if (id && 'getById' in service) {
     return service.getById(tenantId, id)
   }
@@ -841,6 +868,41 @@ async function handlePost(
       throw new ApiError('Invalid or expired approval token', 403)
     }
     return (service as typeof dataServices.invoices).setApprovalStatus(tenantId, id, 'declined')
+  }
+
+  // Job log photo upload: get presigned URL
+  if (resource === 'job-logs' && id && action === 'get-upload-url') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices['job-logs']).getUploadUrl(tenantId, id, payload)
+  }
+
+  // Job log photo upload: confirm and create Document record
+  if (resource === 'job-logs' && id && action === 'confirm-upload') {
+    const payload = parseBody(event)
+    const context = await extractContext(event)
+    const { default: prisma } = await import('../../lib/db')
+    const user = await prisma.user.findUnique({
+      where: { cognitoId: context.userId },
+      select: { id: true },
+    })
+    return (service as typeof dataServices['job-logs']).confirmUpload(tenantId, id, {
+      ...payload,
+      uploadedBy: user?.id ?? context.userId,
+    })
+  }
+
+  // Job log photo: update notes and markup (path action or body has photoId = update-photo)
+  if (resource === 'job-logs' && id) {
+    const payload = parseBody(event)
+    const isUpdatePhoto =
+      action === 'update-photo' ||
+      payload?.action === 'update-photo' ||
+      (payload?.photoId && (payload?.notes !== undefined || payload?.markup !== undefined))
+    if (isUpdatePhoto) {
+      return (service as typeof dataServices['job-logs']).updatePhoto(tenantId, id, payload)
+    }
+    // POST /job-logs/:id with unknown action - don't fall through to create
+    return errorResponse('Unknown action for job log', 400)
   }
 
   // All other POST actions require a body

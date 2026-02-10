@@ -1376,6 +1376,49 @@ export const dataServices = {
 
       return serializeInvoice(updatedInvoice)
     },
+    getUnconvertedAcceptedQuotes: async (tenantId: string) => {
+      await ensureTenantExists(tenantId)
+
+      // Get all accepted quotes
+      const acceptedQuotes = await prisma.quote.findMany({
+        where: {
+          tenantId,
+          status: 'accepted',
+        },
+        include: {
+          contact: true,
+          lineItems: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      // Get all invoices to check which quotes have been converted
+      const invoices = await prisma.invoice.findMany({
+        where: { tenantId },
+        select: { notes: true },
+      })
+
+      // Create a set of quote numbers that have been converted
+      const convertedQuoteNumbers = new Set<string>()
+      for (const invoice of invoices) {
+        if (invoice.notes && typeof invoice.notes === 'string') {
+          // Check if notes contain "Converted from {quoteNumber}"
+          // Handle both single line and multi-line notes
+          const match = invoice.notes.match(/Converted from ([A-Z0-9-]+)/i)
+          if (match && match[1]) {
+            convertedQuoteNumbers.add(match[1])
+          }
+        }
+      }
+
+      // Filter out quotes that have been converted
+      const unconvertedQuotes = acceptedQuotes.filter(
+        quote => !convertedQuoteNumbers.has(quote.quoteNumber)
+      )
+
+      // Serialize quotes - contact can be null/undefined, serializeQuote handles it
+      return unconvertedQuotes.map(serializeQuote)
+    },
   },
   jobs: {
     getAll: async (
@@ -2801,6 +2844,326 @@ export const dataServices = {
       })
 
       return { received: true }
+    },
+  },
+  'job-logs': {
+    getAll: async (tenantId: string) => {
+      await ensureTenantExists(tenantId)
+      const logs = await prisma.jobLog.findMany({
+        where: { tenantId },
+        include: { job: true, contact: true, timeEntries: true },
+        orderBy: { createdAt: 'desc' },
+      })
+      return logs.map((log) => ({
+        ...log,
+        job: log.job
+          ? { id: log.job.id, title: log.job.title, startTime: log.job.startTime?.toISOString(), endTime: log.job.endTime?.toISOString(), status: log.job.status }
+          : null,
+        contact: log.contact
+          ? { id: log.contact.id, name: `${log.contact.firstName} ${log.contact.lastName}`.trim(), email: log.contact.email }
+          : null,
+        timeEntries: log.timeEntries.map((te) => ({
+          id: te.id,
+          startTime: te.startTime.toISOString(),
+          endTime: te.endTime.toISOString(),
+          breakMinutes: te.breakMinutes,
+          notes: te.notes,
+        })),
+      }))
+    },
+    getById: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      const jobLog = await prisma.jobLog.findFirst({
+        where: { id, tenantId },
+        include: { job: true, contact: true, timeEntries: true },
+      })
+      if (!jobLog) {
+        throw new ApiError('Job log not found', 404)
+      }
+      // Fetch photos (Documents) from DB and add signed URLs
+      const documents = await prisma.document.findMany({
+        where: { tenantId, entityType: 'job_log', entityId: id },
+      })
+      const photos = await Promise.all(
+        documents.map(async (doc) => ({
+          id: doc.id,
+          fileName: doc.fileName,
+          fileKey: doc.fileKey,
+          url: await getFileUrl(doc.fileKey, 3600),
+          notes: doc.notes ?? null,
+          markup: doc.markup ?? null,
+          createdAt: doc.createdAt.toISOString(),
+        }))
+      )
+      return {
+        ...jobLog,
+        job: jobLog.job
+          ? {
+              id: jobLog.job.id,
+              title: jobLog.job.title,
+              startTime: jobLog.job.startTime?.toISOString(),
+              endTime: jobLog.job.endTime?.toISOString(),
+              status: jobLog.job.status,
+            }
+          : null,
+        contact: jobLog.contact
+          ? {
+              id: jobLog.contact.id,
+              firstName: jobLog.contact.firstName,
+              lastName: jobLog.contact.lastName,
+              email: jobLog.contact.email,
+              name: `${jobLog.contact.firstName} ${jobLog.contact.lastName}`.trim(),
+            }
+          : null,
+        timeEntries: jobLog.timeEntries.map((te) => ({
+          id: te.id,
+          startTime: te.startTime.toISOString(),
+          endTime: te.endTime.toISOString(),
+          breakMinutes: te.breakMinutes,
+          notes: te.notes,
+          createdAt: te.createdAt.toISOString(),
+          updatedAt: te.updatedAt.toISOString(),
+        })),
+        photos,
+      }
+    },
+    create: async (tenantId: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+      const jobId = payload.jobId && payload.jobId.trim() ? payload.jobId : null
+      const contactId = payload.contactId && payload.contactId.trim() ? payload.contactId : null
+      return prisma.jobLog.create({
+        data: {
+          tenantId,
+          title: payload.title,
+          description: payload.description ?? null,
+          location: payload.location ?? null,
+          notes: payload.notes ?? null,
+          jobId,
+          contactId,
+          status: payload.status ?? 'active',
+        },
+        include: { job: true, contact: true, timeEntries: true },
+      })
+    },
+    update: async (tenantId: string, id: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+      const existing = await prisma.jobLog.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existing) {
+        throw new ApiError('Job log not found', 404)
+      }
+      const jobId = payload.jobId !== undefined ? (payload.jobId && payload.jobId.trim() ? payload.jobId : null) : undefined
+      const contactId = payload.contactId !== undefined ? (payload.contactId && payload.contactId.trim() ? payload.contactId : null) : undefined
+      return prisma.jobLog.update({
+        where: { id },
+        data: {
+          title: payload.title,
+          description: payload.description ?? undefined,
+          location: payload.location ?? undefined,
+          notes: payload.notes ?? undefined,
+          jobId,
+          contactId,
+          status: payload.status ?? undefined,
+        },
+        include: { job: true, contact: true, timeEntries: true },
+      })
+    },
+    delete: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      const existing = await prisma.jobLog.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existing) {
+        throw new ApiError('Job log not found', 404)
+      }
+      // Delete documents (photos) for this job log
+      const documents = await prisma.document.findMany({
+        where: { tenantId, entityType: 'job_log', entityId: id },
+      })
+      for (const doc of documents) {
+        try {
+          await deleteFile(doc.fileKey)
+        } catch (e) {
+          console.error('Error deleting file:', e)
+        }
+      }
+      await prisma.document.deleteMany({
+        where: { tenantId, entityType: 'job_log', entityId: id },
+      })
+      await prisma.jobLog.delete({ where: { id } })
+      return { success: true }
+    },
+    getUploadUrl: async (
+      tenantId: string,
+      jobLogId: string,
+      payload: { filename: string; contentType: string }
+    ) => {
+      await ensureTenantExists(tenantId)
+      const jobLog = await prisma.jobLog.findFirst({
+        where: { id: jobLogId, tenantId },
+      })
+      if (!jobLog) {
+        throw new ApiError('Job log not found', 404)
+      }
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+      if (!allowedTypes.includes(payload.contentType)) {
+        throw new ApiError('Invalid file type. Only PNG, JPEG, JPG, and WebP are allowed.', 400)
+      }
+      const { randomUUID } = await import('crypto')
+      const ext = payload.filename.split('.').pop()
+      const key = `job_logs/${tenantId}/${jobLogId}/${randomUUID()}.${ext}`
+      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
+      const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner')
+      const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
+      const FILES_BUCKET = process.env.FILES_BUCKET || ''
+      const uploadUrl = await getSignedUrl(
+        s3Client,
+        new PutObjectCommand({
+          Bucket: FILES_BUCKET,
+          Key: key,
+          ContentType: payload.contentType,
+        }),
+        { expiresIn: 300 }
+      )
+      return { uploadUrl, key }
+    },
+    confirmUpload: async (
+      tenantId: string,
+      jobLogId: string,
+      payload: { key: string; fileName: string; fileSize: number; mimeType: string; uploadedBy: string }
+    ) => {
+      await ensureTenantExists(tenantId)
+      const jobLog = await prisma.jobLog.findFirst({
+        where: { id: jobLogId, tenantId },
+      })
+      if (!jobLog) {
+        throw new ApiError('Job log not found', 404)
+      }
+      const user = await prisma.user.findFirst({
+        where: { tenantId },
+        select: { id: true },
+      })
+      await prisma.document.create({
+        data: {
+          tenantId,
+          fileName: payload.fileName,
+          fileKey: payload.key,
+          fileSize: payload.fileSize,
+          mimeType: payload.mimeType,
+          entityType: 'job_log',
+          entityId: jobLogId,
+          uploadedBy: (payload.uploadedBy || user?.id) ?? 'system',
+        },
+      })
+      return { success: true }
+    },
+    updatePhoto: async (
+      tenantId: string,
+      jobLogId: string,
+      payload: { photoId: string; notes?: string; markup?: object }
+    ) => {
+      await ensureTenantExists(tenantId)
+      const doc = await prisma.document.findFirst({
+        where: {
+          id: payload.photoId,
+          tenantId,
+          entityType: 'job_log',
+          entityId: jobLogId,
+        },
+      })
+      if (!doc) {
+        throw new ApiError('Photo not found', 404)
+      }
+      await prisma.document.update({
+        where: { id: payload.photoId },
+        data: {
+          ...(payload.notes !== undefined && { notes: payload.notes || null }),
+          ...(payload.markup !== undefined && { markup: payload.markup as any }),
+        },
+      })
+      return { success: true }
+    },
+  },
+  'time-entries': {
+    getAll: async (tenantId: string, jobLogId?: string) => {
+      await ensureTenantExists(tenantId)
+      return prisma.timeEntry.findMany({
+        where: { tenantId, ...(jobLogId ? { jobLogId } : {}) },
+        orderBy: { startTime: 'desc' },
+      })
+    },
+    getById: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      const te = await prisma.timeEntry.findFirst({
+        where: { id, tenantId },
+      })
+      if (!te) {
+        throw new ApiError('Time entry not found', 404)
+      }
+      return {
+        ...te,
+        startTime: te.startTime.toISOString(),
+        endTime: te.endTime.toISOString(),
+      }
+    },
+    create: async (tenantId: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+      const jobLog = await prisma.jobLog.findFirst({
+        where: { id: payload.jobLogId, tenantId },
+      })
+      if (!jobLog) {
+        throw new ApiError('Job log not found', 404)
+      }
+      const created = await prisma.timeEntry.create({
+        data: {
+          tenantId,
+          jobLogId: payload.jobLogId,
+          startTime: new Date(payload.startTime),
+          endTime: new Date(payload.endTime),
+          breakMinutes: payload.breakMinutes ?? 0,
+          notes: payload.notes ?? null,
+        },
+      })
+      return {
+        ...created,
+        startTime: created.startTime.toISOString(),
+        endTime: created.endTime.toISOString(),
+      }
+    },
+    update: async (tenantId: string, id: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+      const existing = await prisma.timeEntry.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existing) {
+        throw new ApiError('Time entry not found', 404)
+      }
+      const updated = await prisma.timeEntry.update({
+        where: { id },
+        data: {
+          startTime: payload.startTime ? new Date(payload.startTime) : undefined,
+          endTime: payload.endTime ? new Date(payload.endTime) : undefined,
+          breakMinutes: payload.breakMinutes ?? undefined,
+          notes: payload.notes ?? undefined,
+        },
+      })
+      return {
+        ...updated,
+        startTime: updated.startTime.toISOString(),
+        endTime: updated.endTime.toISOString(),
+      }
+    },
+    delete: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      const existing = await prisma.timeEntry.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existing) {
+        throw new ApiError('Time entry not found', 404)
+      }
+      await prisma.timeEntry.delete({ where: { id } })
+      return { success: true }
     },
   },
 }

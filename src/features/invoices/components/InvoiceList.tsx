@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useInvoiceStore } from '../store/invoiceStore'
 import InvoiceCard from './InvoiceCard'
-import { Input, Button, Select } from '@/components/ui'
+import { Input, Button, Select, Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { invoicesService } from '@/lib/api/services'
+import type { Quote } from '@/features/quotes/types/quote'
+import ConvertQuoteToInvoiceModal from '@/features/quotes/components/ConvertQuoteToInvoiceModal'
+import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 
 interface InvoiceListProps {
   onCreateClick?: () => void
@@ -26,7 +29,9 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     clearError,
     setSelectedInvoice,
     deleteInvoice,
+    convertQuoteToInvoice,
   } = useInvoiceStore()
+  const { updateQuote } = useQuoteStore()
 
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
     const saved = localStorage.getItem('invoices-display-mode')
@@ -35,10 +40,30 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [unconvertedQuotes, setUnconvertedQuotes] = useState<Quote[]>([])
+  const [isLoadingQuotes, setIsLoadingQuotes] = useState(false)
+  const [selectedQuoteForConversion, setSelectedQuoteForConversion] = useState<Quote | null>(null)
+  const [isConverting, setIsConverting] = useState(false)
 
   useEffect(() => {
     fetchInvoices()
+    fetchUnconvertedQuotes()
   }, [fetchInvoices])
+
+  const fetchUnconvertedQuotes = async () => {
+    setIsLoadingQuotes(true)
+    try {
+      const quotes = await invoicesService.getUnconvertedAcceptedQuotes()
+      console.log('Fetched unconverted quotes:', quotes)
+      setUnconvertedQuotes(quotes || [])
+    } catch (error: any) {
+      console.error('Failed to fetch unconverted quotes:', error)
+      console.error('Error details:', error.response?.data || error.message)
+      setUnconvertedQuotes([])
+    } finally {
+      setIsLoadingQuotes(false)
+    }
+  }
 
   // Persist display mode preference
   useEffect(() => {
@@ -51,19 +76,19 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
 
     // Filter by status
     if (statusFilter !== 'all') {
-      filtered = filtered.filter((invoice) => invoice.status === statusFilter)
+      filtered = filtered.filter(invoice => invoice.status === statusFilter)
     }
 
     // Filter by payment status
     if (paymentStatusFilter !== 'all') {
-      filtered = filtered.filter((invoice) => invoice.paymentStatus === paymentStatusFilter)
+      filtered = filtered.filter(invoice => invoice.paymentStatus === paymentStatusFilter)
     }
 
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(
-        (invoice) =>
+        invoice =>
           invoice.invoiceNumber.toLowerCase().includes(query) ||
           invoice.title?.toLowerCase().includes(query) ||
           invoice.contactName?.toLowerCase().includes(query) ||
@@ -80,7 +105,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
       setIsDeleting(true)
       const idsToDelete = Array.from(selectedIds)
       const errors: string[] = []
-      
+
       // Delete invoices in batches of 5 to balance speed and reliability
       const BATCH_SIZE = 5
       for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
@@ -89,7 +114,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
           // Call API directly to avoid UI updates during deletion
           batch.map(id => invoicesService.delete(id))
         )
-        
+
         // Track which ones failed
         results.forEach((result, index) => {
           if (result.status === 'rejected') {
@@ -99,14 +124,16 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
           }
         })
       }
-      
+
       // Refresh the entire list once at the end to prevent flashing
       await fetchInvoices()
-      
+
       // Only clear successfully deleted invoices
       if (errors.length > 0) {
         setSelectedIds(new Set(errors))
-        alert(`${idsToDelete.length - errors.length} invoice(s) deleted successfully. ${errors.length} invoice(s) failed - they remain selected for retry.`)
+        alert(
+          `${idsToDelete.length - errors.length} invoice(s) deleted successfully. ${errors.length} invoice(s) failed - they remain selected for retry.`
+        )
       } else {
         setSelectedIds(new Set())
       }
@@ -189,24 +216,81 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     }).format(amount)
   }
 
+  const handleConvertQuote = async (options: { paymentTerms: string; dueDate: string }) => {
+    if (!selectedQuoteForConversion) return
+
+    setIsConverting(true)
+    try {
+      const invoice = await convertQuoteToInvoice(selectedQuoteForConversion, options)
+      // Update quote status to accepted (if not already)
+      await updateQuote({ id: selectedQuoteForConversion.id, status: 'accepted' })
+      setSelectedQuoteForConversion(null)
+      // Refresh both invoices and quotes
+      await fetchInvoices()
+      await fetchUnconvertedQuotes()
+      // Set the newly created invoice as selected
+      setSelectedInvoice(invoice)
+    } catch (error) {
+      // Error handled by store
+    } finally {
+      setIsConverting(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {/* To Be Invoiced Section - Only show if there are quotes */}
+      {!isLoadingQuotes && unconvertedQuotes.length > 0 && (
+        <div className="border-b border-white/10 p-4">
+          <h3 className="text-sm font-semibold text-primary-gold mb-3">
+            To Be Invoiced ({unconvertedQuotes.length})
+          </h3>
+          <div className="flex gap-2 flex-wrap">
+            {unconvertedQuotes.map(quote => (
+              <div
+                key={quote.id}
+                onClick={() => setSelectedQuoteForConversion(quote)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-pointer hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all"
+                title="Click to convert to invoice"
+              >
+                <svg
+                  className="w-4 h-4 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <span className="font-medium">{quote.quoteNumber}</span>
+                {quote.contactName && (
+                  <span className="text-amber-400/70">• {quote.contactName}</span>
+                )}
+                <span className="text-amber-400/70">• {formatCurrency(quote.total)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <Input
             placeholder="Search invoices..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <Select
             value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(
-                e.target.value as 'all' | 'draft' | 'sent' | 'overdue' | 'cancelled'
-              )
+            onChange={e =>
+              setStatusFilter(e.target.value as 'all' | 'draft' | 'sent' | 'overdue' | 'cancelled')
             }
             options={[
               { value: 'all', label: 'All Status' },
@@ -219,10 +303,8 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
           />
           <Select
             value={paymentStatusFilter}
-            onChange={(e) =>
-              setPaymentStatusFilter(
-                e.target.value as 'all' | 'pending' | 'partial' | 'paid'
-              )
+            onChange={e =>
+              setPaymentStatusFilter(e.target.value as 'all' | 'pending' | 'partial' | 'paid')
             }
             options={[
               { value: 'all', label: 'All Payments' },
@@ -243,7 +325,12 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
               title="Card View"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                />
               </svg>
             </button>
             <button
@@ -256,7 +343,12 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
               title="List View"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
           </div>
@@ -267,9 +359,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
       <div className="flex items-center justify-between">
         <div className="text-sm text-primary-light/70">
           {selectedIds.size > 0 ? (
-            <span className="font-medium text-primary-gold">
-              {selectedIds.size} selected
-            </span>
+            <span className="font-medium text-primary-gold">{selectedIds.size} selected</span>
           ) : (
             `${filteredInvoices.length} invoice${filteredInvoices.length !== 1 ? 's' : ''} found`
           )}
@@ -282,7 +372,12 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
             className="border-red-500/30 text-red-400 hover:bg-red-500/10"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
             Delete Selected ({selectedIds.size})
           </Button>
@@ -291,16 +386,34 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                <svg
+                  className="w-6 h-6 text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-medium text-red-400 mb-2">Delete {selectedIds.size} Invoice{selectedIds.size !== 1 ? 's' : ''}?</h3>
+                <h3 className="text-lg font-medium text-red-400 mb-2">
+                  Delete {selectedIds.size} Invoice{selectedIds.size !== 1 ? 's' : ''}?
+                </h3>
                 <p className="text-sm text-primary-light/70 mb-4">
                   This action cannot be undone. All selected invoices will be permanently removed.
                 </p>
@@ -338,16 +451,21 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
               ? 'No invoices match your filters'
               : 'No invoices yet'}
           </p>
-          {!searchQuery && statusFilter === 'all' && paymentStatusFilter === 'all' && onCreateClick && (
-            <Button variant="primary" onClick={onCreateClick}>Create Your First Invoice</Button>
-          )}
+          {!searchQuery &&
+            statusFilter === 'all' &&
+            paymentStatusFilter === 'all' &&
+            onCreateClick && (
+              <Button variant="primary" onClick={onCreateClick}>
+                Create Your First Invoice
+              </Button>
+            )}
         </div>
       ) : displayMode === 'cards' ? (
         // Card Grid Layout
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredInvoices.map((invoice) => (
-            <InvoiceCard 
-              key={invoice.id} 
+          {filteredInvoices.map(invoice => (
+            <InvoiceCard
+              key={invoice.id}
               invoice={invoice}
               isSelected={selectedIds.has(invoice.id)}
               onToggleSelect={toggleSelection}
@@ -364,18 +482,20 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                 <thead className="bg-primary-dark-secondary border-b border-primary-blue">
                   <tr>
                     <th className="px-4 py-3 w-12">
-                      <div 
+                      <div
                         onClick={toggleSelectAll}
                         className={cn(
-                          "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
-                          selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0
-                            ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                            : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                          'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
+                          selectedIds.size === filteredInvoices.length &&
+                            filteredInvoices.length > 0
+                            ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
+                            : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
                         )}
                       >
-                        {selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0 && (
-                          <div className="w-2 h-2 rounded-full bg-primary-dark" />
-                        )}
+                        {selectedIds.size === filteredInvoices.length &&
+                          filteredInvoices.length > 0 && (
+                            <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                          )}
                       </div>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
@@ -402,29 +522,32 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary-blue">
-                  {filteredInvoices.map((invoice) => {
-                    const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
-                      const dueDate = new Date(invoice.dueDate)
-                      const oneDayAgo = new Date()
-                      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-                      oneDayAgo.setHours(23, 59, 59, 999)
-                      return dueDate < oneDayAgo
-                    })()
+                  {filteredInvoices.map(invoice => {
+                    const isOverdue =
+                      invoice.dueDate &&
+                      invoice.paymentStatus !== 'paid' &&
+                      (() => {
+                        const dueDate = new Date(invoice.dueDate)
+                        const oneDayAgo = new Date()
+                        oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+                        oneDayAgo.setHours(23, 59, 59, 999)
+                        return dueDate < oneDayAgo
+                      })()
 
                     return (
-                      <tr 
-                        key={invoice.id} 
+                      <tr
+                        key={invoice.id}
                         className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
                         onClick={() => setSelectedInvoice(invoice)}
                       >
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <div 
-                            onClick={(e) => toggleSelection(invoice.id, e)}
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          <div
+                            onClick={e => toggleSelection(invoice.id, e)}
                             className={cn(
-                              "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
+                              'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
                               selectedIds.has(invoice.id)
-                                ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                                : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                                ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
+                                : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
                             )}
                           >
                             {selectedIds.has(invoice.id) && (
@@ -434,7 +557,9 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-primary-light">
-                            <span className="sm:hidden">{invoice.title || invoice.invoiceNumber}</span>
+                            <span className="sm:hidden">
+                              {invoice.title || invoice.invoiceNumber}
+                            </span>
                             <span className="hidden sm:inline">{invoice.invoiceNumber}</span>
                           </div>
                         </td>
@@ -446,37 +571,50 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell">
                           {invoice.dueDate ? (
-                            <div className={cn(
-                              isOverdue ? "text-red-400 font-medium" : "text-primary-light/70"
-                            )}>
-                              {isOverdue ? '⚠️ ' : ''}{new Date(invoice.dueDate).toLocaleDateString()}
+                            <div
+                              className={cn(
+                                isOverdue ? 'text-red-400 font-medium' : 'text-primary-light/70'
+                              )}
+                            >
+                              {isOverdue ? '⚠️ ' : ''}
+                              {new Date(invoice.dueDate).toLocaleDateString()}
                             </div>
                           ) : (
                             <span className="text-primary-light/50">-</span>
                           )}
                         </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-primary-gold">
-                          {formatCurrency(invoice.total)}
-                        </div>
-                        {invoice.paymentStatus === 'partial' && (
-                          <div className="text-xs text-primary-light/50">
-                            Paid: {formatCurrency(invoice.paidAmount)}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-primary-gold">
+                            {formatCurrency(invoice.total)}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {invoice.approvalStatus && (
-                          <span className={cn('px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border', approvalStatusColors[invoice.approvalStatus])}>
-                            {approvalStatusLabels[invoice.approvalStatus]}
+                          {invoice.paymentStatus === 'partial' && (
+                            <div className="text-xs text-primary-light/50">
+                              Paid: {formatCurrency(invoice.paidAmount)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {invoice.approvalStatus && (
+                            <span
+                              className={cn(
+                                'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
+                                approvalStatusColors[invoice.approvalStatus]
+                              )}
+                            >
+                              {approvalStatusLabels[invoice.approvalStatus]}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
+                              paymentStatusColors[invoice.paymentStatus]
+                            )}
+                          >
+                            {paymentStatusLabels[invoice.paymentStatus]}
                           </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={cn('px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border', paymentStatusColors[invoice.paymentStatus])}>
-                          {paymentStatusLabels[invoice.paymentStatus]}
-                        </span>
-                      </td>
+                        </td>
                       </tr>
                     )
                   })}
@@ -487,14 +625,17 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
 
           {/* Mobile List View */}
           <div className="sm:hidden space-y-3">
-            {filteredInvoices.map((invoice) => {
-              const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
-                const dueDate = new Date(invoice.dueDate)
-                const oneDayAgo = new Date()
-                oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-                oneDayAgo.setHours(23, 59, 59, 999)
-                return dueDate < oneDayAgo
-              })()
+            {filteredInvoices.map(invoice => {
+              const isOverdue =
+                invoice.dueDate &&
+                invoice.paymentStatus !== 'paid' &&
+                (() => {
+                  const dueDate = new Date(invoice.dueDate)
+                  const oneDayAgo = new Date()
+                  oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+                  oneDayAgo.setHours(23, 59, 59, 999)
+                  return dueDate < oneDayAgo
+                })()
 
               return (
                 <div
@@ -505,13 +646,13 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                   {/* Header with Selection and Number */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div 
-                        onClick={(e) => toggleSelection(invoice.id, e)}
+                      <div
+                        onClick={e => toggleSelection(invoice.id, e)}
                         className={cn(
-                          "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center flex-shrink-0",
+                          'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center flex-shrink-0',
                           selectedIds.has(invoice.id)
-                            ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                            : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                            ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
+                            : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
                         )}
                       >
                         {selectedIds.has(invoice.id) && (
@@ -533,23 +674,39 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                     <div className="text-sm text-primary-light/70 truncate flex-shrink min-w-0">
                       {invoice.contactName || '-'}
                     </div>
-                    
+
                     {/* Due Date and Status */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {invoice.dueDate && (
-                        <div className={cn(
-                          "text-xs whitespace-nowrap",
-                          isOverdue ? "text-red-400 font-medium" : "text-primary-light/50"
-                        )}>
-                          {isOverdue ? '⚠️ ' : ''}{new Date(invoice.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        <div
+                          className={cn(
+                            'text-xs whitespace-nowrap',
+                            isOverdue ? 'text-red-400 font-medium' : 'text-primary-light/50'
+                          )}
+                        >
+                          {isOverdue ? '⚠️ ' : ''}
+                          {new Date(invoice.dueDate).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
                         </div>
                       )}
                       {invoice.approvalStatus && (
-                        <span className={cn('px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border', approvalStatusColors[invoice.approvalStatus])}>
+                        <span
+                          className={cn(
+                            'px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border',
+                            approvalStatusColors[invoice.approvalStatus]
+                          )}
+                        >
                           {approvalStatusLabels[invoice.approvalStatus]}
                         </span>
                       )}
-                      <span className={cn('px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border', paymentStatusColors[invoice.paymentStatus])}>
+                      <span
+                        className={cn(
+                          'px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border',
+                          paymentStatusColors[invoice.paymentStatus]
+                        )}
+                      >
                         {paymentStatusLabels[invoice.paymentStatus]}
                       </span>
                     </div>
@@ -567,9 +724,19 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
           </div>
         </>
       )}
+
+      {/* Convert Quote to Invoice Modal */}
+      {selectedQuoteForConversion && (
+        <ConvertQuoteToInvoiceModal
+          quote={selectedQuoteForConversion}
+          isOpen={!!selectedQuoteForConversion}
+          onClose={() => setSelectedQuoteForConversion(null)}
+          onConvert={handleConvertQuote}
+          isLoading={isConverting}
+        />
+      )}
     </div>
   )
 }
 
 export default InvoiceList
-

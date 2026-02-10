@@ -86,6 +86,28 @@ input:-webkit-autofill {
     animation: scaleIn 0.2s ease-out;
   }
 
+  /* Loading shimmer */
+  @keyframes shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-shimmer {
+      animation: shimmer 1.5s infinite;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-shimmer {
+      animation: none;
+    }
+  }
+
   /* Fade In Up Animation - respects prefers-reduced-motion */
   @keyframes fadeInUp {
     from {

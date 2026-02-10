@@ -11,9 +11,10 @@ export interface AppLayoutProps {
     email: string
   }
   onLogout?: () => void
+  fullWidth?: boolean
 }
 
-const AppLayout = ({ children, sidebarItems = [], user, onLogout }: AppLayoutProps) => {
+const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: AppLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>()
 
@@ -52,7 +53,11 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout }: AppLayoutPro
           />
         )}
         <main className="flex-1 lg:ml-64 min-w-0">
-          <div className="container mx-auto p-4 md:p-6 space-y-6 min-w-0">{children}</div>
+          <div
+            className={`p-4 md:p-6 space-y-6 min-w-0 ${fullWidth ? 'w-full' : 'container mx-auto'}`}
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>

@@ -8,6 +8,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import {
   CognitoIdentityProviderClient,
   AdminConfirmSignUpCommand,
+  AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import { registerUser, loginUser, refreshAccessToken, verifyToken } from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
@@ -201,7 +202,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     // 3. Look up user in database by Cognito ID
     const dbStart = Date.now()
     console.log(`[Login] Step 3: Looking up user in database...`)
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { cognitoId: cognitoUser.sub },
       select: {
         id: true,
@@ -213,8 +214,64 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     })
     console.log(`[Login] Step 3 complete: Database lookup took ${Date.now() - dbStart}ms`)
 
+    // 4. Auto-provision user if they exist in Cognito but not in database
     if (!user) {
-      return errorResponse('User is not provisioned in JobDock. Please contact support.', 404)
+      console.log(`[Login] User not found in database, auto-provisioning...`)
+      try {
+        // Get user details from Cognito
+        const cognitoUserDetails = await cognitoClient.send(
+          new AdminGetUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: cognitoUser.email,
+          })
+        )
+
+        // Extract name from Cognito attributes
+        const nameAttr = cognitoUserDetails.UserAttributes?.find(a => a.Name === 'name')
+        const userName = nameAttr?.Value || cognitoUser.email.split('@')[0] || 'User'
+
+        // Create tenant for the user
+        const tenantId = randomUUID()
+        const tenantName = `${userName}'s Company`
+        const baseSubdomain = slugify(tenantName)
+        const uniqueId = tenantId.substring(0, 8)
+        const subdomain = `${baseSubdomain}-${uniqueId}`
+
+        const tenant = await prisma.tenant.create({
+          data: {
+            id: tenantId,
+            name: tenantName,
+            subdomain: subdomain,
+          },
+        })
+
+        // Create user linked to tenant
+        user = await prisma.user.create({
+          data: {
+            id: randomUUID(),
+            cognitoId: cognitoUser.sub,
+            email: cognitoUser.email,
+            name: userName,
+            tenantId: tenant.id,
+            role: 'owner',
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            tenantId: true,
+            onboardingCompletedAt: true,
+          },
+        })
+
+        console.log(`[Login] User auto-provisioned successfully: ${user.email}`)
+      } catch (provisionError: any) {
+        console.error('[Login] Auto-provisioning failed:', provisionError)
+        return errorResponse(
+          'User is not provisioned in JobDock. Please contact support or try registering again.',
+          404
+        )
+      }
     }
 
     const totalTime = Date.now() - startTime

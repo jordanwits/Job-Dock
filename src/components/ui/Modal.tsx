@@ -7,6 +7,7 @@ export interface ModalProps {
   isOpen: boolean
   onClose: () => void
   title?: string
+  headerRight?: ReactNode
   children: ReactNode
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
@@ -19,6 +20,7 @@ const Modal = ({
   isOpen,
   onClose,
   title,
+  headerRight,
   children,
   footer,
   size = 'md',
@@ -77,11 +79,16 @@ const Modal = ({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        {(title || closeOnOverlayClick) && (
-          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-primary-blue flex-shrink-0">
-            {title && (
-              <h2 className="text-lg sm:text-xl font-semibold text-primary-light pr-2">{title}</h2>
-            )}
+        {(title || headerRight || closeOnOverlayClick) && (
+          <div className="flex items-center justify-between gap-2 p-4 sm:p-6 border-b border-primary-blue flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {title && (
+                <h2 className="text-lg sm:text-xl font-semibold text-primary-light shrink-0">{title}</h2>
+              )}
+              {headerRight && (
+                <span className="text-sm text-primary-light/70 shrink-0">{headerRight}</span>
+              )}
+            </div>
             {closeOnOverlayClick && (
               <button
                 onClick={onClose}

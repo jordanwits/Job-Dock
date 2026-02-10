@@ -138,8 +138,9 @@ systemctl enable iptables-restore.service
     }
 
     // Create NAT Gateways if using gateway strategy (reliable, managed, costs more)
+    // Skip NAT Gateway for production - Lambda and RDS don't need it (Lambda outside VPC, RDS public)
     const natGatewayIds: string[] = []
-    if (!useNatInstance) {
+    if (!useNatInstance && config.env !== 'prod') {
       const publicSubnets = this.vpc.publicSubnets
 
       // Create one NAT gateway per AZ (or per public subnet)
@@ -161,29 +162,32 @@ systemctl enable iptables-restore.service
     // Create/maintain the private subnet default routes with stable logical IDs.
     // In instance mode: route → NAT instance
     // In gateway mode:  route → NAT gateway (same AZ index if available, else first)
-    this.vpc.privateSubnets.forEach((subnet, index) => {
-      const natGatewayId = natGatewayIds[index] ?? natGatewayIds[0]
+    // Skip NAT routes for production - Lambda outside VPC and RDS in public subnet don't need NAT
+    if (config.env !== 'prod') {
+      this.vpc.privateSubnets.forEach((subnet, index) => {
+        const natGatewayId = natGatewayIds[index] ?? natGatewayIds[0]
 
-      if (useNatInstance) {
-        if (!natInstanceId) {
-          throw new Error('NAT instance ID was not set (unexpected)')
+        if (useNatInstance) {
+          if (!natInstanceId) {
+            throw new Error('NAT instance ID was not set (unexpected)')
+          }
+          new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
+            routeTableId: subnet.routeTable.routeTableId,
+            destinationCidrBlock: '0.0.0.0/0',
+            instanceId: natInstanceId,
+          })
+        } else {
+          if (!natGatewayId) {
+            throw new Error('NAT gateway ID was not set (unexpected)')
+          }
+          new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
+            routeTableId: subnet.routeTable.routeTableId,
+            destinationCidrBlock: '0.0.0.0/0',
+            natGatewayId: natGatewayId,
+          })
         }
-        new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
-          routeTableId: subnet.routeTable.routeTableId,
-          destinationCidrBlock: '0.0.0.0/0',
-          instanceId: natInstanceId,
-        })
-      } else {
-        if (!natGatewayId) {
-          throw new Error('NAT gateway ID was not set (unexpected)')
-        }
-        new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
-          routeTableId: subnet.routeTable.routeTableId,
-          destinationCidrBlock: '0.0.0.0/0',
-          natGatewayId: natGatewayId,
-        })
-      }
-    })
+      })
+    }
 
     // Helper to select correct private subnet type
     const privateSubnetSelection = { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
@@ -212,11 +216,20 @@ systemctl enable iptables-restore.service
     // ============================================
     // 2. Database (RDS PostgreSQL or Aurora Serverless v2)
     // ============================================
-    const databaseSubnetGroup = new rds.SubnetGroup(this, 'DatabaseSubnetGroup', {
-      vpc: this.vpc,
-      description: 'Subnet group for database',
-      vpcSubnets: privateSubnetSelection,
-    })
+    // For production: use public subnets to eliminate NAT Gateway costs
+    // For dev/staging: keep private subnets
+    // Create separate subnet groups to allow CloudFormation to transition properly
+    const databaseSubnetGroup = config.env === 'prod'
+      ? new rds.SubnetGroup(this, 'DatabaseSubnetGroupPublic', {
+          vpc: this.vpc,
+          description: 'Subnet group for database (public subnets for production)',
+          vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+        })
+      : new rds.SubnetGroup(this, 'DatabaseSubnetGroup', {
+          vpc: this.vpc,
+          description: 'Subnet group for database',
+          vpcSubnets: privateSubnetSelection,
+        })
 
     // Use regular RDS PostgreSQL for dev/prod (Free Tier eligible)
     // Use Aurora Serverless v2 for staging (auto-scaling)
@@ -237,9 +250,12 @@ systemctl enable iptables-restore.service
           ec2.InstanceSize[instanceSize as keyof typeof ec2.InstanceSize]
         ),
         vpc: this.vpc,
-        vpcSubnets: privateSubnetSelection,
+        vpcSubnets: config.env === 'prod' 
+          ? { subnetType: ec2.SubnetType.PUBLIC }
+          : privateSubnetSelection,
         subnetGroup: databaseSubnetGroup,
         securityGroups: [dbSecurityGroup],
+        publiclyAccessible: config.env === 'prod', // Enable public access for prod to eliminate NAT Gateway
         databaseName: 'jobdock',
         removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
         backupRetention: cdk.Duration.days(1), // Free tier limit
@@ -425,15 +441,6 @@ systemctl enable iptables-restore.service
       'cognito-idp:AdminConfirmSignUp'
     )
 
-    // Grant Lambda access to SES for sending emails
-    lambdaRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
-        resources: ['*'], // Can be restricted to specific verified identities if needed
-      })
-    )
-
     // ============================================
     // 6. API Gateway
     // ============================================
@@ -529,9 +536,12 @@ systemctl enable iptables-restore.service
       entry: path.resolve(backendDir, 'src', 'functions', 'auth', 'handler.ts'),
       handler: 'handler',
       bundling: commonBundlingOptions,
-      vpc: this.vpc,
-      vpcSubnets: privateSubnetSelection,
-      securityGroups: [lambdaSecurityGroup],
+      // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
+      ...(config.env !== 'prod' && {
+        vpc: this.vpc,
+        vpcSubnets: privateSubnetSelection,
+        securityGroups: [lambdaSecurityGroup],
+      }),
       role: lambdaRole,
       timeout: cdk.Duration.seconds(config.lambda.timeout),
       memorySize: config.lambda.memorySize,
@@ -579,9 +589,12 @@ systemctl enable iptables-restore.service
       entry: path.resolve(backendDir, 'src', 'functions', 'data', 'handler.ts'),
       handler: 'handler',
       bundling: commonBundlingOptions,
-      vpc: this.vpc,
-      vpcSubnets: privateSubnetSelection,
-      securityGroups: [lambdaSecurityGroup],
+      // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
+      ...(config.env !== 'prod' && {
+        vpc: this.vpc,
+        vpcSubnets: privateSubnetSelection,
+        securityGroups: [lambdaSecurityGroup],
+      }),
       role: lambdaRole,
       timeout: cdk.Duration.seconds(config.lambda.timeout),
       memorySize: config.lambda.memorySize,
@@ -629,9 +642,12 @@ systemctl enable iptables-restore.service
       entry: path.resolve(backendDir, 'src', 'functions', 'migrate', 'handler.ts'),
       handler: 'handler',
       bundling: commonBundlingOptions,
-      vpc: this.vpc,
-      vpcSubnets: privateSubnetSelection,
-      securityGroups: [lambdaSecurityGroup],
+      // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
+      ...(config.env !== 'prod' && {
+        vpc: this.vpc,
+        vpcSubnets: privateSubnetSelection,
+        securityGroups: [lambdaSecurityGroup],
+      }),
       timeout: cdk.Duration.seconds(300), // 5 minutes for migrations
       memorySize: 1024, // More memory for Prisma
       environment: {
@@ -659,9 +675,12 @@ systemctl enable iptables-restore.service
       entry: path.resolve(backendDir, 'src', 'functions', 'cleanup-jobs', 'handler.ts'),
       handler: 'handler',
       bundling: commonBundlingOptions,
-      vpc: this.vpc,
-      vpcSubnets: privateSubnetSelection,
-      securityGroups: [lambdaSecurityGroup],
+      // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
+      ...(config.env !== 'prod' && {
+        vpc: this.vpc,
+        vpcSubnets: privateSubnetSelection,
+        securityGroups: [lambdaSecurityGroup],
+      }),
       role: lambdaRole,
       timeout: cdk.Duration.minutes(5), // Allow time for processing many jobs
       memorySize: 512,

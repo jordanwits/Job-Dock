@@ -25,6 +25,8 @@ model Tenant {
   contacts                 Contact[]
   invoices                 Invoice[]
   jobs                     Job[]
+  jobLogs                  JobLog[]
+  timeEntries              TimeEntry[]
   jobRecurrences           JobRecurrence[]
   quotes                   Quote[]
   services                 Service[]
@@ -77,6 +79,7 @@ model Contact {
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices       Invoice[]
   jobs           Job[]
+  jobLogs        JobLog[]
   jobRecurrences JobRecurrence[]
   quotes         Quote[]
 
@@ -248,6 +251,7 @@ model Job {
   invoice       Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   recurrence    JobRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobLogs       JobLog[]
 
   @@index([tenantId])
   @@index([contactId])
@@ -262,6 +266,50 @@ model Job {
   @@index([archivedAt])
   @@index([toBeScheduled])
   @@map("jobs")
+}
+
+model JobLog {
+  id          String      @id @default(uuid())
+  tenantId    String
+  title       String
+  description String?
+  location    String?
+  notes       String?
+  jobId       String?
+  contactId   String?
+  status      String      @default("active")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  job         Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  contact     Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timeEntries TimeEntry[]
+
+  @@index([tenantId])
+  @@index([jobId])
+  @@index([contactId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("job_logs")
+}
+
+model TimeEntry {
+  id           String   @id @default(uuid())
+  tenantId     String
+  jobLogId     String
+  startTime    DateTime
+  endTime      DateTime
+  breakMinutes Int      @default(0)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  jobLog       JobLog   @relation(fields: [jobLogId], references: [id], onDelete: Cascade)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([jobLogId])
+  @@index([startTime])
+  @@map("time_entries")
 }
 
 model JobRecurrence {
@@ -307,6 +355,8 @@ model Document {
   entityType String
   entityId   String
   uploadedBy String
+  notes      String?
+  markup     Json?
   createdAt  DateTime @default(now())
 
   @@index([tenantId])

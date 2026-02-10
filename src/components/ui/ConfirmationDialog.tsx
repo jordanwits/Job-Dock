@@ -35,7 +35,7 @@ const ConfirmationDialog = ({
         variant="secondary"
         onClick={onClose}
         disabled={isLoading}
-        className="flex-1 sm:flex-initial"
+        className="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial"
       >
         {cancelText}
       </Button>
@@ -43,7 +43,7 @@ const ConfirmationDialog = ({
         variant={confirmVariant}
         onClick={handleConfirm}
         isLoading={isLoading}
-        className="flex-1 sm:flex-initial"
+        className="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial"
       >
         {confirmText}
       </Button>

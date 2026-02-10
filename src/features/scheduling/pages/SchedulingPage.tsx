@@ -799,15 +799,15 @@ const SchedulingPage = () => {
         </Card>
       )}
 
-      {/* Tabs */}
+      {/* Tabs - horizontal scroll when needed, vertical locked. Negative margin extends into container padding for more room. */}
       <div 
-        className="flex items-center gap-1 md:gap-2 border-b border-white/10 overflow-hidden flex-shrink-0"
-        style={{ touchAction: 'none', overscrollBehavior: 'none' }}
+        className="flex items-center gap-1 md:gap-2 border-b border-white/10 overflow-x-auto overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6"
+        style={{ touchAction: 'pan-x', overscrollBehaviorY: 'none' }}
       >
         <button
           onClick={() => setActiveTab('calendar')}
           className={`
-            px-3 sm:px-3 md:px-4 py-2 sm:py-2 font-medium transition-all whitespace-nowrap text-sm sm:text-sm md:text-base flex-shrink-0
+            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
             ${
               activeTab === 'calendar'
                 ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
@@ -820,7 +820,7 @@ const SchedulingPage = () => {
         <button
           onClick={() => setActiveTab('jobs')}
           className={`
-            px-3 sm:px-3 md:px-4 py-2 sm:py-2 font-medium transition-all whitespace-nowrap text-sm sm:text-sm md:text-base flex-shrink-0
+            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
             ${
               activeTab === 'jobs'
                 ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
@@ -833,7 +833,7 @@ const SchedulingPage = () => {
         <button
           onClick={() => setActiveTab('services')}
           className={`
-            px-3 sm:px-3 md:px-4 py-2 sm:py-2 font-medium transition-all whitespace-nowrap text-sm sm:text-sm md:text-base flex-shrink-0
+            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
             ${
               activeTab === 'services'
                 ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
@@ -846,7 +846,7 @@ const SchedulingPage = () => {
         <button
           onClick={() => setActiveTab('archived')}
           className={`
-            px-3 sm:px-3 md:px-4 py-2 sm:py-2 font-medium transition-all whitespace-nowrap text-sm sm:text-sm md:text-base flex-shrink-0
+            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
             ${
               activeTab === 'archived'
                 ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'

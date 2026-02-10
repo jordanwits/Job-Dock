@@ -7,16 +7,17 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "npx aws-cdk",
-    "deploy:dev": "npx aws-cdk deploy JobDockStack-dev --require-approval never",
-    "deploy:staging": "npx aws-cdk deploy JobDockStack-staging --require-approval never",
-    "deploy:prod": "npx aws-cdk deploy JobDockStack-prod --context env=prod --require-approval any-change",
-    "destroy:dev": "npx aws-cdk destroy JobDockStack-dev",
-    "diff:dev": "npx aws-cdk diff JobDockStack-dev",
-    "synth:dev": "npx aws-cdk synth JobDockStack-dev"
+    "deploy:dev": "node deploy-with-env.js deploy JobDockStack-dev --require-approval never",
+    "deploy:staging": "node deploy-with-env.js deploy JobDockStack-staging --require-approval never",
+    "deploy:prod": "node deploy-with-env.js deploy JobDockStack-prod --context env=prod --require-approval any-change",
+    "destroy:dev": "node deploy-with-env.js destroy JobDockStack-dev",
+    "diff:dev": "node deploy-with-env.js diff JobDockStack-dev",
+    "synth:dev": "node deploy-with-env.js synth JobDockStack-dev"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "aws-cdk": "^2.120.0",
+    "dotenv": "^17.2.3",
     "esbuild": "^0.27.0",
     "typescript": "~5.3.0"
   },

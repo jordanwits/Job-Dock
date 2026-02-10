@@ -423,6 +423,16 @@ const PENDING_MIGRATIONS = [
     description: 'Add deletedAt and archivedAt fields to jobs for data retention management',
   },
   {
+    name: '20260114000000_add_to_be_scheduled',
+    statements: [
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "toBeScheduled" BOOLEAN DEFAULT false NOT NULL`,
+      `ALTER TABLE "jobs" ALTER COLUMN "startTime" DROP NOT NULL`,
+      `ALTER TABLE "jobs" ALTER COLUMN "endTime" DROP NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS "jobs_toBeScheduled_idx" ON "jobs"("toBeScheduled")`,
+    ],
+    description: 'Add toBeScheduled field to jobs and make startTime/endTime nullable for unscheduled jobs',
+  },
+  {
     name: '20260116000000_add_stripe_billing',
     statements: [
       `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "stripeCustomerId" TEXT`,
@@ -469,6 +479,71 @@ const PENDING_MIGRATIONS = [
     ],
     description:
       'Reset all users onboarding status so everyone sees the onboarding flow at least once',
+  },
+  {
+    name: '20260209000000_add_job_logs_and_time_entries',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "job_logs" (
+        "id" TEXT NOT NULL,
+        "tenantId" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "description" TEXT,
+        "location" TEXT,
+        "notes" TEXT,
+        "jobId" TEXT,
+        "contactId" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'active',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "job_logs_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE TABLE IF NOT EXISTS "time_entries" (
+        "id" TEXT NOT NULL,
+        "tenantId" TEXT NOT NULL,
+        "jobLogId" TEXT NOT NULL,
+        "startTime" TIMESTAMP(3) NOT NULL,
+        "endTime" TIMESTAMP(3) NOT NULL,
+        "breakMinutes" INTEGER NOT NULL DEFAULT 0,
+        "notes" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "time_entries_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE INDEX IF NOT EXISTS "job_logs_tenantId_idx" ON "job_logs"("tenantId")`,
+      `CREATE INDEX IF NOT EXISTS "job_logs_jobId_idx" ON "job_logs"("jobId")`,
+      `CREATE INDEX IF NOT EXISTS "job_logs_contactId_idx" ON "job_logs"("contactId")`,
+      `CREATE INDEX IF NOT EXISTS "job_logs_status_idx" ON "job_logs"("status")`,
+      `CREATE INDEX IF NOT EXISTS "job_logs_createdAt_idx" ON "job_logs"("createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "time_entries_tenantId_idx" ON "time_entries"("tenantId")`,
+      `CREATE INDEX IF NOT EXISTS "time_entries_jobLogId_idx" ON "time_entries"("jobLogId")`,
+      `CREATE INDEX IF NOT EXISTS "time_entries_startTime_idx" ON "time_entries"("startTime")`,
+      `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_logs_tenantId_fkey') THEN
+          ALTER TABLE "job_logs" ADD CONSTRAINT "job_logs_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_logs_jobId_fkey') THEN
+          ALTER TABLE "job_logs" ADD CONSTRAINT "job_logs_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "jobs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_logs_contactId_fkey') THEN
+          ALTER TABLE "job_logs" ADD CONSTRAINT "job_logs_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "contacts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'time_entries_tenantId_fkey') THEN
+          ALTER TABLE "time_entries" ADD CONSTRAINT "time_entries_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'time_entries_jobLogId_fkey') THEN
+          ALTER TABLE "time_entries" ADD CONSTRAINT "time_entries_jobLogId_fkey" FOREIGN KEY ("jobLogId") REFERENCES "job_logs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$`,
+    ],
+    description: 'Add job logs and time entries for job logging manager',
+  },
+  {
+    name: '20260210000000_add_document_notes_markup',
+    statements: [
+      `ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "notes" TEXT`,
+      `ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "markup" JSONB`,
+    ],
+    description: 'Add notes and markup columns to documents for photo annotations',
   },
   {
     name: '20260129000002_add_early_access_tables',

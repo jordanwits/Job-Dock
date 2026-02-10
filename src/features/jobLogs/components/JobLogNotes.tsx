@@ -156,8 +156,8 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
                     rows={2}
                     className="resize-none"
                   />
-                  <div className="flex items-center gap-2">
-                    <div className="min-w-[400px]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="w-full min-w-0">
                       <DatePicker
                         label="Date (optional)"
                         value={newEntry.date ?? ''}
@@ -225,8 +225,8 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
                   rows={2}
                   className="resize-none"
                 />
-                <div className="flex items-center gap-2">
-                  <div className="min-w-[400px]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="w-full min-w-0">
                     <DatePicker
                       label="Date (optional)"
                       value={entry.date ?? ''}

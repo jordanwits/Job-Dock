@@ -2,58 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { Button, Input, ConfirmationDialog, Modal } from '@/components/ui'
+import { Button, ConfirmationDialog, Modal } from '@/components/ui'
 import type { TimeEntry } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
-
-const DIGIT_POSITIONS = [0, 1, 3, 4, 6, 7] // HH:MM:SS - indices for digits
-
-function processDurationKey(
-  value: string,
-  key: string,
-  cursorPos: number
-): { newValue: string; newCursor: number } | null {
-  const getDigitIndex = (pos: number) => {
-    const idx = DIGIT_POSITIONS.findIndex(p => p >= pos)
-    return idx >= 0 ? idx : 5
-  }
-  const digits = value.replace(/\D/g, '').padEnd(6, '0').slice(0, 6)
-  const arr = digits.split('')
-
-  if (key >= '0' && key <= '9') {
-    const di = getDigitIndex(cursorPos)
-    const slot = di
-    const unit = Math.floor(slot / 2)
-    const isFirstDigit = slot % 2 === 0
-
-    if (unit === 1 || unit === 2) {
-      if (isFirstDigit && (key === '6' || key === '7' || key === '8' || key === '9')) return null
-      if (!isFirstDigit) {
-        const first = arr[slot - 1]
-        const combined = first + key
-        const max = unit === 1 ? 59 : 59
-        if (parseInt(combined, 10) > max) return null
-      }
-    }
-
-    arr[slot] = key
-    const newStr = `${arr[0]}${arr[1]}:${arr[2]}${arr[3]}:${arr[4]}${arr[5]}`
-    const nextSlot = Math.min(slot + 1, 5)
-    return { newValue: newStr, newCursor: DIGIT_POSITIONS[nextSlot] + (nextSlot === 5 ? 1 : 0) }
-  }
-
-  if (key === 'Backspace') {
-    const di = getDigitIndex(cursorPos)
-    const slot = di
-    const prevSlot = slot - 1
-    if (prevSlot < 0) return null
-    arr[prevSlot] = '0'
-    const newStr = `${arr[0]}${arr[1]}:${arr[2]}${arr[3]}:${arr[4]}${arr[5]}`
-    return { newValue: newStr, newCursor: DIGIT_POSITIONS[prevSlot] }
-  }
-
-  return null
-}
 
 interface TimeTrackerProps {
   jobLogId: string
@@ -72,19 +23,67 @@ function TimeNumberInput({
   onChange: (v: string) => void
   label?: string
 }) {
-  const parts = value ? value.split(':') : ['', '']
-  const h24 = Math.min(23, Math.max(0, parseInt(parts[0], 10) || 0))
-  const m = Math.min(59, Math.max(0, parseInt(parts[1], 10) || 0))
-  const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24
-  const isPM = h24 >= 12
-  const setFrom12h = (hour12: number, pm: boolean) => {
-    const h24new = pm ? (hour12 === 12 ? 12 : hour12 + 12) : hour12 === 12 ? 0 : hour12
-    onChange(`${h24new}`.padStart(2, '0') + ':' + `${m}`.padStart(2, '0'))
+  const to12h = (h24: number) => (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24)
+  const [hourStr, setHourStr] = useState(() => {
+    const [h] = (value || ':').split(':')
+    const h24 = parseInt(h, 10)
+    if (isNaN(h24)) return ''
+    return String(to12h(h24))
+  })
+  const [minStr, setMinStr] = useState(() => {
+    const [, m] = (value || ':').split(':')
+    return m ?? ''
+  })
+  const [isPM, setIsPM] = useState(() => {
+    const [h] = (value || ':').split(':')
+    const h24 = parseInt(h, 10) || 0
+    return h24 >= 12
+  })
+
+  useEffect(() => {
+    const [h, m] = (value || ':').split(':')
+    const h24 = parseInt(h, 10)
+    if (!isNaN(h24)) {
+      setHourStr(String(to12h(h24)))
+      setIsPM(h24 >= 12)
+    } else {
+      setHourStr(h || '')
+    }
+    setMinStr(m ?? '')
+  }, [value])
+
+  const emit = (h: string, min: string, pm: boolean) => {
+    const hour12 = parseInt(h, 10)
+    const hasHour = h !== '' && !isNaN(hour12)
+    const hasMin = min !== ''
+    const minute = parseInt(min, 10) || 0
+    if (hasHour && hasMin) {
+      const h24 = pm
+        ? (hour12 === 12 ? 12 : hour12 + 12)
+        : (hour12 === 12 ? 0 : hour12)
+      onChange(`${h24}`.padStart(2, '0') + ':' + `${minute}`.padStart(2, '0'))
+    } else {
+      onChange(`${h}:${min}`)
+    }
   }
-  const setH = (v: number) => setFrom12h(Math.min(12, Math.max(1, v)), isPM)
-  const setM = (v: number) =>
-    onChange(`${h24}`.padStart(2, '0') + ':' + `${Math.min(59, Math.max(0, v))}`.padStart(2, '0'))
-  const toggleAMPM = () => setFrom12h(h12, !isPM)
+
+  const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
+    setHourStr(raw)
+    emit(raw, minStr, isPM)
+  }
+
+  const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
+    setMinStr(raw)
+    emit(hourStr, raw, isPM)
+  }
+
+  const toggleAMPM = () => {
+    setIsPM(prev => !prev)
+    emit(hourStr, minStr, !isPM)
+  }
+
   const base =
     'bg-transparent text-primary-light focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
   const inputSize = 'h-9 w-8 min-w-0 px-0.5 py-1 text-base sm:text-sm'
@@ -95,22 +94,20 @@ function TimeNumberInput({
       )}
       <div className="flex items-center gap-0.5">
         <input
-          type="number"
-          min={1}
-          max={12}
-          value={h12}
-          onChange={e => setH(parseInt(e.target.value, 10) || 1)}
+          type="text"
+          inputMode="numeric"
+          value={hourStr}
+          onChange={handleHourChange}
           className={cn(base, inputSize, 'text-left pl-0')}
           placeholder="hr"
           aria-label={label ? `${label} hour` : undefined}
         />
         <span className="text-primary-light/50 shrink-0">:</span>
         <input
-          type="number"
-          min={0}
-          max={59}
-          value={m}
-          onChange={e => setM(parseInt(e.target.value, 10) || 0)}
+          type="text"
+          inputMode="numeric"
+          value={minStr}
+          onChange={handleMinuteChange}
           className={cn(base, inputSize, 'text-left')}
           placeholder="min"
           aria-label={label ? `${label} minute` : undefined}
@@ -161,8 +158,10 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
   const [inlineTimeEditId, setInlineTimeEditId] = useState<string | null>(null)
   const [inlineStartTime, setInlineStartTime] = useState('')
   const [inlineEndTime, setInlineEndTime] = useState('')
+  const [timeEditError, setTimeEditError] = useState<string | null>(null)
   const [inlineDurationEditId, setInlineDurationEditId] = useState<string | null>(null)
   const [inlineDuration, setInlineDuration] = useState('')
+  const [durationError, setDurationError] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [descriptionModalId, setDescriptionModalId] = useState<string | null>(null)
   const [descriptionModalEditing, setDescriptionModalEditing] = useState(false)
@@ -222,19 +221,20 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
   }
 
   const parseDurationToSeconds = (str: string): number | null => {
-    const parts = str
-      .trim()
-      .split(':')
-      .map(p => parseInt(p, 10))
+    const s = str.trim()
+    if (!s) return null
+    const parts = s.split(':').map(p => parseInt(p.trim(), 10))
     if (parts.some(n => isNaN(n))) return null
     if (parts.length === 3) {
       return parts[0] * 3600 + parts[1] * 60 + parts[2]
     }
     if (parts.length === 2) {
-      return parts[0] * 60 + parts[1]
+      // HH:MM (e.g. "1:30" = 1h 30m) not MM:SS
+      return parts[0] * 3600 + parts[1] * 60
     }
     if (parts.length === 1) {
-      return parts[0]
+      // Single number: treat as minutes (e.g. "90" = 90 min)
+      return parts[0] * 60
     }
     return null
   }
@@ -257,12 +257,33 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
   }
 
   const handleStopTimer = async () => {
-    if (!timerStart) return
+    // Use localStorage as source of truth for start time (survives navigation/refresh)
+    let startTime: string
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (stored) {
+        const { jobLogId: storedId, startTime: storedStart } = JSON.parse(stored)
+        if (storedId === jobLogId && storedStart) {
+          startTime = storedStart
+        } else if (timerStart) {
+          startTime = timerStart.toISOString()
+        } else {
+          return
+        }
+      } else if (timerStart) {
+        startTime = timerStart.toISOString()
+      } else {
+        return
+      }
+    } catch {
+      if (!timerStart) return
+      startTime = timerStart.toISOString()
+    }
     const end = new Date()
     try {
       await createTimeEntry({
         jobLogId,
-        startTime: timerStart.toISOString(),
+        startTime,
         endTime: end.toISOString(),
       })
     } finally {
@@ -317,17 +338,22 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
   }
 
   const handleInlineTimeSave = async (te: TimeEntry) => {
-    if (inlineTimeEditId !== te.id || !inlineStartTime || !inlineEndTime) return
+    if (inlineTimeEditId !== te.id) return
+    setTimeEditError(null)
+    const startDate = new Date(te.startTime)
+    const endDate = new Date(te.endTime)
+    const newStart = parseTimeToDate(inlineStartTime, startDate)
+    const newEnd = parseTimeToDate(inlineEndTime, endDate)
+    if (!newStart) {
+      setTimeEditError('Invalid start time. Use 12-hour format (e.g. 9:30) with AM/PM.')
+      return
+    }
+    if (!newEnd) {
+      setTimeEditError('Invalid end time. Use 12-hour format (e.g. 5:45) with AM/PM.')
+      return
+    }
+    if (newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1)
     try {
-      const startDate = new Date(te.startTime)
-      const endDate = new Date(te.endTime)
-      const [startH, startM] = inlineStartTime.split(':').map(Number)
-      const [endH, endM] = inlineEndTime.split(':').map(Number)
-      const newStart = new Date(startDate)
-      newStart.setHours(startH, startM, 0, 0)
-      const newEnd = new Date(endDate)
-      newEnd.setHours(endH, endM, 0, 0)
-      if (newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1)
       await updateTimeEntry(
         te.id,
         {
@@ -344,22 +370,34 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
 
   const beginTimeEdit = (te: TimeEntry) => {
     setInlineTimeEditId(te.id)
+    setTimeEditError(null)
     const start = new Date(te.startTime)
     const end = new Date(te.endTime)
     setInlineStartTime(format(start, 'HH:mm'))
     setInlineEndTime(format(end, 'HH:mm'))
   }
 
+  const parseTimeToDate = (timeStr: string, baseDate: Date): Date | null => {
+    const [h, m] = timeStr.split(':').map(Number)
+    if (isNaN(h) || isNaN(m)) return null
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null
+    const d = new Date(baseDate)
+    d.setHours(h, m, 0, 0)
+    return d
+  }
+
   const beginDurationEdit = (te: TimeEntry) => {
     setInlineDurationEditId(te.id)
+    setDurationError(null)
     setInlineDuration(formatDuration(te))
   }
 
   const handleInlineDurationSave = async (te: TimeEntry) => {
     if (inlineDurationEditId !== te.id) return
+    setDurationError(null)
     const totalSec = parseDurationToSeconds(inlineDuration)
     if (totalSec === null || totalSec < 0) {
-      setInlineDurationEditId(null)
+      setDurationError('Invalid duration. Use HH:MM:SS (e.g. 1:30:00) or HH:MM or minutes.')
       return
     }
     const start = new Date(te.startTime).getTime()
@@ -510,6 +548,9 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
                           />
                         </div>
                       </div>
+                      {timeEditError && (
+                        <p className="text-sm text-red-400">{timeEditError}</p>
+                      )}
                       <div className="flex gap-2 sm:gap-1 pt-0.5 sm:pt-0 border-t border-primary-blue/20 sm:border-0">
                         <button
                           type="button"
@@ -520,7 +561,10 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
                         </button>
                         <button
                           type="button"
-                          onClick={() => setInlineTimeEditId(null)}
+                          onClick={() => {
+                            setInlineTimeEditId(null)
+                            setTimeEditError(null)
+                          }}
                           className="flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm text-primary-light/80 hover:text-primary-light rounded-lg border border-primary-blue/50 hover:border-primary-blue"
                         >
                           Cancel
@@ -539,49 +583,36 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
                   )}
                 </div>
 
-                {/* Duration – click to edit, sticky colons, numbers only */}
-                <div className="w-24 shrink-0 text-right">
+                {/* Duration – click to edit, free typing with validation on save */}
+                <div className="w-24 shrink-0 text-right flex flex-col items-end gap-0.5">
                   {inlineDurationEditId === te.id ? (
-                    <input
-                      ref={durationInputRef}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={8}
-                      value={inlineDuration}
-                      onChange={() => {}}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          handleInlineDurationSave(te)
-                          return
-                        }
-                        if (e.key === 'Escape') {
-                          setInlineDurationEditId(null)
-                          return
-                        }
-                        const result = processDurationKey(
-                          inlineDuration,
-                          e.key,
-                          (e.target as HTMLInputElement).selectionStart ?? 0
-                        )
-                        if (result) {
-                          e.preventDefault()
-                          setInlineDuration(result.newValue)
-                          setTimeout(() => {
-                            durationInputRef.current?.setSelectionRange(
-                              result.newCursor,
-                              result.newCursor
-                            )
-                          }, 0)
-                        } else if (e.key >= '0' && e.key <= '9') {
-                          e.preventDefault()
-                        }
-                      }}
-                      onBlur={() => handleInlineDurationSave(te)}
-                      onPaste={e => e.preventDefault()}
-                      placeholder="00:00:00"
-                      className="w-full text-sm font-medium text-primary-light bg-transparent px-2 py-1 text-right focus:outline-none focus:ring-0 font-mono tabular-nums"
-                      autoFocus
-                    />
+                    <>
+                      <input
+                        ref={durationInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        value={inlineDuration}
+                        onChange={e => setInlineDuration(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            handleInlineDurationSave(te)
+                            return
+                          }
+                          if (e.key === 'Escape') {
+                            setInlineDurationEditId(null)
+                            setDurationError(null)
+                            return
+                          }
+                        }}
+                        onBlur={() => handleInlineDurationSave(te)}
+                        placeholder="00:00:00"
+                        className="w-full text-sm font-medium text-primary-light bg-transparent px-2 py-1 text-right focus:outline-none focus:ring-0 font-mono tabular-nums"
+                        autoFocus
+                      />
+                      {durationError && (
+                        <p className="text-xs text-red-400 text-right max-w-[140px]">{durationError}</p>
+                      )}
+                    </>
                   ) : (
                     <button
                       type="button"
