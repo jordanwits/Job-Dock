@@ -9,6 +9,7 @@ import { CRMPage } from '@/features/crm'
 import { QuotesPage } from '@/features/quotes'
 import { InvoicesPage } from '@/features/invoices'
 import { SchedulingPage } from '@/features/scheduling'
+import { JobLogsListPage, JobLogDetailPage } from '@/features/jobLogs'
 import { PublicBookingPage } from '@/features/booking'
 import { SettingsPage } from '@/features/settings'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
@@ -38,6 +39,7 @@ function App() {
   const sidebarItems = [
     { label: 'Dashboard', href: '/app' },
     { label: 'Contacts', href: '/app/crm' },
+    { label: 'Jobs', href: '/app/job-logs' },
     { label: 'Quotes', href: '/app/quotes' },
     { label: 'Invoices', href: '/app/invoices' },
     { label: 'Calendar', href: '/app/scheduling' },
@@ -165,6 +167,39 @@ function App() {
                   onLogout={handleLogout}
                 >
                   <SchedulingPage />
+                </AppLayout>
+              </BillingGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/app/job-logs"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <JobLogsListPage />
+                </AppLayout>
+              </BillingGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/app/job-logs/:id"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <JobLogDetailPage />
                 </AppLayout>
               </BillingGuard>
             </ProtectedRoute>
