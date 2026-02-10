@@ -552,7 +552,6 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
         title="Delete Time Entry"
         message="Are you sure you want to delete this time entry?"
         confirmText="Delete"
-        confirmVariant="danger"
       />
     </div>
   )
