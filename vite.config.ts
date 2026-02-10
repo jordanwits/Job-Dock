@@ -17,6 +17,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        // Only split React/vendor - keep axios, date-fns, zod in main bundle
+        // to avoid Rollup traceVariable errors across chunk boundaries (zod + @hookform/resolvers)
+        manualChunks(id) {
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/react-router-dom/')) {
+            return 'vendor'
+          }
+        },
+      },
+    },
   },
 })
 
