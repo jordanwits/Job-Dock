@@ -428,7 +428,7 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
 
       {fullscreenPhoto && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4 touch-manipulation"
           onClick={(e) => e.target === e.currentTarget && closeFullscreen()}
         >
           <button
@@ -442,7 +442,10 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
             </svg>
           </button>
 
-          <div className="flex-1 flex flex-col items-center justify-center w-full max-w-4xl gap-4 overflow-auto">
+          <div
+            className="flex-1 flex flex-col items-center justify-center w-full max-w-4xl gap-4 overflow-auto min-h-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex flex-wrap justify-center gap-2">
               <Button
                 variant="outline"
@@ -478,7 +481,7 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
 
             <div
               ref={imgContainerRef}
-              className={`relative flex-shrink-0 ${activeTool ? 'cursor-crosshair' : ''}`}
+              className={`relative flex-shrink-0 ${activeTool ? 'cursor-crosshair touch-none' : ''}`}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -529,9 +532,12 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
                 label="Notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                onFocus={(e) => {
+                  e.target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                }}
                 placeholder="Add notes about this photo..."
                 rows={3}
-                className="bg-primary-dark/50 border-primary-blue"
+                className="bg-primary-dark/50 border-primary-blue text-base"
               />
               <Button
                 size="sm"
