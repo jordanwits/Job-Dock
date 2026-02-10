@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { Button, Input, ConfirmationDialog } from '@/components/ui'
+import { Button, Input, ConfirmationDialog, Modal } from '@/components/ui'
 import type { TimeEntry } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
 
@@ -13,7 +14,7 @@ function processDurationKey(
   cursorPos: number
 ): { newValue: string; newCursor: number } | null {
   const getDigitIndex = (pos: number) => {
-    const idx = DIGIT_POSITIONS.findIndex((p) => p >= pos)
+    const idx = DIGIT_POSITIONS.findIndex(p => p >= pos)
     return idx >= 0 ? idx : 5
   }
   const digits = value.replace(/\D/g, '').padEnd(6, '0').slice(0, 6)
@@ -65,10 +66,11 @@ const TIMER_STORAGE_KEY = 'joblog-active-timer'
 function TimeNumberInput({
   value,
   onChange,
+  label,
 }: {
   value: string
   onChange: (v: string) => void
-  placeholder?: string
+  label?: string
 }) {
   const parts = value ? value.split(':') : ['', '']
   const h24 = Math.min(23, Math.max(0, parseInt(parts[0], 10) || 0))
@@ -76,41 +78,56 @@ function TimeNumberInput({
   const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24
   const isPM = h24 >= 12
   const setFrom12h = (hour12: number, pm: boolean) => {
-    const h24new = pm ? (hour12 === 12 ? 12 : hour12 + 12) : (hour12 === 12 ? 0 : hour12)
+    const h24new = pm ? (hour12 === 12 ? 12 : hour12 + 12) : hour12 === 12 ? 0 : hour12
     onChange(`${h24new}`.padStart(2, '0') + ':' + `${m}`.padStart(2, '0'))
   }
   const setH = (v: number) => setFrom12h(Math.min(12, Math.max(1, v)), isPM)
-  const setM = (v: number) => onChange(`${h24}`.padStart(2, '0') + ':' + `${Math.min(59, Math.max(0, v))}`.padStart(2, '0'))
+  const setM = (v: number) =>
+    onChange(`${h24}`.padStart(2, '0') + ':' + `${Math.min(59, Math.max(0, v))}`.padStart(2, '0'))
   const toggleAMPM = () => setFrom12h(h12, !isPM)
-  const base = 'h-10 rounded-lg border border-primary-blue bg-primary-dark-secondary px-2 py-1 text-sm text-primary-light focus:outline-none focus:ring-2 focus:ring-primary-gold text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+  const base =
+    'bg-transparent text-primary-light focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+  const inputSize = 'h-9 w-8 min-w-0 px-0.5 py-1 text-base sm:text-sm'
   return (
-    <div className="flex items-center gap-0.5">
-      <input
-        type="number"
-        min={1}
-        max={12}
-        value={h12}
-        onChange={(e) => setH(parseInt(e.target.value, 10) || 1)}
-        className={cn(base, 'w-10')}
-        placeholder="hr"
-      />
-      <span className="text-primary-light/50">:</span>
-      <input
-        type="number"
-        min={0}
-        max={59}
-        value={m}
-        onChange={(e) => setM(parseInt(e.target.value, 10) || 0)}
-        className={cn(base, 'w-10')}
-        placeholder="min"
-      />
-      <button
-        type="button"
-        onClick={toggleAMPM}
-        className={cn(base, 'w-10 px-1 text-xs font-medium', isPM ? 'text-primary-gold' : 'text-primary-light/70')}
-      >
-        {isPM ? 'PM' : 'AM'}
-      </button>
+    <div className="flex flex-col gap-0.5">
+      {label && (
+        <span className="text-xs font-medium text-primary-light/60">{label}</span>
+      )}
+      <div className="flex items-center gap-0.5">
+        <input
+          type="number"
+          min={1}
+          max={12}
+          value={h12}
+          onChange={e => setH(parseInt(e.target.value, 10) || 1)}
+          className={cn(base, inputSize, 'text-left pl-0')}
+          placeholder="hr"
+          aria-label={label ? `${label} hour` : undefined}
+        />
+        <span className="text-primary-light/50 shrink-0">:</span>
+        <input
+          type="number"
+          min={0}
+          max={59}
+          value={m}
+          onChange={e => setM(parseInt(e.target.value, 10) || 0)}
+          className={cn(base, inputSize, 'text-left')}
+          placeholder="min"
+          aria-label={label ? `${label} minute` : undefined}
+        />
+        <button
+          type="button"
+          onClick={toggleAMPM}
+          className={cn(
+            base,
+            'h-9 w-9 min-w-0 px-0.5 py-1 text-xs font-medium shrink-0',
+            isPM ? 'text-primary-gold' : 'text-primary-light/70'
+          )}
+          aria-label={label ? `${label} AM/PM` : undefined}
+        >
+          {isPM ? 'PM' : 'AM'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -147,7 +164,32 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
   const [inlineDurationEditId, setInlineDurationEditId] = useState<string | null>(null)
   const [inlineDuration, setInlineDuration] = useState('')
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [descriptionModalId, setDescriptionModalId] = useState<string | null>(null)
+  const [descriptionModalEditing, setDescriptionModalEditing] = useState(false)
+  const [modalEditNotes, setModalEditNotes] = useState('')
   const durationInputRef = useRef<HTMLInputElement>(null)
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null)
+  const modalTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  useEffect(() => {
+    if (descriptionModalEditing) {
+      requestAnimationFrame(() => {
+        const el = modalTextareaRef.current
+        if (el) {
+          el.focus()
+          el.setSelectionRange(el.value.length, el.value.length)
+        }
+      })
+    }
+  }, [descriptionModalEditing])
 
   const tick = useCallback(() => {
     if (timerStart) {
@@ -180,8 +222,11 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
   }
 
   const parseDurationToSeconds = (str: string): number | null => {
-    const parts = str.trim().split(':').map((p) => parseInt(p, 10))
-    if (parts.some((n) => isNaN(n))) return null
+    const parts = str
+      .trim()
+      .split(':')
+      .map(p => parseInt(p, 10))
+    if (parts.some(n => isNaN(n))) return null
     if (parts.length === 3) {
       return parts[0] * 3600 + parts[1] * 60 + parts[2]
     }
@@ -199,10 +244,13 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
     setTimerStart(start)
     setIsTimerRunning(true)
     try {
-      localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify({
-        jobLogId,
-        startTime: start.toISOString(),
-      }))
+      localStorage.setItem(
+        TIMER_STORAGE_KEY,
+        JSON.stringify({
+          jobLogId,
+          startTime: start.toISOString(),
+        })
+      )
     } catch {
       // ignore
     }
@@ -280,10 +328,14 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
       const newEnd = new Date(endDate)
       newEnd.setHours(endH, endM, 0, 0)
       if (newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1)
-      await updateTimeEntry(te.id, {
-        startTime: newStart.toISOString(),
-        endTime: newEnd.toISOString(),
-      }, jobLogId)
+      await updateTimeEntry(
+        te.id,
+        {
+          startTime: newStart.toISOString(),
+          endTime: newEnd.toISOString(),
+        },
+        jobLogId
+      )
       setInlineTimeEditId(null)
     } catch (e) {
       console.error(e)
@@ -314,9 +366,13 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
     const breakMs = (te.breakMinutes ?? 0) * 60 * 1000
     const newEnd = new Date(start + totalSec * 1000 + breakMs)
     try {
-      await updateTimeEntry(te.id, {
-        endTime: newEnd.toISOString(),
-      }, jobLogId)
+      await updateTimeEntry(
+        te.id,
+        {
+          endTime: newEnd.toISOString(),
+        },
+        jobLogId
+      )
       setInlineDurationEditId(null)
     } catch (e) {
       console.error(e)
@@ -352,7 +408,7 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
       </div>
 
       {/* Timer */}
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-nowrap items-center gap-4">
         {!isTimerRunning ? (
           <Button onClick={handleStartTimer} size="sm">
             Start Timer
@@ -375,170 +431,230 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
           {timeEntries.map((te, index) => (
             <div
               key={te.id}
-              className="flex items-center gap-3 py-2 px-3 rounded-lg bg-primary-dark/30 border border-primary-blue/30 hover:bg-primary-dark/40 transition-colors"
+              className={cn(
+                'flex gap-2 sm:gap-3 py-2 px-3 rounded-lg bg-primary-dark/30 border border-primary-blue/30 hover:bg-primary-dark/40 transition-colors',
+                inlineTimeEditId === te.id
+                  ? 'flex-col sm:flex-row sm:flex-nowrap sm:items-center'
+                  : 'flex-nowrap items-center overflow-x-auto'
+              )}
             >
-              {/* Index */}
-              <div className="w-8 h-8 flex items-center justify-center rounded border border-primary-blue/50 bg-primary-dark/50 text-xs font-medium text-primary-light/80 shrink-0">
-                {index + 1}
-              </div>
-
-              {/* Job title + Description / Notes */}
-              <div className="flex-1 min-w-0 flex items-center gap-2">
-                <span className="font-semibold text-base text-primary-light shrink-0">
-                  {jobLogTitle}
-                </span>
-                <span className="text-primary-light/50 shrink-0">–</span>
-                {inlineEditId === te.id ? (
-                  <input
-                    type="text"
-                    value={inlineNotes}
-                    onChange={(e) => setInlineNotes(e.target.value)}
-                    onBlur={() => handleInlineNotesSave(te)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleInlineNotesSave(te)}
-                    placeholder="Add description"
-                    className="flex-1 min-w-0 bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
-                    autoFocus
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInlineEditId(te.id)
-                      setInlineNotes(te.notes ?? '')
-                    }}
-                    className="flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate"
-                  >
-                    {te.notes || <span className="text-primary-light/40">Add description</span>}
-                  </button>
-                )}
-              </div>
-
-              {/* Time range – click to edit, time only */}
-              <div className="shrink-0">
-                {inlineTimeEditId === te.id ? (
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <TimeNumberInput
-                      value={inlineStartTime}
-                      onChange={setInlineStartTime}
+              {/* Index + Job title + Notes (stays together when row wraps) */}
+              <div className="flex items-center gap-2 min-w-0 flex-1 w-full sm:w-auto">
+                <div className="w-8 h-8 flex items-center justify-center rounded border border-primary-blue/50 bg-primary-dark/50 text-xs font-medium text-primary-light/80 shrink-0">
+                  {index + 1}
+                </div>
+                <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
+                  <span className="font-semibold text-base text-primary-light truncate">
+                    {jobLogTitle}
+                  </span>
+                  <span className="text-primary-light/50 shrink-0 hidden sm:inline">–</span>
+                  {inlineEditId === te.id ? (
+                    <input
+                      type="text"
+                      value={inlineNotes}
+                      onChange={e => setInlineNotes(e.target.value)}
+                      onBlur={() => handleInlineNotesSave(te)}
+                      onKeyDown={e => e.key === 'Enter' && handleInlineNotesSave(te)}
+                      placeholder="Add description"
+                      className="flex-1 min-w-0 bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
+                      autoFocus
                     />
-                    <span className="text-primary-light/50">–</span>
-                    <TimeNumberInput
-                      value={inlineEndTime}
-                      onChange={setInlineEndTime}
-                    />
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => handleInlineTimeSave(te)}
-                      className="text-xs text-primary-gold hover:underline px-1"
+                      onClick={() => {
+                        if (isMobile) {
+                          setDescriptionModalId(te.id)
+                        } else {
+                          setInlineEditId(te.id)
+                          setInlineNotes(te.notes ?? '')
+                        }
+                      }}
+                      className="flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate"
                     >
-                      Save
+                      {te.notes || <span className="text-primary-light/40">Add description</span>}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setInlineTimeEditId(null)}
-                      className="text-xs text-primary-light/60 hover:text-primary-light px-1"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => beginTimeEdit(te)}
-                    className="text-sm text-primary-light/80 hover:text-primary-light hover:underline"
-                  >
-                    {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* Duration – click to edit, sticky colons, numbers only */}
-              <div className="w-24 shrink-0 text-right">
-                {inlineDurationEditId === te.id ? (
-                  <input
-                    ref={durationInputRef}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={8}
-                    value={inlineDuration}
-                    onChange={() => {}}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleInlineDurationSave(te)
-                        return
-                      }
-                      if (e.key === 'Escape') {
-                        setInlineDurationEditId(null)
-                        return
-                      }
-                      const result = processDurationKey(
-                        inlineDuration,
-                        e.key,
-                        (e.target as HTMLInputElement).selectionStart ?? 0
-                      )
-                      if (result) {
-                        e.preventDefault()
-                        setInlineDuration(result.newValue)
-                        setTimeout(() => {
-                          durationInputRef.current?.setSelectionRange(
-                            result.newCursor,
-                            result.newCursor
-                          )
-                        }, 0)
-                      } else if (e.key >= '0' && e.key <= '9') {
-                        e.preventDefault()
-                      }
-                    }}
-                    onBlur={() => handleInlineDurationSave(te)}
-                    onPaste={(e) => e.preventDefault()}
-                    placeholder="00:00:00"
-                    className="w-full text-sm font-medium text-primary-light bg-primary-dark border border-primary-blue rounded px-2 py-1 text-right focus:outline-none focus:ring-1 focus:ring-primary-gold font-mono tabular-nums"
-                    autoFocus
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => beginDurationEdit(te)}
-                    className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
-                  >
-                    {formatDuration(te)}
-                  </button>
+              {/* Time range + Duration + Menu */}
+              <div
+                className={cn(
+                  'flex gap-2 shrink-0',
+                  inlineTimeEditId === te.id
+                    ? 'flex-col sm:flex-row sm:items-center sm:flex-nowrap'
+                    : 'flex-nowrap items-center'
                 )}
-              </div>
-
-              {/* Kebab menu – Delete only */}
-              <div className="relative shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setOpenMenuId(openMenuId === te.id ? null : te.id)}
-                  className="p-1 rounded hover:bg-primary-dark text-primary-light/60 hover:text-primary-light"
-                  aria-label="More options"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                  </svg>
-                </button>
-                {openMenuId === te.id && (
-                  <>
+              >
+                {/* Time range – click to edit, time only (hidden on mobile, show Edit link instead) */}
+                <div className={cn('shrink-0', inlineTimeEditId === te.id && 'w-full sm:w-auto')}>
+                  {inlineTimeEditId === te.id ? (
                     <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setOpenMenuId(null)}
-                      aria-hidden
-                    />
-                    <div className="absolute right-0 top-full mt-1 py-1 rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl z-20 min-w-[100px]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenMenuId(null)
-                          handleDeleteClick(te.id)
-                        }}
-                        className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10"
-                      >
-                        Delete
-                      </button>
+                      className="flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0 p-2 sm:p-0 rounded-lg sm:rounded-none bg-primary-dark/50 sm:bg-transparent border border-primary-blue/30 sm:border-0"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <div className="flex flex-row items-start gap-2">
+                        <div className="flex flex-col gap-0.5 items-start">
+                          <span className="text-xs font-medium text-primary-light/60">Start</span>
+                          <TimeNumberInput
+                            value={inlineStartTime}
+                            onChange={setInlineStartTime}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5 items-start">
+                          <span className="text-xs font-medium text-primary-light/60">End</span>
+                          <TimeNumberInput
+                            value={inlineEndTime}
+                            onChange={setInlineEndTime}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 sm:gap-1 pt-0.5 sm:pt-0 border-t border-primary-blue/20 sm:border-0">
+                        <button
+                          type="button"
+                          onClick={() => handleInlineTimeSave(te)}
+                          className="flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm font-medium text-primary-dark bg-primary-gold hover:bg-primary-gold/90 rounded-lg transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInlineTimeEditId(null)}
+                          className="flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm text-primary-light/80 hover:text-primary-light rounded-lg border border-primary-blue/50 hover:border-primary-blue"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
-                  </>
-                )}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => beginTimeEdit(te)}
+                      className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
+                    >
+                      {format(new Date(te.startTime), 'h:mma')} –{' '}
+                      {format(new Date(te.endTime), 'h:mma')}
+                    </button>
+                  )}
+                </div>
+
+                {/* Duration – click to edit, sticky colons, numbers only */}
+                <div className="w-24 shrink-0 text-right">
+                  {inlineDurationEditId === te.id ? (
+                    <input
+                      ref={durationInputRef}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={8}
+                      value={inlineDuration}
+                      onChange={() => {}}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          handleInlineDurationSave(te)
+                          return
+                        }
+                        if (e.key === 'Escape') {
+                          setInlineDurationEditId(null)
+                          return
+                        }
+                        const result = processDurationKey(
+                          inlineDuration,
+                          e.key,
+                          (e.target as HTMLInputElement).selectionStart ?? 0
+                        )
+                        if (result) {
+                          e.preventDefault()
+                          setInlineDuration(result.newValue)
+                          setTimeout(() => {
+                            durationInputRef.current?.setSelectionRange(
+                              result.newCursor,
+                              result.newCursor
+                            )
+                          }, 0)
+                        } else if (e.key >= '0' && e.key <= '9') {
+                          e.preventDefault()
+                        }
+                      }}
+                      onBlur={() => handleInlineDurationSave(te)}
+                      onPaste={e => e.preventDefault()}
+                      placeholder="00:00:00"
+                      className="w-full text-sm font-medium text-primary-light bg-transparent px-2 py-1 text-right focus:outline-none focus:ring-0 font-mono tabular-nums"
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => beginDurationEdit(te)}
+                      className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
+                    >
+                      {formatDuration(te)}
+                    </button>
+                  )}
+                </div>
+
+                {/* Kebab menu – Edit times + Delete */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={e => {
+                      menuButtonRef.current = e.currentTarget
+                      setOpenMenuId(openMenuId === te.id ? null : te.id)
+                    }}
+                    className="p-1 rounded hover:bg-primary-dark text-primary-light/60 hover:text-primary-light"
+                    aria-label="More options"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                    </svg>
+                  </button>
+                  {openMenuId === te.id &&
+                    createPortal(
+                      <>
+                        <div
+                          className="fixed inset-0 z-[100]"
+                          onClick={() => setOpenMenuId(null)}
+                          aria-hidden
+                        />
+                        <div
+                          className="fixed z-[101] py-1 rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl min-w-[140px]"
+                          style={
+                            menuButtonRef.current
+                              ? (() => {
+                                  const rect = menuButtonRef.current.getBoundingClientRect()
+                                  return {
+                                    top: rect.bottom + 4,
+                                    right: window.innerWidth - rect.right,
+                                  }
+                                })()
+                              : undefined
+                          }
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId(null)
+                              beginTimeEdit(te)
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-primary-light hover:bg-primary-blue/10"
+                          >
+                            Edit times
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId(null)
+                              handleDeleteClick(te.id)
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </>,
+                      document.body
+                    )}
+                </div>
               </div>
             </div>
           ))}
@@ -554,6 +670,59 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
         confirmText="Delete"
         confirmVariant="danger"
       />
+
+      {(() => {
+        const te = descriptionModalId ? timeEntries.find(t => t.id === descriptionModalId) : null
+        const handleModalClose = () => {
+          setDescriptionModalId(null)
+          setDescriptionModalEditing(false)
+        }
+        const handleEditClick = () => {
+          setModalEditNotes(te?.notes ?? '')
+          setDescriptionModalEditing(true)
+        }
+        const handleModalSave = async () => {
+          if (!te) return
+          try {
+            await updateTimeEntry(te.id, { notes: modalEditNotes || undefined }, jobLogId)
+            setDescriptionModalEditing(false)
+          } catch (e) {
+            console.error(e)
+          }
+        }
+        const displayNotes = descriptionModalEditing ? modalEditNotes : (te?.notes ?? '')
+        return (
+          <Modal
+            isOpen={descriptionModalId !== null}
+            onClose={handleModalClose}
+            title="Description"
+            headerRight={
+              te && `${format(new Date(te.startTime), 'h:mma')} – ${format(new Date(te.endTime), 'h:mma')}`
+            }
+            footer={
+              descriptionModalEditing ? (
+                <Button size="sm" onClick={handleModalSave}>
+                  Save
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={handleEditClick}>
+                  Edit
+                </Button>
+              )
+            }
+          >
+            <textarea
+              ref={modalTextareaRef}
+              value={displayNotes}
+              onChange={e => setModalEditNotes(e.target.value)}
+              readOnly={!descriptionModalEditing}
+              placeholder="Add description"
+              className="w-full min-h-[80px] p-0 bg-transparent text-primary-light placeholder:text-primary-light/40 focus:outline-none border-none resize-none whitespace-pre-wrap text-base"
+              style={{ font: 'inherit' }}
+            />
+          </Modal>
+        )
+      })()}
     </div>
   )
 }
