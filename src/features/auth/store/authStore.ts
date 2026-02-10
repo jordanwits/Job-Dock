@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { authService } from '@/lib/api/services'
+import { refreshAuth } from '@/lib/api/authApi'
+import { registerSessionClearHandler, registerTokenRefreshHandler } from '@/lib/auth/sessionBridge'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { isTokenExpired } from '@/lib/utils/tokenUtils'
 
@@ -36,13 +38,37 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
-      user: null,
-      token: null,
-      refreshToken: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+    (set, get) => {
+      // Allow the API client to update auth store state without importing this module,
+      // avoiding circular dependencies that can break Rollup builds on some platforms.
+      registerTokenRefreshHandler(({ token, refreshToken, user }) => {
+        set({
+          user: (user as User | undefined) ?? get().user,
+          token,
+          refreshToken,
+          isAuthenticated: true,
+          error: null,
+        })
+      })
+
+      registerSessionClearHandler(() => {
+        set({
+          user: null,
+          token: null,
+          refreshToken: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+        })
+      })
+
+      return {
+        user: null,
+        token: null,
+        refreshToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
 
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null })
@@ -112,9 +138,9 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await authService.refresh(currentRefreshToken)
+          const response = await refreshAuth(currentRefreshToken)
           set({
-            user: response.user,
+            user: (response.user as User | undefined) ?? get().user,
             token: response.token,
             refreshToken: response.refreshToken,
             isAuthenticated: true,
@@ -123,7 +149,10 @@ export const useAuthStore = create<AuthState>()(
           // Update stored tokens
           localStorage.setItem('auth_token', response.token)
           localStorage.setItem('refresh_token', response.refreshToken)
-          localStorage.setItem('tenant_id', response.user.tenantId)
+          const maybeUser = response.user as Partial<User> | undefined
+          if (maybeUser?.tenantId) {
+            localStorage.setItem('tenant_id', maybeUser.tenantId)
+          }
           return true
         } catch (error: any) {
           console.error('Token refresh failed:', error)
@@ -205,7 +234,8 @@ export const useAuthStore = create<AuthState>()(
 
         return true
       },
-    }),
+      }
+    },
     {
       name: 'auth-storage',
       partialize: state => ({

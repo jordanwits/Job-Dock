@@ -1,5 +1,7 @@
 import axios from 'axios'
 import { appEnv } from '@/lib/env'
+import { refreshAuth } from '@/lib/api/authApi'
+import { notifySessionCleared, notifyTokenRefreshed } from '@/lib/auth/sessionBridge'
 
 const API_URL = appEnv.apiUrl
 const DEFAULT_TENANT_ID = appEnv.defaultTenantId
@@ -105,20 +107,32 @@ apiClient.interceptors.response.use(
 
       if (refreshToken) {
         try {
-          // Attempt to refresh the token
-          const { useAuthStore } = await import('@/features/auth/store/authStore')
-          const success = await useAuthStore.getState().refreshAccessToken()
+          // Attempt to refresh the token without importing the auth store
+          // (avoids circular deps that can break some Rollup builds).
+          const response = await refreshAuth(refreshToken)
 
-          if (success) {
-            const newToken = localStorage.getItem('auth_token')
-            if (newToken) {
-              isRefreshingToken = false
-              onRefreshed(newToken)
+          const newToken = response.token
+          if (newToken) {
+            localStorage.setItem('auth_token', newToken)
+            localStorage.setItem('refresh_token', response.refreshToken)
 
-              // Retry original request with new token
-              originalRequest.headers.Authorization = `Bearer ${newToken}`
-              return apiClient(originalRequest)
+            const maybeUser = response.user as { tenantId?: string } | undefined
+            if (maybeUser?.tenantId) {
+              localStorage.setItem('tenant_id', maybeUser.tenantId)
             }
+
+            notifyTokenRefreshed({
+              token: newToken,
+              refreshToken: response.refreshToken,
+              user: response.user,
+            })
+
+            isRefreshingToken = false
+            onRefreshed(newToken)
+
+            // Retry original request with new token
+            originalRequest.headers.Authorization = `Bearer ${newToken}`
+            return apiClient(originalRequest)
           }
         } catch (refreshError) {
           console.error('Token refresh failed:', refreshError)
@@ -147,6 +161,9 @@ apiClient.interceptors.response.use(
         } catch (e) {
           console.error('Failed to clear auth storage:', e)
         }
+
+        // Also clear any in-memory auth state (e.g. Zustand store)
+        notifySessionCleared()
 
         setTimeout(() => {
           window.location.href = `/auth/login?session=expired&message=${encodeURIComponent(message)}`
