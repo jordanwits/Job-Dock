@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import Modal from './Modal'
 import Button from './Button'
 
@@ -25,24 +25,37 @@ const ConfirmationDialog = ({
   confirmVariant = 'primary',
   isLoading = false,
 }: ConfirmationDialogProps) => {
-  const handleConfirm = () => {
-    onConfirm()
+  const [isConfirming, setIsConfirming] = useState(false)
+  const loading = isLoading || isConfirming
+
+  const handleConfirm = async () => {
+    const result = onConfirm()
+    if (result && typeof (result as Promise<unknown>).then === 'function') {
+      setIsConfirming(true)
+      try {
+        await (result as Promise<unknown>)
+      } finally {
+        setIsConfirming(false)
+      }
+    }
   }
 
   const footer = (
     <>
       <Button
+        type="button"
         variant="secondary"
         onClick={onClose}
-        disabled={isLoading}
+        disabled={loading}
         className="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial"
       >
         {cancelText}
       </Button>
       <Button
+        type="button"
         variant={confirmVariant}
         onClick={handleConfirm}
-        isLoading={isLoading}
+        isLoading={loading}
         className="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial"
       >
         {confirmText}
@@ -57,7 +70,7 @@ const ConfirmationDialog = ({
       title={title}
       footer={footer}
       size="md"
-      closeOnOverlayClick={!isLoading}
+      closeOnOverlayClick={!loading}
     >
       <div className="text-primary-light">{message}</div>
     </Modal>

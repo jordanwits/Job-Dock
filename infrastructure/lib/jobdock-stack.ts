@@ -578,10 +578,29 @@ systemctl enable iptables-restore.service
         EARLY_ACCESS_ADMIN_EMAILS:
           process.env.EARLY_ACCESS_ADMIN_EMAILS || 'jordan@westwavecreative.com',
       },
-      logRetention: logs.RetentionDays.ONE_WEEK,
     })
 
-    const authIntegration = new apigateway.LambdaIntegration(authLambda)
+    // Use an explicit API Gateway IAM role + direct AWS_PROXY integration URI
+    // to avoid generating Lambda::Permission resources (which can create a
+    // CloudFormation circular dependency with ApiDeployment/Stage).
+    const apiGatewayInvokeRole = new iam.Role(this, 'ApiGatewayInvokeRole', {
+      assumedBy: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+    })
+
+    const lambdaAwsProxyIntegration = (fn: lambda.IFunction) => {
+      // Allow API Gateway role to invoke the function (same-account IAM auth)
+      fn.grantInvoke(apiGatewayInvokeRole)
+      return new apigateway.Integration({
+        type: apigateway.IntegrationType.AWS_PROXY,
+        integrationHttpMethod: 'POST',
+        uri: `arn:aws:apigateway:${cdk.Stack.of(this).region}:lambda:path/2015-03-31/functions/${fn.functionArn}/invocations`,
+        options: {
+          credentialsRole: apiGatewayInvokeRole,
+        },
+      })
+    }
+
+    const authIntegration = lambdaAwsProxyIntegration(authLambda)
 
     // Data API lambda (temporary mock-backed implementation)
     const dataLambda = new lambdaNodejs.NodejsFunction(this, 'DataLambda', {
@@ -611,6 +630,10 @@ systemctl enable iptables-restore.service
         USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
         FILES_BUCKET: this.filesBucket.bucketName,
         ENVIRONMENT: config.env,
+        // IMPORTANT: Do NOT use `this.api.url` here. It references the deployment stage and can
+        // create a CloudFormation circular dependency (API deployment ↔ Lambda env).
+        // Build the execute-api base URL from restApiId instead (no stage resource dependency).
+        API_BASE_URL: `https://${this.api.restApiId}.execute-api.${cdk.Stack.of(this).region}.${cdk.Stack.of(this).urlSuffix}/${config.env}`,
         PUBLIC_APP_URL: config.vercelDomain
           ? `https://${config.vercelDomain}`
           : config.domain
@@ -631,10 +654,9 @@ systemctl enable iptables-restore.service
         EARLY_ACCESS_ADMIN_EMAILS:
           process.env.EARLY_ACCESS_ADMIN_EMAILS || 'jordan@westwavecreative.com',
       },
-      logRetention: logs.RetentionDays.ONE_WEEK,
     })
 
-    const dataIntegration = new apigateway.LambdaIntegration(dataLambda)
+    const dataIntegration = lambdaAwsProxyIntegration(dataLambda)
 
     // Migration lambda for running database migrations
     const migrationLambda = new lambdaNodejs.NodejsFunction(this, 'MigrationLambda', {
@@ -729,7 +751,8 @@ systemctl enable iptables-restore.service
     // Catch-all proxy for application data routes
     const proxyResource = this.api.root.addResource('{proxy+}')
     proxyResource.addMethod('ANY', dataIntegration)
-    this.api.root.addMethod('ANY', dataIntegration)
+    // NOTE: Do not add a root (/) method here. In some CDK/CloudFormation graphs,
+    // combining root methods with {proxy+} can create circular dependencies.
 
     // ============================================
     // 8. Outputs

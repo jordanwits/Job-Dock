@@ -22,6 +22,7 @@ import {
   sendInvoiceEmail,
 } from './email'
 import { uploadFile, deleteFile, getFileUrl } from './fileUpload'
+import { createPhotoToken } from './photoToken'
 import {
   createImportSession,
   getImportSession,
@@ -2854,22 +2855,60 @@ export const dataServices = {
         include: { job: true, contact: true, timeEntries: true },
         orderBy: { createdAt: 'desc' },
       })
-      return logs.map((log) => ({
-        ...log,
-        job: log.job
-          ? { id: log.job.id, title: log.job.title, startTime: log.job.startTime?.toISOString(), endTime: log.job.endTime?.toISOString(), status: log.job.status }
-          : null,
-        contact: log.contact
-          ? { id: log.contact.id, name: `${log.contact.firstName} ${log.contact.lastName}`.trim(), email: log.contact.email }
-          : null,
-        timeEntries: log.timeEntries.map((te) => ({
-          id: te.id,
-          startTime: te.startTime.toISOString(),
-          endTime: te.endTime.toISOString(),
-          breakMinutes: te.breakMinutes,
-          notes: te.notes,
-        })),
-      }))
+      const logIds = logs.map((l) => l.id)
+      const documents = await prisma.document.findMany({
+        where: { tenantId, entityType: 'job_log', entityId: { in: logIds } },
+      })
+      const photosByLogId = new Map<string, typeof documents>()
+      for (const doc of documents) {
+        const list = photosByLogId.get(doc.entityId) ?? []
+        list.push(doc)
+        photosByLogId.set(doc.entityId, list)
+      }
+      const apiBase = (process.env.API_BASE_URL || '').replace(/\/$/, '')
+      return Promise.all(
+        logs.map(async (log) => {
+          const docs = photosByLogId.get(log.id) ?? []
+          const photos = apiBase
+            ? docs.map((doc) => ({
+                id: doc.id,
+                fileName: doc.fileName,
+                fileKey: doc.fileKey,
+                url: `${apiBase}/job-logs/${log.id}/photo-file?photoId=${doc.id}&token=${createPhotoToken(doc.id, log.id)}`,
+                notes: doc.notes ?? null,
+                markup: doc.markup ?? null,
+                createdAt: doc.createdAt.toISOString(),
+              }))
+            : await Promise.all(
+                docs.map(async (doc) => ({
+                  id: doc.id,
+                  fileName: doc.fileName,
+                  fileKey: doc.fileKey,
+                  url: await getFileUrl(doc.fileKey, 3600),
+                  notes: doc.notes ?? null,
+                  markup: doc.markup ?? null,
+                  createdAt: doc.createdAt.toISOString(),
+                }))
+              )
+          return {
+            ...log,
+            job: log.job
+              ? { id: log.job.id, title: log.job.title, startTime: log.job.startTime?.toISOString(), endTime: log.job.endTime?.toISOString(), status: log.job.status }
+              : null,
+            contact: log.contact
+              ? { id: log.contact.id, name: `${log.contact.firstName} ${log.contact.lastName}`.trim(), email: log.contact.email }
+              : null,
+            timeEntries: log.timeEntries.map((te) => ({
+              id: te.id,
+              startTime: te.startTime.toISOString(),
+              endTime: te.endTime.toISOString(),
+              breakMinutes: te.breakMinutes,
+              notes: te.notes,
+            })),
+            photos,
+          }
+        })
+      )
     },
     getById: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)
@@ -2880,21 +2919,32 @@ export const dataServices = {
       if (!jobLog) {
         throw new ApiError('Job log not found', 404)
       }
-      // Fetch photos (Documents) from DB and add signed URLs
+      // Fetch photos (Documents) from DB and add URLs (proxy preferred to avoid S3 ERR_CONNECTION_RESET)
       const documents = await prisma.document.findMany({
         where: { tenantId, entityType: 'job_log', entityId: id },
       })
-      const photos = await Promise.all(
-        documents.map(async (doc) => ({
-          id: doc.id,
-          fileName: doc.fileName,
-          fileKey: doc.fileKey,
-          url: await getFileUrl(doc.fileKey, 3600),
-          notes: doc.notes ?? null,
-          markup: doc.markup ?? null,
-          createdAt: doc.createdAt.toISOString(),
-        }))
-      )
+      const apiBase = (process.env.API_BASE_URL || '').replace(/\/$/, '')
+      const photos = apiBase
+        ? documents.map((doc) => ({
+            id: doc.id,
+            fileName: doc.fileName,
+            fileKey: doc.fileKey,
+            url: `${apiBase}/job-logs/${id}/photo-file?photoId=${doc.id}&token=${createPhotoToken(doc.id, id)}`,
+            notes: doc.notes ?? null,
+            markup: doc.markup ?? null,
+            createdAt: doc.createdAt.toISOString(),
+          }))
+        : await Promise.all(
+            documents.map(async (doc) => ({
+              id: doc.id,
+              fileName: doc.fileName,
+              fileKey: doc.fileKey,
+              url: await getFileUrl(doc.fileKey, 3600),
+              notes: doc.notes ?? null,
+              markup: doc.markup ?? null,
+              createdAt: doc.createdAt.toISOString(),
+            }))
+          )
       return {
         ...jobLog,
         job: jobLog.job
@@ -3083,6 +3133,48 @@ export const dataServices = {
         },
       })
       return { success: true }
+    },
+    deletePhoto: async (tenantId: string, jobLogId: string, photoId: string) => {
+      await ensureTenantExists(tenantId)
+      const doc = await prisma.document.findFirst({
+        where: {
+          id: photoId,
+          tenantId,
+          entityType: 'job_log',
+          entityId: jobLogId,
+        },
+      })
+      if (!doc) {
+        throw new ApiError('Photo not found', 404)
+      }
+      // Always delete the DB record scoped to tenant + entity.
+      // Using deleteMany is more robust than delete(where: {id}) if the schema ever changes
+      // or if ids are not globally unique in some environments.
+      const deleteResult = await prisma.$transaction(async (tx) => {
+        const res = await tx.document.deleteMany({
+          where: {
+            id: photoId,
+            tenantId,
+            entityType: 'job_log',
+            entityId: jobLogId,
+          },
+        })
+        return res
+      })
+
+      // If DB deletion didn't happen, treat as not found.
+      if (!deleteResult.count) {
+        throw new ApiError('Photo not found', 404)
+      }
+
+      // Best-effort storage cleanup after DB delete.
+      try {
+        await deleteFile(doc.fileKey)
+      } catch (e) {
+        console.error('Error deleting file from storage:', e)
+      }
+
+      return { success: true, deletedCount: deleteResult.count }
     },
   },
   'time-entries': {

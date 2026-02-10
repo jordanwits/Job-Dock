@@ -79,6 +79,25 @@ export async function getFileUrl(key: string, expiresIn = 3600): Promise<string>
 }
 
 /**
+ * Get file buffer from S3 (for proxy streaming)
+ */
+export async function getFileBuffer(key: string): Promise<{ buffer: Buffer; contentType?: string }> {
+  const response = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: FILES_BUCKET,
+      Key: key,
+    })
+  )
+  const body = response.Body
+  if (!body) {
+    throw new Error('Empty file')
+  }
+  const buffer = Buffer.from(await body.transformToByteArray())
+  const contentType = response.ContentType ?? undefined
+  return { buffer, contentType }
+}
+
+/**
  * Parse multipart form data from API Gateway event body
  * This is a simple implementation that works with base64-encoded bodies
  */

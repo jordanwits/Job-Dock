@@ -14,6 +14,7 @@ interface JobLogState {
   updateJobLog: (id: string, data: Partial<CreateJobLogData>) => Promise<void>
   deleteJobLog: (id: string) => Promise<void>
   uploadPhoto: (jobLogId: string, file: File) => Promise<void>
+  deletePhoto: (jobLogId: string, photoId: string) => Promise<void>
   updatePhoto: (
     jobLogId: string,
     photoId: string,
@@ -132,6 +133,41 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
     } catch (error: any) {
       set({
         error: error.response?.data?.message || error.message || 'Failed to upload photo',
+        isLoading: false,
+      })
+      throw error
+    }
+  },
+
+  deletePhoto: async (jobLogId: string, photoId: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      await jobLogsService.deletePhoto(jobLogId, photoId)
+      // Optimistically remove the photo locally so the UI updates immediately,
+      // even if a refetch is delayed or served stale by an intermediary.
+      set(state => ({
+        selectedJobLog:
+          state.selectedJobLog?.id === jobLogId
+            ? {
+                ...state.selectedJobLog,
+                photos: (state.selectedJobLog.photos ?? []).filter(p => p.id !== photoId),
+              }
+            : state.selectedJobLog,
+        jobLogs: state.jobLogs.map(j =>
+          j.id === jobLogId
+            ? {
+                ...j,
+                photos: (j.photos ?? []).filter(p => p.id !== photoId),
+              }
+            : j
+        ),
+      }))
+
+      await get().getJobLogById(jobLogId)
+      set({ isLoading: false })
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to delete photo',
         isLoading: false,
       })
       throw error

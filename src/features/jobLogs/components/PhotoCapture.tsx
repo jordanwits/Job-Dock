@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { Button, Textarea } from '@/components/ui'
+import { Button, Textarea, ConfirmationDialog } from '@/components/ui'
 import type { JobLogPhoto, MarkupStroke, MarkupPoint } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
 
@@ -9,7 +9,7 @@ interface PhotoCaptureProps {
 }
 
 const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
-  const { uploadPhoto, updatePhoto } = useJobLogStore()
+  const { uploadPhoto, updatePhoto, deletePhoto } = useJobLogStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imgContainerRef = useRef<HTMLDivElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -97,6 +97,29 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
   }, [fullscreenPhoto, closeFullscreen])
 
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [photoToDelete, setPhotoToDelete] = useState<JobLogPhoto | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const handleDeletePhoto = async () => {
+    if (!photoToDelete) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deletePhoto(jobLogId, photoToDelete.id)
+      setPhotoToDelete(null)
+      if (fullscreenPhoto?.id === photoToDelete.id) {
+        closeFullscreen()
+      }
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+        : err instanceof Error ? err.message : 'Failed to delete photo'
+      setDeleteError(message || 'Failed to delete photo')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!fullscreenPhoto) return
@@ -375,13 +398,16 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
           {photos.map((p) => {
             const isLoaded = loadedThumbnails.has(p.id)
             return (
-              <button
+              <div
                 key={p.id}
-                type="button"
-                onClick={() => openFullscreen(p)}
-                className="relative rounded-lg overflow-hidden bg-primary-dark aspect-square w-full min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold"
+                className="relative rounded-lg overflow-hidden bg-primary-dark aspect-square w-full min-w-0 group"
               >
-                {!isLoaded && (
+                <button
+                  type="button"
+                  onClick={() => openFullscreen(p)}
+                  className="absolute inset-0 w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold rounded-lg"
+                >
+                  {!isLoaded && (
                   <div
                     className="absolute inset-0 bg-primary-dark/80 overflow-hidden"
                     aria-hidden
@@ -420,7 +446,21 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
                     Note
                   </span>
                 )}
-              </button>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setPhotoToDelete(p)
+                  }}
+                  className="absolute top-1 right-1 p-1.5 rounded-full bg-black/60 text-white/80 hover:bg-red-500/80 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 focus:outline-none"
+                  aria-label="Delete photo"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
             )
           })}
         </div>
@@ -476,6 +516,14 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
               </Button>
               <Button variant="outline" size="sm" onClick={clearMarkup} disabled={strokes.length === 0}>
                 Clear
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fullscreenPhoto && setPhotoToDelete(fullscreenPhoto)}
+                className="text-red-400 border-red-500/40 hover:bg-red-500/20"
+              >
+                Delete
               </Button>
             </div>
 
@@ -550,6 +598,30 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
           </div>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={!!photoToDelete}
+        onClose={() => {
+          if (!deleting) {
+            setPhotoToDelete(null)
+            setDeleteError(null)
+          }
+        }}
+        onConfirm={handleDeletePhoto}
+        title="Delete photo"
+        message={
+          <>
+            {deleteError && (
+              <p className="text-red-400 text-sm mb-2">{deleteError}</p>
+            )}
+            <p>Are you sure you want to delete this photo? This cannot be undone.</p>
+          </>
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmVariant="danger"
+        isLoading={deleting}
+      />
     </div>
   )
 }

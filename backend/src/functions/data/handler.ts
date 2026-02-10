@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse, corsResponse, extractContext } from '../../lib/middleware'
+import { successResponse, errorResponse, corsResponse, extractContext, binaryResponse } from '../../lib/middleware'
 import { dataServices } from '../../lib/dataService'
 import { extractTenantId } from '../../lib/middleware'
 import { ensureTenantExists, getDefaultTenantId } from '../../lib/tenant'
@@ -532,6 +532,38 @@ We look forward to working with you!',
       return errorResponse('Onboarding route not found', 404)
     }
 
+    // Photo file proxy with token - no auth required (token is in URL for img src)
+    if (
+      event.httpMethod === 'GET' &&
+      resource === 'job-logs' &&
+      id &&
+      action === 'photo-file'
+    ) {
+      const photoId = event.queryStringParameters?.photoId
+      const token = event.queryStringParameters?.token
+      if (photoId && token) {
+        const { verifyPhotoToken } = await import('../../lib/photoToken')
+        if (verifyPhotoToken(token, photoId, id)) {
+          const { default: prisma } = await import('../../lib/db')
+          const { getFileBuffer } = await import('../../lib/fileUpload')
+          const doc = await prisma.document.findFirst({
+            where: {
+              id: photoId,
+              entityType: 'job_log',
+              entityId: id,
+            },
+          })
+          if (doc) {
+            const { buffer, contentType } = await getFileBuffer(doc.fileKey)
+            const ct =
+              contentType ||
+              (doc.fileName?.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg')
+            return binaryResponse(buffer, ct)
+          }
+        }
+      }
+    }
+
     // Check if this is a public booking endpoint that doesn't require authentication
     const isPublicBookingEndpoint =
       resource === 'services' &&
@@ -889,6 +921,16 @@ async function handlePost(
       ...payload,
       uploadedBy: user?.id ?? context.userId,
     })
+  }
+
+  // Job log photo: delete
+  if (resource === 'job-logs' && id && action === 'delete-photo') {
+    const payload = parseBody(event)
+    const photoId = payload?.photoId
+    if (!photoId) {
+      throw new ApiError('photoId required', 400)
+    }
+    return (service as typeof dataServices['job-logs']).deletePhoto(tenantId, id, photoId)
   }
 
   // Job log photo: update notes and markup (path action or body has photoId = update-photo)

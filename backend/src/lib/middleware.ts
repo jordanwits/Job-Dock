@@ -73,8 +73,37 @@ export function successResponse(data: any, statusCode: number = 200): APIGateway
       'Access-Control-Allow-Origin': '*', // Configure properly in production
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      // Prevent browsers/CDNs from caching API responses (important for fresh photo lists)
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
     },
     body: JSON.stringify(data),
+  }
+}
+
+/**
+ * Create binary response (e.g. for images)
+ */
+export function binaryResponse(
+  body: Buffer,
+  contentType: string,
+  statusCode: number = 200
+): APIGatewayProxyResult {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': contentType,
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      // Avoid caching signed/tokenized photo URLs
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+    },
+    body: body.toString('base64'),
+    isBase64Encoded: true,
   }
 }
 
@@ -103,6 +132,9 @@ export function errorResponse(
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
     },
     body: JSON.stringify({
       error: errorData,
@@ -120,6 +152,9 @@ export function corsResponse(): APIGatewayProxyResult {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
     },
     body: '',
   }

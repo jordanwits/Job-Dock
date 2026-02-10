@@ -333,12 +333,14 @@ const realServicesService = {
 
 const realJobLogsService = {
   getAll: async () => {
-    const response = await apiClient.get('/job-logs')
+    // Cache-bust to avoid any intermediate stale caching (especially after photo deletes)
+    const response = await apiClient.get('/job-logs', { params: { _ts: Date.now() } })
     return response.data
   },
 
   getById: async (id: string) => {
-    const response = await apiClient.get(`/job-logs/${id}`)
+    // Cache-bust to avoid any intermediate stale caching (especially after photo deletes)
+    const response = await apiClient.get(`/job-logs/${id}`, { params: { _ts: Date.now() } })
     return response.data
   },
 
@@ -396,6 +398,11 @@ const realJobLogsService = {
       photoId,
       ...data,
     })
+    return response.data
+  },
+
+  deletePhoto: async (jobLogId: string, photoId: string) => {
+    const response = await apiClient.post(`/job-logs/${jobLogId}/delete-photo`, { photoId })
     return response.data
   },
 }
