@@ -4,25 +4,18 @@ import { useJobLogStore } from '../store/jobLogStore'
 import JobLogList from '../components/JobLogList'
 import JobLogForm from '../components/JobLogForm'
 import { Modal, Button } from '@/components/ui'
+import type { CreateJobLogData } from '../types/jobLog'
 
 const JobLogsListPage = () => {
   const navigate = useNavigate()
-  const { fetchJobLogs, createJobLog, isLoading } = useJobLogStore()
+  const { createJobLog, isLoading } = useJobLogStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
 
   const handleSelectJobLog = (id: string) => {
     navigate(`/app/job-logs/${id}`)
   }
 
-  const handleCreate = async (data: {
-    title: string
-    description?: string
-    location?: string
-    notes?: string
-    jobId?: string
-    contactId?: string
-    status?: string
-  }) => {
+  const handleCreate = async (data: CreateJobLogData) => {
     const created = await createJobLog(data)
     setShowCreateForm(false)
     navigate(`/app/job-logs/${created.id}`)

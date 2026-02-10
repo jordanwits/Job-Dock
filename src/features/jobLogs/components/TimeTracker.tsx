@@ -382,8 +382,12 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
                 {index + 1}
               </div>
 
-              {/* Description / Notes */}
-              <div className="flex-1 min-w-0">
+              {/* Job title + Description / Notes */}
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <span className="font-semibold text-base text-primary-light shrink-0">
+                  {jobLogTitle}
+                </span>
+                <span className="text-primary-light/50 shrink-0">–</span>
                 {inlineEditId === te.id ? (
                   <input
                     type="text"
@@ -392,7 +396,7 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
                     onBlur={() => handleInlineNotesSave(te)}
                     onKeyDown={(e) => e.key === 'Enter' && handleInlineNotesSave(te)}
                     placeholder="Add description"
-                    className="w-full bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
+                    className="flex-1 min-w-0 bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
                     autoFocus
                   />
                 ) : (
@@ -402,12 +406,11 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
                       setInlineEditId(te.id)
                       setInlineNotes(te.notes ?? '')
                     }}
-                    className="w-full text-left text-sm text-primary-light/80 hover:text-primary-light truncate block"
+                    className="flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate"
                   >
                     {te.notes || <span className="text-primary-light/40">Add description</span>}
                   </button>
                 )}
-                <span className="text-primary-blue text-sm">• {jobLogTitle}</span>
               </div>
 
               {/* Time range – click to edit, time only */}
