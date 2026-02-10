@@ -20,6 +20,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
     error,
     fetchJobLogs,
     clearError,
+    deleteJobLog,
   } = useJobLogStore()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -32,6 +33,9 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
     const saved = localStorage.getItem('joblogs-sort-by')
     return (saved as SortBy) || 'recent'
   })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     fetchJobLogs()
@@ -49,6 +53,63 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
   const clearFilters = () => {
     setSearchQuery('')
     setStatusFilter('all')
+  }
+
+  const toggleSelection = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredJobLogs.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredJobLogs.map((j) => j.id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    try {
+      setIsDeleting(true)
+      const idsToDelete = Array.from(selectedIds)
+      const errors: string[] = []
+
+      const BATCH_SIZE = 5
+      for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+        const batch = idsToDelete.slice(i, i + BATCH_SIZE)
+        const results = await Promise.allSettled(
+          batch.map((id) => deleteJobLog(id))
+        )
+
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            errors.push(batch[index])
+          }
+        })
+      }
+
+      await fetchJobLogs()
+
+      if (errors.length > 0) {
+        setSelectedIds(new Set(errors))
+        alert(
+          `${idsToDelete.length - errors.length} job(s) deleted successfully. ${errors.length} job(s) failed - they remain selected for retry.`
+        )
+      } else {
+        setSelectedIds(new Set())
+      }
+      setShowDeleteConfirm(false)
+    } catch (err) {
+      console.error('Bulk delete failed:', err)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const filteredJobLogs = useMemo(() => {
@@ -112,18 +173,6 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
       </div>
     )
   }
-
-  const statusColors = {
-    active: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
-    completed: 'bg-green-500/20 text-green-400 border-green-500/30',
-    archived: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-  }
-
-  const statusLabels = {
-    active: 'Active',
-    completed: 'Completed',
-    archived: 'Archived',
-  } as const
 
   return (
     <div className="space-y-4">
@@ -205,22 +254,99 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
         </div>
       </div>
 
-      {/* Results Count */}
+      {/* Results Count and Bulk Actions */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-primary-light/70">
-          {`${filteredJobLogs.length} job${filteredJobLogs.length !== 1 ? 's' : ''} found`}
+          {selectedIds.size > 0 ? (
+            <span className="font-medium text-primary-gold">
+              {selectedIds.size} selected
+            </span>
+          ) : (
+            `${filteredJobLogs.length} job${filteredJobLogs.length !== 1 ? 's' : ''} found`
+          )}
         </div>
-        {!isLoading && filteredJobLogs.length > 0 && onCreateClick && (
+        {selectedIds.size > 0 ? (
           <Button
             variant="outline"
             size="sm"
-            onClick={onCreateClick}
-            className="hidden sm:inline-flex"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
           >
-            New Job
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Selected ({selectedIds.size})
           </Button>
+        ) : (
+          !isLoading &&
+          filteredJobLogs.length > 0 &&
+          onCreateClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCreateClick}
+              className="hidden sm:inline-flex"
+            >
+              New Job
+            </Button>
+          )
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                <svg
+                  className="w-6 h-6 text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-red-400 mb-2">
+                  Delete {selectedIds.size} Job{selectedIds.size !== 1 ? 's' : ''}?
+                </h3>
+                <p className="text-sm text-primary-light/70 mb-4">
+                  This action cannot be undone. All selected jobs will be permanently removed.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleBulkDelete}
+                    disabled={isDeleting}
+                    className="bg-red-500 hover:bg-red-600 text-white"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Job Log List */}
       {isLoading ? (
@@ -239,16 +365,55 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
             ))}
           </div>
         ) : (
-          <div className="space-y-3">
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <div
-                key={idx}
-                className="rounded-lg border border-primary-blue bg-primary-dark p-4 animate-pulse"
-              >
-                <div className="h-4 bg-white/10 rounded w-1/2" />
-                <div className="h-3 bg-white/10 rounded w-1/3 mt-3" />
-              </div>
-            ))}
+          <div className="rounded-lg border border-primary-blue overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+                  <tr>
+                    <th className="px-4 py-3 w-12" />
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      Job
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                      Contact
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                      Location
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-primary-blue">
+                  {Array.from({ length: 8 }).map((_, idx) => (
+                    <tr key={idx} className="bg-primary-dark animate-pulse">
+                      <td className="px-4 py-3 w-12">
+                        <div className="h-4 w-4 rounded-full bg-white/10 mx-auto" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="h-4 bg-white/10 rounded w-32" />
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <div className="h-4 bg-white/10 rounded w-24" />
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <div className="h-4 bg-white/10 rounded w-28" />
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <div className="h-4 bg-white/10 rounded w-20" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="h-4 bg-white/10 rounded w-16" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )
       ) : filteredJobLogs.length === 0 ? (
@@ -272,58 +437,99 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
               key={jobLog.id}
               jobLog={jobLog}
               onClick={() => onSelectJobLog(jobLog.id)}
+              isSelected={selectedIds.has(jobLog.id)}
+              onToggleSelect={toggleSelection}
             />
           ))}
         </div>
       ) : (
-        // List Layout (compact rows - better than a table on desktop)
-        <div className="space-y-3">
-          {filteredJobLogs.map((jobLog) => {
-            const photoCount = jobLog.photos?.length ?? 0
-            const hasTime = (jobLog.timeEntries?.length ?? 0) > 0
-            const meta = [jobLog.location, jobLog.contact?.name].filter(Boolean).join(' • ')
-
-            return (
-              <div
-                key={jobLog.id}
-                onClick={() => onSelectJobLog(jobLog.id)}
-                className="rounded-lg border border-primary-blue bg-primary-dark p-4 cursor-pointer hover:bg-primary-dark/50 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-primary-light truncate">
-                      {jobLog.title}
-                    </div>
-                    <div className="text-xs text-primary-light/50 mt-1 flex items-center gap-2 flex-wrap">
-                      <span>{format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d, yyyy')}</span>
-                      {meta && <span className="text-primary-light/40">•</span>}
-                      {meta && <span className="truncate max-w-[340px] text-primary-light/60">{meta}</span>}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                    <span
+        // List Layout (table - matches Quotes page)
+        <div className="rounded-lg border border-primary-blue overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+                <tr>
+                  <th className="px-4 py-3 w-12">
+                    <div
+                      onClick={toggleSelectAll}
                       className={cn(
-                        'px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border whitespace-nowrap',
-                        statusColors[jobLog.status as keyof typeof statusColors] ||
-                          'border-primary-blue/30 text-primary-light/70'
+                        'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
+                        selectedIds.size === filteredJobLogs.length && filteredJobLogs.length > 0
+                          ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
+                          : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
                       )}
                     >
-                      {statusLabels[jobLog.status as keyof typeof statusLabels] ?? jobLog.status}
-                    </span>
-                    <span className={cn('text-xs', hasTime ? 'text-primary-gold' : 'text-primary-light/50')}>
-                      {hasTime ? computeTotalHours(jobLog) : '—'}
-                    </span>
-                    {photoCount > 0 && (
-                      <span className="text-xs text-primary-light/60 whitespace-nowrap">
-                        {photoCount} photo{photoCount !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+                      {selectedIds.size === filteredJobLogs.length && filteredJobLogs.length > 0 && (
+                        <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    Job
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    Contact
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    Location
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-primary-blue">
+                {filteredJobLogs.map((jobLog) => {
+                  const hasTime = (jobLog.timeEntries?.length ?? 0) > 0
+                  return (
+                    <tr
+                      key={jobLog.id}
+                      className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
+                      onClick={() => onSelectJobLog(jobLog.id)}
+                    >
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div
+                          onClick={(e) => toggleSelection(jobLog.id, e)}
+                          className={cn(
+                            'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
+                            selectedIds.has(jobLog.id)
+                              ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
+                              : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                          )}
+                        >
+                          {selectedIds.has(jobLog.id) && (
+                            <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-primary-light">
+                          {jobLog.title}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
+                        {format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d, yyyy')}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
+                        <div className="truncate max-w-[150px]">{jobLog.contact?.name || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                        <div className="truncate max-w-[150px]">{jobLog.location || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-primary-gold">
+                          {hasTime ? computeTotalHours(jobLog) : '—'}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
