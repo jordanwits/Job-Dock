@@ -182,6 +182,11 @@ const realInvoicesService = {
     return response.data
   },
 
+  getUnconvertedAcceptedQuotes: async () => {
+    const response = await apiClient.get('/invoices/unconverted-quotes')
+    return response.data
+  },
+
   create: async (data: CreateInvoiceData) => {
     const response = await apiClient.post('/invoices', data)
     return response.data
@@ -326,6 +331,103 @@ const realServicesService = {
   },
 }
 
+const realJobLogsService = {
+  getAll: async () => {
+    const response = await apiClient.get('/job-logs')
+    return response.data
+  },
+
+  getById: async (id: string) => {
+    const response = await apiClient.get(`/job-logs/${id}`)
+    return response.data
+  },
+
+  create: async (data: { title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; status?: string }) => {
+    const response = await apiClient.post('/job-logs', data)
+    return response.data
+  },
+
+  update: async (id: string, data: Partial<{ title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; status?: string }>) => {
+    const response = await apiClient.put(`/job-logs/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete(`/job-logs/${id}`)
+    return response.data
+  },
+
+  uploadPhoto: async (jobLogId: string, file: File) => {
+    const { data: urlData } = await apiClient.post(`/job-logs/${jobLogId}/get-upload-url`, {
+      filename: file.name,
+      contentType: file.type,
+    })
+    await fetch(urlData.uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type },
+    })
+    const response = await apiClient.post(`/job-logs/${jobLogId}/confirm-upload`, {
+      key: urlData.key,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    })
+    return response.data
+  },
+
+  updatePhoto: async (
+    jobLogId: string,
+    photoId: string,
+    data: {
+      notes?: string
+      markup?: {
+        strokes?: Array<{
+          tool: 'pen' | 'highlighter'
+          color: string
+          opacity: number
+          width: number
+          points: Array<{ x: number; y: number }>
+        }>
+      }
+    }
+  ) => {
+    const response = await apiClient.post(`/job-logs/${jobLogId}/update-photo`, {
+      photoId,
+      ...data,
+    })
+    return response.data
+  },
+}
+
+const realTimeEntriesService = {
+  getAll: async (jobLogId?: string) => {
+    const params = jobLogId ? { jobLogId } : {}
+    const response = await apiClient.get('/time-entries', { params })
+    return response.data
+  },
+
+  getById: async (id: string) => {
+    const response = await apiClient.get(`/time-entries/${id}`)
+    return response.data
+  },
+
+  create: async (data: { jobLogId: string; startTime: string; endTime: string; breakMinutes?: number; notes?: string }) => {
+    const response = await apiClient.post('/time-entries', data)
+    return response.data
+  },
+
+  update: async (id: string, data: Partial<{ startTime: string; endTime: string; breakMinutes?: number; notes?: string }>) => {
+    const response = await apiClient.put(`/time-entries/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete(`/time-entries/${id}`)
+    return response.data
+  },
+}
+
 // Export services (mock or real based on environment)
 export const authService = useMockData ? mockServices.auth : realAuthService
 export const contactsService = useMockData ? mockServices.contacts : realContactsService
@@ -333,6 +435,8 @@ export const quotesService = useMockData ? mockServices.quotes : realQuotesServi
 export const invoicesService = useMockData ? mockServices.invoices : realInvoicesService
 export const jobsService = useMockData ? mockServices.jobs : realJobsService
 export const servicesService = useMockData ? mockServices.services : realServicesService
+export const jobLogsService = realJobLogsService
+export const timeEntriesService = realTimeEntriesService
 
 const realBillingService = {
   getStatus: async () => {
@@ -361,5 +465,7 @@ export const services = {
   invoices: invoicesService,
   jobs: jobsService,
   services: servicesService,
+  jobLogs: jobLogsService,
+  timeEntries: timeEntriesService,
   billing: billingService,
 }
