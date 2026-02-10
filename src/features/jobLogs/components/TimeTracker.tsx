@@ -32,7 +32,7 @@ function TimeNumberInput({
   })
   const [minStr, setMinStr] = useState(() => {
     const [, m] = (value || ':').split(':')
-    return m ?? ''
+    return m ? String(parseInt(m, 10)) : (m ?? '')
   })
   const [isPM, setIsPM] = useState(() => {
     const [h] = (value || ':').split(':')
@@ -49,7 +49,8 @@ function TimeNumberInput({
     } else {
       setHourStr(h || '')
     }
-    setMinStr(m ?? '')
+    // Display minute without leading zero (same as hour) so user can type "50" after "5"
+    setMinStr(m ? String(parseInt(m, 10)) : (m ?? ''))
   }, [value])
 
   const emit = (h: string, min: string, pm: boolean) => {
@@ -108,7 +109,7 @@ function TimeNumberInput({
           inputMode="numeric"
           value={minStr}
           onChange={handleMinuteChange}
-          className={cn(base, inputSize, 'text-left')}
+          className={cn(base, inputSize, 'text-left pl-0')}
           placeholder="min"
           aria-label={label ? `${label} minute` : undefined}
         />
@@ -352,7 +353,10 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
       setTimeEditError('Invalid end time. Use 12-hour format (e.g. 5:45) with AM/PM.')
       return
     }
-    if (newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1)
+    if (newEnd <= newStart) {
+      setTimeEditError('End time must be after start time.')
+      return
+    }
     try {
       await updateTimeEntry(
         te.id,
