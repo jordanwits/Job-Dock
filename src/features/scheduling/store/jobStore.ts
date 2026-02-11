@@ -190,8 +190,10 @@ export const useJobStore = create<JobState>((set, get) => ({
         }))
       }
     } catch (error: any) {
+      const apiMessage = error.response?.data?.error?.message || error.response?.data?.message
+      const errorMessage = apiMessage || error.message || 'Failed to update job'
       set({
-        error: error.message || 'Failed to update job',
+        error: errorMessage,
         isLoading: false,
       })
       throw error
@@ -241,8 +243,9 @@ export const useJobStore = create<JobState>((set, get) => ({
       }
     } catch (error: any) {
       console.error('Store: Error archiving job:', error)
+      const apiMessage = error.response?.data?.error?.message || error.response?.data?.message
       set({
-        error: error.message || 'Failed to archive job',
+        error: apiMessage || error.message || 'Failed to archive job',
         isLoading: false,
       })
       throw error

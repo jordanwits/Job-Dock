@@ -893,7 +893,7 @@ We look forward to working with you!',
         return errorResponse('Job not found', 404)
       }
       if (job.createdById !== currentUser.id) {
-        return errorResponse('You can only edit or delete jobs you created.', 403)
+        return errorResponse('You can only move, edit, or delete appointments you created. Ask an admin or owner to make changes to this one.', 403)
       }
     }
 
