@@ -487,8 +487,11 @@ export function buildJobAssignmentNotificationEmail(data: {
   endTime: Date | null
   location?: string
   contactName?: string
+  viewPath?: string // e.g. '/app/scheduling' or '/app/job-logs'
+  fromName?: string // Display name for Outlook deliverability
+  replyTo?: string
 }): EmailPayload {
-  const { assigneeName, assigneeEmail, assignerName, jobTitle, startTime, endTime, location, contactName } = data
+  const { assigneeName, assigneeEmail, assignerName, jobTitle, startTime, endTime, location, contactName, viewPath = '/app/scheduling', fromName, replyTo } = data
 
   const dateStr = startTime
     ? startTime.toLocaleDateString('en-US', {
@@ -518,7 +521,7 @@ export function buildJobAssignmentNotificationEmail(data: {
           ${timeStr ? `<p style="margin: 5px 0;"><strong>Time:</strong> ${timeStr}</p>` : ''}
           ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
         </div>
-        <p><a href="${process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com'}/scheduling" style="background: #D4AF37; color: #0B132B; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View in Dashboard</a></p>
+        <p><a href="${(process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')}${viewPath}" style="background: #D4AF37; color: #0B132B; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View in Dashboard</a></p>
       </body>
     </html>
   `
@@ -534,7 +537,7 @@ Job: ${jobTitle}
 ${contactName ? `Contact: ${contactName}\n` : ''}Date: ${dateStr}
 ${timeStr ? `Time: ${timeStr}\n` : ''}${location ? `Location: ${location}\n` : ''}
 
-View in Dashboard: ${process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com'}/scheduling
+View in Dashboard: ${(process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')}${viewPath}
   `.trim()
 
   return {
@@ -542,6 +545,8 @@ View in Dashboard: ${process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com'}
     subject,
     htmlBody,
     textBody,
+    fromName,
+    replyTo,
   }
 }
 

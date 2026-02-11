@@ -1286,6 +1286,20 @@ async function handlePost(
         }
       }
     }
+    // For job-logs create: inject acting user for assignment notification
+    if (resource === 'job-logs' && !id) {
+      try {
+        const context = await extractContext(event)
+        const { default: prisma } = await import('../../lib/db')
+        const user = await prisma.user.findFirst({
+          where: { cognitoId: context.userId },
+          select: { id: true },
+        })
+        if (user) payload._actingUserId = user.id
+      } catch {
+        /* ignore */
+      }
+    }
     return service.create(tenantId, payload)
   }
   throw new Error('Create method not supported')
@@ -1299,8 +1313,8 @@ async function handlePut(
 ) {
   const payload = parseBody(event)
 
-  // Inject acting user ID for job updates (used for assignment notification skip-on-self-assign)
-  if (service === dataServices.jobs && id) {
+  // Inject acting user ID for job/job-log updates (used for assignment notification skip-on-self-assign)
+  if ((service === dataServices.jobs || service === dataServices['job-logs']) && id) {
     try {
       const context = await extractContext(event)
       const { default: prisma } = await import('../../lib/db')

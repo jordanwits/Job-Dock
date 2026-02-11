@@ -13,13 +13,13 @@ const fs = require('fs')
 const envLocalPath = path.resolve(__dirname, '..', '.env.local')
 const envPath = path.resolve(__dirname, '..', '.env')
 
-// Load .env first, then .env.local (so .env.local overrides)
+// Load .env first, then .env.local with override so .env.local always wins
 if (fs.existsSync(envPath)) {
   require('dotenv').config({ path: envPath })
 }
 if (fs.existsSync(envLocalPath)) {
   console.log('✓ Loading environment variables from .env.local...')
-  require('dotenv').config({ path: envLocalPath })
+  require('dotenv').config({ path: envLocalPath, override: true })
 } else {
   console.log('⚠ .env.local not found. RESEND_API_KEY must be set in environment for prod.')
 }

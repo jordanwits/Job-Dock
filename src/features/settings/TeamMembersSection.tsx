@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button, Input, Card, Select } from '@/components/ui'
 import { CollapsibleSection } from './CollapsibleSection'
 import { services } from '@/lib/api/services'
+import { useAuthStore } from '@/features/auth'
 
 interface TeamMember {
   id: string
@@ -11,7 +12,15 @@ interface TeamMember {
   createdAt: string
 }
 
+function parseName(fullName: string): { firstName: string; lastName: string } {
+  const parts = (fullName || '').trim().split(/\s+/)
+  if (parts.length === 0) return { firstName: '', lastName: '' }
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' }
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') }
+}
+
 export const TeamMembersSection = () => {
+  const { user, updateUser } = useAuthStore()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
   const [canInvite, setCanInvite] = useState(false)
@@ -22,6 +31,10 @@ export const TeamMembersSection = () => {
   const [inviteRole, setInviteRole] = useState<'admin' | 'employee'>('employee')
   const [inviting, setInviting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ownerEditUserId, setOwnerEditUserId] = useState<string | null>(null)
+  const [ownerEditFirstName, setOwnerEditFirstName] = useState('')
+  const [ownerEditLastName, setOwnerEditLastName] = useState('')
+  const [ownerSaving, setOwnerSaving] = useState(false)
 
   const loadMembers = async () => {
     try {
@@ -96,6 +109,38 @@ export const TeamMembersSection = () => {
     }
   }
 
+  const startOwnerNameEdit = (member: TeamMember) => {
+    const { firstName, lastName } = parseName(member.name)
+    setOwnerEditUserId(member.id)
+    setOwnerEditFirstName(firstName)
+    setOwnerEditLastName(lastName)
+    setError(null)
+  }
+
+  const cancelOwnerNameEdit = () => {
+    setOwnerEditUserId(null)
+  }
+
+  const handleOwnerNameSave = async () => {
+    if (!ownerEditFirstName.trim()) {
+      setError('First name is required')
+      return
+    }
+    const fullName = [ownerEditFirstName.trim(), ownerEditLastName.trim()].filter(Boolean).join(' ')
+    try {
+      setOwnerSaving(true)
+      setError(null)
+      const updated = await services.users.updateProfile({ name: fullName })
+      updateUser({ name: updated.name })
+      setOwnerEditUserId(null)
+      await loadMembers()
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update name')
+    } finally {
+      setOwnerSaving(false)
+    }
+  }
+
   if (loading) {
     return (
       <CollapsibleSection title="Team Members" defaultCollapsed={false}>
@@ -127,16 +172,61 @@ export const TeamMembersSection = () => {
         )}
 
         <div className="space-y-2">
-          {members.map((m) => (
+          {members.map((m) => {
+            const isCurrentUserOwner = m.role === 'owner' && m.id === user?.id
+            const isEditingOwnerName = ownerEditUserId === m.id
+
+            return (
             <Card key={m.id} className="flex items-center justify-between py-3 px-4">
-              <div>
-                <p className="font-medium text-primary-light">{m.name}</p>
-                <p className="text-sm text-primary-light/60">{m.email}</p>
+              <div className="flex-1 min-w-0">
+                {isEditingOwnerName ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        label="First name"
+                        value={ownerEditFirstName}
+                        onChange={(e) => setOwnerEditFirstName(e.target.value)}
+                        placeholder="Your first name"
+                        className="text-sm"
+                      />
+                      <Input
+                        label="Last name"
+                        value={ownerEditLastName}
+                        onChange={(e) => setOwnerEditLastName(e.target.value)}
+                        placeholder="Last name"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="primary" size="sm" onClick={handleOwnerNameSave} disabled={ownerSaving}>
+                        {ownerSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={cancelOwnerNameEdit} disabled={ownerSaving}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-medium text-primary-light">{m.name || 'Owner'}</p>
+                    <p className="text-sm text-primary-light/60">{m.email}</p>
+                  </>
+                )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                 <span className="text-xs px-2 py-1 rounded bg-primary-dark/50 text-primary-light/80 capitalize">
                   {m.role}
                 </span>
+                {isCurrentUserOwner && !isEditingOwnerName && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => startOwnerNameEdit(m)}
+                    className="text-primary-gold hover:text-primary-gold/80 text-sm"
+                  >
+                    Edit name
+                  </Button>
+                )}
                 {m.role !== 'owner' && canInvite && (
                   <>
                     <Select
@@ -161,7 +251,8 @@ export const TeamMembersSection = () => {
                 )}
               </div>
             </Card>
-          ))}
+            )
+          })}
         </div>
 
         {inviteModal && (

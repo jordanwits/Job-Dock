@@ -75,8 +75,9 @@ async function sendAssignmentNotification(params: {
   endTime: Date | null
   location: string | null | undefined
   contactName?: string
+  viewPath?: string // e.g. '/app/scheduling' for jobs, '/app/job-logs' for job logs
 }): Promise<void> {
-  const { tenantId, assignedTo, assignerUserId, jobTitle, startTime, endTime, location, contactName } = params
+  const { tenantId, assignedTo, assignerUserId, jobTitle, startTime, endTime, location, contactName, viewPath } = params
 
   const assignee = await prisma.user.findFirst({
     where: { id: assignedTo, tenantId },
@@ -93,6 +94,13 @@ async function sendAssignmentNotification(params: {
       })
     : null
 
+  const settings = await prisma.tenantSettings.findUnique({
+    where: { tenantId },
+    select: { companyDisplayName: true, companySupportEmail: true },
+  })
+  const fromName = settings?.companyDisplayName || 'JobDock'
+  const replyTo = settings?.companySupportEmail || undefined
+
   const payload = buildJobAssignmentNotificationEmail({
     assigneeName: assignee.name || 'there',
     assigneeEmail: assignee.email,
@@ -102,6 +110,9 @@ async function sendAssignmentNotification(params: {
     endTime,
     location: location || undefined,
     contactName,
+    viewPath,
+    fromName,
+    replyTo,
   })
   await sendEmail(payload)
 }
@@ -3266,6 +3277,21 @@ export const dataServices = {
         },
         include: { job: true, contact: true, assignedToUser: { select: { id: true, name: true } }, timeEntries: true },
       })
+      if (created.assignedTo) {
+        const job = created.job
+        const contact = created.contact
+        sendAssignmentNotification({
+          tenantId,
+          assignedTo: created.assignedTo,
+          assignerUserId: payload._actingUserId,
+          jobTitle: created.title,
+          startTime: job?.startTime ?? null,
+          endTime: job?.endTime ?? null,
+          location: created.location ?? job?.location ?? undefined,
+          contactName: contact ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || undefined : undefined,
+          viewPath: '/app/job-logs',
+        }).catch((e) => console.error('Failed to send job log assignment notification:', e))
+      }
       return { ...created, assignedToName: (created as any).assignedToUser?.name }
     },
     update: async (tenantId: string, id: string, payload: any) => {
@@ -3296,6 +3322,22 @@ export const dataServices = {
         },
         include: { job: true, contact: true, assignedToUser: { select: { id: true, name: true } }, timeEntries: true },
       })
+      const newAssignedTo = assignedTo !== undefined ? assignedTo : existing.assignedTo
+      if (newAssignedTo && newAssignedTo !== existing.assignedTo) {
+        const job = updated.job
+        const contact = updated.contact
+        sendAssignmentNotification({
+          tenantId,
+          assignedTo: newAssignedTo,
+          assignerUserId: payload._actingUserId,
+          jobTitle: updated.title,
+          startTime: job?.startTime ?? null,
+          endTime: job?.endTime ?? null,
+          location: updated.location ?? job?.location ?? undefined,
+          contactName: contact ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || undefined : undefined,
+          viewPath: '/app/job-logs',
+        }).catch((e) => console.error('Failed to send job log assignment notification:', e))
+      }
       return { ...updated, assignedToName: (updated as any).assignedToUser?.name }
     },
     delete: async (tenantId: string, id: string) => {
