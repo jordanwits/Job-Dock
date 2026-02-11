@@ -1,7 +1,6 @@
 import { useRef } from 'react'
 import { Button } from '@/components/ui'
 import { TenantSettings } from '@/lib/api/settings'
-import { CollapsibleSection } from './CollapsibleSection'
 
 interface PdfTemplatesSectionProps {
   settings: TenantSettings | null
@@ -38,14 +37,13 @@ export const PdfTemplatesSection = ({
   }
 
   return (
-    <CollapsibleSection title="PDF Templates">
-      <p className="text-sm text-primary-light/70 mb-6">
-        Upload custom PDF backgrounds or letterheads for your invoices and quotes.
-        The system will use your template as the background and automatically overlay dynamic content
-        (invoice/quote numbers, customer details, line items, totals, etc.) on top of it.
-        This allows you to use your professionally designed letterhead while keeping all data up-to-date.
-        Max size: 10MB per file.
-      </p>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h2 className="text-xl font-semibold text-primary-light">PDF Templates</h2>
+        <p className="text-sm text-primary-light/70">
+          Upload custom PDF backgrounds for invoices and quotes. Your template will be used as the background with dynamic content overlaid. Max size: 10MB per file.
+        </p>
+      </div>
 
       <div className="space-y-6">
         {/* Invoice PDF Template */}
@@ -128,7 +126,7 @@ export const PdfTemplatesSection = ({
           </Button>
         </div>
       </div>
-    </CollapsibleSection>
+    </div>
   )
 }
 

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Input, Textarea, Button } from '@/components/ui'
-import { CollapsibleSection } from './CollapsibleSection'
 
 interface EmailTemplatesSectionProps {
   formData: {
@@ -37,7 +36,8 @@ export const EmailTemplatesSection = ({
   }
 
   return (
-    <CollapsibleSection title="Email Templates">
+    <div className="space-y-6">
+      <h2 className="text-xl font-semibold text-primary-light">Email Templates</h2>
       <div className="mb-6 p-4 bg-primary-dark-secondary rounded-lg">
         <p className="text-sm text-primary-light/70 mb-2">
           Available variables you can use in your templates:
@@ -105,7 +105,7 @@ export const EmailTemplatesSection = ({
           </Button>
         </div>
       </div>
-    </CollapsibleSection>
+    </div>
   )
 }
 

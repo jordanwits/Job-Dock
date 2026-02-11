@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { Input, Button, PhoneInput } from '@/components/ui'
 import { TenantSettings } from '@/lib/api/settings'
-import { CollapsibleSection } from './CollapsibleSection'
 
 interface CompanyBrandingSectionProps {
   formData: {
@@ -52,7 +51,8 @@ export const CompanyBrandingSection = ({
   }
 
   return (
-    <CollapsibleSection title="Company & Branding">
+    <div className="space-y-6">
+      <h2 className="text-xl font-semibold text-primary-light">Company & Branding</h2>
       <div className="space-y-4">
         <Input
           label="Company Name"
@@ -120,7 +120,7 @@ export const CompanyBrandingSection = ({
           </Button>
         </div>
       </div>
-    </CollapsibleSection>
+    </div>
   )
 }
 

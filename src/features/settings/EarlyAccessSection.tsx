@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Button, Input } from '@/components/ui'
-import { CollapsibleSection } from './CollapsibleSection'
 import { earlyAccessApi, EarlyAccessRequest } from '@/lib/api/earlyAccess'
 import { useAuthStore } from '@/features/auth/store/authStore'
 
@@ -83,14 +82,16 @@ export const EarlyAccessSection = () => {
 
   if (loading) {
     return (
-      <CollapsibleSection title="Early Access Management" defaultCollapsed={false}>
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-primary-light">Early Access Management</h2>
         <div className="text-primary-light/70">Loading...</div>
-      </CollapsibleSection>
+      </div>
     )
   }
 
   return (
-    <CollapsibleSection title="Early Access Management" defaultCollapsed={false}>
+    <div className="space-y-6">
+      <h2 className="text-xl font-semibold text-primary-light">Early Access Management</h2>
       <div className="space-y-6">
         {error && (
           <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
@@ -167,6 +168,6 @@ export const EarlyAccessSection = () => {
           )}
         </div>
       </div>
-    </CollapsibleSection>
+    </div>
   )
 }

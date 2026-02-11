@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Button, Input, Card, Select } from '@/components/ui'
-import { CollapsibleSection } from './CollapsibleSection'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 
@@ -143,14 +142,16 @@ export const TeamMembersSection = () => {
 
   if (loading) {
     return (
-      <CollapsibleSection title="Team Members" defaultCollapsed={false}>
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-primary-light">Team Members</h2>
         <div className="h-20 bg-primary-dark rounded-lg animate-pulse" />
-      </CollapsibleSection>
+      </div>
     )
   }
 
   return (
-    <CollapsibleSection title="Team Members" defaultCollapsed={false}>
+    <div className="space-y-6">
+      <h2 className="text-xl font-semibold text-primary-light">Team Members</h2>
       <div className="space-y-4">
         {error && (
           <div className="text-red-400 text-sm">{error}</div>
@@ -161,11 +162,11 @@ export const TeamMembersSection = () => {
             Upgrade to the Team plan to invite team members. Admins have full access; employees can track hours and add notes on jobs.
           </p>
         ) : (
-          <div className="flex justify-between items-center">
-            <p className="text-primary-light/70 text-sm">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <p className="text-primary-light/70 text-sm flex-1">
               Invite team members to collaborate. Admins have full access; employees can track hours and add notes on jobs.
             </p>
-            <Button variant="primary" onClick={() => setInviteModal(true)}>
+            <Button variant="primary" onClick={() => setInviteModal(true)} className="w-full sm:w-auto flex-shrink-0">
               Invite team member
             </Button>
           </div>
@@ -177,8 +178,15 @@ export const TeamMembersSection = () => {
             const isEditingOwnerName = ownerEditUserId === m.id
 
             return (
-            <Card key={m.id} className="flex items-center justify-between py-3 px-4">
-              <div className="flex-1 min-w-0">
+            <Card key={m.id} className="relative flex flex-col py-3 px-4 gap-3">
+              {/* Role badge in top right */}
+              <div className="absolute top-3 right-4">
+                <span className="text-xs px-2 py-1 rounded bg-primary-dark/50 text-primary-light/80 capitalize">
+                  {m.role}
+                </span>
+              </div>
+
+              <div className="flex-1 min-w-0 pr-16">
                 {isEditingOwnerName ? (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
@@ -213,16 +221,13 @@ export const TeamMembersSection = () => {
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                <span className="text-xs px-2 py-1 rounded bg-primary-dark/50 text-primary-light/80 capitalize">
-                  {m.role}
-                </span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 {isCurrentUserOwner && !isEditingOwnerName && (
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => startOwnerNameEdit(m)}
-                    className="text-primary-gold hover:text-primary-gold/80 text-sm"
+                    className="text-primary-gold hover:text-primary-gold/80 text-sm w-full sm:w-auto"
                   >
                     Edit name
                   </Button>
@@ -238,12 +243,12 @@ export const TeamMembersSection = () => {
                         { value: 'admin', label: 'Admin' },
                         { value: 'employee', label: 'Employee' },
                       ]}
-                      className="w-32"
+                      className="w-full sm:w-32"
                     />
                     <Button
                       variant="secondary"
                       onClick={() => handleRemove(m.id, m.name)}
-                      className="text-red-400 hover:text-red-300 text-sm"
+                      className="text-red-400 hover:text-red-300 text-sm w-full sm:w-auto"
                     >
                       Remove
                     </Button>
@@ -301,6 +306,6 @@ export const TeamMembersSection = () => {
           </div>
         )}
       </div>
-    </CollapsibleSection>
+    </div>
   )
 }
