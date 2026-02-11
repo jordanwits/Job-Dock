@@ -60,6 +60,12 @@ const JobLogDetailPage = () => {
     getJobLogById(editingJobLogId)
   }
 
+  const handleStatusChange = async (status: 'active' | 'completed' | 'inactive') => {
+    if (!selectedJobLog) return
+    await updateJobLog(selectedJobLog.id, { status })
+    getJobLogById(selectedJobLog.id)
+  }
+
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true)
   }
@@ -110,6 +116,7 @@ const JobLogDetailPage = () => {
         isEditing={editingJobLogId === selectedJobLog.id}
         onCancelEdit={() => setEditingJobLogId(null)}
         onSaveEdit={handleSaveEdit}
+        onStatusChange={handleStatusChange}
         isLoading={isLoading}
       />
 

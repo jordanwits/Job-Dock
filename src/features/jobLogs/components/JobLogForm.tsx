@@ -13,9 +13,20 @@ interface JobLogFormProps {
   isLoading?: boolean
 }
 
+const statusOptions = [
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'inactive', label: 'Inactive' },
+] as const
+
 const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const [selectedContactId, setSelectedContactId] = useState<string>(jobLog?.contactId ?? '')
+  const [selectedStatus, setSelectedStatus] = useState<string>(
+    jobLog?.status && ['active', 'completed', 'inactive', 'archived'].includes(jobLog.status)
+      ? jobLog.status === 'archived' ? 'inactive' : jobLog.status
+      : 'active'
+  )
 
   useEffect(() => {
     fetchContacts()
@@ -32,6 +43,7 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
       title: jobLog?.title ?? '',
       location: jobLog?.location ?? '',
       contactId: jobLog?.contactId ?? '',
+      status: (jobLog?.status === 'archived' ? 'inactive' : jobLog?.status) ?? 'active',
     },
   })
 
@@ -49,6 +61,20 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
         error={errors.location?.message}
         placeholder="Address or job site location"
       />
+      <div>
+        <label className="block text-sm font-medium text-primary-light mb-2">
+          Status
+        </label>
+        <Select
+          value={selectedStatus}
+          onChange={(e) => {
+            const v = e.target.value
+            setSelectedStatus(v)
+            setValue('status', v as 'active' | 'completed' | 'inactive')
+          }}
+          options={statusOptions.map((o) => ({ value: o.value, label: o.label }))}
+        />
+      </div>
       <div>
         <label className="block text-sm font-medium text-primary-light mb-2">
           Contact (optional)

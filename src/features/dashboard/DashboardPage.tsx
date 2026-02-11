@@ -58,8 +58,8 @@ const DashboardPage = () => {
     }
   }, [fetchJobs, fetchJobLogs, fetchQuotes, fetchInvoices, isEmployee])
 
-  // Get upcoming jobs (next 7 days). Employees see more (10) since dashboard is job-focused.
-  const upcomingJobsLimit = isEmployee ? 10 : 5
+  // Get upcoming appointments (next 7 days) - limit for compact display
+  const upcomingJobsLimit = 5
   const upcomingJobs = useMemo(() => {
     const today = new Date()
     const nextWeek = addDays(today, 7)
@@ -91,8 +91,9 @@ const DashboardPage = () => {
 
   // Job (job log) metrics - for all users
   const jobMetrics = useMemo(() => {
-    const active = jobLogs.filter((j) => (j.status || 'active') === 'active')
-    const completed = jobLogs.filter((j) => (j.status || 'active') === 'completed')
+    const norm = (s: string | undefined) => (s === 'archived' ? 'inactive' : s || 'active')
+    const active = jobLogs.filter((j) => norm(j.status) === 'active')
+    const completed = jobLogs.filter((j) => norm(j.status) === 'completed')
     const recentJobs = [...jobLogs]
       .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
       .slice(0, 5)
@@ -219,6 +220,13 @@ const DashboardPage = () => {
             </div>
           </div>
           <div className="rounded-xl border border-white/5 bg-primary-dark-secondary/50 p-6 shadow-sm shadow-black/20">
+            <div className="h-6 w-48 bg-primary-dark rounded animate-pulse mb-6"></div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="h-20 bg-primary-dark rounded-lg animate-pulse"></div>
+              <div className="h-20 bg-primary-dark rounded-lg animate-pulse"></div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/5 bg-primary-dark-secondary/50 p-6 shadow-sm shadow-black/20">
             <div className="h-6 w-32 bg-primary-dark rounded animate-pulse mb-6"></div>
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="h-20 bg-primary-dark rounded-lg animate-pulse"></div>
@@ -234,13 +242,10 @@ const DashboardPage = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Upcoming Appointments Card */}
-          <Card className={cn(
-            'rounded-xl border-white/10 shadow-sm shadow-black/20 p-6',
-            isEmployee ? 'lg:col-span-2' : 'lg:row-span-2'
-          )}>
-            <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Upcoming Appointments */}
+          <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
               <h2 className="text-lg font-semibold text-primary-light tracking-tight">
                 {isEmployee ? 'Your Upcoming Appointments' : 'Upcoming Appointments'}
               </h2>
@@ -251,7 +256,7 @@ const DashboardPage = () => {
               </Link>
             </div>
             {upcomingJobs.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="text-center py-6">
                 <p className="text-primary-light/40 text-sm">
                   No upcoming appointments in the next 7 days
                 </p>
@@ -271,7 +276,7 @@ const DashboardPage = () => {
                     <div
                       key={job.id}
                       onClick={() => setSelectedJob(job)}
-                      className="p-4 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all cursor-pointer"
+                      className="p-3 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -299,7 +304,90 @@ const DashboardPage = () => {
             )}
           </Card>
 
-          {/* Quotes Card - admin/owner only */}
+          {/* Jobs */}
+          <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
+            <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
+              <h2 className="text-lg font-semibold text-primary-light tracking-tight">Jobs</h2>
+              <Link to="/app/job-logs">
+                <Button variant="ghost" size="sm">
+                  View All
+                </Button>
+              </Link>
+            </div>
+
+            {/* Job Stats */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
+                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">Active</p>
+                <p className="text-2xl font-bold text-green-400 mt-2">{jobMetrics.activeCount}</p>
+              </div>
+              <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
+                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">Completed</p>
+                <p className="text-2xl font-bold text-primary-blue mt-2">{jobMetrics.completedCount}</p>
+              </div>
+            </div>
+
+            {/* Recent Jobs */}
+            {jobMetrics.recentJobs.length > 0 ? (
+              <div>
+                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide mb-3">Recent Jobs</p>
+                <div className="space-y-2">
+                  {jobMetrics.recentJobs.map((jobLog) => {
+                    const totalMinutes =
+                      jobLog.timeEntries?.reduce((sum, te) => {
+                        const start = new Date(te.startTime).getTime()
+                        const end = new Date(te.endTime).getTime()
+                        const breakMin = te.breakMinutes ?? 0
+                        return sum + (end - start) / 60000 - breakMin
+                      }, 0) ?? 0
+                    const hours = Math.floor(totalMinutes / 60)
+                    const mins = Math.round(totalMinutes % 60)
+                    const statusLabel = (jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active'
+                    const statusColors: Record<string, string> = {
+                      active: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20',
+                      completed: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
+                      inactive: 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20',
+                    }
+                    return (
+                      <Link
+                        key={jobLog.id}
+                        to={`/app/job-logs/${jobLog.id}`}
+                        className="block text-sm p-3 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-primary-light font-medium truncate">{jobLog.title}</span>
+                          <span
+                            className={cn(
+                              'text-xs px-2.5 py-1 rounded-full font-medium capitalize whitespace-nowrap',
+                              statusColors[statusLabel] || statusColors.inactive
+                            )}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <p className="text-primary-light/50 text-xs mt-1.5">
+                          {jobLog.timeEntries && jobLog.timeEntries.length > 0
+                            ? `${hours}h ${mins}m total`
+                            : format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d, yyyy')}
+                        </p>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-primary-light/40 text-sm">No jobs yet</p>
+                <Link to="/app/job-logs">
+                  <Button variant="ghost" size="sm" className="mt-2">
+                    Create Job
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </Card>
+
+          {/* Quotes - admin/owner only */}
           {!isEmployee && (
           <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
             <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">

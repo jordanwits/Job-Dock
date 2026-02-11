@@ -40,7 +40,6 @@ const ALL_SIDEBAR_ITEMS = [
   { label: 'Quotes', href: '/app/quotes' },
   { label: 'Invoices', href: '/app/invoices' },
   { label: 'Calendar', href: '/app/scheduling' },
-  { label: 'Profile', href: '/app/profile' },
   { label: 'Settings', href: '/app/settings' },
 ] as const
 
@@ -233,15 +232,19 @@ function App() {
           path="/app/profile"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <BillingGuard>
-                <AppLayout
-                  sidebarItems={sidebarItems}
-                  user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
-                  onLogout={handleLogout}
-                >
-                  <ProfileSettingsPage />
-                </AppLayout>
-              </BillingGuard>
+              {user?.role === 'employee' ? (
+                <BillingGuard>
+                  <AppLayout
+                    sidebarItems={sidebarItems}
+                    user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
+                    onLogout={handleLogout}
+                  >
+                    <ProfileSettingsPage />
+                  </AppLayout>
+                </BillingGuard>
+              ) : (
+                <Navigate to="/app/settings" replace />
+              )}
             </ProtectedRoute>
           }
         />

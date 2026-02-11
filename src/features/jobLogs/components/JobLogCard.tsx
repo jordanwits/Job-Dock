@@ -25,6 +25,12 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
   const photoCount = jobLog.photos?.length ?? 0
 
   const subtitle = [jobLog.contact?.name, jobLog.location].filter(Boolean).join(' • ')
+  const statusLabel = (jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active'
+  const statusColors: Record<string, string> = {
+    active: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20',
+    completed: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
+    inactive: 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20',
+  }
 
   return (
     <Card
@@ -64,9 +70,14 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
           <h3 className="text-lg font-semibold text-primary-light">
             {jobLog.title}
           </h3>
-          {subtitle && (
-            <p className="text-xs text-primary-light/50 mt-1">{subtitle}</p>
-          )}
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize', statusColors[statusLabel] || statusColors.inactive)}>
+              {statusLabel}
+            </span>
+            {subtitle && (
+              <span className="text-xs text-primary-light/50">{subtitle}</span>
+            )}
+          </div>
           {showCreatedBy && jobLog.job?.createdByName && (
             <p className="text-xs text-primary-light/60 mt-1">Created by {jobLog.job.createdByName}</p>
           )}

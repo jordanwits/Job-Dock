@@ -25,7 +25,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
   } = useJobLogStore()
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'archived'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'inactive'>('all')
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
     const saved = localStorage.getItem('joblogs-display-mode')
     return (saved as DisplayMode) || 'cards'
@@ -117,7 +117,11 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
     let filtered = jobLogs
 
     if (statusFilter !== 'all') {
-      filtered = filtered.filter((j) => j.status === statusFilter)
+      filtered = filtered.filter((j) => {
+        const s = j.status ?? 'active'
+        if (statusFilter === 'inactive') return s === 'inactive' || s === 'archived'
+        return s === statusFilter
+      })
     }
 
     if (searchQuery.trim()) {
@@ -191,14 +195,14 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
             value={statusFilter}
             onChange={(e) =>
               setStatusFilter(
-                e.target.value as 'all' | 'active' | 'completed' | 'archived'
+                e.target.value as 'all' | 'active' | 'completed' | 'inactive'
               )
             }
             options={[
               { value: 'all', label: 'All Status' },
               { value: 'active', label: 'Active' },
               { value: 'completed', label: 'Completed' },
-              { value: 'archived', label: 'Archived' },
+              { value: 'inactive', label: 'Inactive' },
             ]}
             className="w-full sm:w-auto min-w-[140px]"
           />
@@ -384,6 +388,9 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
                       Location
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                      Status
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                       Total
                     </th>
@@ -406,6 +413,9 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell">
                         <div className="h-4 bg-white/10 rounded w-20" />
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <div className="h-4 bg-white/10 rounded w-16" />
                       </td>
                       <td className="px-4 py-3">
                         <div className="h-4 bg-white/10 rounded w-16" />
@@ -475,13 +485,16 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                     Contact
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
-                    Location
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
-                    Total
-                  </th>
-                </tr>
+<th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                      Location
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      Total
+                    </th>
+                  </tr>
               </thead>
               <tbody className="divide-y divide-primary-blue">
                 {filteredJobLogs.map((jobLog) => {
@@ -520,6 +533,17 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
                         <div className="truncate max-w-[150px]">{jobLog.location || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap hidden sm:table-cell">
+                        {(() => {
+                          const s = jobLog.status === 'archived' ? 'inactive' : (jobLog.status || 'active')
+                          const classes = { active: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20', completed: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20', inactive: 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20' }
+                          return (
+                            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize', classes[s as keyof typeof classes] || classes.inactive)}>
+                              {s}
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm font-semibold text-primary-gold">

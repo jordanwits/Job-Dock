@@ -48,7 +48,7 @@ export interface JobLog {
   notes?: string
   jobId?: string
   contactId?: string
-  status: 'active' | 'completed' | 'archived'
+  status: 'active' | 'completed' | 'inactive'
   createdAt: string
   updatedAt: string
   job?: {
@@ -75,7 +75,7 @@ export interface CreateJobLogData {
   notes?: string
   jobId?: string
   contactId?: string
-  status?: 'active' | 'completed' | 'archived'
+  status?: 'active' | 'completed' | 'inactive'
 }
 
 export interface UpdateJobLogData extends Partial<CreateJobLogData> {

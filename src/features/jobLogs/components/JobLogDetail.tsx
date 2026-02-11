@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { Card, Button } from '@/components/ui'
+import { Card, Button, StatusBadgeSelect } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { JobLog } from '../types/jobLog'
 import JobLogForm from './JobLogForm'
@@ -18,10 +18,23 @@ interface JobLogDetailProps {
   isEditing: boolean
   onCancelEdit: () => void
   onSaveEdit: (data: { title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; status?: string }) => Promise<void>
+  onStatusChange?: (status: 'active' | 'completed' | 'inactive') => Promise<void>
   isLoading?: boolean
 }
 
 type Tab = 'clock' | 'photos' | 'notes'
+
+const statusOptions = [
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'inactive', label: 'Inactive' },
+] as const
+
+const statusColors: Record<string, string> = {
+  active: 'bg-green-500/20 text-green-400 border-green-500/30',
+  completed: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
+  inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+}
 
 const JobLogDetail = ({
   jobLog,
@@ -32,6 +45,7 @@ const JobLogDetail = ({
   isEditing,
   onCancelEdit,
   onSaveEdit,
+  onStatusChange,
   isLoading,
 }: JobLogDetailProps) => {
   const navigate = useNavigate()
@@ -70,9 +84,30 @@ const JobLogDetail = ({
             Jobs
           </button>
           <h1 className="text-2xl font-bold text-primary-light truncate">{jobLog.title}</h1>
-          <p className="text-sm text-primary-light/50 mt-0.5">
-            {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
-          </p>
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+            {onStatusChange ? (
+              <StatusBadgeSelect
+                value={jobLog.status === 'archived' ? 'inactive' : (jobLog.status || 'active')}
+                options={statusOptions.map((o) => ({ value: o.value, label: o.label }))}
+                colorClassesByValue={statusColors}
+                onChange={async (v) => {
+                  await onStatusChange(v as 'active' | 'completed' | 'inactive')
+                }}
+                isLoading={isLoading}
+                size="md"
+              />
+            ) : (
+              <span className={cn(
+                'px-2.5 py-1 text-xs font-medium capitalize',
+                statusColors[(jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active']
+              )}>
+                {jobLog.status === 'archived' ? 'Inactive' : (jobLog.status || 'Active')}
+              </span>
+            )}
+            <span className="text-sm text-primary-light/50">
+              {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
+            </span>
+          </div>
           {showCreatedBy && jobLog.job?.createdByName && (
             <span className="inline-block mt-2 px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
               Created by {jobLog.job.createdByName}
@@ -111,7 +146,7 @@ const JobLogDetail = ({
               navigate('/app/scheduling?' + params.toString())
             }}
           >
-            Schedule Job
+            Schedule Appointment
           </Button>
           <Button variant="outline" size="sm" onClick={onEdit}>
             Edit

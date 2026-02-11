@@ -7,7 +7,7 @@ export const jobLogSchema = z.object({
   notes: z.string().optional(),
   jobId: z.string().optional(),
   contactId: z.string().optional(),
-  status: z.enum(['active', 'completed', 'archived']).optional(),
+  status: z.enum(['active', 'completed', 'inactive']).optional(),
 })
 
 export type JobLogFormData = z.infer<typeof jobLogSchema>
