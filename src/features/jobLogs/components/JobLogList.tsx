@@ -386,9 +386,12 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       Contact
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                      Assigned to
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
                       Location
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
@@ -412,9 +415,12 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                         <div className="h-4 bg-white/10 rounded w-28" />
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell">
+                        <div className="h-4 bg-white/10 rounded w-24" />
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
                         <div className="h-4 bg-white/10 rounded w-20" />
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
+                      <td className="px-4 py-3">
                         <div className="h-4 bg-white/10 rounded w-16" />
                       </td>
                       <td className="px-4 py-3">
@@ -485,10 +491,13 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                     Contact
                   </th>
-<th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
-                      Location
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    Assigned to
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    Location
+                  </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
@@ -532,9 +541,12 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                         <div className="truncate max-w-[150px]">{jobLog.contact?.name || '-'}</div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                        <div className="truncate max-w-[150px]">{jobLog.assignedToName || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
                         <div className="truncate max-w-[150px]">{jobLog.location || '-'}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap hidden sm:table-cell">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         {(() => {
                           const s = jobLog.status === 'archived' ? 'inactive' : (jobLog.status || 'active')
                           const classes = { active: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20', completed: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20', inactive: 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20' }

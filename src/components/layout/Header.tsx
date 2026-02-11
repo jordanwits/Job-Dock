@@ -52,7 +52,7 @@ const Header = ({ user, companyLogoUrl, companyDisplayName, onLogout, onMenuClic
                     className="h-8 w-auto max-w-[120px] object-contain"
                   />
                 )}
-                <div className="text-right">
+                <div className="text-center">
                   <p className="text-sm font-medium text-primary-light">
                     {user.role === 'employee' ? (companyDisplayName ? `${companyDisplayName} Team` : 'Team') : user.name}
                   </p>

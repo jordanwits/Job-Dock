@@ -66,21 +66,21 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
         )}
 
         {/* Header */}
-        <div className={cn(onToggleSelect && 'pl-8')}>
-          <h3 className="text-lg font-semibold text-primary-light">
+        <div className={cn(onToggleSelect && 'pl-8', 'min-w-0')}>
+          <h3 className="text-lg font-semibold text-primary-light break-words">
             {jobLog.title}
           </h3>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize', statusColors[statusLabel] || statusColors.inactive)}>
+            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0', statusColors[statusLabel] || statusColors.inactive)}>
               {statusLabel}
             </span>
             {subtitle && (
-              <span className="text-xs text-primary-light/50">{subtitle}</span>
+              <span className="text-xs text-primary-light/50 break-words min-w-0">{subtitle}</span>
             )}
           </div>
-          {(showCreatedBy && (jobLog.job?.createdByName || jobLog.assignedToName)) && (
-            <p className="text-xs text-primary-light/60 mt-1">
-              {[jobLog.assignedToName && `Assigned to ${jobLog.assignedToName}`, jobLog.job?.createdByName && `Created by ${jobLog.job.createdByName}`]
+          {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
+            <p className="text-xs text-primary-light/60 mt-1 break-words">
+              {[jobLog.assignedToName && `Assigned to ${jobLog.assignedToName}`, showCreatedBy && jobLog.job?.createdByName && `Created by ${jobLog.job.createdByName}`]
                 .filter(Boolean)
                 .join(' • ')}
             </p>

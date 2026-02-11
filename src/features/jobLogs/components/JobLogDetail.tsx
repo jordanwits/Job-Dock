@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { Card, Button, StatusBadgeSelect } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/features/auth'
 import type { JobLog } from '../types/jobLog'
 import JobLogForm from './JobLogForm'
 import TimeTracker from './TimeTracker'
@@ -49,7 +50,35 @@ const JobLogDetail = ({
   isLoading,
 }: JobLogDetailProps) => {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<Tab>('notes')
+  const [showMenu, setShowMenu] = useState(false)
+  const canAccessQuotes = user?.role !== 'employee'
+
+  const handleCreateQuote = () => {
+    setShowMenu(false)
+    const params = new URLSearchParams()
+    params.set('returnTo', '/app/job-logs/' + jobLog.id)
+    params.set('openCreateQuote', '1')
+    if (jobLog.contactId) params.set('contactId', jobLog.contactId)
+    if (jobLog.title) params.set('title', jobLog.title)
+    if (jobLog.notes) params.set('notes', jobLog.notes)
+    navigate('/app/quotes?' + params.toString())
+  }
+
+  const handleScheduleAppointment = () => {
+    setShowMenu(false)
+    const params = new URLSearchParams()
+    params.set('tab', 'calendar')
+    params.set('returnTo', '/app/job-logs/' + jobLog.id)
+    params.set('openCreateJob', '1')
+    if (jobLog.contactId) params.set('contactId', jobLog.contactId)
+    if (jobLog.title) params.set('title', jobLog.title)
+    if (jobLog.notes) params.set('notes', jobLog.notes)
+    if (jobLog.location) params.set('location', jobLog.location)
+    if (jobLog.description) params.set('description', jobLog.description)
+    navigate('/app/scheduling?' + params.toString())
+  }
 
   if (isEditing) {
     return (
@@ -70,20 +99,72 @@ const JobLogDetail = ({
   const hasOverview = jobLog.location || jobLog.contact
 
   return (
-    <div className="space-y-6 w-full">
-      {/* Compact header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+    <div className="space-y-6 w-full min-w-0">
+      {/* Top bar: back left, menu right on mobile */}
+      <div className="flex items-center justify-between gap-2 sm:justify-start">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-sm text-primary-light/60 hover:text-primary-gold transition-colors"
+        >
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Jobs
+        </button>
+        {/* Mobile: three-dot menu in top right */}
+        <div className="relative sm:hidden ml-auto">
           <button
-            onClick={onBack}
-            className="flex items-center gap-1 text-sm text-primary-light/60 hover:text-primary-gold mb-2 transition-colors"
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors"
+            aria-label="Actions"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Jobs
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 12m-2 0a2 2 0 1 1 4 0a2 2 0 1 1-4 0M12 12m-2 0a2 2 0 1 1 4 0a2 2 0 1 1-4 0M18 12m-2 0a2 2 0 1 1 4 0a2 2 0 1 1-4 0" />
+              </svg>
           </button>
-          <h1 className="text-2xl font-bold text-primary-light truncate">{jobLog.title}</h1>
+          {showMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowMenu(false)}
+              />
+              <div className="absolute right-0 top-full mt-1 py-1 w-56 bg-primary-dark-secondary border border-primary-blue rounded-lg shadow-xl z-50">
+                {canAccessQuotes && (
+                  <button
+                    onClick={handleCreateQuote}
+                    className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                  >
+                    Create Quote
+                  </button>
+                )}
+                <button
+                  onClick={handleScheduleAppointment}
+                  className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                >
+                  Schedule Appointment
+                </button>
+                <button
+                  onClick={() => { setShowMenu(false); onEdit() }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => { setShowMenu(false); onDelete() }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/20"
+                >
+                  Delete
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Header content - title, status, assigned to, and desktop buttons */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold text-primary-light break-words">{jobLog.title}</h1>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {onStatusChange ? (
               <StatusBadgeSelect
@@ -98,69 +179,50 @@ const JobLogDetail = ({
               />
             ) : (
               <span className={cn(
-                'px-2.5 py-1 text-xs font-medium capitalize',
+                'px-2.5 py-1 text-xs font-medium capitalize shrink-0',
                 statusColors[(jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active']
               )}>
                 {jobLog.status === 'archived' ? 'Inactive' : (jobLog.status || 'Active')}
               </span>
             )}
-            <span className="text-sm text-primary-light/50">
+            <span className="text-sm text-primary-light/50 shrink-0">
               {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
             </span>
           </div>
-          {showCreatedBy && (jobLog.assignedToName || jobLog.job?.createdByName) && (
+          {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
             <div className="flex flex-wrap gap-2 mt-2">
               {jobLog.assignedToName && (
-                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
+                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words">
                   Assigned to {jobLog.assignedToName}
                 </span>
               )}
-              {jobLog.job?.createdByName && (
-                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
+              {showCreatedBy && jobLog.job?.createdByName && (
+                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words">
                   Created by {jobLog.job.createdByName}
                 </span>
               )}
             </div>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const params = new URLSearchParams()
-              params.set('returnTo', '/app/job-logs/' + jobLog.id)
-              params.set('openCreateQuote', '1')
-              if (jobLog.contactId) params.set('contactId', jobLog.contactId)
-              if (jobLog.title) params.set('title', jobLog.title)
-              if (jobLog.notes) params.set('notes', jobLog.notes)
-              navigate('/app/quotes?' + params.toString())
-            }}
-          >
-            Create Quote
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const params = new URLSearchParams()
-              params.set('tab', 'calendar')
-              params.set('returnTo', '/app/job-logs/' + jobLog.id)
-              params.set('openCreateJob', '1')
-              if (jobLog.contactId) params.set('contactId', jobLog.contactId)
-              if (jobLog.title) params.set('title', jobLog.title)
-              if (jobLog.notes) params.set('notes', jobLog.notes)
-              if (jobLog.location) params.set('location', jobLog.location)
-              if (jobLog.description) params.set('description', jobLog.description)
-              navigate('/app/scheduling?' + params.toString())
-            }}
-          >
+        {/* Desktop: inline buttons */}
+        <div className="hidden sm:flex flex-wrap gap-2 shrink-0">
+          {canAccessQuotes && (
+            <Button variant="outline" size="sm" onClick={handleCreateQuote}>
+              Create Quote
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handleScheduleAppointment}>
             Schedule Appointment
           </Button>
           <Button variant="outline" size="sm" onClick={onEdit}>
             Edit
           </Button>
-          <Button variant="outline" size="sm" onClick={onDelete} className="text-red-400 border-red-500/50 hover:bg-red-500/10">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-red-400 border-red-500/50 hover:bg-red-500/10"
+            onClick={onDelete}
+          >
             Delete
           </Button>
         </div>
