@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
+import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
 import { Card, Button, Modal } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
@@ -29,6 +30,7 @@ const DashboardPage = () => {
   } = useJobStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
   const { invoices, fetchInvoices, isLoading: invoicesLoading } = useInvoiceStore()
+  const { jobLogs, fetchJobLogs, isLoading: jobLogsLoading } = useJobLogStore()
   
   const [editingJob, setEditingJob] = useState<typeof selectedJob>(null)
   const [showJobForm, setShowJobForm] = useState(false)
@@ -40,18 +42,24 @@ const DashboardPage = () => {
     window.scrollTo(0, 0)
   }, [])
 
+  const isEmployee = user?.role === 'employee'
+
   // Fetch all data on mount - force refresh to get updated overdue statuses
+  // All users get appointments and job logs; admins also get quotes and invoices
   useEffect(() => {
     const now = new Date()
     const startDate = startOfMonth(now)
     const endDate = endOfMonth(addDays(now, 30)) // Fetch current and next month
     fetchJobs(startDate, endDate)
-    fetchQuotes()
-    // Fetch invoices which will auto-update overdue statuses in backend
-    fetchInvoices()
-  }, [fetchJobs, fetchQuotes, fetchInvoices])
+    fetchJobLogs()
+    if (!isEmployee) {
+      fetchQuotes()
+      fetchInvoices()
+    }
+  }, [fetchJobs, fetchJobLogs, fetchQuotes, fetchInvoices, isEmployee])
 
-  // Get upcoming jobs (next 7 days, limit 5)
+  // Get upcoming jobs (next 7 days). Employees see more (10) since dashboard is job-focused.
+  const upcomingJobsLimit = isEmployee ? 10 : 5
   const upcomingJobs = useMemo(() => {
     const today = new Date()
     const nextWeek = addDays(today, 7)
@@ -62,8 +70,8 @@ const DashboardPage = () => {
         return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled'
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-      .slice(0, 5)
-  }, [jobs])
+      .slice(0, upcomingJobsLimit)
+  }, [jobs, upcomingJobsLimit])
 
   // Quote metrics
   const quoteMetrics = useMemo(() => {
@@ -80,6 +88,16 @@ const DashboardPage = () => {
 
     return { pending, accepted, rejected, draft, recentQuotes }
   }, [quotes])
+
+  // Job (job log) metrics - for all users
+  const jobMetrics = useMemo(() => {
+    const active = jobLogs.filter((j) => (j.status || 'active') === 'active')
+    const completed = jobLogs.filter((j) => (j.status || 'active') === 'completed')
+    const recentJobs = [...jobLogs]
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+      .slice(0, 5)
+    return { activeCount: active.length, completedCount: completed.length, recentJobs }
+  }, [jobLogs])
 
   // Invoice metrics
   const invoiceMetrics = useMemo(() => {
@@ -105,7 +123,9 @@ const DashboardPage = () => {
     return { sent, overdue, draft, clientApproved, awaitingApproval, outstanding, recentInvoices }
   }, [invoices])
 
-  const isLoading = jobsLoading || quotesLoading || invoicesLoading
+  const isLoading = isEmployee
+    ? jobsLoading || jobLogsLoading
+    : jobsLoading || jobLogsLoading || quotesLoading || invoicesLoading
 
   // Job handlers
   const handleUpdateJob = async (data: any) => {
@@ -181,7 +201,9 @@ const DashboardPage = () => {
           Welcome back{user?.name ? <span className="text-primary-gold">, {user.name}</span> : ''}
         </h1>
         <p className="text-primary-light/60 text-base">
-          Here's what's happening with your business today
+          {isEmployee
+            ? "Here's your schedule and upcoming appointments"
+            : "Here's what's happening with your business today"}
         </p>
       </div>
 
@@ -213,10 +235,15 @@ const DashboardPage = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Upcoming Jobs Card */}
-          <Card className="lg:row-span-2 rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
+          {/* Upcoming Appointments Card */}
+          <Card className={cn(
+            'rounded-xl border-white/10 shadow-sm shadow-black/20 p-6',
+            isEmployee ? 'lg:col-span-2' : 'lg:row-span-2'
+          )}>
             <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
-              <h2 className="text-lg font-semibold text-primary-light tracking-tight">Upcoming Jobs</h2>
+              <h2 className="text-lg font-semibold text-primary-light tracking-tight">
+                {isEmployee ? 'Your Upcoming Appointments' : 'Upcoming Appointments'}
+              </h2>
               <Link to="/app/scheduling?tab=jobs">
                 <Button variant="ghost" size="sm">
                   View All
@@ -226,7 +253,7 @@ const DashboardPage = () => {
             {upcomingJobs.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-primary-light/40 text-sm">
-                  No upcoming jobs in the next 7 days
+                  No upcoming appointments in the next 7 days
                 </p>
               </div>
             ) : (
@@ -272,7 +299,8 @@ const DashboardPage = () => {
             )}
           </Card>
 
-          {/* Quotes Card */}
+          {/* Quotes Card - admin/owner only */}
+          {!isEmployee && (
           <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
             <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
               <h2 className="text-lg font-semibold text-primary-light tracking-tight">Quotes</h2>
@@ -325,8 +353,10 @@ const DashboardPage = () => {
               </div>
             )}
           </Card>
+          )}
 
-          {/* Invoices Card */}
+          {/* Invoices Card - admin/owner only */}
+          {!isEmployee && (
           <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
             <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
               <h2 className="text-lg font-semibold text-primary-light tracking-tight">Invoices</h2>
@@ -394,6 +424,7 @@ const DashboardPage = () => {
               </div>
             )}
           </Card>
+          )}
         </div>
       )}
 
@@ -405,7 +436,7 @@ const DashboardPage = () => {
           setEditingJob(null)
           clearJobsError()
         }}
-        title={editingJob ? 'Edit Job' : 'Schedule New Job'}
+        title={editingJob ? 'Edit Appointment' : 'Schedule New Appointment'}
         size="xl"
       >
         <JobForm
@@ -446,7 +477,7 @@ const DashboardPage = () => {
           setShowDeclineModal(false)
           setDeclineReason('')
         }}
-        title="Decline Job"
+        title="Decline Appointment"
         footer={
           <>
             <Button
@@ -463,14 +494,14 @@ const DashboardPage = () => {
               disabled={jobsLoading}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {jobsLoading ? 'Declining...' : 'Decline Job'}
+              {jobsLoading ? 'Declining...' : 'Decline Appointment'}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
           <p className="text-primary-light">
-            Are you sure you want to decline this job?
+            Are you sure you want to decline this appointment?
           </p>
           <div>
             <label className="block text-sm font-medium text-primary-light mb-2">
