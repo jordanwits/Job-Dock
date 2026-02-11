@@ -17,9 +17,23 @@ import PermanentDeleteRecurringJobModal from '../components/PermanentDeleteRecur
 import ArchivedJobsPage from '../components/ArchivedJobsPage'
 import { Button, Modal, Card, ConfirmationDialog } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
+import { services } from '@/lib/api/services'
 
 const SchedulingPage = () => {
   const { user } = useAuthStore()
+  const [isTeamAccount, setIsTeamAccount] = useState(false)
+
+  useEffect(() => {
+    const checkTeam = async () => {
+      try {
+        const status = await services.billing.getStatus()
+        setIsTeamAccount(status.subscriptionTier === 'team')
+      } catch {
+        setIsTeamAccount(false)
+      }
+    }
+    checkTeam()
+  }, [])
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const returnTo = searchParams.get('returnTo')
@@ -1015,7 +1029,7 @@ const SchedulingPage = () => {
 
         {activeTab === 'jobs' && (
           <div className="h-full overflow-y-auto">
-            <JobList />
+            <JobList showCreatedBy={isTeamAccount} />
           </div>
         )}
 
@@ -1089,6 +1103,7 @@ const SchedulingPage = () => {
         <JobDetail
           job={selectedJob}
           isOpen={showJobDetail}
+          showCreatedBy={isTeamAccount}
           onClose={() => {
             setSelectedJob(null)
             setShowJobDetail(false)

@@ -446,17 +446,16 @@ export const dataServices = {
   settings: {
     get: async (tenantId: string) => {
       await ensureTenantExists(tenantId)
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      })
       let settings = await prisma.tenantSettings.findUnique({
         where: { tenantId },
       })
 
       // If settings don't exist, create default settings
       if (!settings) {
-        const tenant = await prisma.tenant.findUnique({
-          where: { id: tenantId },
-          select: { name: true },
-        })
-
         settings = await prisma.tenantSettings.create({
           data: {
             tenantId,
@@ -466,7 +465,10 @@ export const dataServices = {
       }
 
       // Generate signed URLs for logo and PDF templates if they exist
-      const result: any = { ...settings }
+      const result: any = {
+        ...settings,
+        tenantName: tenant?.name,
+      }
 
       if (settings.logoUrl) {
         try {
@@ -1459,6 +1461,7 @@ export const dataServices = {
         include: {
           contact: true,
           service: true,
+          createdBy: { select: { name: true } },
         },
         orderBy: [
           { toBeScheduled: 'desc' }, // Unscheduled jobs first
@@ -1469,7 +1472,7 @@ export const dataServices = {
     getById: async (tenantId: string, id: string) => {
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
-        include: { contact: true, service: true },
+        include: { contact: true, service: true, createdBy: { select: { name: true } } },
       })
       if (!job) throw new Error('Job not found')
       return job
@@ -1506,7 +1509,7 @@ export const dataServices = {
             breaks: undefined,
             createdById: payload.createdById ?? undefined,
           },
-          include: { contact: true, service: true },
+          include: { contact: true, service: true, createdBy: { select: { name: true } } },
         })
       }
 
@@ -1573,7 +1576,7 @@ export const dataServices = {
           breaks: payload.breaks || null,
           createdById: payload.createdById ?? undefined,
         },
-        include: { contact: true, service: true },
+        include: { contact: true, service: true, createdBy: { select: { name: true } } },
       })
     },
     update: async (tenantId: string, id: string, payload: any) => {
@@ -2951,7 +2954,11 @@ export const dataServices = {
       await ensureTenantExists(tenantId)
       const logs = await prisma.jobLog.findMany({
         where: { tenantId },
-        include: { job: true, contact: true, timeEntries: true },
+        include: {
+          job: { include: { createdBy: { select: { name: true } } } },
+          contact: true,
+          timeEntries: true,
+        },
         orderBy: { createdAt: 'desc' },
       })
       const logIds = logs.map((l) => l.id)
@@ -2992,7 +2999,14 @@ export const dataServices = {
           return {
             ...log,
             job: log.job
-              ? { id: log.job.id, title: log.job.title, startTime: log.job.startTime?.toISOString(), endTime: log.job.endTime?.toISOString(), status: log.job.status }
+              ? {
+                  id: log.job.id,
+                  title: log.job.title,
+                  startTime: log.job.startTime?.toISOString(),
+                  endTime: log.job.endTime?.toISOString(),
+                  status: log.job.status,
+                  createdByName: (log.job as any).createdBy?.name,
+                }
               : null,
             contact: log.contact
               ? { id: log.contact.id, name: `${log.contact.firstName} ${log.contact.lastName}`.trim(), email: log.contact.email }
@@ -3013,7 +3027,11 @@ export const dataServices = {
       await ensureTenantExists(tenantId)
       const jobLog = await prisma.jobLog.findFirst({
         where: { id, tenantId },
-        include: { job: true, contact: true, timeEntries: true },
+        include: {
+          job: { include: { createdBy: { select: { name: true } } } },
+          contact: true,
+          timeEntries: true,
+        },
       })
       if (!jobLog) {
         throw new ApiError('Job log not found', 404)
@@ -3053,6 +3071,7 @@ export const dataServices = {
               startTime: jobLog.job.startTime?.toISOString(),
               endTime: jobLog.job.endTime?.toISOString(),
               status: jobLog.job.status,
+              createdByName: (jobLog.job as any).createdBy?.name,
             }
           : null,
         contact: jobLog.contact

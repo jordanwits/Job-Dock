@@ -6,9 +6,10 @@ import type { Job } from '../types/job'
 
 interface JobCardProps {
   job: Job
+  showCreatedBy?: boolean
 }
 
-const JobCard = ({ job }: JobCardProps) => {
+const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
   const { setSelectedJob } = useJobStore()
 
   const statusColors = {
@@ -54,6 +55,11 @@ const JobCard = ({ job }: JobCardProps) => {
             </h3>
             {subtitle && (
               <p className="text-xs text-primary-light/50 mt-1">{subtitle}</p>
+            )}
+            {showCreatedBy && job.createdByName && (
+              <span className="text-xs text-primary-light/60 mt-1 block">
+                Created by {job.createdByName}
+              </span>
             )}
           </div>
           <span

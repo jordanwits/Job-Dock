@@ -8,12 +8,13 @@ import { format } from 'date-fns'
 interface JobLogListProps {
   onCreateClick?: () => void
   onSelectJobLog: (id: string) => void
+  showCreatedBy?: boolean
 }
 
 type DisplayMode = 'cards' | 'list'
 type SortBy = 'recent' | 'oldest' | 'title'
 
-const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
+const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogListProps) => {
   const {
     jobLogs,
     isLoading,
@@ -439,6 +440,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
               onClick={() => onSelectJobLog(jobLog.id)}
               isSelected={selectedIds.has(jobLog.id)}
               onToggleSelect={toggleSelection}
+              showCreatedBy={showCreatedBy}
             />
           ))}
         </div>

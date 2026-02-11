@@ -374,6 +374,24 @@ We look forward to working with you!',
         select: { id: true, role: true, name: true },
       })
 
+      // PATCH /users/me - any authenticated user can update their own profile
+      if (id === 'me' && (event.httpMethod === 'PATCH' || event.httpMethod === 'PUT')) {
+        if (!currentUser) {
+          return errorResponse('User not found', 404)
+        }
+        const body = parseBody(event)
+        const newName = body?.name
+        if (typeof newName !== 'string' || !newName.trim()) {
+          return errorResponse('Name is required', 400)
+        }
+        const updated = await prisma.user.update({
+          where: { id: currentUser.id },
+          data: { name: newName.trim() },
+          select: { id: true, email: true, name: true, role: true },
+        })
+        return successResponse(updated)
+      }
+
       if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'admin')) {
         return errorResponse('Only owners and admins can manage team members', 403)
       }
@@ -803,13 +821,14 @@ We look forward to working with you!',
       'users',
     ] as const
     const employeeAllowedResources = ['job-logs', 'time-entries'] as const
-    // Employees can read these (for calendar, job form) but not create/update/delete
+    // Employees can read these (for calendar, job form, header company name/logo) but not create/update/delete
     const employeeReadOnlyResources = [
       'contacts',
       'services',
       'job-recurrences',
       'quotes',
       'invoices',
+      'settings',
     ] as const
     // Employees have full access to jobs (create, read) but edit/delete restricted to own jobs
     const employeeJobAccessResources = ['jobs'] as const

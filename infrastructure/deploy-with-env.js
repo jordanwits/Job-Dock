@@ -19,7 +19,7 @@ if (fs.existsSync(envLocalPath)) {
 
   // Show which variables were loaded (without showing values)
   const envVars = Object.keys(process.env).filter(
-    key => key.includes('RESEND') || key.includes('STRIPE') || key.includes('EMAIL')
+    key => key.includes('RESEND') || key.includes('STRIPE') || key.includes('EMAIL') || key.includes('TEAM_TESTING')
   )
   if (envVars.length > 0) {
     console.log(`✓ Loaded ${envVars.length} environment variable(s)`)

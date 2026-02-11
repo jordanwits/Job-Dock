@@ -41,6 +41,7 @@ const normalizeJob = (apiJob: any): Job => {
     deletedAt: apiJob.deletedAt,
     archivedAt: apiJob.archivedAt,
     createdById: apiJob.createdById,
+    createdByName: apiJob.createdBy?.name ?? apiJob.createdByName ?? null,
     createdAt: apiJob.createdAt,
     updatedAt: apiJob.updatedAt,
     occurrenceCount: apiJob.occurrenceCount,

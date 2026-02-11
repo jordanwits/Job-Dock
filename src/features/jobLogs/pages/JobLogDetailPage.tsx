@@ -3,8 +3,22 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogDetail from '../components/JobLogDetail'
 import { ConfirmationDialog } from '@/components/ui'
+import { services } from '@/lib/api/services'
 
 const JobLogDetailPage = () => {
+  const [isTeamAccount, setIsTeamAccount] = useState(false)
+
+  useEffect(() => {
+    const checkTeam = async () => {
+      try {
+        const status = await services.billing.getStatus()
+        setIsTeamAccount(status.subscriptionTier === 'team')
+      } catch {
+        setIsTeamAccount(false)
+      }
+    }
+    checkTeam()
+  }, [])
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const {
@@ -89,6 +103,7 @@ const JobLogDetailPage = () => {
     <div className="space-y-6">
       <JobLogDetail
         jobLog={selectedJobLog}
+        showCreatedBy={isTeamAccount}
         onBack={handleBack}
         onEdit={() => setEditingJobLogId(selectedJobLog.id)}
         onDelete={handleDeleteClick}

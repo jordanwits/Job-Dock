@@ -18,7 +18,8 @@ const AdminRoute = ({ children, userRole }: AdminRouteProps) => {
     const isAllowed =
       pathname === '/app' ||
       pathname.startsWith('/app/scheduling') ||
-      pathname.startsWith('/app/job-logs')
+      pathname.startsWith('/app/job-logs') ||
+      pathname.startsWith('/app/profile')
     if (!isAllowed) {
       return <Navigate to="/app/job-logs" replace />
     }

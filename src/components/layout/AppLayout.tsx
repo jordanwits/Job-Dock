@@ -9,6 +9,7 @@ export interface AppLayoutProps {
   user?: {
     name: string
     email: string
+    role?: 'owner' | 'admin' | 'employee'
   }
   onLogout?: () => void
   fullWidth?: boolean
@@ -17,6 +18,7 @@ export interface AppLayoutProps {
 const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: AppLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>()
+  const [companyDisplayName, setCompanyDisplayName] = useState<string | undefined>()
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -25,9 +27,14 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
         if (settings.logoSignedUrl) {
           setCompanyLogoUrl(settings.logoSignedUrl)
         }
+        // Use company display name, fallback to tenant name (e.g. "West Wave Creative")
+        const displayName = settings.companyDisplayName?.trim() || settings.tenantName?.trim()
+        if (displayName) {
+          setCompanyDisplayName(displayName)
+        }
       } catch (error) {
-        // Silently fail - logo is optional
-        console.error('Failed to fetch company logo:', error)
+        // Silently fail - logo/name are optional
+        console.error('Failed to fetch company settings:', error)
       }
     }
 
@@ -41,6 +48,7 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
       <Header
         user={user}
         companyLogoUrl={companyLogoUrl}
+        companyDisplayName={companyDisplayName}
         onLogout={onLogout}
         onMenuClick={() => setSidebarOpen(!sidebarOpen)}
       />

@@ -11,6 +11,7 @@ import JobLogNotes from './JobLogNotes'
 
 interface JobLogDetailProps {
   jobLog: JobLog
+  showCreatedBy?: boolean
   onBack: () => void
   onEdit: () => void
   onDelete: () => void
@@ -24,6 +25,7 @@ type Tab = 'clock' | 'photos' | 'notes'
 
 const JobLogDetail = ({
   jobLog,
+  showCreatedBy,
   onBack,
   onEdit,
   onDelete,
@@ -71,6 +73,11 @@ const JobLogDetail = ({
           <p className="text-sm text-primary-light/50 mt-0.5">
             {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
           </p>
+          {showCreatedBy && jobLog.job?.createdByName && (
+            <span className="inline-block mt-2 px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
+              Created by {jobLog.job.createdByName}
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
           <Button

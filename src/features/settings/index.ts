@@ -1,4 +1,5 @@
 export { SettingsPage } from './SettingsPage'
+export { ProfileSettingsPage } from './ProfileSettingsPage'
 export { CompanyBrandingSection } from './CompanyBrandingSection'
 export { EmailTemplatesSection } from './EmailTemplatesSection'
 export { PdfTemplatesSection } from './PdfTemplatesSection'

@@ -480,6 +480,11 @@ const realUsersService = {
     return response.data
   },
 
+  updateProfile: async (data: { name: string }) => {
+    const response = await apiClient.patch('/users/me', data)
+    return response.data
+  },
+
   invite: async (data: { email: string; name: string; role: 'admin' | 'employee' }) => {
     const response = await apiClient.post('/users/invite', data)
     return response.data

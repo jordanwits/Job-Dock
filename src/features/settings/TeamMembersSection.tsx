@@ -17,7 +17,8 @@ export const TeamMembersSection = () => {
   const [canInvite, setCanInvite] = useState(false)
   const [inviteModal, setInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteName, setInviteName] = useState('')
+  const [inviteFirstName, setInviteFirstName] = useState('')
+  const [inviteLastName, setInviteLastName] = useState('')
   const [inviteRole, setInviteRole] = useState<'admin' | 'employee'>('employee')
   const [inviting, setInviting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,21 +51,23 @@ export const TeamMembersSection = () => {
   }, [])
 
   const handleInvite = async () => {
-    if (!inviteEmail.trim() || !inviteName.trim()) {
-      setError('Email and name are required')
+    if (!inviteEmail.trim() || !inviteFirstName.trim()) {
+      setError('Email and first name are required')
       return
     }
+    const fullName = [inviteFirstName.trim(), inviteLastName.trim()].filter(Boolean).join(' ')
     try {
       setInviting(true)
       setError(null)
       await services.users.invite({
         email: inviteEmail.trim(),
-        name: inviteName.trim(),
+        name: fullName,
         role: inviteRole,
       })
       setInviteModal(false)
       setInviteEmail('')
-      setInviteName('')
+      setInviteFirstName('')
+      setInviteLastName('')
       setInviteRole('employee')
       await loadMembers()
     } catch (err: any) {
@@ -172,12 +175,20 @@ export const TeamMembersSection = () => {
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="colleague@example.com"
               />
-              <Input
-                label="Name"
-                value={inviteName}
-                onChange={(e) => setInviteName(e.target.value)}
-                placeholder="Jane Doe"
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="First name"
+                  value={inviteFirstName}
+                  onChange={(e) => setInviteFirstName(e.target.value)}
+                  placeholder="Jane"
+                />
+                <Input
+                  label="Last name"
+                  value={inviteLastName}
+                  onChange={(e) => setInviteLastName(e.target.value)}
+                  placeholder="Doe"
+                />
+              </div>
               <Select
                 label="Role"
                 value={inviteRole}

@@ -40,6 +40,7 @@ export interface Job {
   deletedAt?: string | null
   archivedAt?: string | null
   createdById?: string | null
+  createdByName?: string | null
   createdAt: string
   updatedAt: string
   occurrenceCount?: number

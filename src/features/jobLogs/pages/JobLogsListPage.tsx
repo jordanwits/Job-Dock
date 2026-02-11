@@ -1,12 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogList from '../components/JobLogList'
 import JobLogForm from '../components/JobLogForm'
 import { Modal, Button } from '@/components/ui'
 import type { CreateJobLogData } from '../types/jobLog'
+import { services } from '@/lib/api/services'
 
 const JobLogsListPage = () => {
+  const [isTeamAccount, setIsTeamAccount] = useState(false)
+
+  useEffect(() => {
+    const checkTeam = async () => {
+      try {
+        const status = await services.billing.getStatus()
+        setIsTeamAccount(status.subscriptionTier === 'team')
+      } catch {
+        setIsTeamAccount(false)
+      }
+    }
+    checkTeam()
+  }, [])
   const navigate = useNavigate()
   const { createJobLog, isLoading } = useJobLogStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -41,6 +55,7 @@ const JobLogsListPage = () => {
       <JobLogList
         onCreateClick={() => setShowCreateForm(true)}
         onSelectJobLog={handleSelectJobLog}
+        showCreatedBy={isTeamAccount}
       />
 
       <Modal isOpen={showCreateForm} onClose={() => setShowCreateForm(false)} title="New Job">

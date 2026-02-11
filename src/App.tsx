@@ -11,7 +11,7 @@ import { InvoicesPage } from '@/features/invoices'
 import { SchedulingPage } from '@/features/scheduling'
 import { JobLogsListPage, JobLogDetailPage } from '@/features/jobLogs'
 import { PublicBookingPage } from '@/features/booking'
-import { SettingsPage } from '@/features/settings'
+import { SettingsPage, ProfileSettingsPage } from '@/features/settings'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
 import {
   LandingPage,
@@ -40,6 +40,7 @@ const ALL_SIDEBAR_ITEMS = [
   { label: 'Quotes', href: '/app/quotes' },
   { label: 'Invoices', href: '/app/invoices' },
   { label: 'Calendar', href: '/app/scheduling' },
+  { label: 'Profile', href: '/app/profile' },
   { label: 'Settings', href: '/app/settings' },
 ] as const
 
@@ -47,6 +48,7 @@ const EMPLOYEE_SIDEBAR_ITEMS = [
   { label: 'Dashboard', href: '/app' },
   { label: 'Jobs', href: '/app/job-logs' },
   { label: 'Calendar', href: '/app/scheduling' },
+  { label: 'Profile', href: '/app/profile' },
 ] as const
 
 function App() {
@@ -107,7 +109,7 @@ function App() {
                 <BillingGuard>
                   <AppLayout
                     sidebarItems={sidebarItems}
-                    user={user ? { name: user.name, email: user.email } : undefined}
+                    user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
                     onLogout={handleLogout}
                   >
                     <DashboardPage />
@@ -126,7 +128,7 @@ function App() {
                 <BillingGuard>
                   <AppLayout
                   sidebarItems={sidebarItems}
-                  user={user ? { name: user.name, email: user.email } : undefined}
+                  user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
                   onLogout={handleLogout}
                 >
                   <CRMPage />
@@ -145,7 +147,7 @@ function App() {
                 <BillingGuard>
                   <AppLayout
                   sidebarItems={sidebarItems}
-                  user={user ? { name: user.name, email: user.email } : undefined}
+                  user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
                   onLogout={handleLogout}
                 >
                   <QuotesPage />
@@ -164,7 +166,7 @@ function App() {
                 <BillingGuard>
                   <AppLayout
                   sidebarItems={sidebarItems}
-                  user={user ? { name: user.name, email: user.email } : undefined}
+                  user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
                   onLogout={handleLogout}
                 >
                   <InvoicesPage />
@@ -183,7 +185,7 @@ function App() {
                 <BillingGuard>
                   <AppLayout
                   sidebarItems={sidebarItems}
-                  user={user ? { name: user.name, email: user.email } : undefined}
+                  user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
                   onLogout={handleLogout}
                 >
                   <SchedulingPage />
@@ -201,7 +203,7 @@ function App() {
               <BillingGuard>
                 <AppLayout
                   sidebarItems={sidebarItems}
-                  user={user ? { name: user.name, email: user.email } : undefined}
+                  user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
                   onLogout={handleLogout}
                 >
                   <JobLogsListPage />
@@ -217,10 +219,27 @@ function App() {
               <BillingGuard>
                 <AppLayout
                   sidebarItems={sidebarItems}
-                  user={user ? { name: user.name, email: user.email } : undefined}
+                  user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
                   onLogout={handleLogout}
                 >
                   <JobLogDetailPage />
+                </AppLayout>
+              </BillingGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/app/profile"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <BillingGuard>
+                <AppLayout
+                  sidebarItems={sidebarItems}
+                  user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
+                  onLogout={handleLogout}
+                >
+                  <ProfileSettingsPage />
                 </AppLayout>
               </BillingGuard>
             </ProtectedRoute>
@@ -235,7 +254,7 @@ function App() {
                 <BillingGuard>
                   <AppLayout
                     sidebarItems={sidebarItems}
-                    user={user ? { name: user.name, email: user.email } : undefined}
+                    user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
                     onLogout={handleLogout}
                   >
                     <SettingsPage />

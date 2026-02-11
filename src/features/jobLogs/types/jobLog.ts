@@ -57,6 +57,7 @@ export interface JobLog {
     startTime?: string
     endTime?: string
     status: string
+    createdByName?: string
   } | null
   contact?: {
     id: string

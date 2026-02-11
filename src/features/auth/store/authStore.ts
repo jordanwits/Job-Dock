@@ -43,6 +43,7 @@ interface AuthState {
   clearError: () => void
   clearSession: () => void
   checkTokenValidity: () => boolean
+  updateUser: (updates: Partial<Pick<User, 'name' | 'email'>>) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -287,6 +288,13 @@ export const useAuthStore = create<AuthState>()(
         }
 
         return true
+      },
+
+      updateUser: (updates) => {
+        const current = get().user
+        if (current) {
+          set({ user: { ...current, ...updates } })
+        }
       },
       }
     },

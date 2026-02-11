@@ -12,6 +12,7 @@ interface JobDetailProps {
   job: Job
   isOpen: boolean
   onClose: () => void
+  showCreatedBy?: boolean
   onEdit?: () => void
   onDelete?: () => void
   onPermanentDelete?: () => void
@@ -22,7 +23,7 @@ interface JobDetailProps {
   onScheduleJob?: () => void
 }
 
-const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, onRestore, onConfirm, onDecline, onScheduleFollowup, onScheduleJob }: JobDetailProps) => {
+const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, onRestore, onConfirm, onDecline, onScheduleFollowup, onScheduleJob, showCreatedBy }: JobDetailProps) => {
   const navigate = useNavigate()
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
@@ -209,7 +210,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-2xl font-bold text-primary-light mb-2">{job.title}</h2>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap items-center">
               <span
                 className={cn(
                   'inline-block px-3 py-1 rounded text-sm font-medium',
@@ -218,6 +219,11 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               >
                 {statusLabels[job.status]}
               </span>
+              {showCreatedBy && job.createdByName && (
+                <span className="inline-block px-3 py-1 rounded text-sm font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
+                  Created by {job.createdByName}
+                </span>
+              )}
               {isArchived && (
                 <span className="inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-gray-200 text-gray-700">
                   📦 Archived {format(new Date(job.archivedAt!), 'MMM d, yyyy')}

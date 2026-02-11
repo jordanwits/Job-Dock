@@ -8,9 +8,10 @@ interface JobLogCardProps {
   onClick: () => void
   isSelected?: boolean
   onToggleSelect?: (id: string, event: React.MouseEvent) => void
+  showCreatedBy?: boolean
 }
 
-const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect }: JobLogCardProps) => {
+const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy }: JobLogCardProps) => {
   const totalMinutes =
     jobLog.timeEntries?.reduce((sum, te) => {
       const start = new Date(te.startTime).getTime()
@@ -65,6 +66,9 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect }: JobLogCardP
           </h3>
           {subtitle && (
             <p className="text-xs text-primary-light/50 mt-1">{subtitle}</p>
+          )}
+          {showCreatedBy && jobLog.job?.createdByName && (
+            <p className="text-xs text-primary-light/60 mt-1">Created by {jobLog.job.createdByName}</p>
           )}
         </div>
 

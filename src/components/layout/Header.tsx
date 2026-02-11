@@ -5,13 +5,15 @@ export interface HeaderProps {
   user?: {
     name: string
     email: string
+    role?: 'owner' | 'admin' | 'employee'
   }
   companyLogoUrl?: string
+  companyDisplayName?: string
   onLogout?: () => void
   onMenuClick?: () => void
 }
 
-const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) => {
+const Header = ({ user, companyLogoUrl, companyDisplayName, onLogout, onMenuClick }: HeaderProps) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-primary-blue bg-primary-dark-secondary/95 backdrop-blur supports-[backdrop-filter]:bg-primary-dark-secondary/60">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -51,7 +53,9 @@ const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) =>
                   />
                 )}
                 <div className="text-right">
-                  <p className="text-sm font-medium text-primary-light">{user.name}</p>
+                  <p className="text-sm font-medium text-primary-light">
+                    {user.role === 'employee' ? (companyDisplayName ? `${companyDisplayName} Team` : 'Team') : user.name}
+                  </p>
                   <p className="text-xs text-primary-light/70">{user.email}</p>
                 </div>
                 {onLogout && (
@@ -70,7 +74,7 @@ const Header = ({ user, companyLogoUrl, onLogout, onMenuClick }: HeaderProps) =>
                   />
                 )}
                 <span className="text-sm font-medium text-primary-light truncate max-w-[100px]">
-                  {user.name}
+                  {user.role === 'employee' ? (companyDisplayName ? `${companyDisplayName} Team` : 'Team') : user.name}
                 </span>
                 {onLogout && (
                   <Button variant="ghost" size="sm" onClick={onLogout}>

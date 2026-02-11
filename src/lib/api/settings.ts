@@ -4,6 +4,7 @@ export interface TenantSettings {
   id: string
   tenantId: string
   companyDisplayName?: string
+  tenantName?: string
   companySupportEmail?: string
   companyPhone?: string
   logoUrl?: string

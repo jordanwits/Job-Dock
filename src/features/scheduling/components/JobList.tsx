@@ -6,7 +6,11 @@ import { cn } from '@/lib/utils'
 
 type TimeFrame = 'day' | 'week' | 'month'
 
-const JobList = () => {
+interface JobListProps {
+  showCreatedBy?: boolean
+}
+
+const JobList = ({ showCreatedBy }: JobListProps) => {
   const {
     jobs,
     isLoading,
@@ -112,7 +116,7 @@ const JobList = () => {
         ) : (
           <div className="space-y-3">
             {filteredJobs.map((job) => (
-              <JobCard key={job.id} job={job} />
+              <JobCard key={job.id} job={job} showCreatedBy={showCreatedBy} />
             ))}
           </div>
         )}
