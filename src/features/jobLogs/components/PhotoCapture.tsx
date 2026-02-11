@@ -400,8 +400,9 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
             return (
               <div
                 key={p.id}
-                className="relative rounded-lg overflow-hidden bg-primary-dark aspect-square w-full min-w-0 group"
+                className="flex flex-col gap-1 w-full min-w-0"
               >
+                <div className="relative rounded-lg overflow-hidden bg-primary-dark aspect-square w-full group">
                 <button
                   type="button"
                   onClick={() => openFullscreen(p)}
@@ -441,11 +442,6 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
                     ))}
                   </svg>
                 )}
-                {isLoaded && p.notes && (
-                  <span className="absolute bottom-0 right-0 bg-primary-gold/80 text-primary-dark text-xs px-1 rounded-tl">
-                    Note
-                  </span>
-                )}
                 </button>
                 <button
                   type="button"
@@ -460,6 +456,10 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
+                </div>
+                {p.notes && (
+                  <p className="text-xs text-primary-light/80 line-clamp-2 break-words">{p.notes}</p>
+                )}
               </div>
             )
           })}

@@ -31,7 +31,7 @@ const JobLogDetail = ({
   onSaveEdit,
   isLoading,
 }: JobLogDetailProps) => {
-  const [activeTab, setActiveTab] = useState<Tab>('clock')
+  const [activeTab, setActiveTab] = useState<Tab>('notes')
 
   if (isEditing) {
     return (
@@ -101,9 +101,20 @@ const JobLogDetail = ({
         </dl>
       )}
 
-      {/* Tabbed tools: Clock | Photos | Notes */}
+      {/* Tabbed tools: Notes | Clock | Photos */}
       <div className="pt-4">
         <div className="flex gap-1 border-b border-primary-blue mb-4">
+          <button
+            onClick={() => setActiveTab('notes')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium transition-colors -mb-px',
+              activeTab === 'notes'
+                ? 'text-primary-gold border-b-2 border-primary-gold'
+                : 'text-primary-light/60 hover:text-primary-light'
+            )}
+          >
+            Notes
+          </button>
           <button
             onClick={() => setActiveTab('clock')}
             className={cn(
@@ -125,17 +136,6 @@ const JobLogDetail = ({
             )}
           >
             Photos
-          </button>
-          <button
-            onClick={() => setActiveTab('notes')}
-            className={cn(
-              'px-4 py-2 text-sm font-medium transition-colors -mb-px',
-              activeTab === 'notes'
-                ? 'text-primary-gold border-b-2 border-primary-gold'
-                : 'text-primary-light/60 hover:text-primary-light'
-            )}
-          >
-            Notes
           </button>
         </div>
 
