@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui'
 import { useAuthStore } from '@/features/auth'
-import { CollapsibleSection } from './CollapsibleSection'
 
 export const BookingLinkSection = () => {
   const { user } = useAuthStore()
@@ -22,7 +21,8 @@ export const BookingLinkSection = () => {
   }
 
   return (
-    <CollapsibleSection title="Public Booking Link">
+    <div className="space-y-6">
+      <h2 className="text-xl font-semibold text-primary-light">Public Booking Link</h2>
       <div className="space-y-4">
         <p className="text-sm text-primary-light/70">
           Share this link with your clients so they can book your services online
@@ -88,6 +88,6 @@ export const BookingLinkSection = () => {
           </Button>
         </div>
       </div>
-    </CollapsibleSection>
+    </div>
   )
 }
