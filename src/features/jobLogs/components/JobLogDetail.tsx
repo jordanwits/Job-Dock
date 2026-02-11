@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { Card, Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,7 @@ const JobLogDetail = ({
   onSaveEdit,
   isLoading,
 }: JobLogDetailProps) => {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<Tab>('notes')
 
   if (isEditing) {
@@ -70,7 +72,40 @@ const JobLogDetail = ({
             {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
           </p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams()
+              params.set('returnTo', '/app/job-logs/' + jobLog.id)
+              params.set('openCreateQuote', '1')
+              if (jobLog.contactId) params.set('contactId', jobLog.contactId)
+              if (jobLog.title) params.set('title', jobLog.title)
+              if (jobLog.notes) params.set('notes', jobLog.notes)
+              navigate('/app/quotes?' + params.toString())
+            }}
+          >
+            Create Quote
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams()
+              params.set('tab', 'calendar')
+              params.set('returnTo', '/app/job-logs/' + jobLog.id)
+              params.set('openCreateJob', '1')
+              if (jobLog.contactId) params.set('contactId', jobLog.contactId)
+              if (jobLog.title) params.set('title', jobLog.title)
+              if (jobLog.notes) params.set('notes', jobLog.notes)
+              if (jobLog.location) params.set('location', jobLog.location)
+              if (jobLog.description) params.set('description', jobLog.description)
+              navigate('/app/scheduling?' + params.toString())
+            }}
+          >
+            Schedule Job
+          </Button>
           <Button variant="outline" size="sm" onClick={onEdit}>
             Edit
           </Button>

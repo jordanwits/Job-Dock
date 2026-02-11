@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuoteStore } from '../store/quoteStore'
 import QuoteList from '../components/QuoteList'
 import QuoteForm from '../components/QuoteForm'
@@ -6,6 +7,15 @@ import QuoteDetail from '../components/QuoteDetail'
 import { Button, Modal, Card } from '@/components/ui'
 
 const QuotesPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const returnTo = searchParams.get('returnTo')
+  const openCreateQuote = searchParams.get('openCreateQuote') === '1'
+  const [createQuoteDefaults, setCreateQuoteDefaults] = useState<{
+    contactId?: string
+    title?: string
+    notes?: string
+  }>({})
   const {
     selectedQuote,
     createQuote,
@@ -19,13 +29,23 @@ const QuotesPage = () => {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
 
+  const safeNavigateBack = () => {
+    if (returnTo && returnTo.startsWith('/app')) {
+      navigate(returnTo)
+    }
+  }
+
   const handleCreate = async (data: any) => {
     try {
       await createQuote(data)
       setShowCreateForm(false)
-      setConfirmationMessage('Quote Saved')
-      setShowConfirmation(true)
-      setTimeout(() => setShowConfirmation(false), 3000)
+      if (returnTo) {
+        safeNavigateBack()
+      } else {
+        setConfirmationMessage('Quote Saved')
+        setShowConfirmation(true)
+        setTimeout(() => setShowConfirmation(false), 3000)
+      }
     } catch (error) {
       // Error handled by store
     }
@@ -40,13 +60,35 @@ const QuotesPage = () => {
         await sendQuote(newQuote.id)
       }
       setShowCreateForm(false)
-      setConfirmationMessage('Quote Sent')
-      setShowConfirmation(true)
-      setTimeout(() => setShowConfirmation(false), 3000)
+      if (returnTo) {
+        safeNavigateBack()
+      } else {
+        setConfirmationMessage('Quote Sent')
+        setShowConfirmation(true)
+        setTimeout(() => setShowConfirmation(false), 3000)
+      }
     } catch (error) {
       // Error handled by store
     }
   }
+
+  // Open create form when arriving with openCreateQuote=1 (e.g. from job detail)
+  useEffect(() => {
+    if (openCreateQuote) {
+      setCreateQuoteDefaults({
+        contactId: searchParams.get('contactId') || undefined,
+        title: searchParams.get('title') ? decodeURIComponent(searchParams.get('title')) : undefined,
+        notes: searchParams.get('notes') ? decodeURIComponent(searchParams.get('notes')) : undefined,
+      })
+      setShowCreateForm(true)
+      const params = new URLSearchParams(searchParams)
+      params.delete('openCreateQuote')
+      params.delete('contactId')
+      params.delete('title')
+      params.delete('notes')
+      setSearchParams(params, { replace: true })
+    }
+  }, [openCreateQuote, searchParams, setSearchParams])
 
   // Keyboard shortcut: CMD+N / CTRL+N to create new quote
   useEffect(() => {
@@ -68,9 +110,21 @@ const QuotesPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
-            <span className="text-primary-gold">Quotes</span>
-          </h1>
+          <div className="flex items-center gap-3">
+            {returnTo && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={safeNavigateBack}
+                className="text-primary-light/70 hover:text-primary-light -ml-2"
+              >
+                ← Back to Jobs
+              </Button>
+            )}
+            <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+              <span className="text-primary-gold">Quotes</span>
+            </h1>
+          </div>
           <p className="text-sm md:text-base text-primary-light/60">
             Create and manage quotes for your projects
           </p>
@@ -129,6 +183,9 @@ const QuotesPage = () => {
             clearError()
           }}
           isLoading={isLoading}
+          defaultContactId={createQuoteDefaults.contactId}
+          defaultTitle={createQuoteDefaults.title}
+          defaultNotes={createQuoteDefaults.notes}
         />
       </Modal>
 

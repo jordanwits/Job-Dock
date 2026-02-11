@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useJobStore } from '../store/jobStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useAuthStore } from '@/features/auth'
@@ -20,7 +20,17 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } fr
 
 const SchedulingPage = () => {
   const { user } = useAuthStore()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const returnTo = searchParams.get('returnTo')
+  const openCreateJob = searchParams.get('openCreateJob') === '1'
+  const [createJobDefaults, setCreateJobDefaults] = useState<{
+    contactId?: string
+    title?: string
+    notes?: string
+    location?: string
+    description?: string
+  }>({})
 
   const {
     jobs,
@@ -256,6 +266,30 @@ const SchedulingPage = () => {
     }
   }, [searchParams])
 
+  // Open create job modal when arriving with openCreateJob=1 (e.g. from job detail)
+  useEffect(() => {
+    if (openCreateJob) {
+      setCreateJobDefaults({
+        contactId: searchParams.get('contactId') || undefined,
+        title: searchParams.get('title') ? decodeURIComponent(searchParams.get('title')) : undefined,
+        notes: searchParams.get('notes') ? decodeURIComponent(searchParams.get('notes')) : undefined,
+        location: searchParams.get('location') ? decodeURIComponent(searchParams.get('location')) : undefined,
+        description: searchParams.get('description') ? decodeURIComponent(searchParams.get('description')) : undefined,
+      })
+      setActiveTab('calendar')
+      setShowJobForm(true)
+      // Clear params from URL so refresh doesn't re-open modal (keep returnTo)
+      const params = new URLSearchParams(searchParams)
+      params.delete('openCreateJob')
+      params.delete('contactId')
+      params.delete('title')
+      params.delete('notes')
+      params.delete('location')
+      params.delete('description')
+      setSearchParams(params, { replace: true })
+    }
+  }, [openCreateJob, searchParams, setSearchParams])
+
   // Clear deleted job IDs when switching away from archived tab
   useEffect(() => {
     if (activeTab !== 'archived') {
@@ -300,9 +334,13 @@ const SchedulingPage = () => {
       await createJob(data)
       setShowJobForm(false)
       clearJobsError()
-      setJobConfirmationMessage('Job created successfully')
-      setShowJobConfirmation(true)
-      setTimeout(() => setShowJobConfirmation(false), 3000)
+      if (returnTo && returnTo.startsWith('/app')) {
+        navigate(returnTo)
+      } else {
+        setJobConfirmationMessage('Job created successfully')
+        setShowJobConfirmation(true)
+        setTimeout(() => setShowJobConfirmation(false), 3000)
+      }
     } catch (error: any) {
       // Error will be displayed in the modal via jobsError
       // Keep the modal open so user can fix the issue
@@ -697,9 +735,21 @@ const SchedulingPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
-            <span className="text-primary-gold">Scheduling</span>
-          </h1>
+          <div className="flex items-center gap-3">
+            {returnTo && returnTo.startsWith('/app') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(returnTo)}
+                className="text-primary-light/70 hover:text-primary-light -ml-2"
+              >
+                ← Back to Jobs
+              </Button>
+            )}
+            <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+              <span className="text-primary-gold">Scheduling</span>
+            </h1>
+          </div>
           <p className="text-sm md:text-base text-primary-light/60">
             Manage your calendar, jobs, and services
           </p>
@@ -1026,6 +1076,11 @@ const SchedulingPage = () => {
           isLoading={jobsLoading}
           error={jobsError}
           schedulingUnscheduledJob={editingJob?.toBeScheduled}
+          defaultContactId={!editingJob ? createJobDefaults.contactId : undefined}
+          defaultTitle={!editingJob ? createJobDefaults.title : undefined}
+          defaultNotes={!editingJob ? createJobDefaults.notes : undefined}
+          defaultLocation={!editingJob ? createJobDefaults.location : undefined}
+          defaultDescription={!editingJob ? createJobDefaults.description : undefined}
         />
       </Modal>
 

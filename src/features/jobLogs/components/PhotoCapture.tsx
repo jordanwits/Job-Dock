@@ -458,7 +458,7 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
                 </button>
                 </div>
                 {p.notes && (
-                  <p className="text-xs text-primary-light/80 line-clamp-2 break-words">{p.notes}</p>
+                  <p className="text-sm text-primary-light/80 line-clamp-2 break-words">{p.notes}</p>
                 )}
               </div>
             )

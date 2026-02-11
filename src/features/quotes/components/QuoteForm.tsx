@@ -14,9 +14,11 @@ interface QuoteFormProps {
   onCancel: () => void
   isLoading?: boolean
   defaultContactId?: string
+  defaultTitle?: string
+  defaultNotes?: string
 }
 
-const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaultContactId }: QuoteFormProps) => {
+const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaultContactId, defaultTitle, defaultNotes }: QuoteFormProps) => {
   const { contacts, fetchContacts, createContact } = useContactStore()
   const [showCreateContact, setShowCreateContact] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
@@ -39,7 +41,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
     resolver: zodResolver(quoteSchema),
     defaultValues: {
       contactId: quote?.contactId || defaultContactId || '',
-      title: quote?.title || '',
+      title: quote?.title || defaultTitle || '',
       lineItems: quote?.lineItems.map((item) => ({
         description: item.description,
         quantity: item.quantity,
@@ -48,7 +50,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
       taxRate: quote ? quote.taxRate * 100 : 8,
       discount: quote?.discount || 0,
       discountReason: quote?.discountReason || '',
-      notes: quote?.notes || '',
+      notes: quote?.notes || defaultNotes || '',
       validUntil: quote?.validUntil
         ? new Date(quote.validUntil).toISOString().split('T')[0]
         : '',
