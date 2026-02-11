@@ -10,7 +10,7 @@ import {
   AdminConfirmSignUpCommand,
   AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
-import { registerUser, loginUser, refreshAccessToken, verifyToken } from '../../lib/auth'
+import { registerUser, loginUser, refreshAccessToken, verifyToken, respondToNewPasswordChallenge } from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
 import prisma from '../../lib/db'
 import { randomUUID } from 'crypto'
@@ -36,6 +36,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await handleRegister(event)
       case 'POST /auth/login':
         return await handleLogin(event)
+      case 'POST /auth/respond-to-challenge':
+        return await handleRespondToChallenge(event)
       case 'POST /auth/refresh':
         return await handleRefresh(event)
       case 'POST /auth/logout':
@@ -154,6 +156,7 @@ async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           email: user.email,
           name: user.name,
           tenantId: user.tenantId,
+          role: user.role,
           onboardingCompletedAt: null,
         },
       },
@@ -189,8 +192,18 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     // 1. Authenticate with Cognito
     const cognitoStart = Date.now()
     console.log(`[Login] Step 1: Authenticating with Cognito...`)
-    const tokens = await loginUser(email, password)
+    const authResult = await loginUser(email, password)
     console.log(`[Login] Step 1 complete: Cognito auth took ${Date.now() - cognitoStart}ms`)
+
+    if ('challengeRequired' in authResult && authResult.challengeRequired === 'NEW_PASSWORD_REQUIRED') {
+      return successResponse({
+        challengeRequired: 'NEW_PASSWORD_REQUIRED',
+        session: authResult.session,
+        email,
+      })
+    }
+
+    const tokens = authResult
 
     // 2. Decode the ID token to get Cognito user ID
     const verifyStart = Date.now()
@@ -209,6 +222,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         email: true,
         name: true,
         tenantId: true,
+        role: true,
         onboardingCompletedAt: true,
       },
     })
@@ -260,6 +274,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
             email: true,
             name: true,
             tenantId: true,
+            role: true,
             onboardingCompletedAt: true,
           },
         })
@@ -287,6 +302,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         email: user.email,
         name: user.name,
         tenantId: user.tenantId,
+        role: user.role || 'admin',
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
@@ -326,6 +342,59 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
   }
 }
 
+async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const body = JSON.parse(event.body || '{}')
+  const { session, email, newPassword } = body
+
+  if (!session || !email || !newPassword) {
+    return errorResponse('Session, email, and new password are required', 400)
+  }
+
+  try {
+    const tokens = await respondToNewPasswordChallenge(session, email, newPassword)
+    const cognitoUser = await verifyToken(tokens.IdToken!)
+
+    const user = await prisma.user.findUnique({
+      where: { cognitoId: cognitoUser.sub },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        tenantId: true,
+        role: true,
+        onboardingCompletedAt: true,
+      },
+    })
+
+    if (!user) {
+      return errorResponse('User not found in JobDock database', 404)
+    }
+
+    return successResponse({
+      token: tokens.IdToken,
+      refreshToken: tokens.RefreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        tenantId: user.tenantId,
+        role: user.role || 'admin',
+        onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
+      },
+    })
+  } catch (error: any) {
+    console.error('Respond to challenge error:', error)
+    const errorName = typeof error?.name === 'string' ? error.name : undefined
+    if (errorName === 'InvalidPasswordException') {
+      return errorResponse(
+        'Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, and numbers.',
+        400
+      )
+    }
+    return errorResponse(error?.message || 'Failed to set new password', 500)
+  }
+}
+
 async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}')
   const { refreshToken } = body
@@ -349,6 +418,7 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         email: true,
         name: true,
         tenantId: true,
+        role: true,
         onboardingCompletedAt: true,
       },
     })
@@ -366,6 +436,7 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         email: user.email,
         name: user.name,
         tenantId: user.tenantId,
+        role: user.role || 'admin',
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })

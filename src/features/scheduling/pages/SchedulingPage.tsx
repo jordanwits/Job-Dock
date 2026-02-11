@@ -315,9 +315,9 @@ const SchedulingPage = () => {
         event.preventDefault()
         // Only trigger if no modals are open and no job/service is selected
         if (!showJobForm && !showServiceForm && !selectedJob && !selectedService) {
-          if (activeTab === 'services') {
+          if (activeTab === 'services' && user?.role !== 'employee') {
             setShowServiceForm(true)
-          } else {
+          } else if (activeTab !== 'services') {
             // For both 'calendar' and 'jobs' tabs, create a job
             setShowJobForm(true)
           }
@@ -327,7 +327,7 @@ const SchedulingPage = () => {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showJobForm, showServiceForm, selectedJob, selectedService, activeTab])
+  }, [showJobForm, showServiceForm, selectedJob, selectedService, activeTab, user?.role])
 
   const handleCreateJob = async (data: any) => {
     try {
@@ -773,7 +773,7 @@ const SchedulingPage = () => {
               </Button>
             </>
           )}
-          {activeTab === 'services' && (
+          {activeTab === 'services' && user?.role !== 'employee' && (
             <>
               <Button
                 onClick={() => setShowServiceForm(true)}
@@ -1046,7 +1046,7 @@ const SchedulingPage = () => {
                   setShowServiceDetail(true)
                 }
               }}
-              onCreateClick={() => setShowServiceForm(true)}
+              onCreateClick={user?.role !== 'employee' ? () => setShowServiceForm(true) : undefined}
             />
           </div>
         )}
@@ -1093,10 +1093,26 @@ const SchedulingPage = () => {
             setSelectedJob(null)
             setShowJobDetail(false)
           }}
-          onEdit={handleEditJob}
-          onDelete={handleDeleteJob}
-          onPermanentDelete={() => handlePermanentDeleteJob()}
-          onRestore={handleRestoreJob}
+          onEdit={
+            user?.role !== 'employee' || selectedJob.createdById === user?.id
+              ? handleEditJob
+              : undefined
+          }
+          onDelete={
+            user?.role !== 'employee' || selectedJob.createdById === user?.id
+              ? handleDeleteJob
+              : undefined
+          }
+          onPermanentDelete={
+            user?.role !== 'employee' || selectedJob.createdById === user?.id
+              ? () => handlePermanentDeleteJob()
+              : undefined
+          }
+          onRestore={
+            user?.role !== 'employee' || selectedJob.createdById === user?.id
+              ? handleRestoreJob
+              : undefined
+          }
           onConfirm={handleConfirmJob}
           onDecline={() => setShowDeclineModal(true)}
           onScheduleFollowup={handleScheduleFollowup}
@@ -1177,11 +1193,15 @@ const SchedulingPage = () => {
             setShowServiceDetail(false)
             setSelectedService(null)
           }}
-          onEdit={() => {
-            setShowServiceDetail(false)
-            setShowServiceForm(true)
-          }}
-          onDelete={handleDeleteService}
+          onEdit={
+            user?.role !== 'employee'
+              ? () => {
+                  setShowServiceDetail(false)
+                  setShowServiceForm(true)
+                }
+              : undefined
+          }
+          onDelete={user?.role !== 'employee' ? handleDeleteService : undefined}
           onGetLink={handleGetBookingLink}
         />
       )}

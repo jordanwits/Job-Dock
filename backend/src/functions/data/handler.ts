@@ -325,10 +325,17 @@ We look forward to working with you!',
       }
 
       if (billingAction === 'embedded-checkout-session' && event.httpMethod === 'POST') {
+        const body = parseBody(event)
+        const options = body?.priceId
+          ? { priceId: body.priceId }
+          : body?.plan
+            ? { plan: body.plan }
+            : undefined
         const result = await dataServices.billing.createEmbeddedCheckoutSession(
           tenantId,
           userId,
-          userEmail
+          userEmail,
+          options
         )
         return successResponse(result)
       }
@@ -338,7 +345,167 @@ We look forward to working with you!',
         return successResponse(result)
       }
 
+      if (billingAction === 'upgrade-to-team' && event.httpMethod === 'POST') {
+        const body = parseBody(event)
+        if (body?.plan !== 'team') {
+          return errorResponse('Invalid plan', 400)
+        }
+        const result = await dataServices.billing.createUpgradeCheckoutUrl(
+          tenantId,
+          userId,
+          userEmail,
+          'team'
+        )
+        return successResponse(result)
+      }
+
       return errorResponse('Billing route not found', 404)
+    }
+
+    // Handle users/team endpoints (owner or admin, team tier for invite)
+    if (resource === 'users') {
+      const { default: prisma } = await import('../../lib/db')
+      const context = await extractContext(event)
+      const tenantId = context.tenantId
+      const userId = context.userId
+
+      const currentUser = await prisma.user.findUnique({
+        where: { cognitoId: userId },
+        select: { id: true, role: true, name: true },
+      })
+
+      if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'admin')) {
+        return errorResponse('Only owners and admins can manage team members', 403)
+      }
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { subscriptionTier: true },
+      })
+
+      const usersAction = id
+      const targetUserId = id && usersAction !== 'invite' ? id : undefined
+
+      if (usersAction === 'invite' && event.httpMethod === 'POST') {
+        const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
+        if (tenant?.subscriptionTier !== 'team' && !teamTestingSkipStripe) {
+          return errorResponse('Team subscription required to invite members', 403)
+        }
+        const body = parseBody(event)
+        const { email, name, role: inviteRole } = body || {}
+        if (!email || !name) {
+          return errorResponse('Email and name are required', 400)
+        }
+        const role = inviteRole === 'employee' ? 'employee' : 'admin'
+        const { createCognitoUser } = await import('../../lib/auth')
+        const { sendEmail, buildTeamInviteEmail } = await import('../../lib/email')
+        const { randomUUID } = await import('crypto')
+
+        const existing = await prisma.user.findFirst({
+          where: { email: email.toLowerCase(), tenantId },
+        })
+        if (existing) {
+          return errorResponse('A user with this email already exists in your team', 400)
+        }
+
+        const { cognitoId, tempPassword } = await createCognitoUser(
+          email.toLowerCase(),
+          name
+        )
+
+        const newUser = await prisma.user.create({
+          data: {
+            id: randomUUID(),
+            cognitoId,
+            email: email.toLowerCase(),
+            name,
+            tenantId,
+            role,
+            onboardingCompletedAt: new Date(),
+          },
+        })
+
+        const appUrl = process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com'
+        const invitePayload = buildTeamInviteEmail({
+          inviteeEmail: email.toLowerCase(),
+          inviteeName: name,
+          inviterName: currentUser.name || 'Your team admin',
+          role,
+          tempPassword,
+          appUrl,
+        })
+        await sendEmail(invitePayload)
+
+        return successResponse({
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          role: newUser.role,
+        })
+      }
+
+      if (event.httpMethod === 'GET' && !targetUserId) {
+        const users = await prisma.user.findMany({
+          where: { tenantId },
+          select: { id: true, email: true, name: true, role: true, createdAt: true },
+        })
+        return successResponse(
+          users.map((u) => ({
+            ...u,
+            createdAt: u.createdAt.toISOString(),
+          }))
+        )
+      }
+
+      if (targetUserId && (event.httpMethod === 'PATCH' || event.httpMethod === 'PUT')) {
+        if (currentUser.role !== 'owner' && currentUser.role !== 'admin') {
+          return errorResponse('Only owners and admins can change roles', 403)
+        }
+        const body = parseBody(event)
+        const newRole = body?.role
+        if (!newRole || !['admin', 'employee'].includes(newRole)) {
+          return errorResponse('Invalid role. Use admin or employee', 400)
+        }
+        const target = await prisma.user.findFirst({
+          where: { id: targetUserId, tenantId },
+        })
+        if (!target) {
+          return errorResponse('User not found', 404)
+        }
+        if (target.role === 'owner') {
+          return errorResponse('Cannot change owner role', 403)
+        }
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { role: newRole },
+        })
+        return successResponse({ success: true })
+      }
+
+      if (targetUserId && event.httpMethod === 'DELETE') {
+        if (currentUser.role !== 'owner') {
+          return errorResponse('Only owners can remove team members', 403)
+        }
+        const target = await prisma.user.findFirst({
+          where: { id: targetUserId, tenantId },
+        })
+        if (!target) {
+          return errorResponse('User not found', 404)
+        }
+        if (target.role === 'owner') {
+          return errorResponse('Cannot remove the owner', 403)
+        }
+        const ownerCount = await prisma.user.count({
+          where: { tenantId, role: 'owner' },
+        })
+        if (ownerCount <= 1 && target.role === 'owner') {
+          return errorResponse('Cannot remove the last owner', 403)
+        }
+        await prisma.user.delete({ where: { id: targetUserId } })
+        return successResponse({ success: true })
+      }
+
+      return errorResponse('Users route not found', 404)
     }
 
     // Handle early access endpoints
@@ -621,6 +788,93 @@ We look forward to working with you!',
             402
           )
         }
+      }
+    }
+
+    // Role-based access: employees can only access job-logs and time-entries
+    const adminOnlyResources = [
+      'contacts',
+      'quotes',
+      'invoices',
+      'jobs',
+      'job-recurrences',
+      'services',
+      'settings',
+      'users',
+    ] as const
+    const employeeAllowedResources = ['job-logs', 'time-entries'] as const
+    // Employees can read these (for calendar, job form) but not create/update/delete
+    const employeeReadOnlyResources = [
+      'contacts',
+      'services',
+      'job-recurrences',
+      'quotes',
+      'invoices',
+    ] as const
+    // Employees have full access to jobs (create, read) but edit/delete restricted to own jobs
+    const employeeJobAccessResources = ['jobs'] as const
+
+    const isAdminOnlyResource = (r: string) =>
+      adminOnlyResources.includes(r as any)
+    const isEmployeeAllowedResource = (r: string) =>
+      employeeAllowedResources.includes(r as any)
+    const isEmployeeReadOnlyResource = (r: string) =>
+      employeeReadOnlyResources.includes(r as any)
+    const isEmployeeJobAccessResource = (r: string) =>
+      employeeJobAccessResources.includes(r as any)
+
+    let currentUser: { id: string; role: string } | null = null
+    const authHeader = event.headers?.Authorization || event.headers?.authorization
+    if (
+      authHeader &&
+      !isPublicBookingEndpoint &&
+      !isPublicApprovalEndpoint &&
+      resource !== 'billing'
+    ) {
+      const { default: prisma } = await import('../../lib/db')
+      const context = await extractContext(event)
+      const user = await prisma.user.findUnique({
+        where: { cognitoId: context.userId },
+        select: { id: true, role: true },
+      })
+      currentUser = user
+      const role = user?.role || 'admin'
+      const isEmployee = role === 'employee'
+
+      if (isEmployee && isAdminOnlyResource(resource)) {
+        const isReadOnlyAllowed =
+          isEmployeeReadOnlyResource(resource) && event.httpMethod === 'GET'
+        const isJobAccessAllowed =
+          isEmployeeJobAccessResource(resource) &&
+          (event.httpMethod === 'GET' ||
+            event.httpMethod === 'POST' ||
+            event.httpMethod === 'PUT' ||
+            event.httpMethod === 'PATCH' ||
+            event.httpMethod === 'DELETE')
+        if (!isReadOnlyAllowed && !isJobAccessAllowed) {
+          return errorResponse('Access denied. This feature requires admin privileges.', 403)
+        }
+      }
+    }
+
+    // For employees: only allow edit/delete of jobs they created
+    if (
+      currentUser &&
+      currentUser.role === 'employee' &&
+      resource === 'jobs' &&
+      id &&
+      (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH' || event.httpMethod === 'DELETE')
+    ) {
+      const { default: prisma } = await import('../../lib/db')
+      const job = await prisma.job.findFirst({
+        where: { id, tenantId },
+        select: { createdById: true },
+      })
+      if (!job) {
+        return errorResponse('Job not found', 404)
+      }
+      if (job.createdById !== currentUser.id) {
+        return errorResponse('You can only edit or delete jobs you created.', 403)
       }
     }
 
@@ -950,6 +1204,18 @@ async function handlePost(
   // All other POST actions require a body
   const payload = parseBody(event)
   if ('create' in service) {
+    // For jobs create: inject createdById from current user
+    if (resource === 'jobs' && !id) {
+      const context = await extractContext(event)
+      const { default: prisma } = await import('../../lib/db')
+      const user = await prisma.user.findUnique({
+        where: { cognitoId: context.userId },
+        select: { id: true },
+      })
+      if (user) {
+        payload.createdById = user.id
+      }
+    }
     return service.create(tenantId, payload)
   }
   throw new Error('Create method not supported')

@@ -944,6 +944,54 @@ The JobDock Team
 }
 
 /**
+ * Build team invite email payload
+ */
+export function buildTeamInviteEmail(data: {
+  inviteeEmail: string
+  inviteeName: string
+  inviterName: string
+  role: string
+  tempPassword: string
+  appUrl?: string
+}) {
+  const { inviteeEmail, inviteeName, inviterName, role, tempPassword, appUrl } = data
+  const loginUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/auth/login` : 'https://app.thejobdock.com/auth/login'
+
+  const subject = `You've been invited to join JobDock`
+  const roleDesc =
+    role === 'admin'
+      ? 'admin (full access to jobs, contacts, quotes, invoices)'
+      : 'employee (track hours, add photos and notes on jobs)'
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <h2 style="color: #D4AF37;">You've been invited to JobDock</h2>
+      <p>Hi ${inviteeName},</p>
+      <p>${inviterName} has invited you to join their team on JobDock as a <strong>${role}</strong>.</p>
+      <p style="font-size: 0.9em; color: #666;">You'll have ${roleDesc}.</p>
+      <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin: 5px 0;"><strong>Your temporary password:</strong></p>
+        <p style="margin: 5px 0; font-family: monospace; font-size: 14px;">${tempPassword}</p>
+        <p style="margin: 10px 0 0 0; font-size: 0.9em;">Please change this when you first log in.</p>
+      </div>
+      <p><a href="${loginUrl}" style="display: inline-block; padding: 12px 24px; background: #D4AF37; color: #1A1F36; text-decoration: none; border-radius: 5px; font-weight: bold;">Log in to JobDock</a></p>
+      <p style="font-size: 0.85em; color: #666;">Or copy this link: ${loginUrl}</p>
+      <p style="margin-top: 30px; color: #666;">Best,<br/>The JobDock Team</p>
+    </body>
+    </html>
+  `
+
+  return {
+    to: inviteeEmail,
+    subject,
+    htmlBody,
+    textBody: `Hi ${inviteeName}, ${inviterName} has invited you to JobDock as ${role} (${roleDesc}). Temporary password: ${tempPassword}. Log in at ${loginUrl} and change your password.`,
+  }
+}
+
+/**
  * Build and send invoice email with PDF attachment
  */
 export async function sendInvoiceEmail(data: {

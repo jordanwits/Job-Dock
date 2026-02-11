@@ -19,11 +19,8 @@ const useMockData = appEnv.isMock
 // Real API implementations
 const realAuthService = {
   login: async (email: string, password: string) => {
-    // Use publicApiClient for login since we don't have auth token yet
     try {
-      console.log('🔐 Attempting login for:', email)
       const response = await publicApiClient.post('/auth/login', { email, password })
-      console.log('✅ Login successful:', response.data)
       return response.data
     } catch (error: any) {
       console.error('❌ Login error:', error)
@@ -64,8 +61,16 @@ const realAuthService = {
   },
 
   resetPassword: async (email: string) => {
-    // Use publicApiClient for reset password since user is not authenticated
     const response = await publicApiClient.post('/auth/reset-password', { email })
+    return response.data
+  },
+
+  respondToNewPasswordChallenge: async (session: string, email: string, newPassword: string) => {
+    const response = await publicApiClient.post('/auth/respond-to-challenge', {
+      session,
+      email,
+      newPassword,
+    })
     return response.data
   },
 }
@@ -451,8 +456,13 @@ const realBillingService = {
     return response.data
   },
 
-  createEmbeddedCheckoutSession: async () => {
-    const response = await apiClient.post('/billing/embedded-checkout-session')
+  createEmbeddedCheckoutSession: async (options?: { plan?: 'single' | 'team' }) => {
+    const response = await apiClient.post('/billing/embedded-checkout-session', options ?? {})
+    return response.data
+  },
+
+  createUpgradeCheckoutUrl: async (plan: 'team') => {
+    const response = await apiClient.post('/billing/upgrade-to-team', { plan })
     return response.data
   },
 
@@ -463,6 +473,30 @@ const realBillingService = {
 }
 
 export const billingService = realBillingService
+
+const realUsersService = {
+  getAll: async () => {
+    const response = await apiClient.get('/users')
+    return response.data
+  },
+
+  invite: async (data: { email: string; name: string; role: 'admin' | 'employee' }) => {
+    const response = await apiClient.post('/users/invite', data)
+    return response.data
+  },
+
+  updateRole: async (userId: string, role: 'admin' | 'employee') => {
+    const response = await apiClient.patch(`/users/${userId}`, { role })
+    return response.data
+  },
+
+  remove: async (userId: string) => {
+    const response = await apiClient.delete(`/users/${userId}`)
+    return response.data
+  },
+}
+
+export const usersService = realUsersService
 
 // Add more services as you build them
 export const services = {
@@ -475,4 +509,5 @@ export const services = {
   jobLogs: jobLogsService,
   timeEntries: timeEntriesService,
   billing: billingService,
+  users: usersService,
 }

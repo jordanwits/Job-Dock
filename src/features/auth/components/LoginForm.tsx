@@ -1,41 +1,103 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from 'react-router-dom'
-import { loginSchema, type LoginFormData } from '../schemas/authSchemas'
+import { loginSchema, newPasswordSchema, type LoginFormData, type NewPasswordFormData } from '../schemas/authSchemas'
 import { useAuthStore } from '../store/authStore'
 import { Input, PasswordInput, Button } from '@/components/ui'
 
 const LoginForm = () => {
-  const { login, isLoading, error, clearError } = useAuthStore()
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
+  const { login, completeNewPasswordChallenge, clearPendingChallenge, pendingChallenge, isLoading, error, clearError } =
+    useAuthStore()
+
+  const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
 
-  const onSubmit = async (data: LoginFormData) => {
+  const newPasswordForm = useForm<NewPasswordFormData>({
+    resolver: zodResolver(newPasswordSchema),
+  })
+
+  const onSubmitLogin = async (data: LoginFormData) => {
     clearError()
     try {
-      // Add a timeout safeguard - if login takes more than 35 seconds, force reset
       const loginPromise = login(data.email, data.password)
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
           reject(new Error('Login request timed out. Please check your connection and try again.'))
         }, 35000)
       })
-
       await Promise.race([loginPromise, timeoutPromise])
     } catch (error: any) {
-      // Error is handled by the store, but log it here for debugging
       console.error('Login form error:', error)
-      // The store will set the error message, so we don't need to do anything here
     }
   }
 
+  const onSubmitNewPassword = async (data: NewPasswordFormData) => {
+    clearError()
+    try {
+      await completeNewPasswordChallenge(data.newPassword)
+    } catch (error: any) {
+      console.error('New password form error:', error)
+    }
+  }
+
+  if (pendingChallenge) {
+    return (
+      <form onSubmit={newPasswordForm.handleSubmit(onSubmitNewPassword)} className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold text-primary-light mb-2">Set new password</h2>
+          <p className="text-primary-light/70">
+            You've been invited to join a team. Please choose a new password for your account.
+          </p>
+        </div>
+
+        {error && (
+          <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
+            <p className="text-sm text-red-500">{error}</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <Input
+            label="Email"
+            type="email"
+            value={pendingChallenge.email}
+            disabled
+            className="bg-primary-dark/50"
+          />
+
+          <PasswordInput
+            label="New password"
+            placeholder="Enter your new password"
+            error={newPasswordForm.formState.errors.newPassword?.message}
+            {...newPasswordForm.register('newPassword')}
+          />
+
+          <PasswordInput
+            label="Confirm password"
+            placeholder="Confirm your new password"
+            error={newPasswordForm.formState.errors.confirmPassword?.message}
+            {...newPasswordForm.register('confirmPassword')}
+          />
+        </div>
+
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? 'Setting password...' : 'Set password & sign in'}
+        </Button>
+
+        <button
+          type="button"
+          onClick={clearPendingChallenge}
+          className="w-full text-sm text-primary-light/70 hover:text-primary-light transition-colors"
+        >
+          Back to sign in
+        </button>
+      </form>
+    )
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={loginForm.handleSubmit(onSubmitLogin)} className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold text-primary-light mb-2">Welcome back</h2>
         <p className="text-primary-light/70">Sign in to your JobDock account</p>
@@ -52,16 +114,16 @@ const LoginForm = () => {
           label="Email"
           type="email"
           placeholder="you@example.com"
-          error={errors.email?.message}
-          {...register('email')}
+          error={loginForm.formState.errors.email?.message}
+          {...loginForm.register('email')}
         />
 
         <div>
           <PasswordInput
             label="Password"
             placeholder="Enter your password"
-            error={errors.password?.message}
-            {...register('password')}
+            error={loginForm.formState.errors.password?.message}
+            {...loginForm.register('password')}
           />
           <div className="mt-2 text-right">
             <Link

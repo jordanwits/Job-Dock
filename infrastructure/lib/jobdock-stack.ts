@@ -455,7 +455,7 @@ systemctl enable iptables-restore.service
           ...(config.vercelDomain ? [`https://${config.vercelDomain}`] : []),
           ...(config.domain ? [`https://${config.domain}`, `https://www.${config.domain}`] : []),
         ].filter(Boolean),
-        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
         maxAge: cdk.Duration.seconds(3600),
       },
@@ -572,7 +572,9 @@ systemctl enable iptables-restore.service
         STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
         STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
         STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID || '',
+        STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
+        TEAM_TESTING_SKIP_STRIPE: process.env.TEAM_TESTING_SKIP_STRIPE || 'false',
         // Early access configuration
         EARLY_ACCESS_ENFORCE: config.env === 'prod' || config.env === 'staging' ? 'true' : 'false',
         EARLY_ACCESS_ADMIN_EMAILS:
@@ -648,7 +650,9 @@ systemctl enable iptables-restore.service
         STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
         STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
         STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID || '',
+        STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
+        TEAM_TESTING_SKIP_STRIPE: process.env.TEAM_TESTING_SKIP_STRIPE || 'false',
         // Early access configuration
         EARLY_ACCESS_ENFORCE: config.env === 'prod' || config.env === 'staging' ? 'true' : 'false',
         EARLY_ACCESS_ADMIN_EMAILS:
@@ -742,6 +746,7 @@ systemctl enable iptables-restore.service
     const authResource = this.api.root.addResource('auth')
     authResource.addResource('register').addMethod('POST', authIntegration)
     authResource.addResource('login').addMethod('POST', authIntegration)
+    authResource.addResource('respond-to-challenge').addMethod('POST', authIntegration)
     authResource.addResource('refresh').addMethod('POST', authIntegration)
     authResource.addResource('logout').addMethod('POST', authIntegration)
 

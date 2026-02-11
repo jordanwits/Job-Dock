@@ -39,6 +39,7 @@ export interface Job {
   breaks?: JobBreak[]
   deletedAt?: string | null
   archivedAt?: string | null
+  createdById?: string | null
   createdAt: string
   updatedAt: string
   occurrenceCount?: number

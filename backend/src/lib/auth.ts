@@ -68,6 +68,31 @@ export async function getCognitoUser(username: string): Promise<CognitoUser> {
 }
 
 /**
+ * Create user in Cognito (admin invite - temporary password)
+ */
+export async function createCognitoUser(email: string, name: string) {
+  const { randomBytes } = await import('crypto')
+  const base = randomBytes(12).toString('base64').replace(/[+/=]/g, 'x')
+  const tempPassword = `${base}Aa1!`
+
+  const command = new AdminCreateUserCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: email,
+    TemporaryPassword: tempPassword,
+    UserAttributes: [
+      { Name: 'email', Value: email },
+      { Name: 'email_verified', Value: 'true' },
+      { Name: 'name', Value: name },
+      { Name: 'preferred_username', Value: email },
+    ],
+    MessageAction: 'SUPPRESS', // Don't send Cognito's default email
+  })
+
+  const response = await cognitoClient.send(command)
+  return { cognitoId: response.User?.Username || '', tempPassword }
+}
+
+/**
  * Register new user in Cognito
  */
 export async function registerUser(email: string, password: string, name: string) {
@@ -86,7 +111,7 @@ export async function registerUser(email: string, password: string, name: string
 }
 
 /**
- * Login user
+ * Login user - may return challenge info instead of tokens
  */
 export async function loginUser(email: string, password: string) {
   const command = new InitiateAuthCommand({
@@ -100,10 +125,43 @@ export async function loginUser(email: string, password: string) {
 
   const response = await cognitoClient.send(command)
 
+  if (response.ChallengeName === 'NEW_PASSWORD_REQUIRED' && response.Session) {
+    return {
+      challengeRequired: 'NEW_PASSWORD_REQUIRED' as const,
+      session: response.Session,
+    }
+  }
+
   if (response.ChallengeName) {
-    // Handle challenge (e.g., NEW_PASSWORD_REQUIRED)
     throw new Error(`Challenge required: ${response.ChallengeName}`)
   }
+
+  return {
+    AccessToken: response.AuthenticationResult?.AccessToken,
+    IdToken: response.AuthenticationResult?.IdToken,
+    RefreshToken: response.AuthenticationResult?.RefreshToken,
+  }
+}
+
+/**
+ * Respond to NEW_PASSWORD_REQUIRED challenge
+ */
+export async function respondToNewPasswordChallenge(
+  session: string,
+  email: string,
+  newPassword: string
+) {
+  const command = new RespondToAuthChallengeCommand({
+    ClientId: CLIENT_ID,
+    ChallengeName: 'NEW_PASSWORD_REQUIRED',
+    Session: session,
+    ChallengeResponses: {
+      USERNAME: email,
+      NEW_PASSWORD: newPassword,
+    },
+  })
+
+  const response = await cognitoClient.send(command)
 
   return {
     AccessToken: response.AuthenticationResult?.AccessToken,

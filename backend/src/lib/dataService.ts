@@ -223,6 +223,7 @@ async function createRecurringJobs(params: {
   recurrence: RecurrencePayload
   forceBooking?: boolean
   excludeJobId?: string // Job ID to exclude from conflict checking (for converting existing job to recurring)
+  createdById?: string
 }) {
   const {
     tenantId,
@@ -243,6 +244,7 @@ async function createRecurringJobs(params: {
     recurrence,
     forceBooking = false,
     excludeJobId,
+    createdById,
   } = params
 
   return await prisma.$transaction(async tx => {
@@ -335,6 +337,7 @@ async function createRecurringJobs(params: {
             notes,
             assignedTo,
             breaks: undefined, // Recurring jobs don't have breaks initially
+            createdById: createdById ?? undefined,
           },
           include: {
             contact: true,
@@ -1501,6 +1504,7 @@ export const dataServices = {
             notes: payload.notes,
             assignedTo: payload.assignedTo,
             breaks: undefined,
+            createdById: payload.createdById ?? undefined,
           },
           include: { contact: true, service: true },
         })
@@ -1543,6 +1547,7 @@ export const dataServices = {
           breaks: payload.breaks,
           recurrence: payload.recurrence,
           forceBooking,
+          createdById: payload.createdById ?? undefined,
         })
       }
 
@@ -1566,6 +1571,7 @@ export const dataServices = {
           notes: payload.notes,
           assignedTo: payload.assignedTo,
           breaks: payload.breaks || null,
+          createdById: payload.createdById ?? undefined,
         },
         include: { contact: true, service: true },
       })
@@ -1717,6 +1723,7 @@ export const dataServices = {
               : (existingJob.breaks as any) || undefined,
           recurrence: payload.recurrence,
           excludeJobId: existingJob.id, // Exclude the original job from conflict checking
+          createdById: (existingJob as any).createdById ?? payload.createdById,
         })
 
         // Delete the original job since we've created a recurring series
@@ -2598,10 +2605,12 @@ export const dataServices = {
         select: {
           stripeCustomerId: true,
           stripeSubscriptionId: true,
+          stripePriceId: true,
           stripeSubscriptionStatus: true,
           trialEndsAt: true,
           currentPeriodEndsAt: true,
           cancelAtPeriodEnd: true,
+          subscriptionTier: true,
         },
       })
 
@@ -2609,15 +2618,40 @@ export const dataServices = {
         throw new ApiError('Tenant not found', 404)
       }
 
+      const singlePriceId = process.env.STRIPE_PRICE_ID
+      const teamPriceId = process.env.STRIPE_TEAM_PRICE_ID
+      const isTeamPrice =
+        tenant.stripePriceId === teamPriceId ||
+        (tenant.subscriptionTier === 'team')
+      const subscriptionTier =
+        tenant.subscriptionTier || (isTeamPrice ? 'team' : 'single')
+
+      const userCount = await prisma.user.count({ where: { tenantId } })
+      const canDowngrade =
+        subscriptionTier !== 'team' || userCount <= 1
+
+      const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
+      const canInviteTeamMembers =
+        subscriptionTier === 'team' || teamTestingSkipStripe
+
       return {
         hasSubscription: !!tenant.stripeSubscriptionId,
         status: tenant.stripeSubscriptionStatus || 'none',
         trialEndsAt: tenant.trialEndsAt?.toISOString(),
         currentPeriodEndsAt: tenant.currentPeriodEndsAt?.toISOString(),
         cancelAtPeriodEnd: tenant.cancelAtPeriodEnd || false,
+        subscriptionTier,
+        canInviteTeamMembers,
+        canDowngrade,
+        teamMemberCount: userCount,
       }
     },
-    createEmbeddedCheckoutSession: async (tenantId: string, userId: string, userEmail: string) => {
+    createEmbeddedCheckoutSession: async (
+      tenantId: string,
+      userId: string,
+      userEmail: string,
+      options?: { priceId?: string; plan?: 'single' | 'team' }
+    ) => {
       const Stripe = (await import('stripe')).default
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
         apiVersion: '2025-02-24.acacia',
@@ -2654,7 +2688,13 @@ export const dataServices = {
         })
       }
 
-      const priceId = process.env.STRIPE_PRICE_ID
+      let priceId = options?.priceId
+      if (!priceId && options?.plan === 'team') {
+        priceId = process.env.STRIPE_TEAM_PRICE_ID || undefined
+      }
+      if (!priceId) {
+        priceId = process.env.STRIPE_PRICE_ID || undefined
+      }
       if (!priceId) {
         throw new ApiError('STRIPE_PRICE_ID not configured', 500)
       }
@@ -2696,6 +2736,47 @@ export const dataServices = {
       return {
         clientSecret: session.client_secret,
       }
+    },
+    createUpgradeCheckoutUrl: async (
+      tenantId: string,
+      userId: string,
+      userEmail: string,
+      plan: 'team'
+    ) => {
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2025-02-24.acacia',
+      })
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { stripeCustomerId: true },
+      })
+
+      if (!tenant?.stripeCustomerId) {
+        throw new ApiError('No Stripe customer found. Subscribe first.', 400)
+      }
+
+      const priceId =
+        plan === 'team' ? process.env.STRIPE_TEAM_PRICE_ID : process.env.STRIPE_PRICE_ID
+      if (!priceId) {
+        throw new ApiError('Stripe price not configured for this plan', 500)
+      }
+
+      const returnUrl = process.env.PUBLIC_APP_URL
+        ? `${process.env.PUBLIC_APP_URL}/app/settings`
+        : 'http://localhost:5173/app/settings'
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        customer: tenant.stripeCustomerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        metadata: { tenantId, ownerUserId: userId },
+        success_url: `${returnUrl}?upgraded=1`,
+        cancel_url: returnUrl,
+      })
+
+      return { url: session.url }
     },
     createPortalSession: async (tenantId: string) => {
       const Stripe = (await import('stripe')).default
@@ -2756,6 +2837,16 @@ export const dataServices = {
         return { received: true, alreadyProcessed: true }
       }
 
+      // Map Stripe price ID to subscription tier
+      const priceIdToTier = (priceId: string | null): string | null => {
+        if (!priceId) return null
+        const singlePriceId = process.env.STRIPE_PRICE_ID
+        const teamPriceId = process.env.STRIPE_TEAM_PRICE_ID
+        if (priceId === singlePriceId) return 'single'
+        if (priceId === teamPriceId) return 'team'
+        return 'single' // default for unknown price
+      }
+
       // Process the event
       console.log(`Processing Stripe event: ${event.type}`)
 
@@ -2765,14 +2856,18 @@ export const dataServices = {
           const tenantId = session.metadata?.tenantId
 
           if (tenantId && session.subscription) {
+            const sub = await stripe.subscriptions.retrieve(session.subscription as string)
+            const priceId = (sub.items?.data?.[0] as any)?.price?.id ?? process.env.STRIPE_PRICE_ID
+            const subscriptionTier = priceIdToTier(priceId)
             await prisma.tenant.update({
               where: { id: tenantId },
               data: {
                 stripeSubscriptionId: session.subscription as string,
-                stripePriceId: process.env.STRIPE_PRICE_ID || null,
+                stripePriceId: priceId,
+                subscriptionTier,
               },
             })
-            console.log(`Updated tenant ${tenantId} with subscription ${session.subscription}`)
+            console.log(`Updated tenant ${tenantId} with subscription ${session.subscription}, tier ${subscriptionTier}`)
           }
           break
         }
@@ -2783,11 +2878,15 @@ export const dataServices = {
           const tenantId = subscription.metadata?.tenantId
 
           if (tenantId) {
+            const priceId = (subscription.items?.data?.[0] as any)?.price?.id ?? null
+            const subscriptionTier = priceIdToTier(priceId)
             const updateData: any = {
               stripeSubscriptionId: subscription.id,
               stripeSubscriptionStatus: subscription.status,
               currentPeriodEndsAt: new Date(subscription.current_period_end * 1000),
               cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+              ...(priceId && { stripePriceId: priceId }),
+              ...(subscriptionTier && { subscriptionTier }),
             }
 
             if (subscription.trial_end) {
@@ -2798,7 +2897,7 @@ export const dataServices = {
               where: { id: tenantId },
               data: updateData,
             })
-            console.log(`Updated tenant ${tenantId} subscription status to ${subscription.status}`)
+            console.log(`Updated tenant ${tenantId} subscription status to ${subscription.status}, tier ${subscriptionTier}`)
           }
           break
         }

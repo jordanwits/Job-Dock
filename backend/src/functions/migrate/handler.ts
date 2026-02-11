@@ -546,6 +546,31 @@ const PENDING_MIGRATIONS = [
     description: 'Add notes and markup columns to documents for photo annotations',
   },
   {
+    name: '20260210000001_add_subscription_tier_and_roles',
+    statements: [
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "subscriptionTier" TEXT`,
+      `UPDATE "tenants" SET "subscriptionTier" = 'single' WHERE "subscriptionTier" IS NULL`,
+      `UPDATE "users" SET "role" = 'admin' WHERE "role" = 'user'`,
+    ],
+    description: 'Add subscription tier to tenants and normalize user roles (user -> admin)',
+  },
+  {
+    name: '20260211000000_add_job_created_by_id',
+    statements: [
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "createdById" TEXT`,
+      `CREATE INDEX IF NOT EXISTS "jobs_createdById_idx" ON "jobs"("createdById")`,
+      `DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'jobs_createdById_fkey'
+        ) THEN
+          ALTER TABLE "jobs" ADD CONSTRAINT "jobs_createdById_fkey" 
+          FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+      END $$`,
+    ],
+    description: 'Add createdById to jobs for employee edit/delete ownership',
+  },
+  {
     name: '20260129000002_add_early_access_tables',
     statements: [
       `CREATE TABLE IF NOT EXISTS "early_access_requests" (

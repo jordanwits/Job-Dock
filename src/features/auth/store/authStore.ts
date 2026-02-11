@@ -11,7 +11,13 @@ export interface User {
   email: string
   name: string
   tenantId: string
+  role?: 'owner' | 'admin' | 'employee'
   onboardingCompletedAt?: string | null
+}
+
+interface PendingChallenge {
+  session: string
+  email: string
 }
 
 interface AuthState {
@@ -21,7 +27,10 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
+  pendingChallenge: PendingChallenge | null
   login: (email: string, password: string) => Promise<void>
+  completeNewPasswordChallenge: (newPassword: string) => Promise<void>
+  clearPendingChallenge: () => void
   register: (data: {
     email: string
     password: string
@@ -69,11 +78,22 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: false,
         isLoading: false,
         error: null,
+        pendingChallenge: null,
 
       login: async (email: string, password: string) => {
-        set({ isLoading: true, error: null })
+        set({ isLoading: true, error: null, pendingChallenge: null })
         try {
           const response = await authService.login(email, password)
+
+          if (response.challengeRequired === 'NEW_PASSWORD_REQUIRED' && response.session && response.email) {
+            set({
+              pendingChallenge: { session: response.session, email: response.email },
+              isLoading: false,
+              error: null,
+            })
+            return
+          }
+
           set({
             user: response.user,
             token: response.token,
@@ -82,25 +102,59 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           })
-          // Store token and tenant_id in localStorage for API client
           localStorage.setItem('auth_token', response.token)
           localStorage.setItem('refresh_token', response.refreshToken)
           localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
-          console.error('Login error in store:', error)
           const friendlyMessage = getErrorMessage(error, 'Login failed. Please try again.')
           set({
             error: friendlyMessage,
             isLoading: false,
             isAuthenticated: false,
           })
-          // Ensure we always reset loading state, even if error handling fails
           setTimeout(() => {
             set({ isLoading: false })
           }, 100)
           throw error
         }
       },
+
+      completeNewPasswordChallenge: async (newPassword: string) => {
+        const { pendingChallenge } = get()
+        if (!pendingChallenge) {
+          set({ error: 'Session expired. Please sign in again.' })
+          return
+        }
+        set({ isLoading: true, error: null })
+        try {
+          const response = await authService.respondToNewPasswordChallenge(
+            pendingChallenge.session,
+            pendingChallenge.email,
+            newPassword
+          )
+          set({
+            user: response.user,
+            token: response.token,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+            pendingChallenge: null,
+          })
+          localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('refresh_token', response.refreshToken)
+          localStorage.setItem('tenant_id', response.user.tenantId)
+        } catch (error: any) {
+          const friendlyMessage = getErrorMessage(error, 'Failed to set new password. Please try again.')
+          set({
+            error: friendlyMessage,
+            isLoading: false,
+          })
+          throw error
+        }
+      },
+
+      clearPendingChallenge: () => set({ pendingChallenge: null, error: null }),
 
       register: async data => {
         set({ isLoading: true, error: null })

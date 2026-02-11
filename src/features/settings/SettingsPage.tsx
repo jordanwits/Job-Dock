@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui'
 import { settingsApi, TenantSettings } from '@/lib/api/settings'
+import { useAuthStore } from '@/features/auth'
 import { CompanyBrandingSection } from './CompanyBrandingSection'
 import { EmailTemplatesSection } from './EmailTemplatesSection'
 import { PdfTemplatesSection } from './PdfTemplatesSection'
 import { EarlyAccessSection } from './EarlyAccessSection'
+import { BillingSection } from './BillingSection'
+import { TeamMembersSection } from './TeamMembersSection'
 
 export const SettingsPage = () => {
+  const { user } = useAuthStore()
   const [settings, setSettings] = useState<TenantSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -127,6 +131,10 @@ export const SettingsPage = () => {
           <p className="text-red-400">{error}</p>
         </Card>
       )}
+
+      {user?.role === 'owner' && <BillingSection />}
+
+      {(user?.role === 'owner' || user?.role === 'admin') && <TeamMembersSection />}
 
       <EarlyAccessSection />
 
