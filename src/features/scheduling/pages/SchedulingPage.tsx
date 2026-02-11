@@ -285,10 +285,18 @@ const SchedulingPage = () => {
     if (openCreateJob) {
       setCreateJobDefaults({
         contactId: searchParams.get('contactId') || undefined,
-        title: searchParams.get('title') ? decodeURIComponent(searchParams.get('title')) : undefined,
-        notes: searchParams.get('notes') ? decodeURIComponent(searchParams.get('notes')) : undefined,
-        location: searchParams.get('location') ? decodeURIComponent(searchParams.get('location')) : undefined,
-        description: searchParams.get('description') ? decodeURIComponent(searchParams.get('description')) : undefined,
+        title: searchParams.get('title')
+          ? decodeURIComponent(searchParams.get('title'))
+          : undefined,
+        notes: searchParams.get('notes')
+          ? decodeURIComponent(searchParams.get('notes'))
+          : undefined,
+        location: searchParams.get('location')
+          ? decodeURIComponent(searchParams.get('location'))
+          : undefined,
+        description: searchParams.get('description')
+          ? decodeURIComponent(searchParams.get('description'))
+          : undefined,
       })
       setActiveTab('calendar')
       setShowJobForm(true)
@@ -769,7 +777,7 @@ const SchedulingPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {activeTab === 'calendar' && (
+          {(activeTab === 'calendar' || activeTab === 'jobs') && (
             <>
               <Button
                 onClick={() => setShowJobForm(true)}
@@ -778,13 +786,15 @@ const SchedulingPage = () => {
               >
                 Schedule Job
               </Button>
-              <Button
-                onClick={handleOpenBookingLink}
-                variant="secondary"
-                className="w-full sm:w-auto"
-              >
-                Booking Link
-              </Button>
+              {activeTab === 'calendar' && (
+                <Button
+                  onClick={handleOpenBookingLink}
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                >
+                  Booking Link
+                </Button>
+              )}
             </>
           )}
           {activeTab === 'services' && user?.role !== 'employee' && (
@@ -864,7 +874,7 @@ const SchedulingPage = () => {
       )}
 
       {/* Tabs - horizontal scroll when needed, vertical locked. Negative margin extends into container padding for more room. */}
-      <div 
+      <div
         className="flex items-center gap-1 md:gap-2 border-b border-white/10 overflow-x-auto overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6"
         style={{ touchAction: 'pan-x', overscrollBehaviorY: 'none' }}
       >

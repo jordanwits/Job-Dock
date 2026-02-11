@@ -392,8 +392,11 @@ We look forward to working with you!',
         return successResponse(updated)
       }
 
-      if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'admin')) {
-        return errorResponse('Only owners and admins can manage team members', 403)
+      const canManageTeam = currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin')
+      const canListTeam = currentUser && currentUser.role !== 'employee'
+
+      if (!currentUser || !canListTeam) {
+        return errorResponse('Access denied', 403)
       }
 
       const tenant = await prisma.tenant.findUnique({
@@ -405,6 +408,9 @@ We look forward to working with you!',
       const targetUserId = id && usersAction !== 'invite' ? id : undefined
 
       if (usersAction === 'invite' && event.httpMethod === 'POST') {
+        if (!canManageTeam) {
+          return errorResponse('Only owners and admins can invite team members', 403)
+        }
         const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
         if (tenant?.subscriptionTier !== 'team' && !teamTestingSkipStripe) {
           return errorResponse('Team subscription required to invite members', 403)
@@ -476,7 +482,7 @@ We look forward to working with you!',
       }
 
       if (targetUserId && (event.httpMethod === 'PATCH' || event.httpMethod === 'PUT')) {
-        if (currentUser.role !== 'owner' && currentUser.role !== 'admin') {
+        if (!canManageTeam) {
           return errorResponse('Only owners and admins can change roles', 403)
         }
         const body = parseBody(event)
@@ -897,6 +903,37 @@ We look forward to working with you!',
       }
     }
 
+    // Assignment restriction: only admin/owner on team tier can assign jobs
+    if (
+      currentUser &&
+      resource === 'jobs' &&
+      id &&
+      (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH')
+    ) {
+      let payload: any = {}
+      try {
+        payload = parseBody(event) || {}
+      } catch {
+        /* body may be missing */
+      }
+      if (payload && payload.assignedTo !== undefined) {
+        const newAssignee = payload.assignedTo && String(payload.assignedTo).trim()
+        if (newAssignee) {
+          if (currentUser.role === 'employee') {
+            return errorResponse('Only admins and owners can assign jobs to team members', 403)
+          }
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { subscriptionTier: true },
+          })
+          const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
+          if (tenant?.subscriptionTier !== 'team' && !teamTestingSkipStripe) {
+            return errorResponse('Team subscription required to assign jobs to team members', 403)
+          }
+        }
+      }
+    }
+
     const service = dataServices[resource]
     if (!service) {
       return errorResponse('Route not found', 404)
@@ -1223,16 +1260,30 @@ async function handlePost(
   // All other POST actions require a body
   const payload = parseBody(event)
   if ('create' in service) {
-    // For jobs create: inject createdById from current user
+    // For jobs create: inject createdById from current user and check assignment auth
     if (resource === 'jobs' && !id) {
       const context = await extractContext(event)
       const { default: prisma } = await import('../../lib/db')
       const user = await prisma.user.findUnique({
         where: { cognitoId: context.userId },
-        select: { id: true },
+        select: { id: true, role: true },
       })
       if (user) {
         payload.createdById = user.id
+      }
+      const newAssignee = payload?.assignedTo && String(payload.assignedTo).trim()
+      if (newAssignee) {
+        if (user?.role === 'employee') {
+          throw new ApiError('Only admins and owners can assign jobs to team members', 403)
+        }
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { subscriptionTier: true },
+        })
+        const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
+        if (tenant?.subscriptionTier !== 'team' && !teamTestingSkipStripe) {
+          throw new ApiError('Team subscription required to assign jobs to team members', 403)
+        }
       }
     }
     return service.create(tenantId, payload)
@@ -1247,6 +1298,21 @@ async function handlePut(
   event: APIGatewayProxyEvent
 ) {
   const payload = parseBody(event)
+
+  // Inject acting user ID for job updates (used for assignment notification skip-on-self-assign)
+  if (service === dataServices.jobs && id) {
+    try {
+      const context = await extractContext(event)
+      const { default: prisma } = await import('../../lib/db')
+      const user = await prisma.user.findFirst({
+        where: { cognitoId: context.userId },
+        select: { id: true },
+      })
+      if (user) payload._actingUserId = user.id
+    } catch {
+      /* ignore */
+    }
+  }
 
   // Settings uses a different signature (no id parameter)
   if ('update' in service && typeof service.update === 'function') {

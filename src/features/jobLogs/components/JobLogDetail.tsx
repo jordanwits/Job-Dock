@@ -17,7 +17,7 @@ interface JobLogDetailProps {
   onDelete: () => void
   isEditing: boolean
   onCancelEdit: () => void
-  onSaveEdit: (data: { title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; status?: string }) => Promise<void>
+  onSaveEdit: (data: { title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; assignedTo?: string; status?: string }) => Promise<void>
   onStatusChange?: (status: 'active' | 'completed' | 'inactive') => Promise<void>
   isLoading?: boolean
 }
@@ -108,10 +108,19 @@ const JobLogDetail = ({
               {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
             </span>
           </div>
-          {showCreatedBy && jobLog.job?.createdByName && (
-            <span className="inline-block mt-2 px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
-              Created by {jobLog.job.createdByName}
-            </span>
+          {showCreatedBy && (jobLog.assignedToName || jobLog.job?.createdByName) && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {jobLog.assignedToName && (
+                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
+                  Assigned to {jobLog.assignedToName}
+                </span>
+              )}
+              {jobLog.job?.createdByName && (
+                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
+                  Created by {jobLog.job.createdByName}
+                </span>
+              )}
+            </div>
           )}
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">

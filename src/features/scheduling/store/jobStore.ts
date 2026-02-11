@@ -37,6 +37,7 @@ const normalizeJob = (apiJob: any): Job => {
     price: apiJob.price ? parseFloat(apiJob.price) : undefined,
     notes: apiJob.notes,
     assignedTo: apiJob.assignedTo,
+    assignedToName: apiJob.assignedToUser?.name ?? apiJob.assignedToName ?? undefined,
     breaks: apiJob.breaks || undefined,
     deletedAt: apiJob.deletedAt,
     archivedAt: apiJob.archivedAt,

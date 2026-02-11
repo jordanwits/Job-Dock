@@ -298,6 +298,13 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
           </div>
         </Card>
 
+        {job.assignedToName && (
+          <Card>
+            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Assigned to</h3>
+            <p className="text-primary-light">{job.assignedToName}</p>
+          </Card>
+        )}
+
         {job.serviceName && (
           <Card>
             <h3 className="text-sm font-medium text-primary-light/70 mb-2">Service</h3>

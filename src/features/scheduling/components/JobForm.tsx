@@ -8,6 +8,8 @@ import { useContactStore } from '@/features/crm/store/contactStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
+import { useAuthStore } from '@/features/auth/store/authStore'
+import { services as apiServices } from '@/lib/api/services'
 import { format, addWeeks, addMonths } from 'date-fns'
 
 interface JobFormProps {
@@ -28,11 +30,19 @@ interface JobFormProps {
   schedulingUnscheduledJob?: boolean
 }
 
+interface TeamMemberOption {
+  id: string
+  name: string
+}
+
 const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, defaultTitle, defaultNotes, defaultLocation, defaultServiceId, defaultDescription, defaultPrice, initialQuoteId, initialInvoiceId, error, schedulingUnscheduledJob }: JobFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { services, fetchServices } = useServiceStore()
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
+  const { user } = useAuthStore()
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
+  const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [startDate, setStartDate] = useState(job && job.startTime ? format(new Date(job.startTime), 'yyyy-MM-dd') : '')
   const [startTime, setStartTime] = useState(job && job.startTime ? format(new Date(job.startTime), 'HH:mm') : '09:00')
   const [isAllDay, setIsAllDay] = useState(false)
@@ -101,6 +111,37 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       fetchInvoices()
     }
   }, [fetchContacts, fetchServices, fetchQuotes, fetchInvoices, quotes.length, invoices.length])
+
+  useEffect(() => {
+    const role = user?.role
+    const canAssign = role !== 'employee'
+    if (!canAssign) {
+      setCanShowAssignee(false)
+      return
+    }
+    const load = async () => {
+      try {
+        const [usersData, billingData] = await Promise.all([
+          apiServices.users.getAll(),
+          apiServices.billing.getStatus(),
+        ])
+        const hasTeamTier = !!billingData?.canInviteTeamMembers || billingData?.subscriptionTier === 'team'
+        const hasTeamMembers = Array.isArray(usersData) && usersData.length > 0
+        setCanShowAssignee(hasTeamTier || hasTeamMembers)
+        if (hasTeamTier || hasTeamMembers) {
+          setTeamMembers(
+            (usersData || []).map((m: { id: string; name: string; email?: string }) => ({
+              id: m.id,
+              name: m.name || m.email || 'Unknown',
+            }))
+          )
+        }
+      } catch {
+        setCanShowAssignee(false)
+      }
+    }
+    load()
+  }, [user?.role])
 
   const {
     register,
@@ -246,6 +287,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         quoteId: dataWithoutTimes.quoteId || undefined,
         invoiceId: dataWithoutTimes.invoiceId || undefined,
         serviceId: dataWithoutTimes.serviceId || undefined,
+        assignedTo: (dataWithoutTimes.assignedTo && dataWithoutTimes.assignedTo.trim()) || null,
         // Convert price string to number, or undefined if empty
         price: convertPrice(dataWithoutTimes.price),
       }
@@ -299,6 +341,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       quoteId: data.quoteId || undefined,
       invoiceId: data.invoiceId || undefined,
       serviceId: data.serviceId || undefined,
+      assignedTo: (data.assignedTo && data.assignedTo.trim()) || null,
       // Convert price string to number, or undefined if empty
       price: convertPrice(data.price),
     }
@@ -579,6 +622,25 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           />
         )}
       />
+
+      {canShowAssignee && (
+        <Controller
+          name="assignedTo"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label="Assign to"
+              value={field.value || ''}
+              onChange={(e) => field.onChange(e.target.value || '')}
+              error={errors.assignedTo?.message}
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
+              ]}
+            />
+          )}
+        />
+      )}
 
       {/* Service field is now integrated into Job Title dropdown above */}
 

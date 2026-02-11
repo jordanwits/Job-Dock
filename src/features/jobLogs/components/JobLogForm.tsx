@@ -1,10 +1,17 @@
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { jobLogSchema, type JobLogFormData } from '../schemas/jobLogSchemas'
 import type { JobLog } from '../types/jobLog'
 import { Input, Button, Select } from '@/components/ui'
 import { useContactStore } from '@/features/crm/store/contactStore'
+import { useAuthStore } from '@/features/auth'
+import { services } from '@/lib/api/services'
+
+interface TeamMemberOption {
+  id: string
+  name: string
+}
 
 interface JobLogFormProps {
   jobLog?: JobLog
@@ -21,6 +28,9 @@ const statusOptions = [
 
 const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
+  const { user } = useAuthStore()
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
+  const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [selectedContactId, setSelectedContactId] = useState<string>(jobLog?.contactId ?? '')
   const [selectedStatus, setSelectedStatus] = useState<string>(
     jobLog?.status && ['active', 'completed', 'inactive', 'archived'].includes(jobLog.status)
@@ -32,17 +42,50 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     fetchContacts()
   }, [fetchContacts])
 
+  useEffect(() => {
+    const role = user?.role
+    const canAssign = role !== 'employee'
+    if (!canAssign) {
+      setCanShowAssignee(false)
+      return
+    }
+    const load = async () => {
+      try {
+        const [usersData, billingData] = await Promise.all([
+          services.users.getAll(),
+          services.billing.getStatus(),
+        ])
+        const hasTeamTier = !!billingData?.canInviteTeamMembers || billingData?.subscriptionTier === 'team'
+        const hasTeamMembers = Array.isArray(usersData) && usersData.length > 0
+        setCanShowAssignee(hasTeamTier || hasTeamMembers)
+        if (hasTeamTier || hasTeamMembers) {
+          setTeamMembers(
+            (usersData || []).map((m: { id: string; name: string; email?: string }) => ({
+              id: m.id,
+              name: m.name || m.email || 'Unknown',
+            }))
+          )
+        }
+      } catch {
+        setCanShowAssignee(false)
+      }
+    }
+    load()
+  }, [user?.role])
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     setValue,
+    control,
   } = useForm<JobLogFormData>({
     resolver: zodResolver(jobLogSchema),
     defaultValues: {
       title: jobLog?.title ?? '',
       location: jobLog?.location ?? '',
       contactId: jobLog?.contactId ?? '',
+      assignedTo: jobLog?.assignedTo ?? '',
       status: (jobLog?.status === 'archived' ? 'inactive' : jobLog?.status) ?? 'active',
     },
   })
@@ -95,6 +138,23 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
           ]}
         />
       </div>
+      {canShowAssignee && (
+        <Controller
+          name="assignedTo"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label="Assign to"
+              value={field.value || ''}
+              onChange={(e) => field.onChange(e.target.value || '')}
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
+              ]}
+            />
+          )}
+        />
+      )}
       <div className="flex gap-3 pt-4">
         <Button type="submit" disabled={isLoading}>
           {isLoading ? 'Saving...' : jobLog ? 'Update' : 'Create'}

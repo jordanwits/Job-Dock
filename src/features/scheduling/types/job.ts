@@ -36,6 +36,7 @@ export interface Job {
   price?: number
   notes?: string
   assignedTo?: string
+  assignedToName?: string
   breaks?: JobBreak[]
   deletedAt?: string | null
   archivedAt?: string | null

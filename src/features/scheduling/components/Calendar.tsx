@@ -936,6 +936,9 @@ const Calendar = ({
                       {job.contactName && (
                         <div className="text-xs text-primary-light/60">{job.contactName}</div>
                       )}
+                      {job.assignedToName && (
+                        <div className="text-xs text-primary-light/50">→ {job.assignedToName}</div>
+                      )}
                     </div>
                   )
                 })}
@@ -1073,6 +1076,11 @@ const Calendar = ({
                           {job.contactName && (
                             <div className="text-xs text-primary-light/60 pointer-events-none">
                               {job.contactName}
+                            </div>
+                          )}
+                          {job.assignedToName && (
+                            <div className="text-xs text-primary-light/50 pointer-events-none">
+                              → {job.assignedToName}
                             </div>
                           )}
                         </div>

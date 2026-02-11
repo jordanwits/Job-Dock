@@ -52,6 +52,7 @@ const JobLogDetailPage = () => {
     notes?: string
     jobId?: string
     contactId?: string
+    assignedTo?: string
     status?: string
   }) => {
     if (!editingJobLogId) return

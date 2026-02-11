@@ -34,6 +34,7 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 
   const subtitle = [job.contactName, job.location].filter(Boolean).join(' • ')
+  const hasAssignee = !!job.assignedToName
 
   return (
     <Card
@@ -55,6 +56,11 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
             </h3>
             {subtitle && (
               <p className="text-xs text-primary-light/50 mt-1">{subtitle}</p>
+            )}
+            {hasAssignee && (
+              <span className="text-xs text-primary-light/60 mt-1 block">
+                Assigned to {job.assignedToName}
+              </span>
             )}
             {showCreatedBy && job.createdByName && (
               <span className="text-xs text-primary-light/60 mt-1 block">

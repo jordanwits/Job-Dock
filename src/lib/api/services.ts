@@ -349,12 +349,12 @@ const realJobLogsService = {
     return response.data
   },
 
-  create: async (data: { title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; status?: string }) => {
+  create: async (data: { title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; assignedTo?: string; status?: string }) => {
     const response = await apiClient.post('/job-logs', data)
     return response.data
   },
 
-  update: async (id: string, data: Partial<{ title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; status?: string }>) => {
+  update: async (id: string, data: Partial<{ title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; assignedTo?: string; status?: string }>) => {
     const response = await apiClient.put(`/job-logs/${id}`, data)
     return response.data
   },

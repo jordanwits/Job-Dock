@@ -48,6 +48,8 @@ export interface JobLog {
   notes?: string
   jobId?: string
   contactId?: string
+  assignedTo?: string
+  assignedToName?: string
   status: 'active' | 'completed' | 'inactive'
   createdAt: string
   updatedAt: string
@@ -75,6 +77,7 @@ export interface CreateJobLogData {
   notes?: string
   jobId?: string
   contactId?: string
+  assignedTo?: string
   status?: 'active' | 'completed' | 'inactive'
 }
 

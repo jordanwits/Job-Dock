@@ -598,6 +598,36 @@ const PENDING_MIGRATIONS = [
     ],
     description: 'Add early access request and allowlist tables for gated signup',
   },
+  {
+    name: '20260213000000_add_job_assigned_to_user_relation',
+    statements: [
+      `CREATE INDEX IF NOT EXISTS "jobs_assignedTo_idx" ON "jobs"("assignedTo")`,
+      `UPDATE "jobs" SET "assignedTo" = NULL WHERE "assignedTo" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "users" WHERE "users"."id" = "jobs"."assignedTo")`,
+      `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'jobs_assignedTo_fkey') THEN
+          ALTER TABLE "jobs" ADD CONSTRAINT "jobs_assignedTo_fkey"
+          FOREIGN KEY ("assignedTo") REFERENCES "users"("id")
+          ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+      END $$`,
+    ],
+    description: 'Add User relation for job assignedTo (for team assignment)',
+  },
+  {
+    name: '20260214000000_add_job_log_assigned_to',
+    statements: [
+      `ALTER TABLE "job_logs" ADD COLUMN IF NOT EXISTS "assignedTo" TEXT`,
+      `CREATE INDEX IF NOT EXISTS "job_logs_assignedTo_idx" ON "job_logs"("assignedTo")`,
+      `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_logs_assignedTo_fkey') THEN
+          ALTER TABLE "job_logs" ADD CONSTRAINT "job_logs_assignedTo_fkey"
+          FOREIGN KEY ("assignedTo") REFERENCES "users"("id")
+          ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+      END $$`,
+    ],
+    description: 'Add assignedTo to job logs for team member assignment on Jobs page',
+  },
 ]
 
 export const handler = async (

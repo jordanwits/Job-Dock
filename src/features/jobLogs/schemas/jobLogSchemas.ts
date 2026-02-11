@@ -7,6 +7,7 @@ export const jobLogSchema = z.object({
   notes: z.string().optional(),
   jobId: z.string().optional(),
   contactId: z.string().optional(),
+  assignedTo: z.string().optional(),
   status: z.enum(['active', 'completed', 'inactive']).optional(),
 })
 

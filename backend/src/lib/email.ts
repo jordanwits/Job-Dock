@@ -476,6 +476,76 @@ View in Dashboard: ${process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'}/sc
 }
 
 /**
+ * Email template: Job assignment notification (to assigned team member)
+ */
+export function buildJobAssignmentNotificationEmail(data: {
+  assigneeName: string
+  assigneeEmail: string
+  assignerName: string
+  jobTitle: string
+  startTime: Date | null
+  endTime: Date | null
+  location?: string
+  contactName?: string
+}): EmailPayload {
+  const { assigneeName, assigneeEmail, assignerName, jobTitle, startTime, endTime, location, contactName } = data
+
+  const dateStr = startTime
+    ? startTime.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'To be scheduled'
+  const timeStr =
+    startTime && endTime
+      ? `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+      : ''
+
+  const subject = `You've been assigned: ${jobTitle}`
+
+  const htmlBody = `
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #D4AF37;">Job Assignment</h2>
+        <p>Hi ${assigneeName},</p>
+        <p><strong>${assignerName}</strong> has assigned you to a job.</p>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Job:</strong> ${jobTitle}</p>
+          ${contactName ? `<p style="margin: 5px 0;"><strong>Contact:</strong> ${contactName}</p>` : ''}
+          <p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
+          ${timeStr ? `<p style="margin: 5px 0;"><strong>Time:</strong> ${timeStr}</p>` : ''}
+          ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
+        </div>
+        <p><a href="${process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com'}/scheduling" style="background: #D4AF37; color: #0B132B; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View in Dashboard</a></p>
+      </body>
+    </html>
+  `
+
+  const textBody = `
+Job Assignment
+
+Hi ${assigneeName},
+
+${assignerName} has assigned you to a job.
+
+Job: ${jobTitle}
+${contactName ? `Contact: ${contactName}\n` : ''}Date: ${dateStr}
+${timeStr ? `Time: ${timeStr}\n` : ''}${location ? `Location: ${location}\n` : ''}
+
+View in Dashboard: ${process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com'}/scheduling
+  `.trim()
+
+  return {
+    to: assigneeEmail,
+    subject,
+    htmlBody,
+    textBody,
+  }
+}
+
+/**
  * Email template: Client booking confirmed (after pending)
  */
 export function buildClientBookingConfirmedEmail(data: {

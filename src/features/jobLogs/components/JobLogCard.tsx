@@ -78,8 +78,12 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
               <span className="text-xs text-primary-light/50">{subtitle}</span>
             )}
           </div>
-          {showCreatedBy && jobLog.job?.createdByName && (
-            <p className="text-xs text-primary-light/60 mt-1">Created by {jobLog.job.createdByName}</p>
+          {(showCreatedBy && (jobLog.job?.createdByName || jobLog.assignedToName)) && (
+            <p className="text-xs text-primary-light/60 mt-1">
+              {[jobLog.assignedToName && `Assigned to ${jobLog.assignedToName}`, jobLog.job?.createdByName && `Created by ${jobLog.job.createdByName}`]
+                .filter(Boolean)
+                .join(' • ')}
+            </p>
           )}
         </div>
 

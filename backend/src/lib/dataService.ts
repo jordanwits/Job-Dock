@@ -18,6 +18,7 @@ import {
   buildContractorNotificationEmail,
   buildClientBookingConfirmedEmail,
   buildClientBookingDeclinedEmail,
+  buildJobAssignmentNotificationEmail,
   sendQuoteEmail,
   sendInvoiceEmail,
 } from './email'
@@ -50,6 +51,59 @@ function parseValidDate(value: any): Date | null {
   if (!value) return null
   const date = new Date(value)
   return isNaN(date.getTime()) ? null : date
+}
+
+// Validate assignedTo is a tenant user (throws if invalid)
+async function validateAssignedTo(tenantId: string, assignedTo: string | null | undefined): Promise<void> {
+  if (!assignedTo || assignedTo.trim() === '') return
+  const user = await prisma.user.findFirst({
+    where: { id: assignedTo, tenantId },
+    select: { id: true },
+  })
+  if (!user) {
+    throw new ApiError('Assigned user must be a member of your team', 400)
+  }
+}
+
+// Send assignment notification email (call after successful create/update)
+async function sendAssignmentNotification(params: {
+  tenantId: string
+  assignedTo: string
+  assignerUserId: string | undefined
+  jobTitle: string
+  startTime: Date | null
+  endTime: Date | null
+  location: string | null | undefined
+  contactName?: string
+}): Promise<void> {
+  const { tenantId, assignedTo, assignerUserId, jobTitle, startTime, endTime, location, contactName } = params
+
+  const assignee = await prisma.user.findFirst({
+    where: { id: assignedTo, tenantId },
+    select: { id: true, name: true, email: true },
+  })
+  if (!assignee) return
+
+  if (assignee.id === assignerUserId) return
+
+  const assigner = assignerUserId
+    ? await prisma.user.findFirst({
+        where: { id: assignerUserId, tenantId },
+        select: { name: true },
+      })
+    : null
+
+  const payload = buildJobAssignmentNotificationEmail({
+    assigneeName: assignee.name || 'there',
+    assigneeEmail: assignee.email,
+    assignerName: assigner?.name || 'Your team',
+    jobTitle,
+    startTime,
+    endTime,
+    location: location || undefined,
+    contactName,
+  })
+  await sendEmail(payload)
 }
 
 // Helper to generate recurrence instances
@@ -342,6 +396,7 @@ async function createRecurringJobs(params: {
           include: {
             contact: true,
             service: true,
+            assignedToUser: { select: { id: true, name: true, email: true } },
           },
         })
       )
@@ -1462,6 +1517,7 @@ export const dataServices = {
           contact: true,
           service: true,
           createdBy: { select: { name: true } },
+          assignedToUser: { select: { id: true, name: true, email: true } },
         },
         orderBy: [
           { toBeScheduled: 'desc' }, // Unscheduled jobs first
@@ -1472,7 +1528,12 @@ export const dataServices = {
     getById: async (tenantId: string, id: string) => {
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
-        include: { contact: true, service: true, createdBy: { select: { name: true } } },
+        include: {
+          contact: true,
+          service: true,
+          createdBy: { select: { name: true } },
+          assignedToUser: { select: { id: true, name: true, email: true } },
+        },
       })
       if (!job) throw new Error('Job not found')
       return job
@@ -1482,6 +1543,8 @@ export const dataServices = {
 
       const toBeScheduled = payload.toBeScheduled === true
 
+      await validateAssignedTo(tenantId, payload.assignedTo)
+
       // Validate: recurrence requires scheduled times
       if (payload.recurrence && toBeScheduled) {
         throw new ApiError('Recurring jobs must have scheduled times', 400)
@@ -1489,7 +1552,7 @@ export const dataServices = {
 
       // If toBeScheduled, create without times and skip conflict checks
       if (toBeScheduled) {
-        return prisma.job.create({
+        const job = await prisma.job.create({
           data: {
             tenantId,
             title: payload.title,
@@ -1509,8 +1572,21 @@ export const dataServices = {
             breaks: undefined,
             createdById: payload.createdById ?? undefined,
           },
-          include: { contact: true, service: true, createdBy: { select: { name: true } } },
+          include: { contact: true, service: true, createdBy: { select: { name: true } }, assignedToUser: { select: { id: true, name: true, email: true } } },
         })
+        if (job.assignedTo) {
+          sendAssignmentNotification({
+            tenantId,
+            assignedTo: job.assignedTo,
+            assignerUserId: payload.createdById,
+            jobTitle: job.title,
+            startTime: null,
+            endTime: null,
+            location: job.location,
+            contactName: job.contact ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim() || undefined : undefined,
+          }).catch((e) => console.error('Failed to send assignment notification:', e))
+        }
+        return job
       }
 
       // Otherwise, require times
@@ -1532,7 +1608,7 @@ export const dataServices = {
 
       // If recurrence is provided, use the recurring jobs logic
       if (payload.recurrence) {
-        return createRecurringJobs({
+        const recurringResult = await createRecurringJobs({
           tenantId,
           title: payload.title,
           description: payload.description,
@@ -1552,11 +1628,24 @@ export const dataServices = {
           forceBooking,
           createdById: payload.createdById ?? undefined,
         })
+        if (recurringResult.assignedTo) {
+          sendAssignmentNotification({
+            tenantId,
+            assignedTo: recurringResult.assignedTo,
+            assignerUserId: payload.createdById,
+            jobTitle: recurringResult.title,
+            startTime: recurringResult.startTime,
+            endTime: recurringResult.endTime,
+            location: recurringResult.location,
+            contactName: recurringResult.contact ? `${recurringResult.contact.firstName ?? ''} ${recurringResult.contact.lastName ?? ''}`.trim() || undefined : undefined,
+          }).catch((e) => console.error('Failed to send assignment notification:', e))
+        }
+        return recurringResult
       }
 
       // Double booking check removed - allowing overlapping jobs
 
-      return prisma.job.create({
+      const job = await prisma.job.create({
         data: {
           tenantId,
           title: payload.title,
@@ -1576,8 +1665,21 @@ export const dataServices = {
           breaks: payload.breaks || null,
           createdById: payload.createdById ?? undefined,
         },
-        include: { contact: true, service: true, createdBy: { select: { name: true } } },
+        include: { contact: true, service: true, createdBy: { select: { name: true } }, assignedToUser: { select: { id: true, name: true, email: true } } },
       })
+      if (job.assignedTo) {
+        sendAssignmentNotification({
+          tenantId,
+          assignedTo: job.assignedTo,
+          assignerUserId: payload.createdById,
+          jobTitle: job.title,
+          startTime: job.startTime,
+          endTime: job.endTime,
+          location: job.location,
+          contactName: job.contact ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim() || undefined : undefined,
+        }).catch((e) => console.error('Failed to send assignment notification:', e))
+      }
+      return job
     },
     update: async (tenantId: string, id: string, payload: any) => {
       console.log('🔄 Job update called:', {
@@ -1620,6 +1722,10 @@ export const dataServices = {
       if (payload.notes !== undefined) updateData.notes = payload.notes
       if (payload.assignedTo !== undefined) updateData.assignedTo = payload.assignedTo
       if (payload.breaks !== undefined) updateData.breaks = payload.breaks
+
+      const actingUserId = payload._actingUserId
+
+      await validateAssignedTo(tenantId, updateData.assignedTo ?? payload.assignedTo)
 
       // Validate and parse dates if provided
       if (payload.startTime !== undefined) {
@@ -1736,6 +1842,19 @@ export const dataServices = {
 
         console.log('✅ Converted job to recurring series')
 
+        if (recurringJobsResult.assignedTo) {
+          sendAssignmentNotification({
+            tenantId,
+            assignedTo: recurringJobsResult.assignedTo,
+            assignerUserId: actingUserId,
+            jobTitle: recurringJobsResult.title,
+            startTime: recurringJobsResult.startTime,
+            endTime: recurringJobsResult.endTime,
+            location: recurringJobsResult.location,
+            contactName: recurringJobsResult.contact ? `${recurringJobsResult.contact.firstName ?? ''} ${recurringJobsResult.contact.lastName ?? ''}`.trim() || undefined : undefined,
+          }).catch((e) => console.error('Failed to send assignment notification:', e))
+        }
+
         // Return the first job in the series
         return recurringJobsResult
       }
@@ -1790,21 +1909,47 @@ export const dataServices = {
 
         console.log('✅ All future jobs updated successfully')
 
-        // Return the original job with updates applied
-        return prisma.job.findFirst({
+        const updatedJob = await prisma.job.findFirst({
           where: { id },
-          include: { contact: true, service: true },
+          include: { contact: true, service: true, assignedToUser: { select: { id: true, name: true, email: true } } },
         })
+        const newAssignedTo = updateData.assignedTo !== undefined ? updateData.assignedTo : existingJob.assignedTo
+        if (newAssignedTo && newAssignedTo !== existingJob.assignedTo && updatedJob) {
+          sendAssignmentNotification({
+            tenantId,
+            assignedTo: newAssignedTo,
+            assignerUserId: actingUserId,
+            jobTitle: updatedJob.title,
+            startTime: updatedJob.startTime,
+            endTime: updatedJob.endTime,
+            location: updatedJob.location,
+            contactName: updatedJob.contact ? `${updatedJob.contact.firstName ?? ''} ${updatedJob.contact.lastName ?? ''}`.trim() || undefined : undefined,
+          }).catch((e) => console.error('Failed to send assignment notification:', e))
+        }
+        return updatedJob
       }
 
       console.log('📝 Updating single job only')
 
-      // Single job update (default behavior)
-      return prisma.job.update({
+      const updatedJob = await prisma.job.update({
         where: { id },
         data: updateData,
-        include: { contact: true, service: true },
+        include: { contact: true, service: true, assignedToUser: { select: { id: true, name: true, email: true } } },
       })
+      const newAssignedTo = updateData.assignedTo !== undefined ? updateData.assignedTo : existingJob.assignedTo
+      if (newAssignedTo && newAssignedTo !== existingJob.assignedTo) {
+        sendAssignmentNotification({
+          tenantId,
+          assignedTo: newAssignedTo,
+          assignerUserId: actingUserId,
+          jobTitle: updatedJob.title,
+          startTime: updatedJob.startTime,
+          endTime: updatedJob.endTime,
+          location: updatedJob.location,
+          contactName: updatedJob.contact ? `${updatedJob.contact.firstName ?? ''} ${updatedJob.contact.lastName ?? ''}`.trim() || undefined : undefined,
+        }).catch((e) => console.error('Failed to send assignment notification:', e))
+      }
+      return updatedJob
     },
     delete: async (tenantId: string, id: string, deleteAll?: boolean) => {
       // Soft delete - archives the job
@@ -2957,6 +3102,7 @@ export const dataServices = {
         include: {
           job: { include: { createdBy: { select: { name: true } } } },
           contact: true,
+          assignedToUser: { select: { id: true, name: true } },
           timeEntries: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -2998,6 +3144,7 @@ export const dataServices = {
               )
           return {
             ...log,
+            assignedToName: (log as any).assignedToUser?.name,
             job: log.job
               ? {
                   id: log.job.id,
@@ -3030,6 +3177,7 @@ export const dataServices = {
         include: {
           job: { include: { createdBy: { select: { name: true } } } },
           contact: true,
+          assignedToUser: { select: { id: true, name: true } },
           timeEntries: true,
         },
       })
@@ -3064,6 +3212,7 @@ export const dataServices = {
           )
       return {
         ...jobLog,
+        assignedToName: (jobLog as any).assignedToUser?.name,
         job: jobLog.job
           ? {
               id: jobLog.job.id,
@@ -3097,9 +3246,13 @@ export const dataServices = {
     },
     create: async (tenantId: string, payload: any) => {
       await ensureTenantExists(tenantId)
+      const assignedTo = payload.assignedTo && payload.assignedTo.trim() ? payload.assignedTo : null
+      if (assignedTo) {
+        await validateAssignedTo(tenantId, assignedTo)
+      }
       const jobId = payload.jobId && payload.jobId.trim() ? payload.jobId : null
       const contactId = payload.contactId && payload.contactId.trim() ? payload.contactId : null
-      return prisma.jobLog.create({
+      const created = await prisma.jobLog.create({
         data: {
           tenantId,
           title: payload.title,
@@ -3108,10 +3261,12 @@ export const dataServices = {
           notes: payload.notes ?? null,
           jobId,
           contactId,
+          assignedTo,
           status: payload.status ?? 'active',
         },
-        include: { job: true, contact: true, timeEntries: true },
+        include: { job: true, contact: true, assignedToUser: { select: { id: true, name: true } }, timeEntries: true },
       })
+      return { ...created, assignedToName: (created as any).assignedToUser?.name }
     },
     update: async (tenantId: string, id: string, payload: any) => {
       await ensureTenantExists(tenantId)
@@ -3123,7 +3278,11 @@ export const dataServices = {
       }
       const jobId = payload.jobId !== undefined ? (payload.jobId && payload.jobId.trim() ? payload.jobId : null) : undefined
       const contactId = payload.contactId !== undefined ? (payload.contactId && payload.contactId.trim() ? payload.contactId : null) : undefined
-      return prisma.jobLog.update({
+      const assignedTo = payload.assignedTo !== undefined ? (payload.assignedTo && payload.assignedTo.trim() ? payload.assignedTo : null) : undefined
+      if (assignedTo !== undefined && assignedTo) {
+        await validateAssignedTo(tenantId, assignedTo)
+      }
+      const updated = await prisma.jobLog.update({
         where: { id },
         data: {
           title: payload.title,
@@ -3132,10 +3291,12 @@ export const dataServices = {
           notes: payload.notes ?? undefined,
           jobId,
           contactId,
+          assignedTo,
           status: payload.status ?? undefined,
         },
-        include: { job: true, contact: true, timeEntries: true },
+        include: { job: true, contact: true, assignedToUser: { select: { id: true, name: true } }, timeEntries: true },
       })
+      return { ...updated, assignedToName: (updated as any).assignedToUser?.name }
     },
     delete: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)
