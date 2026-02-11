@@ -23,6 +23,12 @@ const TOUR_STEPS: TourStep[] = [
       'Manage all your contacts in one place. Add customers, track their information, and keep notes about your interactions.',
   },
   {
+    path: '/app/job-logs',
+    title: 'Jobs',
+    description:
+      'Create jobs, track time, capture photos, and take notes on jobsites. Manage your job log entries and link them to scheduled work.',
+  },
+  {
     path: '/app/quotes',
     title: 'Quotes',
     description:
