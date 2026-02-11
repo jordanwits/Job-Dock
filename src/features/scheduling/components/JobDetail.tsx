@@ -320,7 +320,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               <button
                 onClick={() => {
                   onClose()
-                  navigate('/quotes')
+                  navigate(`/app/quotes?open=${linkedQuote.id}`)
                 }}
                 className="text-primary-gold hover:underline text-sm"
               >
@@ -332,7 +332,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               <button
                 onClick={() => {
                   onClose()
-                  navigate('/invoices')
+                  navigate(`/app/invoices?open=${linkedInvoice.id}`)
                 }}
                 className="text-primary-gold hover:underline text-sm"
               >

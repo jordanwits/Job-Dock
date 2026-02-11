@@ -11,6 +11,7 @@ const QuotesPage = () => {
   const navigate = useNavigate()
   const returnTo = searchParams.get('returnTo')
   const openCreateQuote = searchParams.get('openCreateQuote') === '1'
+  const openQuoteId = searchParams.get('open')
   const [createQuoteDefaults, setCreateQuoteDefaults] = useState<{
     contactId?: string
     title?: string
@@ -20,6 +21,7 @@ const QuotesPage = () => {
     selectedQuote,
     createQuote,
     sendQuote,
+    getQuoteById,
     isLoading,
     error,
     setSelectedQuote,
@@ -71,6 +73,16 @@ const QuotesPage = () => {
       // Error handled by store
     }
   }
+
+  // Open specific quote when arriving with open=quoteId (e.g. from job detail linked document)
+  useEffect(() => {
+    if (openQuoteId) {
+      getQuoteById(openQuoteId)
+      const params = new URLSearchParams(searchParams)
+      params.delete('open')
+      setSearchParams(params, { replace: true })
+    }
+  }, [openQuoteId])
 
   // Open create form when arriving with openCreateQuote=1 (e.g. from job detail)
   useEffect(() => {

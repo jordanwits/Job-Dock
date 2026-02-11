@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useInvoiceStore } from '../store/invoiceStore'
 import InvoiceList from '../components/InvoiceList'
 import InvoiceForm from '../components/InvoiceForm'
@@ -6,10 +7,13 @@ import InvoiceDetail from '../components/InvoiceDetail'
 import { Button, Modal, Card } from '@/components/ui'
 
 const InvoicesPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const openInvoiceId = searchParams.get('open')
   const {
     selectedInvoice,
     createInvoice,
     sendInvoice,
+    getInvoiceById,
     isLoading,
     error,
     setSelectedInvoice,
@@ -47,6 +51,16 @@ const InvoicesPage = () => {
       // Error handled by store
     }
   }
+
+  // Open specific invoice when arriving with open=invoiceId (e.g. from job detail linked document)
+  useEffect(() => {
+    if (openInvoiceId) {
+      getInvoiceById(openInvoiceId)
+      const params = new URLSearchParams(searchParams)
+      params.delete('open')
+      setSearchParams(params, { replace: true })
+    }
+  }, [openInvoiceId])
 
   // Keyboard shortcut: CMD+N / CTRL+N to create new invoice
   useEffect(() => {

@@ -471,7 +471,6 @@ const InvoiceDetail = ({
         onClose={() => setShowScheduleJob(false)}
         defaultContactId={invoice.contactId}
         defaultTitle={`Job for invoice ${invoice.invoiceNumber}`}
-        defaultNotes={`Created from invoice ${invoice.invoiceNumber}`}
         sourceContext="invoice"
         invoiceId={invoice.id}
         initialInvoiceId={invoice.id}

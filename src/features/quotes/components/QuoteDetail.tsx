@@ -378,7 +378,6 @@ const QuoteDetail = ({
         onClose={() => setShowScheduleJob(false)}
         defaultContactId={quote.contactId}
         defaultTitle={`Job for quote ${quote.quoteNumber}`}
-        defaultNotes={`Created from quote ${quote.quoteNumber}`}
         sourceContext="quote"
         quoteId={quote.id}
         initialQuoteId={quote.id}

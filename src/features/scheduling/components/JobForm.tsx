@@ -199,12 +199,6 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         setValue('contactId', quote.contactId)
         setValue('quoteId', quote.id)
         setValue('invoiceId', '')
-        
-        // Prepend note about source if notes are empty
-        const currentNotes = watch('notes')
-        if (!currentNotes || currentNotes === defaultNotes) {
-          setValue('notes', `Created from quote ${quote.quoteNumber}`)
-        }
       }
     } else if (selectedSource.type === 'invoice' && selectedSource.id) {
       const invoice = invoices.find((i) => i.id === selectedSource.id)
@@ -212,12 +206,6 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         setValue('contactId', invoice.contactId)
         setValue('invoiceId', invoice.id)
         setValue('quoteId', '')
-        
-        // Prepend note about source if notes are empty
-        const currentNotes = watch('notes')
-        if (!currentNotes || currentNotes === defaultNotes) {
-          setValue('notes', `Created from invoice ${invoice.invoiceNumber}`)
-        }
       }
     } else if (selectedSource.type === 'none') {
       setValue('quoteId', '')
@@ -228,7 +216,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         setValue('notes', defaultNotes || '')
       }
     }
-  }, [selectedSource, quotes, invoices, setValue, watch, defaultContactId, defaultTitle, defaultNotes, job, isCustomTitle])
+  }, [selectedSource, quotes, invoices, setValue, defaultContactId, defaultTitle, defaultNotes, job, isCustomTitle])
 
   useEffect(() => {
     if (selectedServiceId) {

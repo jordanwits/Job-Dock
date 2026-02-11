@@ -66,7 +66,7 @@ const Modal = ({
           ? 'items-end sm:items-center justify-center'
           : 'items-center justify-center overflow-y-auto'
       )}
-      onClick={closeOnOverlayClick ? onClose : undefined}
+      onMouseDown={closeOnOverlayClick ? (e) => { if (e.target === e.currentTarget) onClose() } : undefined}
     >
       <div
         className={cn(
@@ -76,7 +76,7 @@ const Modal = ({
             : 'my-auto max-h-[95vh] sm:max-h-[90vh]',
           sizes[size]
         )}
-        onClick={e => e.stopPropagation()}
+        onMouseDown={e => e.stopPropagation()}
       >
         {/* Header */}
         {(title || headerRight || closeOnOverlayClick) && (
@@ -125,7 +125,7 @@ const Modal = ({
           'fixed inset-0 -z-10',
           transparentBackdrop ? 'bg-black/20' : 'bg-black/50 backdrop-blur-sm'
         )}
-        onClick={closeOnOverlayClick ? onClose : undefined}
+        onMouseDown={closeOnOverlayClick ? onClose : undefined}
       />
     </div>
   )
