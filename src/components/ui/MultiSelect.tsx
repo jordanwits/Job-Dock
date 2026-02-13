@@ -18,6 +18,7 @@ export interface MultiSelectProps {
 const MultiSelect = forwardRef<HTMLInputElement, MultiSelectProps>(
   ({ className, label, error, helperText, options, value = [], onChange, onBlur, name, disabled, placeholder = 'Select team members', ...props }, ref) => {
     const [isOpen, setIsOpen] = useState(false)
+    const [openAbove, setOpenAbove] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
@@ -44,16 +45,58 @@ const MultiSelect = forwardRef<HTMLInputElement, MultiSelectProps>(
       }
     }, [isOpen, onBlur])
 
-    // Scroll dropdown into view when it opens
+    // Calculate dropdown position when it opens and ensure visibility
     useEffect(() => {
-      if (isOpen && dropdownRef.current) {
+      if (isOpen && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        const viewportHeight = window.innerHeight
+        const spaceBelow = viewportHeight - rect.bottom
+        const spaceAbove = rect.top
+        const dropdownHeight = 256 // max-h-64 = 256px
+        
+        // Open upward if there's not enough space below but enough space above
+        const shouldOpenAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
+        setOpenAbove(shouldOpenAbove)
+        
+        // Find the closest scrollable parent (modal content area)
+        let scrollParent: HTMLElement | null = containerRef.current.parentElement
+        while (scrollParent && scrollParent !== document.body) {
+          const style = window.getComputedStyle(scrollParent)
+          if (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflow === 'auto' || style.overflow === 'scroll') {
+            break
+          }
+          scrollParent = scrollParent.parentElement
+        }
+        
+        // Scroll to ensure dropdown is visible
         setTimeout(() => {
-          dropdownRef.current?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'nearest'
-          })
-        }, 10)
+          if (containerRef.current && scrollParent) {
+            const containerRect = containerRef.current.getBoundingClientRect()
+            const parentRect = scrollParent.getBoundingClientRect()
+            const dropdownBottom = shouldOpenAbove 
+              ? containerRect.top - 8 // mb-2 = 8px
+              : containerRect.bottom + dropdownHeight + 8 // mt-2 = 8px
+            
+            // If dropdown would be clipped, scroll the parent
+            if (shouldOpenAbove) {
+              // Opening upward - ensure top is visible
+              if (containerRect.top < parentRect.top) {
+                scrollParent.scrollBy({
+                  top: containerRect.top - parentRect.top - 20,
+                  behavior: 'smooth'
+                })
+              }
+            } else {
+              // Opening downward - ensure bottom is visible
+              if (dropdownBottom > parentRect.bottom) {
+                scrollParent.scrollBy({
+                  top: dropdownBottom - parentRect.bottom + 20,
+                  behavior: 'smooth'
+                })
+              }
+            }
+          }
+        }, 50)
       }
     }, [isOpen])
 
@@ -85,7 +128,7 @@ const MultiSelect = forwardRef<HTMLInputElement, MultiSelectProps>(
     }
 
     return (
-      <div className={cn('w-full', className)}>
+      <div className={cn('w-full', isOpen && !openAbove && 'pb-32', className)}>
         {label && (
           <label className="block text-sm font-medium text-primary-light mb-2">
             {label}
@@ -162,9 +205,12 @@ const MultiSelect = forwardRef<HTMLInputElement, MultiSelectProps>(
           {isOpen && (
             <div
               ref={dropdownRef}
-              className="absolute z-50 mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl max-h-64 overflow-y-auto"
+              className={cn(
+                "absolute z-[9999] w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl max-h-64 overflow-y-auto",
+                openAbove ? "bottom-full mb-2" : "top-full mt-2"
+              )}
             >
-              <div className="p-2">
+              <div className="p-2 space-y-1">
                 {options.map((option) => {
                   const isSelected = value.includes(option.value)
 
