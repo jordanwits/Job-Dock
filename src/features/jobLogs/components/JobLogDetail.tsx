@@ -190,11 +190,21 @@ const JobLogDetail = ({
             </span>
           </div>
           {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-col gap-2 mt-2">
               {jobLog.assignedToName && (
-                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words">
-                  Assigned to {jobLog.assignedToName}
-                </span>
+                <div>
+                  <span className="text-xs font-medium text-primary-light/70 mb-1.5 block">Assigned to</span>
+                  <div className="flex flex-wrap gap-2">
+                    {jobLog.assignedToName.split(',').map((name, index) => (
+                      <span
+                        key={index}
+                        className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words"
+                      >
+                        {name.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
               {showCreatedBy && jobLog.job?.createdByName && (
                 <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words">

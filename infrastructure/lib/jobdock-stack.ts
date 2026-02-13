@@ -42,11 +42,27 @@ export class JobDockStack extends cdk.Stack {
     // ============================================
     const useNatInstance = config.network.natStrategy === 'instance'
 
+    // IMPORTANT:
+    // We must not create our own duplicate `0.0.0.0/0` routes for private subnets.
+    // The `ec2.Vpc` construct already creates and owns the private subnet DefaultRoute
+    // resources when using `PRIVATE_WITH_EGRESS`. Creating an additional `AWS::EC2::Route`
+    // for the same route table + destination causes CloudFormation to fail with:
+    // "The route identified by 0.0.0.0/0 already exists."
+    //
+    // To keep deployments stable, we use CDK's built-in NAT providers so the VPC construct
+    // manages the NAT resources + routes consistently.
+
+    const enableNat = config.env !== 'prod'
+    // NOTE:
+    // NAT Instance support in CDK v2 is deprecated and can fail to resolve a suitable AMI
+    // (we hit: "No AMI found that matched the search criteria").
+    // To keep deployments reliable, use NAT Gateway for non-prod.
+    const natGatewayProvider = enableNat ? ec2.NatProvider.gateway() : undefined
+
     this.vpc = new ec2.Vpc(this, 'VPC', {
       maxAzs: 2, // Multi-AZ for high availability
-      // IMPORTANT: we manage egress routing ourselves (NAT instance OR NAT gateways)
-      // to avoid CloudFormation route conflicts when switching strategies.
-      natGateways: 0,
+      natGateways: enableNat ? 1 : 0,
+      ...(enableNat && natGatewayProvider ? { natGatewayProvider } : {}),
       subnetConfiguration: [
         {
           cidrMask: 24,
@@ -60,134 +76,6 @@ export class JobDockStack extends cdk.Stack {
         },
       ],
     })
-
-    // --- Egress strategy ---
-    //
-    // We always create the "0.0.0.0/0" routes with stable logical IDs:
-    // - PrivateSubnetNatRoute0
-    // - PrivateSubnetNatRoute1
-    //
-    // This allows switching between NAT instance and NAT gateway without
-    // conflicting routes being created.
-
-    // Create NAT Instance if using instance strategy (cheaper, but requires management)
-    let natInstanceId: string | undefined
-    if (useNatInstance) {
-      // Use Amazon Linux 2023 with NAT configured
-      const natInstanceSecurityGroup = new ec2.SecurityGroup(this, 'NatInstanceSecurityGroup', {
-        vpc: this.vpc,
-        description: 'Security group for NAT instance',
-        allowAllOutbound: true,
-      })
-
-      // Allow traffic from private subnets
-      natInstanceSecurityGroup.addIngressRule(
-        ec2.Peer.ipv4(this.vpc.vpcCidrBlock),
-        ec2.Port.allTraffic(),
-        'Allow traffic from VPC'
-      )
-
-      // Use t4g.nano for cost optimization (~$3/mo)
-      const natInstance = new ec2.Instance(this, 'NatInstance', {
-        vpc: this.vpc,
-        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.NANO),
-        machineImage: ec2.MachineImage.latestAmazonLinux2023({
-          cpuType: ec2.AmazonLinuxCpuType.ARM_64,
-        }),
-        vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-        securityGroup: natInstanceSecurityGroup,
-        sourceDestCheck: false, // Required for NAT
-        userData: ec2.UserData.custom(`#!/bin/bash
-# Enable IP forwarding
-echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
-sysctl -p
-
-# Configure NAT
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-iptables -A FORWARD -i eth0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
-iptables -A FORWARD -i eth0 -o eth0 -j ACCEPT
-
-# Persist iptables rules
-mkdir -p /etc/iptables
-iptables-save > /etc/iptables/rules.v4
-
-# Restore on boot
-cat > /etc/systemd/system/iptables-restore.service <<EOF
-[Unit]
-Description=Restore iptables rules
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/sbin/iptables-restore /etc/iptables/rules.v4
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl enable iptables-restore.service
-`),
-      })
-      natInstanceId = natInstance.instanceId
-
-      new cdk.CfnOutput(this, 'NatInstanceId', {
-        value: natInstance.instanceId,
-        description: 'NAT Instance ID (change to NAT Gateway when scaling)',
-        exportName: `JobDock-${config.env}-NatInstanceId`,
-      })
-    }
-
-    // Create NAT Gateways if using gateway strategy (reliable, managed, costs more)
-    // Skip NAT Gateway for production - Lambda and RDS don't need it (Lambda outside VPC, RDS public)
-    const natGatewayIds: string[] = []
-    if (!useNatInstance && config.env !== 'prod') {
-      const publicSubnets = this.vpc.publicSubnets
-
-      // Create one NAT gateway per AZ (or per public subnet)
-      publicSubnets.forEach((subnet, index) => {
-        const eip = new ec2.CfnEIP(this, `NatEip${index}`, {
-          domain: 'vpc',
-        })
-
-        const natGateway = new ec2.CfnNatGateway(this, `NatGateway${index}`, {
-          subnetId: subnet.subnetId,
-          allocationId: eip.attrAllocationId,
-        })
-        natGateway.node.addDependency(eip)
-
-        natGatewayIds[index] = natGateway.ref
-      })
-    }
-
-    // Create/maintain the private subnet default routes with stable logical IDs.
-    // In instance mode: route → NAT instance
-    // In gateway mode:  route → NAT gateway (same AZ index if available, else first)
-    // Skip NAT routes for production - Lambda outside VPC and RDS in public subnet don't need NAT
-    if (config.env !== 'prod') {
-      this.vpc.privateSubnets.forEach((subnet, index) => {
-        const natGatewayId = natGatewayIds[index] ?? natGatewayIds[0]
-
-        if (useNatInstance) {
-          if (!natInstanceId) {
-            throw new Error('NAT instance ID was not set (unexpected)')
-          }
-          new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
-            routeTableId: subnet.routeTable.routeTableId,
-            destinationCidrBlock: '0.0.0.0/0',
-            instanceId: natInstanceId,
-          })
-        } else {
-          if (!natGatewayId) {
-            throw new Error('NAT gateway ID was not set (unexpected)')
-          }
-          new ec2.CfnRoute(this, `PrivateSubnetNatRoute${index}`, {
-            routeTableId: subnet.routeTable.routeTableId,
-            destinationCidrBlock: '0.0.0.0/0',
-            natGatewayId: natGatewayId,
-          })
-        }
-      })
-    }
 
     // Helper to select correct private subnet type
     const privateSubnetSelection = { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }

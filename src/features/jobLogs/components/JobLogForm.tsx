@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { jobLogSchema, type JobLogFormData } from '../schemas/jobLogSchemas'
 import type { JobLog } from '../types/jobLog'
 import { Input, Button, Select } from '@/components/ui'
+import MultiSelect from '@/components/ui/MultiSelect'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
@@ -85,7 +86,7 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
       title: jobLog?.title ?? '',
       location: jobLog?.location ?? '',
       contactId: jobLog?.contactId ?? '',
-      assignedTo: jobLog?.assignedTo ?? '',
+      assignedTo: Array.isArray(jobLog?.assignedTo) ? jobLog.assignedTo : jobLog?.assignedTo ? [jobLog.assignedTo] : [],
       status: (jobLog?.status === 'archived' ? 'inactive' : jobLog?.status) ?? 'active',
     },
   })
@@ -143,14 +144,12 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
           name="assignedTo"
           control={control}
           render={({ field }) => (
-            <Select
+            <MultiSelect
               label="Assign to"
-              value={field.value || ''}
-              onChange={(e) => field.onChange(e.target.value || '')}
-              options={[
-                { value: '', label: 'Unassigned' },
-                ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
-              ]}
+              value={Array.isArray(field.value) ? field.value : field.value ? [field.value] : []}
+              onChange={(value) => field.onChange(value)}
+              options={teamMembers.map((m) => ({ value: m.id, label: m.name }))}
+              placeholder="Select team members"
             />
           )}
         />

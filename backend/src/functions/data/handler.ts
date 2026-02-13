@@ -960,8 +960,10 @@ We look forward to working with you!',
         /* body may be missing */
       }
       if (payload && payload.assignedTo !== undefined) {
-        const newAssignee = payload.assignedTo && String(payload.assignedTo).trim()
-        if (newAssignee) {
+        const hasAssignee = Array.isArray(payload.assignedTo) 
+          ? payload.assignedTo.length > 0
+          : typeof payload.assignedTo === 'string' && payload.assignedTo.trim() !== ''
+        if (hasAssignee) {
           if (currentUser.role === 'employee') {
             return errorResponse('Only admins and owners can assign jobs to team members', 403)
           }
@@ -1341,8 +1343,12 @@ async function handlePost(
         throw new ApiError('You do not have permission to schedule appointments. You can create jobs without scheduled times.', 403)
       }
       
-      const newAssignee = payload?.assignedTo && String(payload.assignedTo).trim()
-      if (newAssignee) {
+      const hasAssignee = payload?.assignedTo 
+        ? (Array.isArray(payload.assignedTo) 
+            ? payload.assignedTo.length > 0
+            : typeof payload.assignedTo === 'string' && payload.assignedTo.trim() !== '')
+        : false
+      if (hasAssignee) {
         if (user?.role === 'employee') {
           throw new ApiError('Only admins and owners can assign jobs to team members', 403)
         }

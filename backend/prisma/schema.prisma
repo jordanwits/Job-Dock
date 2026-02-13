@@ -55,8 +55,6 @@ model User {
   updatedAt             DateTime  @updatedAt
   tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   jobsCreated           Job[]
-  jobsAssigned          Job[]     @relation("JobAssignedTo")
-  jobLogsAssigned       JobLog[]  @relation("JobLogAssignedTo")
 
   @@index([tenantId])
   @@index([cognitoId])
@@ -248,10 +246,10 @@ model Job {
   location      String?
   price         Decimal?       @db.Decimal(10, 2)
   notes         String?
-  assignedTo    String?
+  assignedTo    Json?      // Array of user IDs: ["id1", "id2", ...]
   breaks        Json?
   deletedAt     DateTime?
-  archivedAt    DateTime?
+  archivedAt   DateTime?
   createdById   String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -262,12 +260,10 @@ model Job {
   recurrence    JobRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdBy        User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  assignedToUser   User?          @relation("JobAssignedTo", fields: [assignedTo], references: [id], onDelete: SetNull)
   jobLogs          JobLog[]
 
   @@index([tenantId])
   @@index([createdById])
-  @@index([assignedTo])
   @@index([contactId])
   @@index([serviceId])
   @@index([quoteId])
@@ -291,18 +287,16 @@ model JobLog {
   notes       String?
   jobId       String?
   contactId   String?
-  assignedTo  String?
+  assignedTo  Json?      // Array of user IDs: ["id1", "id2", ...]
   status      String      @default("active")
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   job         Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
   contact     Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  assignedToUser User?    @relation("JobLogAssignedTo", fields: [assignedTo], references: [id], onDelete: SetNull)
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   timeEntries TimeEntry[]
 
   @@index([tenantId])
-  @@index([assignedTo])
   @@index([jobId])
   @@index([contactId])
   @@index([status])

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { jobSchema, type JobFormData } from '../schemas/jobSchemas'
 import { Job, RecurrenceFrequency, JobBreak } from '../types/job'
 import { Input, Button, Select, DatePicker, TimePicker } from '@/components/ui'
+import MultiSelect from '@/components/ui/MultiSelect'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
@@ -172,7 +173,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       location: job?.location || defaultLocation || '',
       price: job?.price?.toString() || defaultPrice?.toString() || '',
       notes: job?.notes || defaultNotes || '',
-      assignedTo: job?.assignedTo || '',
+      assignedTo: Array.isArray(job?.assignedTo) ? job.assignedTo : job?.assignedTo ? [job.assignedTo] : [],
     },
   })
 
@@ -283,7 +284,9 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         quoteId: dataWithoutTimes.quoteId || undefined,
         invoiceId: dataWithoutTimes.invoiceId || undefined,
         serviceId: dataWithoutTimes.serviceId || undefined,
-        assignedTo: (dataWithoutTimes.assignedTo && dataWithoutTimes.assignedTo.trim()) || null,
+        assignedTo: Array.isArray(dataWithoutTimes.assignedTo) && dataWithoutTimes.assignedTo.length > 0 
+          ? dataWithoutTimes.assignedTo 
+          : null,
         // Convert price string to number, or undefined if empty
         price: convertPrice(dataWithoutTimes.price),
       }
@@ -337,7 +340,9 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
       quoteId: data.quoteId || undefined,
       invoiceId: data.invoiceId || undefined,
       serviceId: data.serviceId || undefined,
-      assignedTo: (data.assignedTo && data.assignedTo.trim()) || null,
+        assignedTo: Array.isArray(data.assignedTo) && data.assignedTo.length > 0 
+          ? data.assignedTo 
+          : null,
       // Convert price string to number, or undefined if empty
       price: convertPrice(data.price),
     }
@@ -624,15 +629,13 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
           name="assignedTo"
           control={control}
           render={({ field }) => (
-            <Select
+            <MultiSelect
               label="Assign to"
-              value={field.value || ''}
-              onChange={(e) => field.onChange(e.target.value || '')}
+              value={Array.isArray(field.value) ? field.value : field.value ? [field.value] : []}
+              onChange={(value) => field.onChange(value)}
               error={errors.assignedTo?.message}
-              options={[
-                { value: '', label: 'Unassigned' },
-                ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
-              ]}
+              options={teamMembers.map((m) => ({ value: m.id, label: m.name }))}
+              placeholder="Select team members"
             />
           )}
         />

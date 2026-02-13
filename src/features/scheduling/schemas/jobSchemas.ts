@@ -28,7 +28,13 @@ export const jobSchema = z.object({
   location: z.string().optional(),
   price: z.string().optional().or(z.number().optional()),
   notes: z.string().optional(),
-  assignedTo: z.string().optional(),
+  assignedTo: z.union([z.string().array(), z.string()]).optional().transform((val) => {
+    // Transform string to array for backward compatibility
+    if (!val) return undefined
+    if (Array.isArray(val)) return val
+    if (typeof val === 'string' && val.trim() !== '') return [val]
+    return undefined
+  }),
   breaks: z.array(jobBreakSchema).optional(),
   recurrence: recurrenceSchema.optional(),
 })

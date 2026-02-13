@@ -213,10 +213,15 @@ const QuoteDetail = ({
             <div>
               <h2 className="text-2xl font-bold text-primary-light">{quote.quoteNumber}</h2>
               {quote.contactName && (
-                <p className="text-primary-light/70 mt-1">
-                  {quote.contactName}
-                  {quote.contactCompany && ` - ${quote.contactCompany}`}
-                </p>
+                <div className="mt-1">
+                  <p className="text-primary-light/70">
+                    {quote.contactName}
+                    {quote.contactCompany && ` - ${quote.contactCompany}`}
+                  </p>
+                  {quote.contactEmail && (
+                    <p className="text-sm text-primary-light/50 mt-1">{quote.contactEmail}</p>
+                  )}
+                </div>
               )}
             </div>
             <StatusBadgeSelect

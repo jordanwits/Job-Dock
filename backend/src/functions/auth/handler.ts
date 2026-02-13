@@ -402,7 +402,7 @@ async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<AP
     const errorName = typeof error?.name === 'string' ? error.name : undefined
     if (errorName === 'InvalidPasswordException') {
       return errorResponse(
-        'Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, and numbers.',
+        'Password does not meet requirements. Must be at least 12 characters with uppercase, lowercase, number, and special character (!@#$%^&*).',
         400
       )
     }

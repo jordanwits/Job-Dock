@@ -599,36 +599,6 @@ const PENDING_MIGRATIONS = [
     description: 'Add early access request and allowlist tables for gated signup',
   },
   {
-    name: '20260213000000_add_job_assigned_to_user_relation',
-    statements: [
-      `CREATE INDEX IF NOT EXISTS "jobs_assignedTo_idx" ON "jobs"("assignedTo")`,
-      `UPDATE "jobs" SET "assignedTo" = NULL WHERE "assignedTo" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "users" WHERE "users"."id" = "jobs"."assignedTo")`,
-      `DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'jobs_assignedTo_fkey') THEN
-          ALTER TABLE "jobs" ADD CONSTRAINT "jobs_assignedTo_fkey"
-          FOREIGN KEY ("assignedTo") REFERENCES "users"("id")
-          ON DELETE SET NULL ON UPDATE CASCADE;
-        END IF;
-      END $$`,
-    ],
-    description: 'Add User relation for job assignedTo (for team assignment)',
-  },
-  {
-    name: '20260214000000_add_job_log_assigned_to',
-    statements: [
-      `ALTER TABLE "job_logs" ADD COLUMN IF NOT EXISTS "assignedTo" TEXT`,
-      `CREATE INDEX IF NOT EXISTS "job_logs_assignedTo_idx" ON "job_logs"("assignedTo")`,
-      `DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_logs_assignedTo_fkey') THEN
-          ALTER TABLE "job_logs" ADD CONSTRAINT "job_logs_assignedTo_fkey"
-          FOREIGN KEY ("assignedTo") REFERENCES "users"("id")
-          ON DELETE SET NULL ON UPDATE CASCADE;
-        END IF;
-      END $$`,
-    ],
-    description: 'Add assignedTo to job logs for team member assignment on Jobs page',
-  },
-  {
     name: '20260215000000_add_user_permission_fields',
     statements: [
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "canCreateJobs" BOOLEAN NOT NULL DEFAULT true`,
@@ -648,6 +618,87 @@ const PENDING_MIGRATIONS = [
       `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "trackPayment" BOOLEAN NOT NULL DEFAULT true`,
     ],
     description: 'Add trackResponse and trackPayment fields to Invoice table',
+  },
+  {
+    name: '20260217000000_change_assigned_to_to_json_array',
+    statements: [
+      `ALTER TABLE "jobs" DROP CONSTRAINT IF EXISTS "jobs_assignedTo_fkey"`,
+      `ALTER TABLE "job_logs" DROP CONSTRAINT IF EXISTS "job_logs_assignedTo_fkey"`,
+      `DROP INDEX IF EXISTS "jobs_assignedTo_idx"`,
+      `DROP INDEX IF EXISTS "job_logs_assignedTo_idx"`,
+      // Ensure columns exist (older environments may not have job_logs.assignedTo yet)
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "assignedTo" TEXT`,
+      `ALTER TABLE "job_logs" ADD COLUMN IF NOT EXISTS "assignedTo" TEXT`,
+
+      // Migrate jobs.assignedTo:
+      // - TEXT userId          -> JSONB ["userId"]
+      // - TEXT '["userId"]'    -> JSONB ["userId"]
+      // - JSONB "userId"       -> JSONB ["userId"]
+      // - JSONB ["u1","u2"]    -> unchanged
+      `DO $$
+      DECLARE col_type TEXT;
+      BEGIN
+        SELECT data_type INTO col_type
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'jobs'
+          AND column_name = 'assignedTo';
+
+        IF col_type = 'text' THEN
+          UPDATE "jobs"
+          SET "assignedTo" = CASE
+            WHEN "assignedTo" IS NULL OR "assignedTo"::text = '' THEN NULL
+            WHEN left(trim("assignedTo"::text), 1) = '[' THEN "assignedTo"::text
+            ELSE jsonb_build_array("assignedTo"::text)::text
+          END
+          WHERE "assignedTo" IS NOT NULL;
+
+          ALTER TABLE "jobs"
+            ALTER COLUMN "assignedTo" TYPE jsonb
+            USING CASE
+              WHEN "assignedTo" IS NULL OR "assignedTo"::text = '' THEN NULL
+              ELSE "assignedTo"::jsonb
+            END;
+        ELSIF col_type = 'jsonb' THEN
+          UPDATE "jobs"
+          SET "assignedTo" = jsonb_build_array("assignedTo")
+          WHERE "assignedTo" IS NOT NULL AND jsonb_typeof("assignedTo") <> 'array';
+        END IF;
+      END $$`,
+
+      // Migrate job_logs.assignedTo with same rules as jobs.assignedTo
+      `DO $$
+      DECLARE col_type TEXT;
+      BEGIN
+        SELECT data_type INTO col_type
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'job_logs'
+          AND column_name = 'assignedTo';
+
+        IF col_type = 'text' THEN
+          UPDATE "job_logs"
+          SET "assignedTo" = CASE
+            WHEN "assignedTo" IS NULL OR "assignedTo"::text = '' THEN NULL
+            WHEN left(trim("assignedTo"::text), 1) = '[' THEN "assignedTo"::text
+            ELSE jsonb_build_array("assignedTo"::text)::text
+          END
+          WHERE "assignedTo" IS NOT NULL;
+
+          ALTER TABLE "job_logs"
+            ALTER COLUMN "assignedTo" TYPE jsonb
+            USING CASE
+              WHEN "assignedTo" IS NULL OR "assignedTo"::text = '' THEN NULL
+              ELSE "assignedTo"::jsonb
+            END;
+        ELSIF col_type = 'jsonb' THEN
+          UPDATE "job_logs"
+          SET "assignedTo" = jsonb_build_array("assignedTo")
+          WHERE "assignedTo" IS NOT NULL AND jsonb_typeof("assignedTo") <> 'array';
+        END IF;
+      END $$`,
+    ],
+    description: 'Change assignedTo from TEXT to JSONB array to support multiple team member assignments',
   },
 ]
 

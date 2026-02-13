@@ -53,22 +53,77 @@ function parseValidDate(value: any): Date | null {
   return isNaN(date.getTime()) ? null : date
 }
 
-// Validate assignedTo is a tenant user (throws if invalid)
-async function validateAssignedTo(tenantId: string, assignedTo: string | null | undefined): Promise<void> {
-  if (!assignedTo || assignedTo.trim() === '') return
-  const user = await prisma.user.findFirst({
-    where: { id: assignedTo, tenantId },
+// Normalize assignedTo to array format for storage
+function normalizeAssignedTo(assignedTo: string | string[] | null | undefined): string[] | null {
+  if (!assignedTo) return null
+  
+  if (Array.isArray(assignedTo)) {
+    const filtered = assignedTo.filter(id => id && typeof id === 'string' && id.trim() !== '')
+    return filtered.length > 0 ? filtered : null
+  }
+  
+  if (typeof assignedTo === 'string' && assignedTo.trim() !== '') {
+    return [assignedTo.trim()]
+  }
+  
+  return null
+}
+
+// Fetch assigned users and create assignedToName string
+async function getAssignedToName(tenantId: string, assignedTo: any): Promise<string | undefined> {
+  if (!assignedTo) return undefined
+  
+  const userIds = Array.isArray(assignedTo) 
+    ? assignedTo.filter(id => id && typeof id === 'string')
+    : typeof assignedTo === 'string' && assignedTo.trim() !== ''
+      ? [assignedTo.trim()]
+      : []
+  
+  if (userIds.length === 0) return undefined
+  
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds }, tenantId },
+    select: { name: true },
+  })
+  
+  const names = users.map(u => u.name).filter(Boolean)
+  return names.length > 0 ? names.join(', ') : undefined
+}
+
+// Validate assignedTo is a tenant user or array of user IDs (throws if invalid)
+async function validateAssignedTo(tenantId: string, assignedTo: string | string[] | null | undefined): Promise<void> {
+  if (!assignedTo) return
+  
+  // Handle both string (single) and array (multiple) formats for backward compatibility
+  const userIds = Array.isArray(assignedTo) 
+    ? assignedTo.filter(id => id && typeof id === 'string' && id.trim() !== '')
+    : typeof assignedTo === 'string' && assignedTo.trim() !== '' 
+      ? [assignedTo.trim()] 
+      : []
+  
+  if (userIds.length === 0) return
+  
+  // Validate all user IDs belong to the tenant
+  const users = await prisma.user.findMany({
+    where: { 
+      id: { in: userIds },
+      tenantId 
+    },
     select: { id: true },
   })
-  if (!user) {
-    throw new ApiError('Assigned user must be a member of your team', 400)
+  
+  const foundIds = new Set(users.map(u => u.id))
+  const invalidIds = userIds.filter(id => !foundIds.has(id))
+  
+  if (invalidIds.length > 0) {
+    throw new ApiError(`Assigned user(s) must be members of your team. Invalid IDs: ${invalidIds.join(', ')}`, 400)
   }
 }
 
 // Send assignment notification email (call after successful create/update)
 async function sendAssignmentNotification(params: {
   tenantId: string
-  assignedTo: string
+  assignedTo: string | string[] | null | undefined
   assignerUserId: string | undefined
   jobTitle: string
   startTime: Date | null
@@ -79,13 +134,27 @@ async function sendAssignmentNotification(params: {
 }): Promise<void> {
   const { tenantId, assignedTo, assignerUserId, jobTitle, startTime, endTime, location, contactName, viewPath } = params
 
-  const assignee = await prisma.user.findFirst({
-    where: { id: assignedTo, tenantId },
+  if (!assignedTo) return
+  
+  // Handle both string (single) and array (multiple) formats
+  const userIds = Array.isArray(assignedTo)
+    ? assignedTo.filter(id => id && typeof id === 'string' && id.trim() !== '')
+    : typeof assignedTo === 'string' && assignedTo.trim() !== ''
+      ? [assignedTo.trim()]
+      : []
+  
+  if (userIds.length === 0) return
+
+  // Get all assignees
+  const assignees = await prisma.user.findMany({
+    where: { 
+      id: { in: userIds },
+      tenantId 
+    },
     select: { id: true, name: true, email: true },
   })
-  if (!assignee) return
 
-  if (assignee.id === assignerUserId) return
+  if (assignees.length === 0) return
 
   const assigner = assignerUserId
     ? await prisma.user.findFirst({
@@ -101,20 +170,25 @@ async function sendAssignmentNotification(params: {
   const fromName = settings?.companyDisplayName || 'JobDock'
   const replyTo = settings?.companySupportEmail || undefined
 
-  const payload = buildJobAssignmentNotificationEmail({
-    assigneeName: assignee.name || 'there',
-    assigneeEmail: assignee.email,
-    assignerName: assigner?.name || 'Your team',
-    jobTitle,
-    startTime,
-    endTime,
-    location: location || undefined,
-    contactName,
-    viewPath,
-    fromName,
-    replyTo,
-  })
-  await sendEmail(payload)
+  // Send notification to each assignee (excluding the assigner)
+  for (const assignee of assignees) {
+    if (assignee.id === assignerUserId) continue
+
+    const payload = buildJobAssignmentNotificationEmail({
+      assigneeName: assignee.name || 'there',
+      assigneeEmail: assignee.email,
+      assignerName: assigner?.name || 'Your team',
+      jobTitle,
+      startTime,
+      endTime,
+      location: location || undefined,
+      contactName,
+      viewPath,
+      fromName,
+      replyTo,
+    })
+    await sendEmail(payload)
+  }
 }
 
 // Helper to generate recurrence instances
@@ -283,7 +357,7 @@ async function createRecurringJobs(params: {
   location?: string
   price?: number
   notes?: string
-  assignedTo?: string
+  assignedTo?: string | string[] | null
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
   recurrence: RecurrencePayload
   forceBooking?: boolean
@@ -304,13 +378,28 @@ async function createRecurringJobs(params: {
     location,
     price,
     notes,
-    assignedTo,
+    assignedTo: assignedToParam,
     breaks,
     recurrence,
     forceBooking = false,
     excludeJobId,
     createdById,
   } = params
+
+  // JobRecurrence.assignedTo is String? - convert array to first element for now (schema not yet migrated)
+  const assignedToForRecurrence =
+    assignedToParam == null
+      ? null
+      : Array.isArray(assignedToParam)
+        ? assignedToParam[0] && typeof assignedToParam[0] === 'string'
+          ? assignedToParam[0]
+          : null
+        : typeof assignedToParam === 'string' && assignedToParam.trim() !== ''
+          ? assignedToParam
+          : null
+
+  // Jobs use Json (array) - normalize to array
+  const assignedToForJobs = normalizeAssignedTo(assignedToParam)
 
   return await prisma.$transaction(async tx => {
     // 1. Create the JobRecurrence record
@@ -323,7 +412,7 @@ async function createRecurringJobs(params: {
         description,
         location,
         notes,
-        assignedTo,
+        assignedTo: assignedToForRecurrence,
         status: 'active',
         frequency: recurrence.frequency,
         interval: recurrence.interval,
@@ -400,22 +489,24 @@ async function createRecurringJobs(params: {
             location,
             price: price !== undefined ? price : null,
             notes,
-            assignedTo,
+            assignedTo: assignedToForJobs,
             breaks: undefined, // Recurring jobs don't have breaks initially
             createdById: createdById ?? undefined,
           },
           include: {
             contact: true,
             service: true,
-            assignedToUser: { select: { id: true, name: true, email: true } },
           },
         })
       )
     )
 
     // Return the first job with recurrence metadata
+    const firstJob = jobs[0]
+    const assignedToName = await getAssignedToName(tenantId, firstJob.assignedTo)
     return {
-      ...jobs[0],
+      ...firstJob,
+      assignedToName,
       recurrenceId: jobRecurrence.id,
       occurrenceCount: jobs.length,
     }
@@ -1509,7 +1600,7 @@ export const dataServices = {
       showDeleted?: boolean
     ) => {
       await ensureTenantExists(tenantId)
-      return prisma.job.findMany({
+      const jobs = await prisma.job.findMany({
         where: {
           tenantId,
           // Filter archived jobs based on includeArchived flag
@@ -1536,13 +1627,22 @@ export const dataServices = {
           contact: true,
           service: true,
           createdBy: { select: { name: true } },
-          assignedToUser: { select: { id: true, name: true, email: true } },
         },
         orderBy: [
           { toBeScheduled: 'desc' }, // Unscheduled jobs first
           { startTime: 'asc' },
         ],
       })
+      
+      // Map assignedToName for all jobs
+      const jobsWithNames = await Promise.all(
+        jobs.map(async (job) => {
+          const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+          return { ...job, assignedToName }
+        })
+      )
+      
+      return jobsWithNames
     },
     getById: async (tenantId: string, id: string) => {
       const job = await prisma.job.findFirst({
@@ -1551,11 +1651,11 @@ export const dataServices = {
           contact: true,
           service: true,
           createdBy: { select: { name: true } },
-          assignedToUser: { select: { id: true, name: true, email: true } },
         },
       })
       if (!job) throw new Error('Job not found')
-      return job
+      const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+      return { ...job, assignedToName }
     },
     create: async (tenantId: string, payload: any) => {
       await ensureTenantExists(tenantId)
@@ -1568,6 +1668,9 @@ export const dataServices = {
       if (payload.recurrence && toBeScheduled) {
         throw new ApiError('Recurring jobs must have scheduled times', 400)
       }
+
+      // Normalize assignedTo to array format
+      const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
 
       // If toBeScheduled, create without times and skip conflict checks
       if (toBeScheduled) {
@@ -1587,16 +1690,16 @@ export const dataServices = {
             location: payload.location,
             price: payload.price !== undefined ? payload.price : null,
             notes: payload.notes,
-            assignedTo: payload.assignedTo,
+            assignedTo: normalizedAssignedTo,
             breaks: undefined,
             createdById: payload.createdById ?? undefined,
           },
-          include: { contact: true, service: true, createdBy: { select: { name: true } }, assignedToUser: { select: { id: true, name: true, email: true } } },
+          include: { contact: true, service: true, createdBy: { select: { name: true } } },
         })
-        if (job.assignedTo) {
+        if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
           sendAssignmentNotification({
             tenantId,
-            assignedTo: job.assignedTo,
+            assignedTo: normalizedAssignedTo,
             assignerUserId: payload.createdById,
             jobTitle: job.title,
             startTime: null,
@@ -1605,7 +1708,8 @@ export const dataServices = {
             contactName: job.contact ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim() || undefined : undefined,
           }).catch((e) => console.error('Failed to send assignment notification:', e))
         }
-        return job
+        const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+        return { ...job, assignedToName }
       }
 
       // Otherwise, require times
@@ -1641,7 +1745,7 @@ export const dataServices = {
           location: payload.location,
           price: payload.price,
           notes: payload.notes,
-          assignedTo: payload.assignedTo,
+          assignedTo: normalizedAssignedTo,
           breaks: payload.breaks,
           recurrence: payload.recurrence,
           forceBooking,
@@ -1680,12 +1784,13 @@ export const dataServices = {
           location: payload.location,
           price: payload.price !== undefined ? payload.price : null,
           notes: payload.notes,
-          assignedTo: payload.assignedTo,
+          assignedTo: normalizedAssignedTo,
           breaks: payload.breaks || null,
           createdById: payload.createdById ?? undefined,
         },
-        include: { contact: true, service: true, createdBy: { select: { name: true } }, assignedToUser: { select: { id: true, name: true, email: true } } },
+        include: { contact: true, service: true, createdBy: { select: { name: true } } },
       })
+      const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
       if (job.assignedTo) {
         sendAssignmentNotification({
           tenantId,
@@ -1739,7 +1844,7 @@ export const dataServices = {
         updateData.price = payload.price !== null && payload.price !== '' ? payload.price : null
       }
       if (payload.notes !== undefined) updateData.notes = payload.notes
-      if (payload.assignedTo !== undefined) updateData.assignedTo = payload.assignedTo
+      if (payload.assignedTo !== undefined) updateData.assignedTo = normalizeAssignedTo(payload.assignedTo)
       if (payload.breaks !== undefined) updateData.breaks = payload.breaks
 
       const actingUserId = payload._actingUserId
@@ -1930,10 +2035,11 @@ export const dataServices = {
 
         const updatedJob = await prisma.job.findFirst({
           where: { id },
-          include: { contact: true, service: true, assignedToUser: { select: { id: true, name: true, email: true } } },
+          include: { contact: true, service: true },
         })
+        const assignedToName = await getAssignedToName(tenantId, updatedJob.assignedTo)
         const newAssignedTo = updateData.assignedTo !== undefined ? updateData.assignedTo : existingJob.assignedTo
-        if (newAssignedTo && newAssignedTo !== existingJob.assignedTo && updatedJob) {
+        if (newAssignedTo && JSON.stringify(newAssignedTo) !== JSON.stringify(existingJob.assignedTo) && updatedJob) {
           sendAssignmentNotification({
             tenantId,
             assignedTo: newAssignedTo,
@@ -1945,7 +2051,7 @@ export const dataServices = {
             contactName: updatedJob.contact ? `${updatedJob.contact.firstName ?? ''} ${updatedJob.contact.lastName ?? ''}`.trim() || undefined : undefined,
           }).catch((e) => console.error('Failed to send assignment notification:', e))
         }
-        return updatedJob
+        return { ...updatedJob, assignedToName }
       }
 
       console.log('📝 Updating single job only')
@@ -1953,10 +2059,11 @@ export const dataServices = {
       const updatedJob = await prisma.job.update({
         where: { id },
         data: updateData,
-        include: { contact: true, service: true, assignedToUser: { select: { id: true, name: true, email: true } } },
+        include: { contact: true, service: true },
       })
+      const assignedToName = await getAssignedToName(tenantId, updatedJob.assignedTo)
       const newAssignedTo = updateData.assignedTo !== undefined ? updateData.assignedTo : existingJob.assignedTo
-      if (newAssignedTo && newAssignedTo !== existingJob.assignedTo) {
+      if (newAssignedTo && JSON.stringify(newAssignedTo) !== JSON.stringify(existingJob.assignedTo)) {
         sendAssignmentNotification({
           tenantId,
           assignedTo: newAssignedTo,
@@ -1968,7 +2075,7 @@ export const dataServices = {
           contactName: updatedJob.contact ? `${updatedJob.contact.firstName ?? ''} ${updatedJob.contact.lastName ?? ''}`.trim() || undefined : undefined,
         }).catch((e) => console.error('Failed to send assignment notification:', e))
       }
-      return updatedJob
+      return { ...updatedJob, assignedToName }
     },
     delete: async (tenantId: string, id: string, deleteAll?: boolean) => {
       // Soft delete - archives the job
@@ -3121,7 +3228,6 @@ export const dataServices = {
         include: {
           job: { include: { createdBy: { select: { name: true } } } },
           contact: true,
-          assignedToUser: { select: { id: true, name: true } },
           timeEntries: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -3163,7 +3269,7 @@ export const dataServices = {
               )
           return {
             ...log,
-            assignedToName: (log as any).assignedToUser?.name,
+            assignedToName: await getAssignedToName(tenantId, log.assignedTo),
             job: log.job
               ? {
                   id: log.job.id,
@@ -3196,13 +3302,13 @@ export const dataServices = {
         include: {
           job: { include: { createdBy: { select: { name: true } } } },
           contact: true,
-          assignedToUser: { select: { id: true, name: true } },
           timeEntries: true,
         },
       })
       if (!jobLog) {
         throw new ApiError('Job log not found', 404)
       }
+      const assignedToName = await getAssignedToName(tenantId, jobLog.assignedTo)
       // Fetch photos (Documents) from DB and add URLs (proxy preferred to avoid S3 ERR_CONNECTION_RESET)
       const documents = await prisma.document.findMany({
         where: { tenantId, entityType: 'job_log', entityId: id },
@@ -3231,7 +3337,7 @@ export const dataServices = {
           )
       return {
         ...jobLog,
-        assignedToName: (jobLog as any).assignedToUser?.name,
+        assignedToName,
         job: jobLog.job
           ? {
               id: jobLog.job.id,
@@ -3265,9 +3371,9 @@ export const dataServices = {
     },
     create: async (tenantId: string, payload: any) => {
       await ensureTenantExists(tenantId)
-      const assignedTo = payload.assignedTo && payload.assignedTo.trim() ? payload.assignedTo : null
-      if (assignedTo) {
-        await validateAssignedTo(tenantId, assignedTo)
+      const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
+      if (normalizedAssignedTo) {
+        await validateAssignedTo(tenantId, normalizedAssignedTo)
       }
       const jobId = payload.jobId && payload.jobId.trim() ? payload.jobId : null
       const contactId = payload.contactId && payload.contactId.trim() ? payload.contactId : null
@@ -3280,17 +3386,17 @@ export const dataServices = {
           notes: payload.notes ?? null,
           jobId,
           contactId,
-          assignedTo,
+          assignedTo: normalizedAssignedTo,
           status: payload.status ?? 'active',
         },
-        include: { job: true, contact: true, assignedToUser: { select: { id: true, name: true } }, timeEntries: true },
+        include: { job: true, contact: true, timeEntries: true },
       })
-      if (created.assignedTo) {
+      if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
         const job = created.job
         const contact = created.contact
         sendAssignmentNotification({
           tenantId,
-          assignedTo: created.assignedTo,
+          assignedTo: normalizedAssignedTo,
           assignerUserId: payload._actingUserId,
           jobTitle: created.title,
           startTime: job?.startTime ?? null,
@@ -3300,7 +3406,16 @@ export const dataServices = {
           viewPath: '/app/job-logs',
         }).catch((e) => console.error('Failed to send job log assignment notification:', e))
       }
-      return { ...created, assignedToName: (created as any).assignedToUser?.name }
+      // Fetch assigned users separately since we're using JSON array
+      const assignedUserIds = Array.isArray(created.assignedTo) ? created.assignedTo : created.assignedTo ? [created.assignedTo] : []
+      const assignedUsers = assignedUserIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: assignedUserIds }, tenantId },
+            select: { id: true, name: true },
+          })
+        : []
+      const assignedToNames = assignedUsers.map(u => u.name).filter(Boolean).join(', ')
+      return { ...created, assignedToName: assignedToNames || undefined, assignedToUsers: assignedUsers }
     },
     update: async (tenantId: string, id: string, payload: any) => {
       await ensureTenantExists(tenantId)
@@ -3312,9 +3427,9 @@ export const dataServices = {
       }
       const jobId = payload.jobId !== undefined ? (payload.jobId && payload.jobId.trim() ? payload.jobId : null) : undefined
       const contactId = payload.contactId !== undefined ? (payload.contactId && payload.contactId.trim() ? payload.contactId : null) : undefined
-      const assignedTo = payload.assignedTo !== undefined ? (payload.assignedTo && payload.assignedTo.trim() ? payload.assignedTo : null) : undefined
-      if (assignedTo !== undefined && assignedTo) {
-        await validateAssignedTo(tenantId, assignedTo)
+      const normalizedAssignedTo = payload.assignedTo !== undefined ? normalizeAssignedTo(payload.assignedTo) : undefined
+      if (normalizedAssignedTo !== undefined && normalizedAssignedTo) {
+        await validateAssignedTo(tenantId, normalizedAssignedTo)
       }
       const updated = await prisma.jobLog.update({
         where: { id },
@@ -3325,13 +3440,13 @@ export const dataServices = {
           notes: payload.notes ?? undefined,
           jobId,
           contactId,
-          assignedTo,
+          assignedTo: normalizedAssignedTo,
           status: payload.status ?? undefined,
         },
-        include: { job: true, contact: true, assignedToUser: { select: { id: true, name: true } }, timeEntries: true },
+        include: { job: true, contact: true, timeEntries: true },
       })
-      const newAssignedTo = assignedTo !== undefined ? assignedTo : existing.assignedTo
-      if (newAssignedTo && newAssignedTo !== existing.assignedTo) {
+      const newAssignedTo = normalizedAssignedTo !== undefined ? normalizedAssignedTo : (existing.assignedTo as string[] | null)
+      if (newAssignedTo && JSON.stringify(newAssignedTo) !== JSON.stringify(existing.assignedTo)) {
         const job = updated.job
         const contact = updated.contact
         sendAssignmentNotification({
@@ -3346,7 +3461,16 @@ export const dataServices = {
           viewPath: '/app/job-logs',
         }).catch((e) => console.error('Failed to send job log assignment notification:', e))
       }
-      return { ...updated, assignedToName: (updated as any).assignedToUser?.name }
+      // Fetch assigned users separately since we're using JSON array
+      const assignedUserIds = Array.isArray(updated.assignedTo) ? updated.assignedTo : updated.assignedTo ? [updated.assignedTo] : []
+      const assignedUsers = assignedUserIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: assignedUserIds }, tenantId },
+            select: { id: true, name: true },
+          })
+        : []
+      const assignedToNames = assignedUsers.map(u => u.name).filter(Boolean).join(', ')
+      return { ...updated, assignedToName: assignedToNames || undefined, assignedToUsers: assignedUsers }
     },
     delete: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)

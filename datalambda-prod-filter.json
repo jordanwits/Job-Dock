@@ -1,0 +1,41 @@
+﻿{
+    "events": [
+        {
+            "logStreamName": "2026/02/12/[$LATEST]f1e22cbc6e9b4e28a965fc77a37b1199",
+            "timestamp": 1770931552415,
+            "message": "INIT_START Runtime Version: nodejs:20.v95\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1\n",
+            "ingestionTime": 1770931557169,
+            "eventId": "39493093314445193819098098711985510869846729291575263232"
+        },
+        {
+            "logStreamName": "2026/02/12/[$LATEST]9032a050e68f417a93d50cb00ad80cdc",
+            "timestamp": 1770931552423,
+            "message": "INIT_START Runtime Version: nodejs:20.v95\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1\n",
+            "ingestionTime": 1770931558534,
+            "eventId": "39493093314623599780686343698767955868594032246729474048"
+        },
+        {
+            "logStreamName": "2026/02/12/[$LATEST]110240affbd64250aed0602d292f3889",
+            "timestamp": 1770931552424,
+            "message": "INIT_START Runtime Version: nodejs:20.v95\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1\n",
+            "ingestionTime": 1770931559978,
+            "eventId": "39493093314645900525884874323655484563666034079557353472"
+        },
+        {
+            "logStreamName": "2026/02/12/[$LATEST]c56dcb2a96a54007beaee2352851b7cc",
+            "timestamp": 1770931552429,
+            "message": "INIT_START Runtime Version: nodejs:20.v95\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1\n",
+            "ingestionTime": 1770931553079,
+            "eventId": "39493093314757404251877527431022585047381629828239982592"
+        },
+        {
+            "logStreamName": "2026/02/12/[$LATEST]86eaf4056d9b4e3ab2258e7d3693aaa2",
+            "timestamp": 1770931552490,
+            "message": "INIT_START Runtime Version: nodejs:20.v95\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1\n",
+            "ingestionTime": 1770931556302,
+            "eventId": "39493093316117749708987895446552470393672183713472184320"
+        },
+        {
+            "logStreamName": "2026/02/12/[$LATEST]f1e22cbc6e9b4e28a965fc77a37b1199",
+            "timestamp": 1770931553021,
+            "message": 

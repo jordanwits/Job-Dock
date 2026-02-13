@@ -234,10 +234,15 @@ const InvoiceDetail = ({
             <div>
               <h2 className="text-2xl font-bold text-primary-light">{invoice.invoiceNumber}</h2>
               {invoice.contactName && (
-                <p className="text-primary-light/70 mt-1">
-                  {invoice.contactName}
-                  {invoice.contactCompany && ` - ${invoice.contactCompany}`}
-                </p>
+                <div className="mt-1">
+                  <p className="text-primary-light/70">
+                    {invoice.contactName}
+                    {invoice.contactCompany && ` - ${invoice.contactCompany}`}
+                  </p>
+                  {invoice.contactEmail && (
+                    <p className="text-sm text-primary-light/50 mt-1">{invoice.contactEmail}</p>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex flex-col gap-2 items-end">

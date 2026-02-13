@@ -300,8 +300,17 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
 
         {job.assignedToName && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Assigned to</h3>
-            <p className="text-primary-light">{job.assignedToName}</p>
+            <h3 className="text-sm font-medium text-primary-light/70 mb-3">Assigned to</h3>
+            <div className="flex flex-wrap gap-2">
+              {job.assignedToName.split(',').map((name, index) => (
+                <span
+                  key={index}
+                  className="inline-block px-3 py-1.5 rounded-md text-sm font-medium bg-primary-blue/20 text-primary-light border border-primary-blue/30"
+                >
+                  {name.trim()}
+                </span>
+              ))}
+            </div>
           </Card>
         )}
 
