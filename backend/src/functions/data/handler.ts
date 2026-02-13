@@ -450,6 +450,25 @@ We look forward to working with you!',
         })
 
         const appUrl = process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com'
+        
+        // Get tenant settings for branding
+        const settings = await prisma.tenantSettings.findUnique({
+          where: { tenantId },
+        })
+        
+        // Fetch logo URL if available (7 days expiration for email)
+        let logoUrl: string | null = null
+        if (settings?.logoUrl) {
+          try {
+            const { getFileUrl } = await import('../../lib/fileUpload')
+            logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+          } catch (error) {
+            console.error('Error fetching logo URL for email:', error)
+          }
+        }
+        
+        const companyName = settings?.companyDisplayName || 'JobDock'
+        
         const invitePayload = buildTeamInviteEmail({
           inviteeEmail: email.toLowerCase(),
           inviteeName: name,
@@ -457,6 +476,12 @@ We look forward to working with you!',
           role,
           tempPassword,
           appUrl,
+          companyName,
+          logoUrl,
+          settings: {
+            companySupportEmail: settings?.companySupportEmail || null,
+            companyPhone: settings?.companyPhone || null,
+          },
         })
         await sendEmail(invitePayload)
 

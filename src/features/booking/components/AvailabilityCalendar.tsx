@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, startOfWeek, endOfWeek } from 'date-fns'
+import { format, parse, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, startOfWeek, endOfWeek } from 'date-fns'
 import { Button, Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { DaySlots, AvailableSlot } from '../types/booking'
@@ -164,7 +164,7 @@ const AvailabilityCalendar = ({
           {selectedDate && selectedDateSlots.length > 0 && (
             <Card>
               <h3 className="text-sm font-semibold text-primary-light mb-3">
-                Available times for {format(new Date(selectedDate), 'EEEE, MMMM d')}
+                Available times for {format(parse(selectedDate, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d')}
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {selectedDateSlots.map((slot) => {

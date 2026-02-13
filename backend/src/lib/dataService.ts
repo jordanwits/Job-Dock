@@ -270,10 +270,20 @@ async function sendAssignmentNotification(params: {
 
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId },
-    select: { companyDisplayName: true, companySupportEmail: true },
   })
   const fromName = settings?.companyDisplayName || 'JobDock'
   const replyTo = settings?.companySupportEmail || undefined
+
+  // Fetch logo URL if available (7 days expiration for email)
+  let logoUrl: string | null = null
+  if (settings?.logoUrl) {
+    try {
+      const { getFileUrl } = await import('./fileUpload')
+      logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+    } catch (error) {
+      console.error('Error fetching logo URL for email:', error)
+    }
+  }
 
   // Send notification to each assignee (excluding the assigner)
   for (const assignee of assignees) {
@@ -291,6 +301,12 @@ async function sendAssignmentNotification(params: {
       viewPath,
       fromName,
       replyTo,
+      companyName: fromName,
+      logoUrl,
+      settings: {
+        companySupportEmail: settings?.companySupportEmail || null,
+        companyPhone: settings?.companyPhone || null,
+      },
     })
     await sendEmail(payload)
   }
@@ -2447,18 +2463,42 @@ export const dataServices = {
             where: { tenantId },
           })
 
+          // Get timezone offset from service availability settings
+          const serviceAvailability = (job.service?.availability as any) || {}
+          const timezoneOffset = serviceAvailability?.timezoneOffset ?? -8
+
+          // Fetch logo URL if available (7 days expiration for email)
+          let logoUrl: string | null = null
+          if (settings?.logoUrl) {
+            try {
+              const { getFileUrl } = await import('./fileUpload')
+              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+            } catch (error) {
+              console.error('Error fetching logo URL for email:', error)
+            }
+          }
+
+          const companyName = settings?.companyDisplayName || 'JobDock'
+
           const emailPayload = buildClientBookingConfirmedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             serviceName: job.service?.name || 'Service',
             startTime: job.startTime ? new Date(job.startTime) : new Date(),
             endTime: job.endTime ? new Date(job.endTime) : new Date(),
             location: job.location || undefined,
+            timezoneOffset,
+            companyName,
+            logoUrl,
+            settings: {
+              companySupportEmail: settings?.companySupportEmail || null,
+              companyPhone: settings?.companyPhone || null,
+            },
           })
 
           await sendEmail({
             ...emailPayload,
             to: job.contact.email,
-            fromName: settings?.companyDisplayName || 'JobDock',
+            fromName: companyName,
             replyTo: settings?.companySupportEmail || undefined,
           })
           console.log('✅ Confirmation email sent successfully')
@@ -2499,17 +2539,36 @@ export const dataServices = {
             where: { tenantId },
           })
 
+          // Fetch logo URL if available (7 days expiration for email)
+          let logoUrl: string | null = null
+          if (settings?.logoUrl) {
+            try {
+              const { getFileUrl } = await import('./fileUpload')
+              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+            } catch (error) {
+              console.error('Error fetching logo URL for email:', error)
+            }
+          }
+
+          const companyName = settings?.companyDisplayName || 'JobDock'
+
           const emailPayload = buildClientBookingDeclinedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             serviceName: job.service?.name || 'Service',
             startTime: job.startTime ? new Date(job.startTime) : new Date(),
             reason,
+            companyName,
+            logoUrl,
+            settings: {
+              companySupportEmail: settings?.companySupportEmail || null,
+              companyPhone: settings?.companyPhone || null,
+            },
           })
 
           await sendEmail({
             ...emailPayload,
             to: job.contact.email,
-            fromName: settings?.companyDisplayName || 'JobDock',
+            fromName: companyName,
             replyTo: settings?.companySupportEmail || undefined,
           })
           console.log('✅ Decline email sent successfully')
@@ -3020,6 +3079,21 @@ export const dataServices = {
           const companyName = settings?.companyDisplayName || 'JobDock'
           const replyToEmail = settings?.companySupportEmail || undefined
 
+          // Get timezone offset from service availability settings
+          const availability = service.availability as any
+          const timezoneOffset = availability?.timezoneOffset ?? -8
+
+          // Fetch logo URL if available (7 days expiration for email)
+          let logoUrl: string | null = null
+          if (settings?.logoUrl) {
+            try {
+              const { getFileUrl } = await import('./fileUpload')
+              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+            } catch (error) {
+              console.error('Error fetching logo URL for email:', error)
+            }
+          }
+
           if (clientEmail) {
             // Send email to client
             if (requireConfirmation) {
@@ -3029,6 +3103,13 @@ export const dataServices = {
                 serviceName: service.name,
                 startTime,
                 endTime,
+                timezoneOffset,
+                companyName,
+                logoUrl,
+                settings: {
+                  companySupportEmail: settings?.companySupportEmail || null,
+                  companyPhone: settings?.companyPhone || null,
+                },
               })
               await sendEmail({
                 ...emailPayload,
@@ -3045,6 +3126,13 @@ export const dataServices = {
                 startTime,
                 endTime,
                 location: payload.location,
+                timezoneOffset,
+                companyName,
+                logoUrl,
+                settings: {
+                  companySupportEmail: settings?.companySupportEmail || null,
+                  companyPhone: settings?.companyPhone || null,
+                },
               })
               await sendEmail({
                 ...emailPayload,
@@ -3069,6 +3157,12 @@ export const dataServices = {
               endTime,
               location: payload.location,
               isPending: requireConfirmation,
+              companyName,
+              logoUrl,
+              settings: {
+                companySupportEmail: settings?.companySupportEmail || null,
+                companyPhone: settings?.companyPhone || null,
+              },
             })
             await sendEmail({
               ...emailPayload,

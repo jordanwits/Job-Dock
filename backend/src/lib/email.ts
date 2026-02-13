@@ -29,6 +29,97 @@ export interface EmailPayload {
   replyTo?: string // Email address for replies
 }
 
+/**
+ * Get local time components from a UTC date based on timezone offset
+ * @param utcDate The UTC date
+ * @param timezoneOffset Hours offset from UTC (e.g., -8 for PST, -5 for EST)
+ * @returns Object with local time components
+ */
+function getLocalTimeComponents(utcDate: Date, timezoneOffset: number): {
+  year: number
+  month: number
+  day: number
+  hours: number
+  minutes: number
+  seconds: number
+} {
+  // Get UTC components
+  const utcYear = utcDate.getUTCFullYear()
+  const utcMonth = utcDate.getUTCMonth()
+  const utcDay = utcDate.getUTCDate()
+  const utcHours = utcDate.getUTCHours()
+  const utcMinutes = utcDate.getUTCMinutes()
+  const utcSeconds = utcDate.getUTCSeconds()
+  
+  // Calculate local time components
+  let localHours = utcHours + timezoneOffset
+  let localDay = utcDay
+  let localMonth = utcMonth
+  let localYear = utcYear
+  
+  // Handle day rollover
+  if (localHours < 0) {
+    localHours += 24
+    localDay--
+    if (localDay < 1) {
+      localMonth--
+      if (localMonth < 0) {
+        localMonth = 11
+        localYear--
+      }
+      localDay = new Date(Date.UTC(localYear, localMonth + 1, 0)).getUTCDate()
+    }
+  } else if (localHours >= 24) {
+    localHours -= 24
+    localDay++
+    const daysInMonth = new Date(Date.UTC(localYear, localMonth + 1, 0)).getUTCDate()
+    if (localDay > daysInMonth) {
+      localDay = 1
+      localMonth++
+      if (localMonth > 11) {
+        localMonth = 0
+        localYear++
+      }
+    }
+  }
+  
+  return {
+    year: localYear,
+    month: localMonth,
+    day: localDay,
+    hours: localHours,
+    minutes: utcMinutes,
+    seconds: utcSeconds,
+  }
+}
+
+/**
+ * Format time in 12-hour format with AM/PM
+ */
+function formatTime12Hour(hours: number, minutes: number): string {
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+  const displayMinutes = minutes.toString().padStart(2, '0')
+  return `${displayHours}:${displayMinutes} ${period}`
+}
+
+/**
+ * Format date in long format (e.g., "Monday, February 19, 2026")
+ */
+function formatDateLong(year: number, month: number, day: number): string {
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ]
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  
+  // Create a date to get the day of week
+  const date = new Date(Date.UTC(year, month, day))
+  const dayOfWeek = dayNames[date.getUTCDay()]
+  
+  return `${dayOfWeek}, ${monthNames[month]} ${day}, ${year}`
+}
+
 export interface EmailWithAttachment {
   to: string
   subject: string
@@ -169,6 +260,103 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
 }
 
 /**
+ * Build modern email template wrapper with header and footer
+ */
+function buildModernEmailTemplate(data: {
+  title: string
+  content: string
+  companyName?: string
+  logoUrl?: string | null
+  footerContent?: string
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
+}): string {
+  const { title, content, companyName = 'JobDock', logoUrl, footerContent, settings } = data
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>${title}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 30px 40px; background: linear-gradient(135deg, #0B132B 0%, #1A1F36 100%); border-radius: 8px 8px 0 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    ${logoUrl ? `
+                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; display: block;" />
+                    ` : `
+                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">${companyName}</h1>
+                    `}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">${title}</h2>
+              
+              ${content}
+              
+              ${footerContent || ''}
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px 40px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; border-radius: 0 0 8px 8px;">
+              ${settings?.companySupportEmail || settings?.companyPhone ? `
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                ${settings?.companySupportEmail ? `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                      Questions? Contact us at <a href="mailto:${settings.companySupportEmail}" style="color: #D4AF37; text-decoration: none;">${settings.companySupportEmail}</a>
+                    </p>
+                  </td>
+                </tr>
+                ` : ''}
+                ${settings?.companyPhone ? `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                      Call us at <a href="tel:${settings.companyPhone}" style="color: #D4AF37; text-decoration: none;">${settings.companyPhone}</a>
+                    </p>
+                  </td>
+                </tr>
+                ` : ''}
+              </table>
+              ` : ''}
+              <p style="margin: 20px 0 0 0; color: #999999; font-size: 12px; line-height: 1.5;">
+                This is an automated message. Please do not reply to this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim()
+}
+
+/**
  * Email template: Client booking confirmation (instant)
  */
 export function buildClientConfirmationEmail(data: {
@@ -179,33 +367,28 @@ export function buildClientConfirmationEmail(data: {
   location?: string
   tenantName?: string
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
+  timezoneOffset?: number // Hours offset from UTC (e.g., -8 for PST, -5 for EST)
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location, tenantName, breaks } = data
+  const { clientName, serviceName, startTime, endTime, location, tenantName, breaks, timezoneOffset = -8, companyName, logoUrl, settings } = data
+
+  // Get local time components
+  const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
+  const endLocal = getLocalTimeComponents(endTime, timezoneOffset)
 
   // Detect if this is a multi-day job
   const durationMs = endTime.getTime() - startTime.getTime()
   const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
 
-  const dateStr = startTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-  const endDateStr = endTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-  const startTimeStr = startTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-  const endTimeStr = endTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  const dateStr = formatDateLong(startLocal.year, startLocal.month, startLocal.day)
+  const endDateStr = formatDateLong(endLocal.year, endLocal.month, endLocal.day)
+  const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
+  const endTimeStr = formatTime12Hour(endLocal.hours, endLocal.minutes)
 
   const subject = `Your booking is confirmed - ${serviceName}`
 
@@ -214,13 +397,15 @@ export function buildClientConfirmationEmail(data: {
   if (breaks && breaks.length > 0) {
     const breaksList = breaks
       .map(b => {
-        const bStart = new Date(b.startTime)
-        const bEnd = new Date(b.endTime)
+        const bStartUTC = new Date(b.startTime)
+        const bEndUTC = new Date(b.endTime)
+        const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
+        const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
         const reason = b.reason ? ` (${b.reason})` : ''
         if (isMultiDay) {
-          return `<li style="margin: 5px 0;">${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}</li>`
+          return `<li style="margin: 5px 0;">${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}</li>`
         } else {
-          return `<li style="margin: 5px 0;">${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}</li>`
+          return `<li style="margin: 5px 0;">${formatTime12Hour(bStartLocal.hours, bStartLocal.minutes)} – ${formatTime12Hour(bEndLocal.hours, bEndLocal.minutes)}${reason}</li>`
         }
       })
       .join('')
@@ -236,44 +421,94 @@ export function buildClientConfirmationEmail(data: {
     `
   }
 
-  const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #D4AF37;">Booking Confirmed</h2>
-        <p>Hi ${clientName},</p>
-        <p>Your booking has been confirmed! Here are the details:</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          ${
-            isMultiDay
-              ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${dateStr} through ${endDateStr}</p>`
-              : `<p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
-               <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>`
-          }
-          ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
-          ${tenantName ? `<p style="margin: 5px 0;"><strong>Provider:</strong> ${tenantName}</p>` : ''}
-        </div>
-        ${breaksHtml}
-        <p>We look forward to seeing you!</p>
-        <p style="color: #666; font-size: 12px; margin-top: 30px;">
-          If you need to cancel or reschedule, please contact us as soon as possible.
-        </p>
-      </body>
-    </html>
+  const displayCompanyName = companyName || tenantName || 'JobDock'
+  
+  // Build booking details card
+  const bookingDetailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Service</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${serviceName}</p>
+              </td>
+            </tr>
+            ${isMultiDay ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Duration</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr} through ${endDateStr}</p>
+              </td>
+            </tr>
+            ` : `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Date</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Time</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${startTimeStr} - ${endTimeStr}</p>
+              </td>
+            </tr>
+            `}
+            ${location ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Location</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${location}</p>
+              </td>
+            </tr>
+            ` : ''}
+            ${tenantName ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Provider</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${tenantName}</p>
+              </td>
+            </tr>
+            ` : ''}
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Your booking has been confirmed! Here are the details:</p>
+    ${bookingDetailsCard}
+    ${breaksHtml}
+    <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">We look forward to seeing you!</p>
+    <p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">If you need to cancel or reschedule, please contact us as soon as possible.</p>
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Booking Confirmed',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   // Build breaks section for text version
   let breaksText = ''
   if (breaks && breaks.length > 0) {
     const breaksList = breaks
       .map(b => {
-        const bStart = new Date(b.startTime)
-        const bEnd = new Date(b.endTime)
+        const bStartUTC = new Date(b.startTime)
+        const bEndUTC = new Date(b.endTime)
+        const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
+        const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
         const reason = b.reason ? ` (${b.reason})` : ''
         if (isMultiDay) {
-          return `  - ${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}`
+          return `  - ${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}`
         } else {
-          return `  - ${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}`
+          return `  - ${formatTime12Hour(bStartLocal.hours, bStartLocal.minutes)} – ${formatTime12Hour(bEndLocal.hours, bEndLocal.minutes)}${reason}`
         }
       })
       .join('\n')
@@ -324,39 +559,71 @@ export function buildClientPendingEmail(data: {
   serviceName: string
   startTime: Date
   endTime: Date
+  timezoneOffset?: number // Hours offset from UTC (e.g., -8 for PST, -5 for EST)
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime } = data
+  const { clientName, serviceName, startTime, endTime, timezoneOffset = -8, companyName, logoUrl, settings } = data
 
-  const dateStr = startTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-  const startTimeStr = startTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  // Get local time components
+  const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
+
+  const dateStr = formatDateLong(startLocal.year, startLocal.month, startLocal.day)
+  const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
 
   const bookingId = `#${Date.now().toString().slice(-6)}`
   const subject = `Booking request received ${bookingId} - ${serviceName}`
 
-  const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #D4AF37;">Booking Request Received</h2>
-        <p>Hi ${clientName},</p>
-        <p>We've received your booking request for:</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          <p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
-          <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr}</p>
-        </div>
-        <p>Your request is pending confirmation. We'll send you another email once it's confirmed.</p>
-        <p>Thank you for your patience!</p>
-      </body>
-    </html>
+  const displayCompanyName = companyName || 'JobDock'
+  
+  const bookingDetailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Service</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${serviceName}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Date</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Time</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${startTimeStr}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">We've received your booking request for:</p>
+    ${bookingDetailsCard}
+    <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">Your request is pending confirmation. We'll send you another email once it's confirmed.</p>
+    <p style="margin: 20px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">Thank you for your patience!</p>
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Booking Request Received',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   const textBody = `
 Booking Request Received
@@ -395,6 +662,12 @@ export function buildContractorNotificationEmail(data: {
   endTime: Date
   location?: string
   isPending: boolean
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
 }): EmailPayload {
   const {
     contractorName,
@@ -406,47 +679,115 @@ export function buildContractorNotificationEmail(data: {
     endTime,
     location,
     isPending,
+    companyName,
+    logoUrl,
+    settings,
   } = data
 
-  const dateStr = startTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-  const startTimeStr = startTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-  const endTimeStr = endTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  // Get local time components (using default timezone offset)
+  const startLocal = getLocalTimeComponents(startTime, -8)
+  const endLocal = getLocalTimeComponents(endTime, -8)
+  const dateStr = formatDateLong(startLocal.year, startLocal.month, startLocal.day)
+  const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
+  const endTimeStr = formatTime12Hour(endLocal.hours, endLocal.minutes)
 
   const subject = isPending
     ? `New booking request for ${serviceName}`
     : `New booking for ${serviceName}`
 
-  const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #D4AF37;">${isPending ? 'New Booking Request' : 'New Booking'}</h2>
-        <p>Hi ${contractorName},</p>
-        <p>You have a new booking${isPending ? ' request' : ''} for <strong>${serviceName}</strong>.</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Client:</strong> ${clientName}</p>
-          ${clientEmail ? `<p style="margin: 5px 0;"><strong>Email:</strong> ${clientEmail}</p>` : ''}
-          ${clientPhone ? `<p style="margin: 5px 0;"><strong>Phone:</strong> ${clientPhone}</p>` : ''}
-          <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          <p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
-          <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>
-          ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
-        </div>
-        ${isPending ? '<p style="color: #ff6b6b; font-weight: bold;">⚠️ This booking requires your confirmation. Please log in to your dashboard to confirm or decline.</p>' : '<p>This booking has been automatically confirmed.</p>'}
-        <p><a href="${process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'}/scheduling" style="background: #D4AF37; color: #0B132B; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View in Dashboard</a></p>
-      </body>
-    </html>
+  const displayCompanyName = companyName || 'JobDock'
+  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+  
+  const bookingDetailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Client</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${clientName}</p>
+              </td>
+            </tr>
+            ${clientEmail ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Email</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;"><a href="mailto:${clientEmail}" style="color: #D4AF37; text-decoration: none;">${clientEmail}</a></p>
+              </td>
+            </tr>
+            ` : ''}
+            ${clientPhone ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Phone</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;"><a href="tel:${clientPhone}" style="color: #D4AF37; text-decoration: none;">${clientPhone}</a></p>
+              </td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Service</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${serviceName}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Date</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Time</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${startTimeStr} - ${endTimeStr}</p>
+              </td>
+            </tr>
+            ${location ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Location</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${location}</p>
+              </td>
+            </tr>
+            ` : ''}
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const actionButton = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="background-color: #D4AF37; border-radius: 6px;">
+                <a href="${publicAppUrl}/scheduling" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">View in Dashboard</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${contractorName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">You have a new booking${isPending ? ' request' : ''} for <strong>${serviceName}</strong>.</p>
+    ${bookingDetailsCard}
+    ${isPending ? '<p style="margin: 20px 0 0 0; color: #dc3545; font-size: 16px; font-weight: 600; line-height: 1.6;">⚠️ This booking requires your confirmation. Please log in to your dashboard to confirm or decline.</p>' : '<p style="margin: 20px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">This booking has been automatically confirmed.</p>'}
+    ${actionButton}
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: isPending ? 'New Booking Request' : 'New Booking',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   const textBody = `
 ${isPending ? 'New Booking Request' : 'New Booking'}
@@ -491,41 +832,112 @@ export function buildJobAssignmentNotificationEmail(data: {
   viewPath?: string // e.g. '/app/scheduling' or '/app/job-logs'
   fromName?: string // Display name for Outlook deliverability
   replyTo?: string
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
 }): EmailPayload {
-  const { assigneeName, assigneeEmail, assignerName, jobTitle, startTime, endTime, location, contactName, viewPath = '/app/scheduling', fromName, replyTo } = data
+  const { assigneeName, assigneeEmail, assignerName, jobTitle, startTime, endTime, location, contactName, viewPath = '/app/scheduling', fromName, replyTo, companyName, logoUrl, settings } = data
 
   const dateStr = startTime
-    ? startTime.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
+    ? (() => {
+        const local = getLocalTimeComponents(startTime, -8)
+        return formatDateLong(local.year, local.month, local.day)
+      })()
     : 'To be scheduled'
   const timeStr =
     startTime && endTime
-      ? `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+      ? (() => {
+          const startLocal = getLocalTimeComponents(startTime, -8)
+          const endLocal = getLocalTimeComponents(endTime, -8)
+          return `${formatTime12Hour(startLocal.hours, startLocal.minutes)} - ${formatTime12Hour(endLocal.hours, endLocal.minutes)}`
+        })()
       : ''
 
   const subject = `You've been assigned: ${jobTitle}`
 
-  const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #D4AF37;">Job Assignment</h2>
-        <p>Hi ${assigneeName},</p>
-        <p><strong>${assignerName}</strong> has assigned you to a job.</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Job:</strong> ${jobTitle}</p>
-          ${contactName ? `<p style="margin: 5px 0;"><strong>Contact:</strong> ${contactName}</p>` : ''}
-          <p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
-          ${timeStr ? `<p style="margin: 5px 0;"><strong>Time:</strong> ${timeStr}</p>` : ''}
-          ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
-        </div>
-        <p><a href="${(process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')}${viewPath}" style="background: #D4AF37; color: #0B132B; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View in Dashboard</a></p>
-      </body>
-    </html>
+  const displayCompanyName = companyName || fromName || 'JobDock'
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')
+  
+  const jobDetailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Job</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${jobTitle}</p>
+              </td>
+            </tr>
+            ${contactName ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Contact</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${contactName}</p>
+              </td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Date</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr}</p>
+              </td>
+            </tr>
+            ${timeStr ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Time</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${timeStr}</p>
+              </td>
+            </tr>
+            ` : ''}
+            ${location ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Location</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${location}</p>
+              </td>
+            </tr>
+            ` : ''}
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const actionButton = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="background-color: #D4AF37; border-radius: 6px;">
+                <a href="${publicAppUrl}${viewPath}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">View in Dashboard</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${assigneeName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;"><strong>${assignerName}</strong> has assigned you to a job.</p>
+    ${jobDetailsCard}
+    ${actionButton}
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Job Assignment',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   const textBody = `
 Job Assignment
@@ -561,33 +973,28 @@ export function buildClientBookingConfirmedEmail(data: {
   endTime: Date
   location?: string
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
+  timezoneOffset?: number // Hours offset from UTC (e.g., -8 for PST, -5 for EST)
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location, breaks } = data
+  const { clientName, serviceName, startTime, endTime, location, breaks, timezoneOffset = -8, companyName, logoUrl, settings } = data
+
+  // Get local time components
+  const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
+  const endLocal = getLocalTimeComponents(endTime, timezoneOffset)
 
   // Detect if this is a multi-day job
   const durationMs = endTime.getTime() - startTime.getTime()
   const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
 
-  const dateStr = startTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-  const endDateStr = endTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-  const startTimeStr = startTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-  const endTimeStr = endTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  const dateStr = formatDateLong(startLocal.year, startLocal.month, startLocal.day)
+  const endDateStr = formatDateLong(endLocal.year, endLocal.month, endLocal.day)
+  const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
+  const endTimeStr = formatTime12Hour(endLocal.hours, endLocal.minutes)
 
   const bookingId = `#${Date.now().toString().slice(-6)}`
   const subject = `Your booking has been confirmed ${bookingId} - ${serviceName}`
@@ -597,13 +1004,15 @@ export function buildClientBookingConfirmedEmail(data: {
   if (breaks && breaks.length > 0) {
     const breaksList = breaks
       .map(b => {
-        const bStart = new Date(b.startTime)
-        const bEnd = new Date(b.endTime)
+        const bStartUTC = new Date(b.startTime)
+        const bEndUTC = new Date(b.endTime)
+        const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
+        const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
         const reason = b.reason ? ` (${b.reason})` : ''
         if (isMultiDay) {
-          return `<li style="margin: 5px 0;">${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}</li>`
+          return `<li style="margin: 5px 0;">${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}</li>`
         } else {
-          return `<li style="margin: 5px 0;">${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}</li>`
+          return `<li style="margin: 5px 0;">${formatTime12Hour(bStartLocal.hours, bStartLocal.minutes)} – ${formatTime12Hour(bEndLocal.hours, bEndLocal.minutes)}${reason}</li>`
         }
       })
       .join('')
@@ -619,40 +1028,84 @@ export function buildClientBookingConfirmedEmail(data: {
     `
   }
 
-  const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #4CAF50;">✓ Booking Confirmed</h2>
-        <p>Hi ${clientName},</p>
-        <p>Great news! Your booking request has been confirmed.</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          ${
-            isMultiDay
-              ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${dateStr} through ${endDateStr}</p>`
-              : `<p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
-               <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr} - ${endTimeStr}</p>`
-          }
-          ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
-        </div>
-        ${breaksHtml}
-        <p>We look forward to seeing you!</p>
-      </body>
-    </html>
+  const displayCompanyName = companyName || 'JobDock'
+  
+  const bookingDetailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Service</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${serviceName}</p>
+              </td>
+            </tr>
+            ${isMultiDay ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Duration</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr} through ${endDateStr}</p>
+              </td>
+            </tr>
+            ` : `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Date</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Time</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${startTimeStr} - ${endTimeStr}</p>
+              </td>
+            </tr>
+            `}
+            ${location ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Location</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${location}</p>
+              </td>
+            </tr>
+            ` : ''}
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Great news! Your booking request has been confirmed.</p>
+    ${bookingDetailsCard}
+    ${breaksHtml}
+    <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">We look forward to seeing you!</p>
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: '✓ Booking Confirmed',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   // Build breaks section for text version
   let breaksText = ''
   if (breaks && breaks.length > 0) {
     const breaksList = breaks
       .map(b => {
-        const bStart = new Date(b.startTime)
-        const bEnd = new Date(b.endTime)
+        const bStartUTC = new Date(b.startTime)
+        const bEndUTC = new Date(b.endTime)
+        const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
+        const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
         const reason = b.reason ? ` (${b.reason})` : ''
         if (isMultiDay) {
-          return `  - ${bStart.toLocaleDateString()} – ${bEnd.toLocaleDateString()}${reason}`
+          return `  - ${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}`
         } else {
-          return `  - ${bStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${bEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${reason}`
+          return `  - ${formatTime12Hour(bStartLocal.hours, bStartLocal.minutes)} – ${formatTime12Hour(bEndLocal.hours, bEndLocal.minutes)}${reason}`
         }
       })
       .join('\n')
@@ -700,38 +1153,68 @@ export function buildClientBookingDeclinedEmail(data: {
   serviceName: string
   startTime: Date
   reason?: string
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
 }): EmailPayload {
-  const { clientName, serviceName, startTime, reason } = data
+  const { clientName, serviceName, startTime, reason, companyName, logoUrl, settings } = data
 
-  const dateStr = startTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-  const startTimeStr = startTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  // Get local time components (using default timezone offset)
+  const startLocal = getLocalTimeComponents(startTime, -8)
+  const dateStr = formatDateLong(startLocal.year, startLocal.month, startLocal.day)
+  const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
 
   const subject = `Booking request declined - ${serviceName}`
 
-  const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #ff6b6b;">Booking Request Declined</h2>
-        <p>Hi ${clientName},</p>
-        <p>Unfortunately, we're unable to accommodate your booking request for:</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
-          <p style="margin: 5px 0;"><strong>Date:</strong> ${dateStr}</p>
-          <p style="margin: 5px 0;"><strong>Time:</strong> ${startTimeStr}</p>
-        </div>
-        ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
-        <p>We apologize for any inconvenience. Please feel free to try booking a different time slot.</p>
-      </body>
-    </html>
+  const displayCompanyName = companyName || 'JobDock'
+  
+  const bookingDetailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Service</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${serviceName}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Date</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Time</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${startTimeStr}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Unfortunately, we're unable to accommodate your booking request for:</p>
+    ${bookingDetailsCard}
+    ${reason ? `<p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;"><strong>Reason:</strong> ${reason}</p>` : ''}
+    <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">We apologize for any inconvenience. Please feel free to contact us if you'd like to reschedule or have any questions.</p>
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Booking Request Declined',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   const textBody = `
 Booking Request Declined
@@ -746,7 +1229,7 @@ Time: ${startTimeStr}
 
 ${reason ? `Reason: ${reason}` : ''}
 
-We apologize for any inconvenience. Please feel free to try booking a different time slot.
+We apologize for any inconvenience. Please feel free to contact us if you'd like to reschedule or have any questions.
   `.trim()
 
   return {
@@ -1028,24 +1511,58 @@ This quote is valid until ${validUntilText}. Please contact us if you would like
 /**
  * Email template: Early access request notification (to admin)
  */
-export function buildEarlyAccessRequestEmail(data: { name: string; email: string }): EmailPayload {
-  const { name, email } = data
+export function buildEarlyAccessRequestEmail(data: { 
+  name: string
+  email: string
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
+}): EmailPayload {
+  const { name, email, companyName, logoUrl, settings } = data
 
   const subject = `New Early Access Request from ${name}`
 
-  const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #D4AF37;">New Early Access Request</h2>
-        <p>Someone has requested early access to JobDock:</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Name:</strong> ${name}</p>
-          <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
-        </div>
-        <p>To approve this request and grant signup access, log into the JobDock admin panel and navigate to Settings → Early Access.</p>
-      </body>
-    </html>
+  const displayCompanyName = companyName || 'JobDock'
+  
+  const requestDetailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Name</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${name}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Email</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;"><a href="mailto:${email}" style="color: #D4AF37; text-decoration: none;">${email}</a></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Someone has requested early access to JobDock:</p>
+    ${requestDetailsCard}
+    <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">To approve this request and grant signup access, log into the JobDock admin panel and navigate to Settings → Early Access.</p>
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: 'New Early Access Request',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   const textBody = `
 New Early Access Request
@@ -1074,36 +1591,53 @@ export function buildEarlyAccessApprovalEmail(data: {
   name: string
   email: string
   signupUrl: string
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
 }): EmailPayload {
-  const { name, signupUrl } = data
+  const { name, signupUrl, companyName, logoUrl, settings } = data
 
   const subject = `Welcome to JobDock - Your Access is Approved!`
 
-  const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #D4AF37;">Welcome to JobDock!</h2>
-        <p>Hi ${name},</p>
-        <p>Great news! Your early access request has been approved.</p>
-        <p>You can now create your account and start using JobDock to manage your jobs, quotes, and schedules.</p>
-        <div style="margin: 30px 0; text-align: center;">
-          <a href="${signupUrl}" style="display: inline-block; padding: 15px 30px; background: #D4AF37; color: #1A1F36; text-decoration: none; border-radius: 5px; font-weight: bold;">
-            Create Your Account
-          </a>
-        </div>
-        <p>Or copy and paste this link into your browser:</p>
-        <p style="background: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all;">
-          ${signupUrl}
-        </p>
-        <p>If you have any questions, just reply to this email.</p>
-        <p>Looking forward to having you on board!</p>
-        <p style="margin-top: 30px; color: #666;">
-          Best,<br/>
-          The JobDock Team
-        </p>
-      </body>
-    </html>
+  const displayCompanyName = companyName || 'JobDock'
+  
+  const actionButton = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="background-color: #D4AF37; border-radius: 6px;">
+                <a href="${signupUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Create Your Account</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${name},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Great news! Your early access request has been approved.</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">You can now create your account and start using JobDock to manage your jobs, quotes, and schedules.</p>
+    ${actionButton}
+    <p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">Or copy and paste this link into your browser:</p>
+    <p style="margin: 10px 0 0 0; background-color: #f8f9fa; padding: 12px; border-radius: 6px; word-break: break-all; color: #0B132B; font-size: 14px; line-height: 1.5;">${signupUrl}</p>
+    <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">If you have any questions, just reply to this email.</p>
+    <p style="margin: 20px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">Looking forward to having you on board!</p>
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Welcome to JobDock!',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   const textBody = `
 Welcome to JobDock!
@@ -1143,8 +1677,14 @@ export function buildTeamInviteEmail(data: {
   role: string
   tempPassword: string
   appUrl?: string
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
 }) {
-  const { inviteeEmail, inviteeName, inviterName, role, tempPassword, appUrl } = data
+  const { inviteeEmail, inviteeName, inviterName, role, tempPassword, appUrl, companyName, logoUrl, settings } = data
   const loginUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/auth/login` : 'https://app.thejobdock.com/auth/login'
 
   const subject = `You've been invited to join JobDock`
@@ -1153,25 +1693,58 @@ export function buildTeamInviteEmail(data: {
       ? 'admin (full access to jobs, contacts, quotes, invoices)'
       : 'employee (track hours, add photos and notes on jobs)'
 
-  const htmlBody = `
-    <!DOCTYPE html>
-    <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-      <h2 style="color: #D4AF37;">You've been invited to JobDock</h2>
-      <p>Hi ${inviteeName},</p>
-      <p>${inviterName} has invited you to join their team on JobDock as a <strong>${role}</strong>.</p>
-      <p style="font-size: 0.9em; color: #666;">You'll have ${roleDesc}.</p>
-      <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <p style="margin: 5px 0;"><strong>Your temporary password:</strong></p>
-        <p style="margin: 5px 0; font-family: monospace; font-size: 14px;">${tempPassword}</p>
-        <p style="margin: 10px 0 0 0; font-size: 0.9em;">Please change this when you first log in.</p>
-      </div>
-      <p><a href="${loginUrl}" style="display: inline-block; padding: 12px 24px; background: #D4AF37; color: #1A1F36; text-decoration: none; border-radius: 5px; font-weight: bold;">Log in to JobDock</a></p>
-      <p style="font-size: 0.85em; color: #666;">Or copy this link: ${loginUrl}</p>
-      <p style="margin-top: 30px; color: #666;">Best,<br/>The JobDock Team</p>
-    </body>
-    </html>
+  const displayCompanyName = companyName || 'JobDock'
+  
+  const passwordCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5; font-weight: 600;">Your Temporary Password</p>
+                <p style="margin: 8px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4; font-family: monospace;">${tempPassword}</p>
+                <p style="margin: 12px 0 0 0; color: #856404; font-size: 13px; line-height: 1.5;">Please change this when you first log in.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `
+  
+  const actionButton = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="background-color: #D4AF37; border-radius: 6px;">
+                <a href="${loginUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Log in to JobDock</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+  
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${inviteeName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">${inviterName} has invited you to join their team on JobDock as a <strong>${role}</strong>.</p>
+    <p style="margin: 0 0 20px 0; color: #666666; font-size: 14px; line-height: 1.6;">You'll have ${roleDesc}.</p>
+    ${passwordCard}
+    ${actionButton}
+    <p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">Or copy this link: <a href="${loginUrl}" style="color: #D4AF37; text-decoration: none;">${loginUrl}</a></p>
+  `
+  
+  const htmlBody = buildModernEmailTemplate({
+    title: "You've been invited to JobDock",
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
 
   return {
     to: inviteeEmail,
