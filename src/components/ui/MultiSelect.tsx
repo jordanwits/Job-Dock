@@ -169,14 +169,25 @@ const MultiSelect = forwardRef<HTMLInputElement, MultiSelectProps>(
                   >
                     <span className="truncate max-w-[120px]">{option.label}</span>
                     {!disabled && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleRemove(option.value, e)}
-                        className="hover:text-red-400 transition-colors"
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemove(option.value, e as any)
+                        }}
+                        className="hover:text-red-400 transition-colors cursor-pointer"
                         aria-label={`Remove ${option.label}`}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleRemove(option.value, e as any)
+                          }
+                        }}
                       >
                         ×
-                      </button>
+                      </span>
                     )}
                   </span>
                 ))

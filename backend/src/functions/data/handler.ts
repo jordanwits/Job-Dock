@@ -1098,7 +1098,42 @@ async function handleGet(
     return (service as typeof dataServices['time-entries']).getAll(tenantId, jobLogId)
   }
 
+  // Extract user context for privacy filtering (if authenticated)
+  let currentUserId: string | undefined
+  let currentUserRole: string | undefined
+  try {
+    const context = await extractContext(event)
+    const { default: prisma } = await import('../../lib/db')
+    const user = await prisma.user.findUnique({
+      where: { cognitoId: context.userId },
+      select: { id: true, role: true },
+    })
+    if (user) {
+      currentUserId = user.id
+      currentUserRole = user.role
+    }
+  } catch {
+    // User not authenticated or context unavailable - that's okay
+  }
+
   if (id && 'getById' in service) {
+    // Pass user context for jobs.getById and job-logs.getById
+    if (resource === 'jobs') {
+      return (service as typeof dataServices.jobs).getById(
+        tenantId,
+        id,
+        currentUserId,
+        currentUserRole
+      )
+    }
+    if (resource === 'job-logs') {
+      return (service as typeof dataServices['job-logs']).getById(
+        tenantId,
+        id,
+        currentUserId,
+        currentUserRole
+      )
+    }
     return service.getById(tenantId, id)
   }
 
@@ -1114,7 +1149,17 @@ async function handleGet(
       startDate,
       endDate,
       includeArchived,
-      showDeleted
+      showDeleted,
+      currentUserId,
+      currentUserRole
+    )
+  }
+
+  if (resource === 'job-logs') {
+    return (service as typeof dataServices['job-logs']).getAll(
+      tenantId,
+      currentUserId,
+      currentUserRole
     )
   }
 

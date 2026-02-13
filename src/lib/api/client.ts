@@ -71,12 +71,20 @@ apiClient.interceptors.response.use(
   async error => {
     const originalRequest = error.config
 
-    // Check for authentication errors
-    const errorMessage =
-      error.response?.data?.error?.message?.toLowerCase() ||
-      error.response?.data?.message?.toLowerCase() ||
-      error.message?.toLowerCase() ||
-      ''
+    // Check for authentication errors - safely extract error message
+    let errorMessage = ''
+    try {
+      if (error.response?.data?.error?.message && typeof error.response.data.error.message === 'string') {
+        errorMessage = error.response.data.error.message.toLowerCase()
+      } else if (error.response?.data?.message && typeof error.response.data.message === 'string') {
+        errorMessage = error.response.data.message.toLowerCase()
+      } else if (error.message && typeof error.message === 'string') {
+        errorMessage = error.message.toLowerCase()
+      }
+    } catch (e) {
+      // If any error occurs during message extraction, use empty string
+      errorMessage = ''
+    }
 
     const isTokenError =
       errorMessage.includes('token') ||

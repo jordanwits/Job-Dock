@@ -16,6 +16,9 @@ interface ApiErrorResponse {
  * Convert Cognito error codes to user-friendly messages
  */
 function getCognitoErrorMessage(errorMessage: string): string {
+  if (!errorMessage || typeof errorMessage !== 'string') {
+    return 'An error occurred'
+  }
   const lowerMessage = errorMessage.toLowerCase()
 
   // Common Cognito error patterns

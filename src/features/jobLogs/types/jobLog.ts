@@ -1,3 +1,9 @@
+export interface JobAssignment {
+  userId: string
+  role: string
+  price?: number | null
+}
+
 export interface TimeEntry {
   id: string
   jobLogId?: string
@@ -48,7 +54,7 @@ export interface JobLog {
   notes?: string
   jobId?: string
   contactId?: string
-  assignedTo?: string
+  assignedTo?: JobAssignment[] | string | string[] // Support old format for backward compatibility
   assignedToName?: string
   status: 'active' | 'completed' | 'inactive'
   createdAt: string
@@ -77,7 +83,7 @@ export interface CreateJobLogData {
   notes?: string
   jobId?: string
   contactId?: string
-  assignedTo?: string
+  assignedTo?: JobAssignment[]
   status?: 'active' | 'completed' | 'inactive'
 }
 

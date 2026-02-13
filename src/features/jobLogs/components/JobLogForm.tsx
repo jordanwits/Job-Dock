@@ -2,9 +2,8 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { jobLogSchema, type JobLogFormData } from '../schemas/jobLogSchemas'
-import type { JobLog } from '../types/jobLog'
+import type { JobLog, JobAssignment } from '../types/jobLog'
 import { Input, Button, Select } from '@/components/ui'
-import MultiSelect from '@/components/ui/MultiSelect'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
@@ -32,6 +31,7 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
   const { user } = useAuthStore()
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
   const [canShowAssignee, setCanShowAssignee] = useState(false)
+  const [assignments, setAssignments] = useState<JobAssignment[]>([])
   const [selectedContactId, setSelectedContactId] = useState<string>(jobLog?.contactId ?? '')
   const [selectedStatus, setSelectedStatus] = useState<string>(
     jobLog?.status && ['active', 'completed', 'inactive', 'archived'].includes(jobLog.status)
@@ -74,6 +74,26 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     load()
   }, [user?.role])
 
+  // Initialize assignments from jobLog
+  useEffect(() => {
+    if (jobLog?.assignedTo) {
+      if (Array.isArray(jobLog.assignedTo)) {
+        // Check if it's the new format (JobAssignment[]) or old format (string[])
+        if (jobLog.assignedTo.length > 0 && typeof jobLog.assignedTo[0] === 'object' && 'userId' in jobLog.assignedTo[0]) {
+          setAssignments(jobLog.assignedTo as JobAssignment[])
+        } else {
+          // Old format: string[]
+          setAssignments((jobLog.assignedTo as string[]).map(id => ({ userId: id, role: 'Team Member', price: null })))
+        }
+      } else {
+        // Old format: single string
+        setAssignments([{ userId: jobLog.assignedTo as string, role: 'Team Member', price: null }])
+      }
+    } else {
+      setAssignments([])
+    }
+  }, [jobLog])
+
   const {
     register,
     handleSubmit,
@@ -86,13 +106,40 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
       title: jobLog?.title ?? '',
       location: jobLog?.location ?? '',
       contactId: jobLog?.contactId ?? '',
-      assignedTo: Array.isArray(jobLog?.assignedTo) ? jobLog.assignedTo : jobLog?.assignedTo ? [jobLog.assignedTo] : [],
+      assignedTo: (() => {
+        // Handle both old format (string/string[]) and new format (JobAssignment[])
+        if (!jobLog?.assignedTo) return []
+        if (Array.isArray(jobLog.assignedTo)) {
+          if (jobLog.assignedTo.length > 0 && typeof jobLog.assignedTo[0] === 'object' && 'userId' in jobLog.assignedTo[0]) {
+            return jobLog.assignedTo as JobAssignment[]
+          }
+          return (jobLog.assignedTo as string[]).map(id => ({ userId: id, role: 'Team Member', price: null }))
+        }
+        // Old format: single string
+        return [{ userId: jobLog.assignedTo as string, role: 'Team Member', price: null }]
+      })(),
       status: (jobLog?.status === 'archived' ? 'inactive' : jobLog?.status) ?? 'active',
     },
   })
 
+  // Sync assignments with form when they change
+  useEffect(() => {
+    setValue('assignedTo', assignments.length > 0 ? assignments : undefined)
+  }, [assignments, setValue])
+
+  const handleFormSubmit = async (data: JobLogFormData) => {
+    // Convert empty/undefined assignedTo to null so backend clears it
+    const formData: any = {
+      ...data,
+      assignedTo: Array.isArray(data.assignedTo) && data.assignedTo.length > 0 
+        ? data.assignedTo.filter(a => a.userId && a.userId.trim() !== '')
+        : null,
+    }
+    await onSubmit(formData)
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
       <Input
         label="Title"
         {...register('title')}
@@ -140,19 +187,136 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
         />
       </div>
       {canShowAssignee && (
-        <Controller
-          name="assignedTo"
-          control={control}
-          render={({ field }) => (
-            <MultiSelect
-              label="Assign to"
-              value={Array.isArray(field.value) ? field.value : field.value ? [field.value] : []}
-              onChange={(value) => field.onChange(value)}
-              options={teamMembers.map((m) => ({ value: m.id, label: m.name }))}
-              placeholder="Select team members"
-            />
+        <div>
+          <label className="block text-sm font-medium text-primary-light mb-2">
+            Assign to Team Members (with Roles & Pricing)
+          </label>
+          <p className="text-xs text-primary-light/50 mb-3">
+            Assign team members to this job and set their role and individual pricing. Team members can only see their own pricing.
+          </p>
+          <div className="space-y-3">
+            {assignments.length === 0 ? (
+              <div className="border border-primary-blue/30 rounded-lg p-4 bg-primary-dark-secondary/30 text-center">
+                <p className="text-sm text-primary-light/70 mb-3">No team members assigned yet</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    const newAssignments = [{ userId: '', role: 'Team Member', price: null }]
+                    setAssignments(newAssignments)
+                    setValue('assignedTo', newAssignments)
+                  }}
+                  className="text-sm"
+                >
+                  + Add Team Member
+                </Button>
+              </div>
+            ) : (
+              <>
+                {assignments.map((assignment, index) => {
+                  const member = teamMembers.find(m => m.id === assignment.userId)
+                  return (
+                    <div key={index} className="border border-primary-blue rounded-lg p-3 bg-primary-dark-secondary/50 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                              Team Member
+                            </label>
+                            <Select
+                              value={assignment.userId}
+                              onChange={(e) => {
+                                const newAssignments = [...assignments]
+                                newAssignments[index] = { ...assignment, userId: e.target.value }
+                                setAssignments(newAssignments)
+                                setValue('assignedTo', newAssignments)
+                              }}
+                              options={[
+                                { value: '', label: 'Select member' },
+                                ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
+                              ]}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                              Role
+                            </label>
+                            <Input
+                              type="text"
+                              value={assignment.role}
+                              onChange={(e) => {
+                                const newAssignments = [...assignments]
+                                newAssignments[index] = { ...assignment, role: e.target.value }
+                                setAssignments(newAssignments)
+                                setValue('assignedTo', newAssignments)
+                              }}
+                              placeholder="e.g., Lead, Assistant"
+                              className="text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                              Price (Optional)
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">$</span>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={assignment.price ?? ''}
+                                onChange={(e) => {
+                                  const newAssignments = [...assignments]
+                                  const priceValue = e.target.value === '' ? null : parseFloat(e.target.value)
+                                  newAssignments[index] = { ...assignment, price: isNaN(priceValue as number) ? null : priceValue }
+                                  setAssignments(newAssignments)
+                                  setValue('assignedTo', newAssignments)
+                                }}
+                                placeholder="0.00"
+                                className="pl-7 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newAssignments = assignments.filter((_, i) => i !== index)
+                            setAssignments(newAssignments)
+                            // Allow empty assignments - set to empty array or undefined
+                            if (newAssignments.length === 0) {
+                              setValue('assignedTo', undefined)
+                            } else {
+                              setValue('assignedTo', newAssignments)
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-600 text-sm font-medium mt-6"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    const newAssignments = [...assignments, { userId: '', role: 'Team Member', price: null }]
+                    setAssignments(newAssignments)
+                    setValue('assignedTo', newAssignments)
+                  }}
+                  className="w-full text-sm"
+                >
+                  + Add Another Team Member
+                </Button>
+              </>
+            )}
+          </div>
+          {errors.assignedTo && (
+            <p className="text-red-500 text-xs mt-1">{errors.assignedTo.message}</p>
           )}
-        />
+        </div>
       )}
       <div className="flex gap-3 pt-4">
         <Button type="submit" disabled={isLoading}>

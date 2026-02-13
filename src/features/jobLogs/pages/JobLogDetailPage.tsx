@@ -52,7 +52,7 @@ const JobLogDetailPage = () => {
     notes?: string
     jobId?: string
     contactId?: string
-    assignedTo?: string
+    assignedTo?: import('../types/jobLog').JobAssignment[]
     status?: string
   }) => {
     if (!editingJobLogId) return

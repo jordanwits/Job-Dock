@@ -53,31 +53,84 @@ function parseValidDate(value: any): Date | null {
   return isNaN(date.getTime()) ? null : date
 }
 
-// Normalize assignedTo to array format for storage
-function normalizeAssignedTo(assignedTo: string | string[] | null | undefined): string[] | null {
+// JobAssignment type for structured assignments
+interface JobAssignment {
+  userId: string
+  role: string
+  price?: number | null
+}
+
+// Normalize assignedTo to new format: array of assignment objects
+// Accepts both old format (array of IDs) and new format (array of objects)
+function normalizeAssignedTo(assignedTo: any): JobAssignment[] | null {
   if (!assignedTo) return null
   
-  if (Array.isArray(assignedTo)) {
-    const filtered = assignedTo.filter(id => id && typeof id === 'string' && id.trim() !== '')
-    return filtered.length > 0 ? filtered : null
+  // Handle new format: array of objects
+  if (Array.isArray(assignedTo) && assignedTo.length > 0) {
+    // Check if it's already in new format (array of objects with userId)
+    if (typeof assignedTo[0] === 'object' && assignedTo[0] !== null && 'userId' in assignedTo[0]) {
+      const normalized = assignedTo
+        .filter((item: any) => item && typeof item === 'object' && item.userId && typeof item.userId === 'string')
+        .map((item: any) => ({
+          userId: item.userId.trim(),
+          role: typeof item.role === 'string' ? item.role.trim() : 'Team Member',
+          price: typeof item.price === 'number' ? item.price : (item.price === null || item.price === undefined ? null : undefined),
+        }))
+      return normalized.length > 0 ? normalized : null
+    }
+    
+    // Handle old format: array of user ID strings
+    const filtered = assignedTo.filter((id: any) => id && typeof id === 'string' && id.trim() !== '')
+    if (filtered.length > 0) {
+      return filtered.map((id: string) => ({
+        userId: id.trim(),
+        role: 'Team Member',
+        price: null,
+      }))
+    }
   }
   
+  // Handle old format: single string ID
+  if (typeof assignedTo === 'string' && assignedTo.trim() !== '') {
+    return [{
+      userId: assignedTo.trim(),
+      role: 'Team Member',
+      price: null,
+    }]
+  }
+  
+  return null
+}
+
+// Extract user IDs from assignedTo (handles both old and new formats)
+function extractUserIds(assignedTo: any): string[] {
+  if (!assignedTo) return []
+  
+  // New format: array of objects with userId
+  if (Array.isArray(assignedTo) && assignedTo.length > 0) {
+    if (typeof assignedTo[0] === 'object' && assignedTo[0] !== null && 'userId' in assignedTo[0]) {
+      return assignedTo
+        .filter((item: any) => item && typeof item === 'object' && item.userId)
+        .map((item: any) => item.userId)
+        .filter((id: any) => id && typeof id === 'string')
+    }
+    // Old format: array of strings
+    return assignedTo.filter((id: any) => id && typeof id === 'string')
+  }
+  
+  // Old format: single string
   if (typeof assignedTo === 'string' && assignedTo.trim() !== '') {
     return [assignedTo.trim()]
   }
   
-  return null
+  return []
 }
 
 // Fetch assigned users and create assignedToName string
 async function getAssignedToName(tenantId: string, assignedTo: any): Promise<string | undefined> {
   if (!assignedTo) return undefined
   
-  const userIds = Array.isArray(assignedTo) 
-    ? assignedTo.filter(id => id && typeof id === 'string')
-    : typeof assignedTo === 'string' && assignedTo.trim() !== ''
-      ? [assignedTo.trim()]
-      : []
+  const userIds = extractUserIds(assignedTo)
   
   if (userIds.length === 0) return undefined
   
@@ -90,20 +143,26 @@ async function getAssignedToName(tenantId: string, assignedTo: any): Promise<str
   return names.length > 0 ? names.join(', ') : undefined
 }
 
-// Validate assignedTo is a tenant user or array of user IDs (throws if invalid)
-async function validateAssignedTo(tenantId: string, assignedTo: string | string[] | null | undefined): Promise<void> {
+// Validate assignedTo structure and that all user IDs belong to tenant (throws if invalid)
+async function validateAssignedTo(tenantId: string, assignedTo: any): Promise<void> {
   if (!assignedTo) return
   
-  // Handle both string (single) and array (multiple) formats for backward compatibility
-  const userIds = Array.isArray(assignedTo) 
-    ? assignedTo.filter(id => id && typeof id === 'string' && id.trim() !== '')
-    : typeof assignedTo === 'string' && assignedTo.trim() !== '' 
-      ? [assignedTo.trim()] 
-      : []
+  const normalized = normalizeAssignedTo(assignedTo)
+  if (!normalized || normalized.length === 0) return
+  
+  // Extract user IDs - ensure they're strings
+  const userIds = normalized
+    .map(a => {
+      if (typeof a === 'object' && a !== null && 'userId' in a) {
+        return typeof a.userId === 'string' ? a.userId : null
+      }
+      // Fallback: if it's already a string (old format)
+      return typeof a === 'string' ? a : null
+    })
+    .filter((id): id is string => id !== null && typeof id === 'string' && id.trim() !== '')
   
   if (userIds.length === 0) return
   
-  // Validate all user IDs belong to the tenant
   const users = await prisma.user.findMany({
     where: { 
       id: { in: userIds },
@@ -118,12 +177,65 @@ async function validateAssignedTo(tenantId: string, assignedTo: string | string[
   if (invalidIds.length > 0) {
     throw new ApiError(`Assigned user(s) must be members of your team. Invalid IDs: ${invalidIds.join(', ')}`, 400)
   }
+  
+  // Validate roles are strings
+  for (const assignment of normalized) {
+    if (typeof assignment === 'object' && assignment !== null) {
+      if (typeof assignment.role !== 'string' || assignment.role.trim() === '') {
+        throw new ApiError('All assignments must have a valid role (non-empty string)', 400)
+      }
+      
+      // Validate prices are numbers if provided
+      if (assignment.price !== null && assignment.price !== undefined && typeof assignment.price !== 'number') {
+        throw new ApiError('Price must be a number if provided', 400)
+      }
+    }
+  }
+}
+
+// Apply privacy filtering to assignedTo based on current user role
+function getAssignedToWithPrivacy(
+  assignedTo: any,
+  currentUserId: string | undefined,
+  currentUserRole: string | undefined
+): JobAssignment[] | null {
+  const normalized = normalizeAssignedTo(assignedTo)
+  if (!normalized || normalized.length === 0) return null
+  
+  // Admins and owners can see all pricing
+  if (currentUserRole === 'admin' || currentUserRole === 'owner') {
+    return normalized
+  }
+  
+  // Employees can only see their own price
+  if (currentUserRole === 'employee' && currentUserId) {
+    return normalized.map(assignment => {
+      if (assignment.userId === currentUserId) {
+        // Show their own assignment with price
+        return assignment
+      } else {
+        // Hide price for other assignments
+        return {
+          userId: assignment.userId,
+          role: assignment.role,
+          price: undefined, // Explicitly hide price
+        }
+      }
+    })
+  }
+  
+  // Not assigned or unknown role: hide all prices
+  return normalized.map(assignment => ({
+    userId: assignment.userId,
+    role: assignment.role,
+    price: undefined, // Hide price
+  }))
 }
 
 // Send assignment notification email (call after successful create/update)
 async function sendAssignmentNotification(params: {
   tenantId: string
-  assignedTo: string | string[] | null | undefined
+  assignedTo: any
   assignerUserId: string | undefined
   jobTitle: string
   startTime: Date | null
@@ -134,14 +246,7 @@ async function sendAssignmentNotification(params: {
 }): Promise<void> {
   const { tenantId, assignedTo, assignerUserId, jobTitle, startTime, endTime, location, contactName, viewPath } = params
 
-  if (!assignedTo) return
-  
-  // Handle both string (single) and array (multiple) formats
-  const userIds = Array.isArray(assignedTo)
-    ? assignedTo.filter(id => id && typeof id === 'string' && id.trim() !== '')
-    : typeof assignedTo === 'string' && assignedTo.trim() !== ''
-      ? [assignedTo.trim()]
-      : []
+  const userIds = extractUserIds(assignedTo)
   
   if (userIds.length === 0) return
 
@@ -1597,7 +1702,9 @@ export const dataServices = {
       startDate?: Date,
       endDate?: Date,
       includeArchived?: boolean,
-      showDeleted?: boolean
+      showDeleted?: boolean,
+      currentUserId?: string,
+      currentUserRole?: string
     ) => {
       await ensureTenantExists(tenantId)
       const jobs = await prisma.job.findMany({
@@ -1634,17 +1741,31 @@ export const dataServices = {
         ],
       })
       
-      // Map assignedToName for all jobs
+      // Map assignedToName and apply privacy filtering for all jobs
       const jobsWithNames = await Promise.all(
         jobs.map(async (job) => {
           const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
-          return { ...job, assignedToName }
+          const assignedToWithPrivacy = getAssignedToWithPrivacy(
+            job.assignedTo,
+            currentUserId,
+            currentUserRole
+          )
+          return { 
+            ...job, 
+            assignedToName,
+            assignedTo: assignedToWithPrivacy || job.assignedTo
+          }
         })
       )
       
       return jobsWithNames
     },
-    getById: async (tenantId: string, id: string) => {
+    getById: async (
+      tenantId: string, 
+      id: string,
+      currentUserId?: string,
+      currentUserRole?: string
+    ) => {
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
         include: {
@@ -1655,7 +1776,16 @@ export const dataServices = {
       })
       if (!job) throw new Error('Job not found')
       const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
-      return { ...job, assignedToName }
+      const assignedToWithPrivacy = getAssignedToWithPrivacy(
+        job.assignedTo,
+        currentUserId,
+        currentUserRole
+      )
+      return { 
+        ...job, 
+        assignedToName,
+        assignedTo: assignedToWithPrivacy || job.assignedTo
+      }
     },
     create: async (tenantId: string, payload: any) => {
       await ensureTenantExists(tenantId)
@@ -3221,7 +3351,11 @@ export const dataServices = {
     },
   },
   'job-logs': {
-    getAll: async (tenantId: string) => {
+    getAll: async (
+      tenantId: string,
+      currentUserId?: string,
+      currentUserRole?: string
+    ) => {
       await ensureTenantExists(tenantId)
       const logs = await prisma.jobLog.findMany({
         where: { tenantId },
@@ -3267,9 +3401,16 @@ export const dataServices = {
                   createdAt: doc.createdAt.toISOString(),
                 }))
               )
+          const assignedToName = await getAssignedToName(tenantId, log.assignedTo)
+          const assignedToWithPrivacy = getAssignedToWithPrivacy(
+            log.assignedTo,
+            currentUserId,
+            currentUserRole
+          )
           return {
             ...log,
-            assignedToName: await getAssignedToName(tenantId, log.assignedTo),
+            assignedToName,
+            assignedTo: assignedToWithPrivacy || log.assignedTo,
             job: log.job
               ? {
                   id: log.job.id,
@@ -3295,7 +3436,12 @@ export const dataServices = {
         })
       )
     },
-    getById: async (tenantId: string, id: string) => {
+    getById: async (
+      tenantId: string,
+      id: string,
+      currentUserId?: string,
+      currentUserRole?: string
+    ) => {
       await ensureTenantExists(tenantId)
       const jobLog = await prisma.jobLog.findFirst({
         where: { id, tenantId },
@@ -3309,6 +3455,11 @@ export const dataServices = {
         throw new ApiError('Job log not found', 404)
       }
       const assignedToName = await getAssignedToName(tenantId, jobLog.assignedTo)
+      const assignedToWithPrivacy = getAssignedToWithPrivacy(
+        jobLog.assignedTo,
+        currentUserId,
+        currentUserRole
+      )
       // Fetch photos (Documents) from DB and add URLs (proxy preferred to avoid S3 ERR_CONNECTION_RESET)
       const documents = await prisma.document.findMany({
         where: { tenantId, entityType: 'job_log', entityId: id },
@@ -3338,6 +3489,7 @@ export const dataServices = {
       return {
         ...jobLog,
         assignedToName,
+        assignedTo: assignedToWithPrivacy || jobLog.assignedTo,
         job: jobLog.job
           ? {
               id: jobLog.job.id,
@@ -3406,8 +3558,8 @@ export const dataServices = {
           viewPath: '/app/job-logs',
         }).catch((e) => console.error('Failed to send job log assignment notification:', e))
       }
-      // Fetch assigned users separately since we're using JSON array
-      const assignedUserIds = Array.isArray(created.assignedTo) ? created.assignedTo : created.assignedTo ? [created.assignedTo] : []
+      // Fetch assigned users separately - extract userIds from assignment objects
+      const assignedUserIds = extractUserIds(created.assignedTo)
       const assignedUsers = assignedUserIds.length > 0
         ? await prisma.user.findMany({
             where: { id: { in: assignedUserIds }, tenantId },
@@ -3461,8 +3613,8 @@ export const dataServices = {
           viewPath: '/app/job-logs',
         }).catch((e) => console.error('Failed to send job log assignment notification:', e))
       }
-      // Fetch assigned users separately since we're using JSON array
-      const assignedUserIds = Array.isArray(updated.assignedTo) ? updated.assignedTo : updated.assignedTo ? [updated.assignedTo] : []
+      // Fetch assigned users separately - extract userIds from assignment objects
+      const assignedUserIds = extractUserIds(updated.assignedTo)
       const assignedUsers = assignedUserIds.length > 0
         ? await prisma.user.findMany({
             where: { id: { in: assignedUserIds }, tenantId },

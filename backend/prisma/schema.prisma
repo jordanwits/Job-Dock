@@ -246,7 +246,7 @@ model Job {
   location      String?
   price         Decimal?       @db.Decimal(10, 2)
   notes         String?
-  assignedTo    Json?      // Array of user IDs: ["id1", "id2", ...]
+  assignedTo    Json?      // Array of assignments: [{userId: "id1", role: "Lead", price: 500}, ...]
   breaks        Json?
   deletedAt     DateTime?
   archivedAt   DateTime?

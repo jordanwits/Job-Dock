@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { Card, Button, StatusBadgeSelect } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/features/auth'
-import type { JobLog } from '../types/jobLog'
+import type { JobLog, JobAssignment } from '../types/jobLog'
 import JobLogForm from './JobLogForm'
 import TimeTracker from './TimeTracker'
 import PhotoCapture from './PhotoCapture'
@@ -18,7 +18,7 @@ interface JobLogDetailProps {
   onDelete: () => void
   isEditing: boolean
   onCancelEdit: () => void
-  onSaveEdit: (data: { title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; assignedTo?: string; status?: string }) => Promise<void>
+  onSaveEdit: (data: { title: string; description?: string; location?: string; notes?: string; jobId?: string; contactId?: string; assignedTo?: JobAssignment[]; status?: string }) => Promise<void>
   onStatusChange?: (status: 'active' | 'completed' | 'inactive') => Promise<void>
   isLoading?: boolean
 }
@@ -191,21 +191,82 @@ const JobLogDetail = ({
           </div>
           {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
             <div className="flex flex-col gap-2 mt-2">
-              {jobLog.assignedToName && (
-                <div>
-                  <span className="text-xs font-medium text-primary-light/70 mb-1.5 block">Assigned to</span>
-                  <div className="flex flex-wrap gap-2">
-                    {jobLog.assignedToName.split(',').map((name, index) => (
-                      <span
-                        key={index}
-                        className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words"
-                      >
-                        {name.trim()}
-                      </span>
-                    ))}
+              {jobLog.assignedToName && (() => {
+                // Parse assignments from jobLog (handle both old and new formats)
+                const getAssignments = (): JobAssignment[] => {
+                  if (!jobLog.assignedTo) return []
+                  if (Array.isArray(jobLog.assignedTo)) {
+                    if (jobLog.assignedTo.length > 0 && typeof jobLog.assignedTo[0] === 'object' && 'userId' in jobLog.assignedTo[0]) {
+                      return jobLog.assignedTo as JobAssignment[]
+                    }
+                    // Old format: array of strings
+                    return (jobLog.assignedTo as string[]).map(id => ({ userId: id, role: 'Team Member', price: null }))
+                  }
+                  // Old format: single string
+                  return [{ userId: jobLog.assignedTo as string, role: 'Team Member', price: null }]
+                }
+                
+                const assignments = getAssignments()
+                const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
+                const currentUserId = user?.id
+                
+                // If we have assignments with roles, show them with pricing
+                if (assignments.length > 0 && assignments[0].role) {
+                  return (
+                    <div>
+                      <span className="text-xs font-medium text-primary-light/70 mb-1.5 block">Assigned to</span>
+                      <div className="space-y-2 max-w-md">
+                        {assignments.map((assignment, index) => {
+                          // Find name from assignedToName by index (approximate match)
+                          const nameParts = jobLog.assignedToName?.split(',') || []
+                          const displayName = nameParts[index]?.trim() || `User ${index + 1}`
+                          const canSeePrice = isAdminOrOwner || assignment.userId === currentUserId
+                          const price = canSeePrice ? assignment.price : undefined
+                          
+                          return (
+                            <div
+                              key={assignment.userId || index}
+                              className="flex items-center justify-between gap-3 p-2 rounded-md bg-primary-dark-secondary/50 border border-primary-blue/30"
+                            >
+                              <div className="min-w-0 flex-shrink">
+                                <span className="text-primary-light font-medium">{displayName}</span>
+                                {assignment.role && assignment.role !== 'Team Member' && (
+                                  <span className="text-primary-light/60 ml-2">({assignment.role})</span>
+                                )}
+                              </div>
+                              {price !== null && price !== undefined && (
+                                <span className="text-primary-gold font-semibold flex-shrink-0">
+                                  ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              )}
+                              {price === undefined && (
+                                <span className="text-primary-light/30 text-sm flex-shrink-0">—</span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                }
+                
+                // Fallback to simple name display for old format
+                return (
+                  <div>
+                    <span className="text-xs font-medium text-primary-light/70 mb-1.5 block">Assigned to</span>
+                    <div className="flex flex-wrap gap-2">
+                      {jobLog.assignedToName.split(',').map((name, index) => (
+                        <span
+                          key={index}
+                          className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words"
+                        >
+                          {name.trim()}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
               {showCreatedBy && jobLog.job?.createdByName && (
                 <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words">
                   Created by {jobLog.job.createdByName}

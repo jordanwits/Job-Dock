@@ -1,10 +1,11 @@
 import { format } from 'date-fns'
 import { Modal, Button, Card } from '@/components/ui'
 import { useJobStore } from '../store/jobStore'
-import type { Job } from '../types/job'
+import type { Job, JobAssignment } from '../types/job'
 import { cn } from '@/lib/utils'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
+import { useAuthStore } from '@/features/auth/store/authStore'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -27,7 +28,26 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
   const navigate = useNavigate()
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
+  const { user } = useAuthStore()
   const [showDeleteMenu, setShowDeleteMenu] = useState(false)
+  
+  // Parse assignments from job (handle both old and new formats)
+  const getAssignments = (): JobAssignment[] => {
+    if (!job.assignedTo) return []
+    if (Array.isArray(job.assignedTo)) {
+      if (job.assignedTo.length > 0 && typeof job.assignedTo[0] === 'object' && 'userId' in job.assignedTo[0]) {
+        return job.assignedTo as JobAssignment[]
+      }
+      // Old format: array of strings
+      return (job.assignedTo as string[]).map(id => ({ userId: id, role: 'Team Member', price: null }))
+    }
+    // Old format: single string
+    return [{ userId: job.assignedTo as string, role: 'Team Member', price: null }]
+  }
+  
+  const assignments = getAssignments()
+  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
+  const currentUserId = user?.id
   
   useEffect(() => {
     if (job?.quoteId && quotes.length === 0) {
@@ -298,18 +318,39 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
           </div>
         </Card>
 
-        {job.assignedToName && (
+        {assignments.length > 0 && (
           <Card>
             <h3 className="text-sm font-medium text-primary-light/70 mb-3">Assigned to</h3>
-            <div className="flex flex-wrap gap-2">
-              {job.assignedToName.split(',').map((name, index) => (
-                <span
-                  key={index}
-                  className="inline-block px-3 py-1.5 rounded-md text-sm font-medium bg-primary-blue/20 text-primary-light border border-primary-blue/30"
-                >
-                  {name.trim()}
-                </span>
-              ))}
+            <div className="space-y-2 max-w-md">
+              {assignments.map((assignment, index) => {
+                // Find name from assignedToName by index (approximate match)
+                const nameParts = job.assignedToName?.split(',') || []
+                const displayName = nameParts[index]?.trim() || `User ${index + 1}`
+                const canSeePrice = isAdminOrOwner || assignment.userId === currentUserId
+                const price = canSeePrice ? assignment.price : undefined
+                
+                return (
+                  <div
+                    key={assignment.userId || index}
+                    className="flex items-center justify-between gap-3 p-2 rounded-md bg-primary-dark-secondary/50 border border-primary-blue/30"
+                  >
+                    <div className="min-w-0 flex-shrink">
+                      <span className="text-primary-light font-medium">{displayName}</span>
+                      {assignment.role && assignment.role !== 'Team Member' && (
+                        <span className="text-primary-light/60 ml-2">({assignment.role})</span>
+                      )}
+                    </div>
+                    {price !== null && price !== undefined && (
+                      <span className="text-primary-gold font-semibold flex-shrink-0">
+                        ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    )}
+                    {price === undefined && (
+                      <span className="text-primary-light/30 text-sm flex-shrink-0">—</span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </Card>
         )}

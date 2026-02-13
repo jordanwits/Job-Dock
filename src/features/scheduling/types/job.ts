@@ -15,6 +15,12 @@ export interface JobBreak {
   reason?: string
 }
 
+export interface JobAssignment {
+  userId: string
+  role: string
+  price?: number | null
+}
+
 export interface Job {
   id: string
   title: string
@@ -35,7 +41,7 @@ export interface Job {
   location?: string
   price?: number
   notes?: string
-  assignedTo?: string
+  assignedTo?: JobAssignment[] | string // Support both old (string) and new (JobAssignment[]) formats
   assignedToName?: string
   breaks?: JobBreak[]
   deletedAt?: string | null
@@ -61,7 +67,7 @@ export interface CreateJobData {
   location?: string
   price?: number
   notes?: string
-  assignedTo?: string
+  assignedTo?: JobAssignment[]
   breaks?: JobBreak[]
   recurrence?: RecurrencePayload
 }
