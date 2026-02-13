@@ -25,6 +25,8 @@ import {
 import { cn } from '@/lib/utils'
 import type { Job } from '../types/job'
 import { useJobStore } from '../store/jobStore'
+import { getTeamMemberColors } from '@/lib/utils/teamColors'
+import type { User } from '@/features/auth'
 
 interface CalendarProps {
   jobs: Job[]
@@ -35,6 +37,7 @@ interface CalendarProps {
   onJobClick: (job: Job) => void
   onDateClick: (date: Date) => void
   onUnscheduledDrop?: (jobId: string, targetDate: Date, targetHour?: number) => void
+  user?: User | null
 }
 
 interface DragState {
@@ -60,7 +63,32 @@ const Calendar = ({
   onJobClick,
   onDateClick,
   onUnscheduledDrop,
+  user,
 }: CalendarProps) => {
+  // Determine if we should use team member colors (for admin/owner)
+  const useTeamColors = user?.role === 'admin' || user?.role === 'owner'
+
+  // Helper function to get job colors based on user role
+  const getJobColors = (job: Job) => {
+    if (useTeamColors) {
+      return getTeamMemberColors(job.assignedToName)
+    }
+    // Fall back to status-based colors for employees
+    switch (job.status) {
+      case 'scheduled':
+        return { bg: 'bg-blue-500/20', border: 'border-blue-500', text: 'text-blue-300', isMultiAssignment: false, memberCount: 0 }
+      case 'in-progress':
+        return { bg: 'bg-yellow-500/20', border: 'border-yellow-500', text: 'text-yellow-300', isMultiAssignment: false, memberCount: 0 }
+      case 'completed':
+        return { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-300', isMultiAssignment: false, memberCount: 0 }
+      case 'cancelled':
+        return { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-300', isMultiAssignment: false, memberCount: 0 }
+      case 'pending-confirmation':
+        return { bg: 'bg-orange-500/20', border: 'border-orange-500', text: 'text-orange-300', isMultiAssignment: false, memberCount: 0 }
+      default:
+        return { bg: 'bg-gray-500/20', border: 'border-gray-500', text: 'text-gray-300', isMultiAssignment: false, memberCount: 0 }
+    }
+  }
   // Set initial scale based on screen size
   const getInitialScale = () => {
     if (typeof window !== 'undefined') {
@@ -914,18 +942,16 @@ const Calendar = ({
                           ? `${format(jobStart, 'MMM d')} - ${format(jobEnd, 'MMM d')}`
                           : `${format(jobStart, 'MMM d')} - ${format(jobEnd, 'MMM d')}`
 
+                  const jobColors = getJobColors(job)
                   return (
                     <div
                       key={job.id}
                       className={cn(
                         'rounded-lg border-l-4 p-2 cursor-pointer hover:opacity-90 transition-all',
-                        job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
-                        job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
-                        job.status === 'completed' && 'bg-green-500/20 border-green-500',
-                        job.status === 'cancelled' && 'bg-red-500/20 border-red-500',
-                        job.status === 'pending-confirmation' &&
-                          'bg-orange-500/20 border-orange-500'
+                        jobColors.bg || '',
+                        jobColors.border
                       )}
+                      style={jobColors.gradientStyle}
                       onClick={e => {
                         e.stopPropagation()
                         onJobClick(job)
@@ -1018,6 +1044,7 @@ const Calendar = ({
                     const widthPercent = layout.totalColumns > 1 ? 100 / layout.totalColumns : 100
                     const leftPercent = layout.totalColumns > 1 ? layout.column * widthPercent : 0
 
+                    const jobColors = getJobColors(job)
                     return (
                       <div
                         key={job.id}
@@ -1025,12 +1052,8 @@ const Calendar = ({
                           'absolute rounded-lg border-l-4 select-none group',
                           isDragging ? 'z-0' : 'z-10',
                           dragState.job && !isDragging && 'pointer-events-none',
-                          job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
-                          job.status === 'in-progress' && 'bg-yellow-500/20 border-yellow-500',
-                          job.status === 'completed' && 'bg-green-500/20 border-green-500',
-                          job.status === 'cancelled' && 'bg-red-500/20 border-red-500',
-                          job.status === 'pending-confirmation' &&
-                            'bg-orange-500/20 border-orange-500'
+                          jobColors.bg || '',
+                          jobColors.border
                         )}
                         style={{
                           top: `${topOffset * (pixelsPerHour / 60)}px`,
@@ -1044,6 +1067,7 @@ const Calendar = ({
                           willChange: isMoving ? 'transform' : undefined,
                           opacity: isMoving && dragState.isDragging ? 0 : 1,
                           pointerEvents: isMoving && dragState.isDragging ? 'none' : undefined,
+                          ...jobColors.gradientStyle,
                         }}
                       >
                         {/* Main content area - draggable */}
@@ -1274,21 +1298,15 @@ const Calendar = ({
                           const leftOffset =
                             columnOffset > 0 ? `calc(-${columnOffset} * (100% + 1px))` : '0.125rem'
 
+                          const jobColors = getJobColors(job)
                           return (
                             <div
                               key={job.id}
                               className={cn(
                                 'absolute multi-day-job-bar text-[10px] md:text-xs border-l-2 truncate cursor-grab active:cursor-grabbing hover:opacity-90 z-20 flex items-center',
-                                job.status === 'scheduled' &&
-                                  'bg-blue-500/20 border-blue-500 text-blue-300',
-                                job.status === 'in-progress' &&
-                                  'bg-yellow-500/20 border-yellow-500 text-yellow-300',
-                                job.status === 'completed' &&
-                                  'bg-green-500/20 border-green-500 text-green-300',
-                                job.status === 'cancelled' &&
-                                  'bg-red-500/20 border-red-500 text-red-300',
-                                job.status === 'pending-confirmation' &&
-                                  'bg-orange-500/20 border-orange-500 text-orange-300',
+                                jobColors.bg || '',
+                                jobColors.border,
+                                jobColors.text,
                                 isJobStart && 'rounded-l',
                                 isJobEnd && 'rounded-r'
                               )}
@@ -1304,6 +1322,7 @@ const Calendar = ({
                                   : undefined,
                                 transition: isMoving || justFinishedDrag ? 'none' : 'all 0.2s ease',
                                 opacity: isMoving && dragState.isDragging ? 0.5 : 1,
+                                ...jobColors.gradientStyle,
                               }}
                               onPointerDown={e => {
                                 e.stopPropagation()
@@ -1320,7 +1339,7 @@ const Calendar = ({
                               }}
                               title={job.title}
                             >
-                              {job.title}
+                              <span className="truncate">{job.title}</span>
                             </div>
                           )
                         })}
@@ -1397,6 +1416,7 @@ const Calendar = ({
                               const leftPercent =
                                 layout.totalColumns > 1 ? layout.column * widthPercent : 0
 
+                              const jobColors = getJobColors(job)
                               return (
                                 <div
                                   key={job.id}
@@ -1404,14 +1424,8 @@ const Calendar = ({
                                     'absolute rounded text-xs border-l-2 select-none group',
                                     isDragging ? 'z-0' : 'z-10',
                                     dragState.job && !isDragging && 'pointer-events-none',
-                                    job.status === 'scheduled' && 'bg-blue-500/20 border-blue-500',
-                                    job.status === 'in-progress' &&
-                                      'bg-yellow-500/20 border-yellow-500',
-                                    job.status === 'completed' &&
-                                      'bg-green-500/20 border-green-500',
-                                    job.status === 'cancelled' && 'bg-red-500/20 border-red-500',
-                                    job.status === 'pending-confirmation' &&
-                                      'bg-orange-500/20 border-orange-500'
+                                    jobColors.bg || '',
+                                    jobColors.border
                                   )}
                                   style={{
                                     top: `calc(var(--slot-height) * ${topPosition} / 100)`,
@@ -1427,6 +1441,7 @@ const Calendar = ({
                                     opacity: isMoving && dragState.isDragging ? 0 : 1,
                                     pointerEvents:
                                       isMoving && dragState.isDragging ? 'none' : undefined,
+                                    ...jobColors.gradientStyle,
                                   }}
                                 >
                                   {/* Main content area - draggable */}
@@ -1758,6 +1773,7 @@ const Calendar = ({
                     const topOffsetMobile = jobIndex * monthLaneStepMobileRem
                     const topOffsetDesktop = jobIndex * monthLaneStepDesktopRem
 
+                    const jobColors = getJobColors(job)
                     return (
                       <div
                         key={`${job.id}-${day.toISOString()}`}
@@ -1775,20 +1791,16 @@ const Calendar = ({
                           onJobClick(job)
                         }}
                         className={cn(
-                          'month-multi-day-pill text-[10px] md:text-xs p-0.5 md:p-1 leading-4 cursor-grab active:cursor-grabbing touch-none border-l-2 truncate',
+                          'month-multi-day-pill text-[10px] md:text-xs p-0.5 md:p-1 leading-4 cursor-grab active:cursor-grabbing touch-none border-l-2 truncate relative',
                           'hover:opacity-80',
                           !isCurrentMonth && 'opacity-60',
-                          job.status === 'scheduled' &&
-                            'bg-blue-500/20 border-blue-500 text-blue-300',
-                          job.status === 'in-progress' &&
-                            'bg-yellow-500/20 border-yellow-500 text-yellow-300',
-                          job.status === 'completed' &&
-                            'bg-green-500/20 border-green-500 text-green-300',
-                          job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300',
-                          job.status === 'pending-confirmation' &&
-                            'bg-orange-500/20 border-orange-500 text-orange-300',
+                          jobColors.bg,
+                          jobColors.border,
+                          jobColors.text,
                           isJobStartDay && 'rounded-l', // Rounded on left only if job starts here
-                          (segmentEndsOnJobEnd || segmentSpansToEndOfRow) && 'rounded-r' // Rounded on right if end of job or row
+                          (segmentEndsOnJobEnd || segmentSpansToEndOfRow) && 'rounded-r', // Rounded on right if end of job or row
+                          // Add visual indicator for multi-assignment
+                          jobColors.isMultiAssignment && 'border-l-2 border-r border-t border-b'
                         )}
                         style={
                           {
@@ -1849,6 +1861,7 @@ const Calendar = ({
                     const translateX = isMonthMoving ? dragOffset.x : 0
                     const translateY = isMonthMoving ? dragOffset.y : 0
 
+                    const jobColors = getJobColors(job)
                     return (
                       <div
                         key={job.id}
@@ -1857,27 +1870,21 @@ const Calendar = ({
                           'border-l-2',
                           !isCurrentMonth && 'opacity-60',
                           'hover:opacity-80',
-                          job.status === 'scheduled' &&
-                            'bg-blue-500/20 border-blue-500 text-blue-300',
-                          job.status === 'in-progress' &&
-                            'bg-yellow-500/20 border-yellow-500 text-yellow-300',
-                          job.status === 'completed' &&
-                            'bg-green-500/20 border-green-500 text-green-300',
-                          job.status === 'cancelled' && 'bg-red-500/20 border-red-500 text-red-300',
-                          job.status === 'pending-confirmation' &&
-                            'bg-orange-500/20 border-orange-500 text-orange-300'
+                          jobColors.bg || '',
+                          jobColors.border,
+                          jobColors.text
                         )}
-                        style={
-                          {
-                            transform: isMonthMoving
-                              ? `translate3d(${translateX}px, ${translateY}px, 0)`
-                              : undefined,
-                            transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
-                            willChange: isMonthMoving ? 'transform' : undefined,
-                            zIndex: isMonthMoving && dragState.isDragging ? 50 : 1, // Lower z-index than multi-day jobs (5)
-                            pointerEvents:
-                              isMonthMoving && dragState.isDragging ? 'none' : undefined,
-                          } as React.CSSProperties
+                        style={{
+                          transform: isMonthMoving
+                            ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                            : undefined,
+                          transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
+                          willChange: isMonthMoving ? 'transform' : undefined,
+                          zIndex: isMonthMoving && dragState.isDragging ? 50 : 1, // Lower z-index than multi-day jobs (5)
+                          pointerEvents:
+                            isMonthMoving && dragState.isDragging ? 'none' : undefined,
+                          ...jobColors.gradientStyle,
+                        } as React.CSSProperties
                         }
                         onPointerDown={e => {
                           // Month view: use pointer-based drag for ALL devices (mouse + touch)

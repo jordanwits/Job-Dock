@@ -55,7 +55,7 @@ const Header = ({
                   <img
                     src={companyLogoUrl}
                     alt="Company logo"
-                    className="h-8 w-auto max-w-[120px] object-contain"
+                    className="h-10 w-auto max-w-[150px] object-contain"
                   />
                 )}
                 <div className="text-center">

@@ -325,7 +325,9 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               {assignments.map((assignment, index) => {
                 // Find name from assignedToName by index (approximate match)
                 const nameParts = job.assignedToName?.split(',') || []
-                const displayName = nameParts[index]?.trim() || `User ${index + 1}`
+                const nameFromString = nameParts[index]?.trim()
+                // Show "Unassigned" instead of "User 1", "User 2", etc. when name is not available
+                const displayName = nameFromString || 'Unassigned'
                 const canSeePrice = isAdminOrOwner || assignment.userId === currentUserId
                 const price = canSeePrice ? assignment.price : undefined
                 

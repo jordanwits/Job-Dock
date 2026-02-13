@@ -1034,6 +1034,7 @@ const SchedulingPage = () => {
                   setViewMode('day')
                 }}
                 onUnscheduledDrop={handleUnscheduledDrop}
+                user={user}
               />
             </div>
           </div>
