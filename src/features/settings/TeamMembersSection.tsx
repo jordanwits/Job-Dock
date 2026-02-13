@@ -10,7 +10,7 @@ interface TeamMember {
   role: string
   canCreateJobs?: boolean
   canScheduleAppointments?: boolean
-  canEditAllAppointments?: boolean
+  canSeeOtherJobs?: boolean
   createdAt: string
 }
 
@@ -100,7 +100,7 @@ export const TeamMembersSection = () => {
       const permissions = member ? {
         canCreateJobs: member.canCreateJobs ?? true,
         canScheduleAppointments: member.canScheduleAppointments ?? true,
-        canEditAllAppointments: member.canEditAllAppointments ?? false,
+        canSeeOtherJobs: member.canSeeOtherJobs ?? false,
       } : undefined
       await services.users.updateRole(userId, role, permissions)
       await loadMembers()
@@ -111,7 +111,7 @@ export const TeamMembersSection = () => {
 
   const handlePermissionChange = async (
     userId: string,
-    permission: 'canCreateJobs' | 'canScheduleAppointments' | 'canEditAllAppointments',
+    permission: 'canCreateJobs' | 'canScheduleAppointments' | 'canSeeOtherJobs',
     value: boolean,
     currentRole: string
   ) => {
@@ -124,7 +124,7 @@ export const TeamMembersSection = () => {
       const permissions = {
         canCreateJobs: permission === 'canCreateJobs' ? value : (member.canCreateJobs ?? true),
         canScheduleAppointments: permission === 'canScheduleAppointments' ? value : (member.canScheduleAppointments ?? true),
-        canEditAllAppointments: permission === 'canEditAllAppointments' ? value : (member.canEditAllAppointments ?? false),
+        canSeeOtherJobs: permission === 'canSeeOtherJobs' ? value : (member.canSeeOtherJobs ?? false),
       }
       
       await services.users.updateRole(userId, currentRole as 'admin' | 'employee', permissions)
@@ -340,14 +340,14 @@ export const TeamMembersSection = () => {
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <div className="mt-0.5 flex-shrink-0">
                           <Checkbox
-                            checked={m.canEditAllAppointments ?? false}
-                            onChange={(e) => handlePermissionChange(m.id, 'canEditAllAppointments', e.target.checked, m.role)}
+                            checked={m.canSeeOtherJobs ?? false}
+                            onChange={(e) => handlePermissionChange(m.id, 'canSeeOtherJobs', e.target.checked, m.role)}
                             disabled={updatingPermissions === m.id}
                           />
                         </div>
                         <div className="flex-1">
-                          <span className="text-sm text-primary-light/90 block">Can edit all appointments</span>
-                          <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to edit and delete appointments created by others</span>
+                          <span className="text-sm text-primary-light/90 block">Can see other people's jobs</span>
+                          <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to see, edit, and delete jobs created by others</span>
                         </div>
                       </label>
                     )}
@@ -359,8 +359,8 @@ export const TeamMembersSection = () => {
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <span className="text-sm text-primary-light/90 block">Can edit all appointments</span>
-                          <span className="text-xs text-primary-light/50 mt-0.5 block italic">Admins can edit all appointments by default</span>
+                          <span className="text-sm text-primary-light/90 block">Can see other people's jobs</span>
+                          <span className="text-xs text-primary-light/50 mt-0.5 block italic">Admins can see all jobs by default</span>
                         </div>
                       </div>
                     )}

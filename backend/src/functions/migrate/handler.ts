@@ -612,6 +612,14 @@ const PENDING_MIGRATIONS = [
     description: 'Add granular permission fields for team member privileges',
   },
   {
+    name: '20260218000000_rename_can_edit_all_to_can_see_other_jobs',
+    statements: [
+      `ALTER TABLE "users" RENAME COLUMN "canEditAllAppointments" TO "canSeeOtherJobs"`,
+      `UPDATE "users" SET "canSeeOtherJobs" = true WHERE "role" IN ('admin', 'owner') AND "canSeeOtherJobs" = false`,
+    ],
+    description: 'Rename canEditAllAppointments to canSeeOtherJobs to reflect new permission model',
+  },
+  {
     name: '20260216000000_add_invoice_tracking_fields',
     statements: [
       `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "trackResponse" BOOLEAN NOT NULL DEFAULT true`,

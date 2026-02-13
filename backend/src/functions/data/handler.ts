@@ -478,7 +478,7 @@ We look forward to working with you!',
             role: true, 
             canCreateJobs: true,
             canScheduleAppointments: true,
-            canEditAllAppointments: true,
+            canSeeOtherJobs: true,
             createdAt: true 
           },
         })
@@ -513,8 +513,8 @@ We look forward to working with you!',
         if (body?.canScheduleAppointments !== undefined) {
           updateData.canScheduleAppointments = Boolean(body.canScheduleAppointments)
         }
-        if (body?.canEditAllAppointments !== undefined) {
-          updateData.canEditAllAppointments = Boolean(body.canEditAllAppointments)
+        if (body?.canSeeOtherJobs !== undefined) {
+          updateData.canSeeOtherJobs = Boolean(body.canSeeOtherJobs)
         }
         
         const target = await prisma.user.findFirst({
@@ -898,7 +898,7 @@ We look forward to working with you!',
           role: true,
           canCreateJobs: true,
           canScheduleAppointments: true,
-          canEditAllAppointments: true,
+          canSeeOtherJobs: true,
         },
       })
       currentUser = user
@@ -921,17 +921,17 @@ We look forward to working with you!',
       }
     }
 
-    // Check edit/delete permissions: users without canEditAllAppointments can only edit their own jobs
+    // Check edit/delete permissions: users without canSeeOtherJobs can only edit their own jobs
     if (
       currentUser &&
       resource === 'jobs' &&
       id &&
       (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH' || event.httpMethod === 'DELETE')
     ) {
-      // Admins and owners always have canEditAllAppointments set to true (or default behavior)
-      const canEditAll = currentUser.role === 'admin' || currentUser.role === 'owner' || currentUser.canEditAllAppointments
+      // Admins and owners always have canSeeOtherJobs set to true (or default behavior)
+      const canSeeOther = currentUser.role === 'admin' || currentUser.role === 'owner' || currentUser.canSeeOtherJobs
       
-      if (!canEditAll) {
+      if (!canSeeOther) {
         const { default: prisma } = await import('../../lib/db')
         const job = await prisma.job.findFirst({
           where: { id, tenantId },
@@ -1101,16 +1101,19 @@ async function handleGet(
   // Extract user context for privacy filtering (if authenticated)
   let currentUserId: string | undefined
   let currentUserRole: string | undefined
+  let currentUserCanSeeOtherJobs: boolean | undefined
   try {
     const context = await extractContext(event)
     const { default: prisma } = await import('../../lib/db')
     const user = await prisma.user.findUnique({
       where: { cognitoId: context.userId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, canSeeOtherJobs: true },
     })
     if (user) {
       currentUserId = user.id
       currentUserRole = user.role
+      // Admins and owners can always see other jobs
+      currentUserCanSeeOtherJobs = user.role === 'admin' || user.role === 'owner' || (user.canSeeOtherJobs ?? false)
     }
   } catch {
     // User not authenticated or context unavailable - that's okay
@@ -1123,7 +1126,8 @@ async function handleGet(
         tenantId,
         id,
         currentUserId,
-        currentUserRole
+        currentUserRole,
+        currentUserCanSeeOtherJobs
       )
     }
     if (resource === 'job-logs') {
@@ -1151,7 +1155,8 @@ async function handleGet(
       includeArchived,
       showDeleted,
       currentUserId,
-      currentUserRole
+      currentUserRole,
+      currentUserCanSeeOtherJobs
     )
   }
 

@@ -496,14 +496,14 @@ const realUsersService = {
     permissions?: {
       canCreateJobs?: boolean
       canScheduleAppointments?: boolean
-      canEditAllAppointments?: boolean
+      canSeeOtherJobs?: boolean
     }
   ) => {
     const payload: any = { role }
     if (permissions) {
       if (permissions.canCreateJobs !== undefined) payload.canCreateJobs = permissions.canCreateJobs
       if (permissions.canScheduleAppointments !== undefined) payload.canScheduleAppointments = permissions.canScheduleAppointments
-      if (permissions.canEditAllAppointments !== undefined) payload.canEditAllAppointments = permissions.canEditAllAppointments
+      if (permissions.canSeeOtherJobs !== undefined) payload.canSeeOtherJobs = permissions.canSeeOtherJobs
     }
     const response = await apiClient.patch(`/users/${userId}`, payload)
     return response.data

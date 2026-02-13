@@ -14,7 +14,7 @@ export interface User {
   role?: 'owner' | 'admin' | 'employee'
   canCreateJobs?: boolean
   canScheduleAppointments?: boolean
-  canEditAllAppointments?: boolean
+  canSeeOtherJobs?: boolean
   onboardingCompletedAt?: string | null
 }
 

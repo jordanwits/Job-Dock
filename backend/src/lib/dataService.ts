@@ -1704,32 +1704,53 @@ export const dataServices = {
       includeArchived?: boolean,
       showDeleted?: boolean,
       currentUserId?: string,
-      currentUserRole?: string
+      currentUserRole?: string,
+      canSeeOtherJobs?: boolean
     ) => {
       await ensureTenantExists(tenantId)
+      
+      // Build the where clause
+      const whereClause: Prisma.JobWhereInput = {
+        tenantId,
+        // Filter archived jobs based on includeArchived flag
+        // Note: showDeleted parameter is deprecated, we only use archive now
+        ...(includeArchived ? {} : { archivedAt: null }),
+      }
+      
+      // Note: If user cannot see other jobs, we'll filter in memory after fetching
+      // This allows us to check both createdById and assignedTo (which requires JSONB filtering)
+      // For performance, we could use a raw SQL query, but filtering in memory is simpler and works correctly
+      
+      // When date filters are provided, return scheduled jobs in range OR unscheduled jobs
+      if (startDate || endDate) {
+        const dateFilter = {
+          OR: [
+            {
+              startTime: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+            {
+              toBeScheduled: true,
+            },
+          ],
+        }
+        
+        // If we already have an OR clause (from canSeeOtherJobs filtering), combine them
+        if (whereClause.OR) {
+          whereClause.AND = [
+            { OR: whereClause.OR },
+            dateFilter,
+          ]
+          delete whereClause.OR
+        } else {
+          whereClause.OR = dateFilter.OR
+        }
+      }
+      
       const jobs = await prisma.job.findMany({
-        where: {
-          tenantId,
-          // Filter archived jobs based on includeArchived flag
-          // Note: showDeleted parameter is deprecated, we only use archive now
-          ...(includeArchived ? {} : { archivedAt: null }),
-          // When date filters are provided, return scheduled jobs in range OR unscheduled jobs
-          ...(startDate || endDate
-            ? {
-                OR: [
-                  {
-                    startTime: {
-                      gte: startDate,
-                      lte: endDate,
-                    },
-                  },
-                  {
-                    toBeScheduled: true,
-                  },
-                ],
-              }
-            : {}),
-        },
+        where: whereClause,
         include: {
           contact: true,
           service: true,
@@ -1741,9 +1762,22 @@ export const dataServices = {
         ],
       })
       
+      // Filter out jobs user cannot see (if canSeeOtherJobs is false, also filter by assignedTo)
+      let filteredJobs = jobs
+      if (currentUserId && canSeeOtherJobs !== true) {
+        filteredJobs = jobs.filter(job => {
+          // User can see if they created it (already filtered by query)
+          if (job.createdById === currentUserId) return true
+          
+          // User can also see if they're assigned to it
+          const userIds = extractUserIds(job.assignedTo)
+          return userIds.includes(currentUserId)
+        })
+      }
+      
       // Map assignedToName and apply privacy filtering for all jobs
       const jobsWithNames = await Promise.all(
-        jobs.map(async (job) => {
+        filteredJobs.map(async (job) => {
           const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
           const assignedToWithPrivacy = getAssignedToWithPrivacy(
             job.assignedTo,
@@ -1764,10 +1798,14 @@ export const dataServices = {
       tenantId: string, 
       id: string,
       currentUserId?: string,
-      currentUserRole?: string
+      currentUserRole?: string,
+      canSeeOtherJobs?: boolean
     ) => {
       const job = await prisma.job.findFirst({
-        where: { id, tenantId },
+        where: {
+          id,
+          tenantId,
+        },
         include: {
           contact: true,
           service: true,
@@ -1775,6 +1813,15 @@ export const dataServices = {
         },
       })
       if (!job) throw new Error('Job not found')
+      
+      // Check if user can see this job (if canSeeOtherJobs is false, they can only see jobs they created or are assigned to)
+      if (currentUserId && canSeeOtherJobs !== true) {
+        const canSee = job.createdById === currentUserId || extractUserIds(job.assignedTo).includes(currentUserId)
+        if (!canSee) {
+          throw new Error('Job not found')
+        }
+      }
+      
       const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
       const assignedToWithPrivacy = getAssignedToWithPrivacy(
         job.assignedTo,

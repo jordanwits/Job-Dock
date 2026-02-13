@@ -779,7 +779,7 @@ const SchedulingPage = () => {
         <div className="flex items-center gap-2">
           {(activeTab === 'calendar' || activeTab === 'jobs') && (
             <>
-              {(user?.canCreateJobs !== false || user?.canScheduleAppointments !== false) && (
+              {user?.canScheduleAppointments !== false && (
                 <Button
                   onClick={() => setShowJobForm(true)}
                   className="w-full sm:w-auto"
