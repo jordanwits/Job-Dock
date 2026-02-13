@@ -116,24 +116,6 @@ export const SettingsPage = () => {
   // Define all tabs with their configurations (after handlers are defined)
   const allTabs: TabConfig[] = useMemo(() => [
     {
-      id: 'billing',
-      label: 'Billing & Subscription',
-      component: <BillingSection />,
-      roles: ['owner'],
-    },
-    {
-      id: 'team',
-      label: 'Team Members',
-      component: <TeamMembersSection />,
-      roles: ['owner', 'admin'],
-    },
-    {
-      id: 'early-access',
-      label: 'Early Access',
-      component: <EarlyAccessSection />,
-      emailCheck: (email) => email === 'jordan@westwavecreative.com',
-    },
-    {
       id: 'company',
       label: 'Company & Branding',
       component: (
@@ -145,6 +127,18 @@ export const SettingsPage = () => {
           onSave={handleSave}
         />
       ),
+    },
+    {
+      id: 'team',
+      label: 'Team Members',
+      component: <TeamMembersSection />,
+      roles: ['owner', 'admin'],
+    },
+    {
+      id: 'billing',
+      label: 'Billing & Subscription',
+      component: <BillingSection />,
+      roles: ['owner'],
     },
     {
       id: 'email',
@@ -167,6 +161,12 @@ export const SettingsPage = () => {
           onQuotePdfUpload={handleQuotePdfUpload}
         />
       ),
+    },
+    {
+      id: 'early-access',
+      label: 'Early Access',
+      component: <EarlyAccessSection />,
+      emailCheck: (email) => email === 'jordan@westwavecreative.com',
     },
   ], [formData, settings, handleFieldChange, handleSave, handleLogoUpload, handleInvoicePdfUpload, handleQuotePdfUpload])
 
