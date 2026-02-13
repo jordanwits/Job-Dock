@@ -270,7 +270,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
             `${filteredJobLogs.length} job${filteredJobLogs.length !== 1 ? 's' : ''} found`
           )}
         </div>
-        {selectedIds.size > 0 ? (
+        {selectedIds.size > 0 && (
           <Button
             variant="outline"
             size="sm"
@@ -282,19 +282,6 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
             </svg>
             Delete Selected ({selectedIds.size})
           </Button>
-        ) : (
-          !isLoading &&
-          filteredJobLogs.length > 0 &&
-          onCreateClick && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onCreateClick}
-              className="hidden sm:inline-flex"
-            >
-              New Job
-            </Button>
-          )
         )}
       </div>
 
@@ -440,10 +427,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
               ? 'No jobs match your filters'
               : 'No jobs yet'}
           </p>
-          {!searchQuery && statusFilter === 'all' && onCreateClick && (
-            <Button variant="primary" onClick={onCreateClick}>
-              Create Your First Job
-            </Button>
+          {!searchQuery && statusFilter === 'all' && (
+            <p className="text-sm text-primary-light/60">
+              Use the "Create Job" button above to get started
+            </p>
           )}
         </div>
       ) : displayMode === 'cards' ? (

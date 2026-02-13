@@ -6,8 +6,10 @@ import JobLogForm from '../components/JobLogForm'
 import { Modal, Button } from '@/components/ui'
 import type { CreateJobLogData } from '../types/jobLog'
 import { services } from '@/lib/api/services'
+import { useAuthStore } from '@/features/auth'
 
 const JobLogsListPage = () => {
+  const { user } = useAuthStore()
   const [isTeamAccount, setIsTeamAccount] = useState(false)
 
   useEffect(() => {
@@ -47,9 +49,11 @@ const JobLogsListPage = () => {
             Create jobs, track time, capture photos, and take notes on jobsites
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)} className="w-full sm:w-auto">
-          Create Job
-        </Button>
+        {user?.canCreateJobs !== false && (
+          <Button onClick={() => setShowCreateForm(true)} className="w-full sm:w-auto">
+            Create Job
+          </Button>
+        )}
       </div>
 
       <JobLogList

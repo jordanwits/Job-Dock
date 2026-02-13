@@ -12,6 +12,9 @@ export interface User {
   name: string
   tenantId: string
   role?: 'owner' | 'admin' | 'employee'
+  canCreateJobs?: boolean
+  canScheduleAppointments?: boolean
+  canEditAllAppointments?: boolean
   onboardingCompletedAt?: string | null
 }
 

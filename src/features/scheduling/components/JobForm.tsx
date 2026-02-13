@@ -41,12 +41,18 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
   const { user } = useAuthStore()
+  const canSchedule = user?.canScheduleAppointments !== false
+  const canCreateJobs = user?.canCreateJobs !== false
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
   const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [startDate, setStartDate] = useState(job && job.startTime ? format(new Date(job.startTime), 'yyyy-MM-dd') : '')
   const [startTime, setStartTime] = useState(job && job.startTime ? format(new Date(job.startTime), 'HH:mm') : '09:00')
   const [isAllDay, setIsAllDay] = useState(false)
-  const [toBeScheduled, setToBeScheduled] = useState(job?.toBeScheduled || false)
+  const [toBeScheduled, setToBeScheduled] = useState(() => {
+    // If user can't schedule, always default to toBeScheduled = true
+    if (!canSchedule) return true
+    return job?.toBeScheduled || false
+  })
   const [repeatPattern, setRepeatPattern] = useState<string>('none')
   const [endRepeatMode, setEndRepeatMode] = useState<'never' | 'on-date'>('never')
   const [endRepeatDate, setEndRepeatDate] = useState<string>('')
@@ -250,7 +256,9 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
         setDurationValue(inferred.value)
       }
       // If we're scheduling an unscheduled job, automatically uncheck toBeScheduled
-      setToBeScheduled(schedulingUnscheduledJob ? false : (job.toBeScheduled || false))
+      // But if user can't schedule, force toBeScheduled to true
+      const shouldBeScheduled = !canSchedule || (schedulingUnscheduledJob ? false : (job.toBeScheduled || false))
+      setToBeScheduled(shouldBeScheduled)
     }
   }, [job, reset, schedulingUnscheduledJob])
 
@@ -632,28 +640,37 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
 
       {/* Service field is now integrated into Job Title dropdown above */}
 
-      {/* To Be Scheduled checkbox */}
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-primary-blue/5 border border-primary-blue/30">
-        <input
-          type="checkbox"
-          id="toBeScheduled"
-          checked={toBeScheduled}
-          onChange={(e) => {
-            setToBeScheduled(e.target.checked)
-            if (e.target.checked) {
-              // Clear date/time when setting to unscheduled
-              setRepeatPattern('none')
-            }
-          }}
-          className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer"
-        />
-        <label htmlFor="toBeScheduled" className="text-sm font-medium text-primary-light cursor-pointer">
-          To Be Scheduled
-        </label>
-        <span className="text-xs text-primary-light/50 ml-auto">
-          (Schedule date/time later)
-        </span>
-      </div>
+      {/* To Be Scheduled checkbox - show if user can schedule appointments */}
+      {canSchedule && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary-blue/5 border border-primary-blue/30">
+          <input
+            type="checkbox"
+            id="toBeScheduled"
+            checked={toBeScheduled}
+            onChange={(e) => {
+              setToBeScheduled(e.target.checked)
+              if (e.target.checked) {
+                // Clear date/time when setting to unscheduled
+                setRepeatPattern('none')
+              }
+            }}
+            className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer"
+          />
+          <label htmlFor="toBeScheduled" className="text-sm font-medium text-primary-light cursor-pointer">
+            To Be Scheduled
+          </label>
+          <span className="text-xs text-primary-light/50 ml-auto">
+            (Schedule date/time later)
+          </span>
+        </div>
+      )}
+      {!canSchedule && (
+        <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <p className="text-sm text-amber-400">
+            You do not have permission to schedule appointments. This job will be created without scheduled times.
+          </p>
+        </div>
+      )}
 
       {/* Job Time */}
       {!isAllDay && !toBeScheduled && (
@@ -708,11 +725,19 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
             </label>
           </div>
 
+        {!canSchedule && (
+          <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <p className="text-sm text-amber-400">
+              You do not have permission to schedule appointments. This job will be created without scheduled times.
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <DatePicker
             label={isAllDay ? 'Start Date *' : (durationUnit === 'minutes' || durationUnit === 'hours') ? 'Date *' : 'Start Date *'}
             value={startDate}
             onChange={setStartDate}
+            disabled={!canSchedule || toBeScheduled}
           />
 
           {!isAllDay && (durationUnit === 'minutes' || durationUnit === 'hours') && (
@@ -721,6 +746,7 @@ const JobForm = ({ job, onSubmit, onCancel, isLoading, defaultContactId, default
               value={startTime}
               onChange={setStartTime}
               placeholder="9:00 AM (default)"
+              disabled={!canSchedule || toBeScheduled}
             />
           )}
         </div>

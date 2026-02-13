@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card } from '@/components/ui'
-import { Button } from '@/components/ui'
+import { Card, Button, Input } from '@/components/ui'
 import { useAuthStore } from '@/features/auth'
 import { usersService } from '@/lib/api/services'
 
@@ -51,12 +50,12 @@ export const ProfileSettingsPage = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold text-primary-light tracking-tight">
+    <div className="space-y-6 md:space-y-8">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
           <span className="text-primary-gold">Profile</span>
         </h1>
-        <p className="text-primary-light/60">
+        <p className="text-primary-light/60 mt-1">
           Edit your personal information
         </p>
       </div>
@@ -73,55 +72,37 @@ export const ProfileSettingsPage = () => {
         </Card>
       )}
 
-      <Card>
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-primary-light mb-2">
-                First name
-              </label>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="w-full rounded-lg border border-primary-light/20 bg-primary-dark-secondary px-4 py-2 text-primary-light placeholder-primary-light/50 focus:border-primary-gold focus:outline-none focus:ring-1 focus:ring-primary-gold"
-                placeholder="First name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-primary-light mb-2">
-                Last name
-              </label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="w-full rounded-lg border border-primary-light/20 bg-primary-dark-secondary px-4 py-2 text-primary-light placeholder-primary-light/50 focus:border-primary-gold focus:outline-none focus:ring-1 focus:ring-primary-gold"
-                placeholder="Last name"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-primary-light mb-2">
-              Email
-            </label>
-            <input
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold text-primary-light mb-4">Personal Information</h2>
+          <div className="space-y-4 max-w-2xl">
+            <Input
+              label="First name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="First name"
+            />
+            <Input
+              label="Last name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Last name"
+            />
+            <Input
+              label="Email"
               type="email"
               value={user?.email ?? ''}
               disabled
-              className="w-full rounded-lg border border-primary-light/20 bg-primary-dark-secondary px-4 py-2 text-primary-light/70 cursor-not-allowed"
+              helperText="Email cannot be changed. Contact your admin if you need to update it."
             />
-            <p className="text-sm text-primary-light/50 mt-1">
-              Email cannot be changed. Contact your admin if you need to update it.
-            </p>
-          </div>
-          <div>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
+            <div className="flex justify-end pt-2">
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   )
 }

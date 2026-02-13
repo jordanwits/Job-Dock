@@ -779,13 +779,15 @@ const SchedulingPage = () => {
         <div className="flex items-center gap-2">
           {(activeTab === 'calendar' || activeTab === 'jobs') && (
             <>
-              <Button
-                onClick={() => setShowJobForm(true)}
-                className="w-full sm:w-auto"
-                title="Keyboard shortcut: Ctrl+N or ⌘N"
-              >
-                Schedule Job
-              </Button>
+              {(user?.canCreateJobs !== false || user?.canScheduleAppointments !== false) && (
+                <Button
+                  onClick={() => setShowJobForm(true)}
+                  className="w-full sm:w-auto"
+                  title="Keyboard shortcut: Ctrl+N or ⌘N"
+                >
+                  Schedule Job
+                </Button>
+              )}
               {activeTab === 'calendar' && (
                 <Button
                   onClick={handleOpenBookingLink}

@@ -223,6 +223,9 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         name: true,
         tenantId: true,
         role: true,
+        canCreateJobs: true,
+        canScheduleAppointments: true,
+        canEditAllAppointments: true,
         onboardingCompletedAt: true,
       },
     })
@@ -275,6 +278,9 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
             name: true,
             tenantId: true,
             role: true,
+            canCreateJobs: true,
+            canScheduleAppointments: true,
+            canEditAllAppointments: true,
             onboardingCompletedAt: true,
           },
         })
@@ -303,6 +309,9 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         name: user.name,
         tenantId: user.tenantId,
         role: user.role || 'admin',
+        canCreateJobs: user.canCreateJobs ?? true,
+        canScheduleAppointments: user.canScheduleAppointments ?? true,
+        canEditAllAppointments: user.canEditAllAppointments ?? false,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
@@ -362,6 +371,9 @@ async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<AP
         name: true,
         tenantId: true,
         role: true,
+        canCreateJobs: true,
+        canScheduleAppointments: true,
+        canEditAllAppointments: true,
         onboardingCompletedAt: true,
       },
     })
@@ -379,6 +391,9 @@ async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<AP
         name: user.name,
         tenantId: user.tenantId,
         role: user.role || 'admin',
+        canCreateJobs: user.canCreateJobs ?? true,
+        canScheduleAppointments: user.canScheduleAppointments ?? true,
+        canEditAllAppointments: user.canEditAllAppointments ?? false,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
@@ -419,6 +434,9 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         name: true,
         tenantId: true,
         role: true,
+        canCreateJobs: true,
+        canScheduleAppointments: true,
+        canEditAllAppointments: true,
         onboardingCompletedAt: true,
       },
     })
@@ -437,6 +455,9 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         name: user.name,
         tenantId: user.tenantId,
         role: user.role || 'admin',
+        canCreateJobs: user.canCreateJobs ?? true,
+        canScheduleAppointments: user.canScheduleAppointments ?? true,
+        canEditAllAppointments: user.canEditAllAppointments ?? false,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })

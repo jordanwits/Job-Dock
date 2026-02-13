@@ -471,7 +471,16 @@ We look forward to working with you!',
       if (event.httpMethod === 'GET' && !targetUserId) {
         const users = await prisma.user.findMany({
           where: { tenantId },
-          select: { id: true, email: true, name: true, role: true, createdAt: true },
+          select: { 
+            id: true, 
+            email: true, 
+            name: true, 
+            role: true, 
+            canCreateJobs: true,
+            canScheduleAppointments: true,
+            canEditAllAppointments: true,
+            createdAt: true 
+          },
         })
         return successResponse(
           users.map((u) => ({
@@ -483,13 +492,31 @@ We look forward to working with you!',
 
       if (targetUserId && (event.httpMethod === 'PATCH' || event.httpMethod === 'PUT')) {
         if (!canManageTeam) {
-          return errorResponse('Only owners and admins can change roles', 403)
+          return errorResponse('Only owners and admins can change roles and permissions', 403)
         }
         const body = parseBody(event)
         const newRole = body?.role
-        if (!newRole || !['admin', 'employee'].includes(newRole)) {
-          return errorResponse('Invalid role. Use admin or employee', 400)
+        const updateData: any = {}
+        
+        // Update role if provided
+        if (newRole) {
+          if (!['admin', 'employee'].includes(newRole)) {
+            return errorResponse('Invalid role. Use admin or employee', 400)
+          }
+          updateData.role = newRole
         }
+        
+        // Update permissions if provided
+        if (body?.canCreateJobs !== undefined) {
+          updateData.canCreateJobs = Boolean(body.canCreateJobs)
+        }
+        if (body?.canScheduleAppointments !== undefined) {
+          updateData.canScheduleAppointments = Boolean(body.canScheduleAppointments)
+        }
+        if (body?.canEditAllAppointments !== undefined) {
+          updateData.canEditAllAppointments = Boolean(body.canEditAllAppointments)
+        }
+        
         const target = await prisma.user.findFirst({
           where: { id: targetUserId, tenantId },
         })
@@ -497,11 +524,17 @@ We look forward to working with you!',
           return errorResponse('User not found', 404)
         }
         if (target.role === 'owner') {
-          return errorResponse('Cannot change owner role', 403)
+          return errorResponse('Cannot change owner role or permissions', 403)
         }
+        
+        // If no updates provided, return error
+        if (Object.keys(updateData).length === 0) {
+          return errorResponse('No valid fields to update', 400)
+        }
+        
         await prisma.user.update({
           where: { id: targetUserId },
-          data: { role: newRole },
+          data: updateData,
         })
         return successResponse({ success: true })
       }
@@ -860,7 +893,13 @@ We look forward to working with you!',
       const context = await extractContext(event)
       const user = await prisma.user.findUnique({
         where: { cognitoId: context.userId },
-        select: { id: true, role: true },
+        select: { 
+          id: true, 
+          role: true,
+          canCreateJobs: true,
+          canScheduleAppointments: true,
+          canEditAllAppointments: true,
+        },
       })
       currentUser = user
       const role = user?.role || 'admin'
@@ -882,24 +921,28 @@ We look forward to working with you!',
       }
     }
 
-    // For employees: only allow edit/delete of jobs they created
+    // Check edit/delete permissions: users without canEditAllAppointments can only edit their own jobs
     if (
       currentUser &&
-      currentUser.role === 'employee' &&
       resource === 'jobs' &&
       id &&
       (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH' || event.httpMethod === 'DELETE')
     ) {
-      const { default: prisma } = await import('../../lib/db')
-      const job = await prisma.job.findFirst({
-        where: { id, tenantId },
-        select: { createdById: true },
-      })
-      if (!job) {
-        return errorResponse('Job not found', 404)
-      }
-      if (job.createdById !== currentUser.id) {
-        return errorResponse('You can only move, edit, or delete appointments you created. Ask an admin or owner to make changes to this one.', 403)
+      // Admins and owners always have canEditAllAppointments set to true (or default behavior)
+      const canEditAll = currentUser.role === 'admin' || currentUser.role === 'owner' || currentUser.canEditAllAppointments
+      
+      if (!canEditAll) {
+        const { default: prisma } = await import('../../lib/db')
+        const job = await prisma.job.findFirst({
+          where: { id, tenantId },
+          select: { createdById: true },
+        })
+        if (!job) {
+          return errorResponse('Job not found', 404)
+        }
+        if (job.createdById !== currentUser.id) {
+          return errorResponse('You can only move, edit, or delete appointments you created. Ask an admin or owner to make changes to this one.', 403)
+        }
       }
     }
 
@@ -1260,17 +1303,44 @@ async function handlePost(
   // All other POST actions require a body
   const payload = parseBody(event)
   if ('create' in service) {
-    // For jobs create: inject createdById from current user and check assignment auth
+    // For jobs create: inject createdById from current user and check permissions
     if (resource === 'jobs' && !id) {
       const context = await extractContext(event)
       const { default: prisma } = await import('../../lib/db')
       const user = await prisma.user.findUnique({
         where: { cognitoId: context.userId },
-        select: { id: true, role: true },
+        select: { 
+          id: true, 
+          role: true,
+          canCreateJobs: true,
+          canScheduleAppointments: true,
+        },
       })
+      
+      // Check if user can create jobs OR schedule appointments
+      // If they can schedule appointments, they can create jobs (both scheduled and unscheduled)
+      const hasStartTime = payload?.startTime !== null && payload?.startTime !== undefined
+      const hasEndTime = payload?.endTime !== null && payload?.endTime !== undefined
+      const hasScheduledTimes = hasStartTime || hasEndTime
+      
+      // Allow creating jobs if:
+      // 1. They can create jobs (general permission), OR
+      // 2. They can schedule appointments (allows both scheduled and unscheduled jobs)
+      const canCreate = user?.canCreateJobs || user?.canScheduleAppointments
+      
+      if (!canCreate) {
+        throw new ApiError('You do not have permission to create jobs', 403)
+      }
+      
       if (user) {
         payload.createdById = user.id
       }
+      
+      // Check if user can schedule appointments (set start/end times)
+      if (hasScheduledTimes && !user?.canScheduleAppointments) {
+        throw new ApiError('You do not have permission to schedule appointments. You can create jobs without scheduled times.', 403)
+      }
+      
       const newAssignee = payload?.assignedTo && String(payload.assignedTo).trim()
       if (newAssignee) {
         if (user?.role === 'employee') {
@@ -1314,17 +1384,35 @@ async function handlePut(
   const payload = parseBody(event)
 
   // Inject acting user ID for job/job-log updates (used for assignment notification skip-on-self-assign)
+  // Also check scheduling permissions for job updates
   if ((service === dataServices.jobs || service === dataServices['job-logs']) && id) {
     try {
       const context = await extractContext(event)
       const { default: prisma } = await import('../../lib/db')
       const user = await prisma.user.findFirst({
         where: { cognitoId: context.userId },
-        select: { id: true },
+        select: { 
+          id: true,
+          canScheduleAppointments: true,
+        },
       })
-      if (user) payload._actingUserId = user.id
-    } catch {
-      /* ignore */
+      if (user) {
+        payload._actingUserId = user.id
+        
+        // Check scheduling permissions when updating jobs with times
+        if (service === dataServices.jobs) {
+          const hasStartTime = payload?.startTime !== null && payload?.startTime !== undefined
+          const hasEndTime = payload?.endTime !== null && payload?.endTime !== undefined
+          if ((hasStartTime || hasEndTime) && !user.canScheduleAppointments) {
+            throw new ApiError('You do not have permission to schedule appointments. You can update jobs without scheduled times.', 403)
+          }
+        }
+      }
+    } catch (error: any) {
+      if (error instanceof ApiError) {
+        throw error
+      }
+      /* ignore other errors */
     }
   }
 

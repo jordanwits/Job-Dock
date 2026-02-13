@@ -628,6 +628,19 @@ const PENDING_MIGRATIONS = [
     ],
     description: 'Add assignedTo to job logs for team member assignment on Jobs page',
   },
+  {
+    name: '20260215000000_add_user_permission_fields',
+    statements: [
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "canCreateJobs" BOOLEAN NOT NULL DEFAULT true`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "canScheduleAppointments" BOOLEAN NOT NULL DEFAULT true`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "canEditAllAppointments" BOOLEAN NOT NULL DEFAULT false`,
+      `UPDATE "users" SET "canCreateJobs" = true WHERE "canCreateJobs" IS NULL`,
+      `UPDATE "users" SET "canScheduleAppointments" = true WHERE "canScheduleAppointments" IS NULL`,
+      `UPDATE "users" SET "canEditAllAppointments" = false WHERE "canEditAllAppointments" IS NULL`,
+      `UPDATE "users" SET "canEditAllAppointments" = true WHERE "role" IN ('admin', 'owner') AND "canEditAllAppointments" = false`,
+    ],
+    description: 'Add granular permission fields for team member privileges',
+  },
 ]
 
 export const handler = async (

@@ -490,8 +490,22 @@ const realUsersService = {
     return response.data
   },
 
-  updateRole: async (userId: string, role: 'admin' | 'employee') => {
-    const response = await apiClient.patch(`/users/${userId}`, { role })
+  updateRole: async (
+    userId: string, 
+    role: 'admin' | 'employee',
+    permissions?: {
+      canCreateJobs?: boolean
+      canScheduleAppointments?: boolean
+      canEditAllAppointments?: boolean
+    }
+  ) => {
+    const payload: any = { role }
+    if (permissions) {
+      if (permissions.canCreateJobs !== undefined) payload.canCreateJobs = permissions.canCreateJobs
+      if (permissions.canScheduleAppointments !== undefined) payload.canScheduleAppointments = permissions.canScheduleAppointments
+      if (permissions.canEditAllAppointments !== undefined) payload.canEditAllAppointments = permissions.canEditAllAppointments
+    }
+    const response = await apiClient.patch(`/users/${userId}`, payload)
     return response.data
   },
 
