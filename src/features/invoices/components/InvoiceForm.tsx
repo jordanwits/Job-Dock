@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { invoiceSchema, type InvoiceFormData } from '../schemas/invoiceSchemas'
 import { Invoice } from '../types/invoice'
-import { Input, Button, DatePicker, Select, Modal } from '@/components/ui'
+import { Input, Button, DatePicker, Select, Modal, Checkbox } from '@/components/ui'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import ContactForm from '@/features/crm/components/ContactForm'
 
@@ -42,11 +42,11 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
       title: invoice?.title || '',
       lineItems: invoice?.lineItems.map((item) => ({
         description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-      })) || [{ description: '', quantity: 1, unitPrice: 0 }],
-      taxRate: invoice ? invoice.taxRate * 100 : 8,
-      discount: invoice?.discount || 0,
+        quantity: item.quantity > 0 ? item.quantity : '',
+        unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
+      })) || [{ description: '', quantity: 1, unitPrice: '' }],
+      taxRate: invoice ? (invoice.taxRate > 0 ? invoice.taxRate * 100 : '') : '',
+      discount: invoice?.discount && invoice.discount > 0 ? invoice.discount : '',
       discountReason: invoice?.discountReason || '',
       notes: invoice?.notes || '',
       dueDate: invoice?.dueDate
@@ -55,6 +55,8 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
       paymentTerms: invoice?.paymentTerms || 'Net 30',
       status: invoice?.status || 'draft',
       paymentStatus: invoice?.paymentStatus || 'pending',
+      trackResponse: invoice?.trackResponse ?? true,
+      trackPayment: invoice?.trackPayment ?? true,
     },
   })
 
@@ -64,16 +66,16 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
   })
 
   const watchedLineItems = watch('lineItems')
-  const watchedTaxRatePercent = watch('taxRate') || 0
+  const watchedTaxRatePercent = Number(watch('taxRate')) || 0
   const watchedTaxRate = watchedTaxRatePercent / 100
-  const watchedDiscount = watch('discount') || 0
+  const watchedDiscount = Number(watch('discount')) || 0
   const contactIdValue = watch('contactId')
   const statusValue = watch('status')
   const paymentStatusValue = watch('paymentStatus')
 
   // Calculate totals
   const subtotal = watchedLineItems.reduce(
-    (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
+    (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
     0
   )
   const taxAmount = subtotal * watchedTaxRate
@@ -86,11 +88,11 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
         title: invoice.title || '',
         lineItems: invoice.lineItems.map((item) => ({
           description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          quantity: item.quantity > 0 ? item.quantity : '',
+          unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
         })),
-        taxRate: invoice.taxRate * 100,
-        discount: invoice.discount,
+        taxRate: invoice.taxRate > 0 ? invoice.taxRate * 100 : '',
+        discount: invoice.discount > 0 ? invoice.discount : '',
         discountReason: invoice.discountReason || '',
         notes: invoice.notes || '',
         dueDate: invoice.dueDate
@@ -99,6 +101,8 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
         paymentTerms: invoice.paymentTerms || 'Net 30',
         status: invoice.status,
         paymentStatus: invoice.paymentStatus,
+        trackResponse: invoice.trackResponse ?? true,
+        trackPayment: invoice.trackPayment ?? true,
       })
     }
   }, [invoice, reset])
@@ -116,11 +120,17 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
     const cleanedData = {
       ...data,
       title: data.title || undefined,
-      taxRate: data.taxRate ? data.taxRate / 100 : 0,
+      taxRate: (Number(data.taxRate) || 0) / 100,
+      discount: Number(data.discount) || 0,
       discountReason: data.discountReason || undefined,
       notes: data.notes || undefined,
       dueDate: dateStringToISO(data.dueDate),
       paymentTerms: data.paymentTerms || undefined,
+      lineItems: data.lineItems.map((item) => ({
+        ...item,
+        quantity: Number(item.quantity) || 0,
+        unitPrice: Number(item.unitPrice) || 0,
+      })),
     }
     
     if (shouldSend && onSaveAndSend) {
@@ -202,7 +212,7 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => append({ description: '', quantity: 1, unitPrice: 0 })}
+            onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
           >
             + Add Item
           </Button>
@@ -263,8 +273,8 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
 
               <div className="text-right text-sm text-primary-light/70">
                 Total: {formatCurrency(
-                  (watchedLineItems[index]?.quantity || 0) *
-                    (watchedLineItems[index]?.unitPrice || 0)
+                  (Number(watchedLineItems[index]?.quantity) || 0) *
+                    (Number(watchedLineItems[index]?.unitPrice) || 0)
                 )}
               </div>
             </div>
@@ -281,7 +291,7 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
           label="Tax Rate (%)"
           type="number"
           step="0.01"
-          placeholder="8"
+          placeholder="0"
           error={errors.taxRate?.message}
           {...register('taxRate', { valueAsNumber: true })}
           helperText="Enter as percentage (e.g., 8 for 8%)"
@@ -388,6 +398,29 @@ const InvoiceForm = ({ invoice, onSubmit, onSaveAndSend, onCancel, isLoading, de
             { value: 'paid', label: 'Paid' },
           ]}
         />
+      </div>
+
+      {/* Tracking Options */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-primary-light mb-2">
+          Tracking Options
+        </label>
+        <div className="space-y-3">
+          <Checkbox
+            id="trackResponse"
+            label="Track Response (Include Accept/Decline buttons in email)"
+            checked={watch('trackResponse') ?? true}
+            onChange={(e) => setValue('trackResponse', e.target.checked)}
+            error={errors.trackResponse?.message}
+          />
+          <Checkbox
+            id="trackPayment"
+            label="Track Payment (Enable payment status indicator)"
+            checked={watch('trackPayment') ?? true}
+            onChange={(e) => setValue('trackPayment', e.target.checked)}
+            error={errors.trackPayment?.message}
+          />
+        </div>
       </div>
 
       <div className="flex justify-end gap-3 pt-4">

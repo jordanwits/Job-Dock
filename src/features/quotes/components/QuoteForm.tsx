@@ -44,11 +44,11 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
       title: quote?.title || defaultTitle || '',
       lineItems: quote?.lineItems.map((item) => ({
         description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-      })) || [{ description: '', quantity: 1, unitPrice: 0 }],
-      taxRate: quote ? quote.taxRate * 100 : 8,
-      discount: quote?.discount || 0,
+        quantity: item.quantity > 0 ? item.quantity : '',
+        unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
+      })) || [{ description: '', quantity: 1, unitPrice: '' }],
+      taxRate: quote ? (quote.taxRate > 0 ? quote.taxRate * 100 : '') : '',
+      discount: quote?.discount && quote.discount > 0 ? quote.discount : '',
       discountReason: quote?.discountReason || '',
       notes: quote?.notes || defaultNotes || '',
       validUntil: quote?.validUntil
@@ -72,7 +72,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
 
   // Calculate totals
   const subtotal = watchedLineItems.reduce(
-    (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
+    (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
     0
   )
   const taxAmount = subtotal * watchedTaxRate
@@ -85,11 +85,11 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
         title: quote.title || '',
         lineItems: quote.lineItems.map((item) => ({
           description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          quantity: item.quantity > 0 ? item.quantity : '',
+          unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
         })),
-        taxRate: quote.taxRate * 100, // Convert decimal to percentage for display
-        discount: quote.discount,
+        taxRate: quote.taxRate > 0 ? quote.taxRate * 100 : '', // Convert decimal to percentage for display
+        discount: quote.discount > 0 ? quote.discount : '',
         discountReason: quote.discountReason || '',
         notes: quote.notes || '',
         validUntil: quote.validUntil
@@ -113,11 +113,16 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
     // Convert tax rate from percentage to decimal, auto-zero if empty
     const cleanedData = {
       ...data,
-      taxRate: data.taxRate ? Number(data.taxRate) / 100 : 0,
-      discount: data.discount ? Number(data.discount) : 0,
+      taxRate: (Number(data.taxRate) || 0) / 100,
+      discount: Number(data.discount) || 0,
       discountReason: data.discountReason || undefined,
       notes: data.notes || undefined,
       validUntil: dateStringToISO(data.validUntil),
+      lineItems: data.lineItems.map((item) => ({
+        ...item,
+        quantity: Number(item.quantity) || 0,
+        unitPrice: Number(item.unitPrice) || 0,
+      })),
     }
     
     if (shouldSend && onSaveAndSend) {
@@ -200,7 +205,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => append({ description: '', quantity: 1, unitPrice: 0 })}
+            onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
           >
             + Add Item
           </Button>
@@ -261,8 +266,8 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
 
               <div className="text-right text-sm text-primary-light/70">
                 Total: {formatCurrency(
-                  (watchedLineItems[index]?.quantity || 0) *
-                    (watchedLineItems[index]?.unitPrice || 0)
+                  (Number(watchedLineItems[index]?.quantity) || 0) *
+                    (Number(watchedLineItems[index]?.unitPrice) || 0)
                 )}
               </div>
             </div>
@@ -279,7 +284,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
           label="Tax Rate (%)"
           type="number"
           step="0.01"
-          placeholder="8"
+          placeholder="0"
           error={errors.taxRate?.message}
           {...register('taxRate', { valueAsNumber: true })}
           helperText="Enter as percentage (e.g., 8 for 8%)"

@@ -1,0 +1,2909 @@
+{
+ "Description": "JobDock Infrastructure - prod environment",
+ "Resources": {
+  "VPCB9E5F0B4": {
+   "Type": "AWS::EC2::VPC",
+   "Properties": {
+    "CidrBlock": "10.0.0.0/16",
+    "EnableDnsHostnames": true,
+    "EnableDnsSupport": true,
+    "InstanceTenancy": "default",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/Resource"
+   }
+  },
+  "VPCpublicSubnet1Subnet325F50B2": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "CidrBlock": "10.0.0.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/publicSubnet1/Subnet"
+   }
+  },
+  "VPCpublicSubnet1RouteTableF591E248": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/publicSubnet1/RouteTable"
+   }
+  },
+  "VPCpublicSubnet1RouteTableAssociationBFFA43B7": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "VPCpublicSubnet1RouteTableF591E248"
+    },
+    "SubnetId": {
+     "Ref": "VPCpublicSubnet1Subnet325F50B2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/publicSubnet1/RouteTableAssociation"
+   }
+  },
+  "VPCpublicSubnet1DefaultRoute19059ECD": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "VPCIGWB7E252D3"
+    },
+    "RouteTableId": {
+     "Ref": "VPCpublicSubnet1RouteTableF591E248"
+    }
+   },
+   "DependsOn": [
+    "VPCVPCGW99B986DC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/publicSubnet1/DefaultRoute"
+   }
+  },
+  "VPCpublicSubnet2Subnet2B2DFF71": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1b",
+    "CidrBlock": "10.0.1.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/publicSubnet2/Subnet"
+   }
+  },
+  "VPCpublicSubnet2RouteTable55DAB1BB": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/publicSubnet2/RouteTable"
+   }
+  },
+  "VPCpublicSubnet2RouteTableAssociation0849466B": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "VPCpublicSubnet2RouteTable55DAB1BB"
+    },
+    "SubnetId": {
+     "Ref": "VPCpublicSubnet2Subnet2B2DFF71"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/publicSubnet2/RouteTableAssociation"
+   }
+  },
+  "VPCpublicSubnet2DefaultRoute9ED4D6BC": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "VPCIGWB7E252D3"
+    },
+    "RouteTableId": {
+     "Ref": "VPCpublicSubnet2RouteTable55DAB1BB"
+    }
+   },
+   "DependsOn": [
+    "VPCVPCGW99B986DC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/publicSubnet2/DefaultRoute"
+   }
+  },
+  "VPCprivateSubnet1SubnetE522290D": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "CidrBlock": "10.0.2.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "private"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Private"
+     },
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC/privateSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/privateSubnet1/Subnet"
+   }
+  },
+  "VPCprivateSubnet1RouteTable41566AF9": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC/privateSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/privateSubnet1/RouteTable"
+   }
+  },
+  "VPCprivateSubnet1RouteTableAssociation43FE0C59": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "VPCprivateSubnet1RouteTable41566AF9"
+    },
+    "SubnetId": {
+     "Ref": "VPCprivateSubnet1SubnetE522290D"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/privateSubnet1/RouteTableAssociation"
+   }
+  },
+  "VPCprivateSubnet2Subnet2F4D9530": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1b",
+    "CidrBlock": "10.0.3.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "private"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Private"
+     },
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC/privateSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/privateSubnet2/Subnet"
+   }
+  },
+  "VPCprivateSubnet2RouteTableBBE8BB2B": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC/privateSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/privateSubnet2/RouteTable"
+   }
+  },
+  "VPCprivateSubnet2RouteTableAssociation45BBC356": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "VPCprivateSubnet2RouteTableBBE8BB2B"
+    },
+    "SubnetId": {
+     "Ref": "VPCprivateSubnet2Subnet2F4D9530"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/privateSubnet2/RouteTableAssociation"
+   }
+  },
+  "VPCIGWB7E252D3": {
+   "Type": "AWS::EC2::InternetGateway",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "JobDockStack-prod/VPC"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/IGW"
+   }
+  },
+  "VPCVPCGW99B986DC": {
+   "Type": "AWS::EC2::VPCGatewayAttachment",
+   "Properties": {
+    "InternetGatewayId": {
+     "Ref": "VPCIGWB7E252D3"
+    },
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/VPC/VPCGW"
+   }
+  },
+  "DatabaseSecurityGroup7319C0F6": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Security group for Aurora database",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "255.255.255.255/32",
+      "Description": "Disallow all traffic",
+      "FromPort": 252,
+      "IpProtocol": "icmp",
+      "ToPort": 86
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/DatabaseSecurityGroup/Resource"
+   }
+  },
+  "DatabaseSecurityGroupfromJobDockStackprodLambdaSecurityGroup68AAB40654328D3DDF9E": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "Description": "Allow Lambda to access database",
+    "FromPort": 5432,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "DatabaseSecurityGroup7319C0F6",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "SourceSecurityGroupId": {
+     "Fn::GetAtt": [
+      "LambdaSecurityGroup0BD9FC99",
+      "GroupId"
+     ]
+    },
+    "ToPort": 5432
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/DatabaseSecurityGroup/from JobDockStackprodLambdaSecurityGroup68AAB406:5432"
+   }
+  },
+  "LambdaSecurityGroup0BD9FC99": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Security group for Lambda functions",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "VPCB9E5F0B4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/LambdaSecurityGroup/Resource"
+   }
+  },
+  "DatabaseSubnetGroupPublic": {
+   "Type": "AWS::RDS::DBSubnetGroup",
+   "Properties": {
+    "DBSubnetGroupDescription": "Subnet group for database (public subnets for production)",
+    "SubnetIds": [
+     {
+      "Ref": "VPCpublicSubnet1Subnet325F50B2"
+     },
+     {
+      "Ref": "VPCpublicSubnet2Subnet2B2DFF71"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/DatabaseSubnetGroupPublic/Default"
+   }
+  },
+  "DatabaseMonitoringRole576991DA": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "monitoring.rds.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Database/MonitoringRole/Resource"
+   }
+  },
+  "JobDockStackprodDatabaseSecret1943A20A3fdaad7efa858a3daf9490cf0a702aeb": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Generated by the CDK for stack: ",
+       {
+        "Ref": "AWS::StackName"
+       }
+      ]
+     ]
+    },
+    "GenerateSecretString": {
+     "ExcludeCharacters": " %+~`#$&*()|[]{}:;<>?!'/@\"\\",
+     "GenerateStringKey": "password",
+     "PasswordLength": 30,
+     "SecretStringTemplate": "{\"username\":\"dbadmin\"}"
+    },
+    "Name": "jobdock-db-credentials-prod"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Database/Secret/Resource"
+   }
+  },
+  "DatabaseSecretAttachmentE5D1B020": {
+   "Type": "AWS::SecretsManager::SecretTargetAttachment",
+   "Properties": {
+    "SecretId": {
+     "Ref": "JobDockStackprodDatabaseSecret1943A20A3fdaad7efa858a3daf9490cf0a702aeb"
+    },
+    "TargetId": {
+     "Ref": "DatabaseB269D8BB"
+    },
+    "TargetType": "AWS::RDS::DBInstance"
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Database/Secret/Attachment/Resource"
+   }
+  },
+  "DatabaseB269D8BB": {
+   "Type": "AWS::RDS::DBInstance",
+   "Properties": {
+    "AllocatedStorage": "100",
+    "BackupRetentionPeriod": 1,
+    "CopyTagsToSnapshot": true,
+    "DBInstanceClass": "db.t3.micro",
+    "DBName": "jobdock",
+    "DBSubnetGroupName": {
+     "Ref": "DatabaseSubnetGroupPublic"
+    },
+    "DeleteAutomatedBackups": false,
+    "DeletionProtection": true,
+    "EnableIAMDatabaseAuthentication": true,
+    "EnablePerformanceInsights": false,
+    "Engine": "postgres",
+    "EngineVersion": "16.3",
+    "MasterUserPassword": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:secretsmanager:",
+       {
+        "Ref": "JobDockStackprodDatabaseSecret1943A20A3fdaad7efa858a3daf9490cf0a702aeb"
+       },
+       ":SecretString:password::}}"
+      ]
+     ]
+    },
+    "MasterUsername": "dbadmin",
+    "MonitoringInterval": 60,
+    "MonitoringRoleArn": {
+     "Fn::GetAtt": [
+      "DatabaseMonitoringRole576991DA",
+      "Arn"
+     ]
+    },
+    "PubliclyAccessible": true,
+    "StorageEncrypted": true,
+    "StorageType": "gp2",
+    "VPCSecurityGroups": [
+     {
+      "Fn::GetAtt": [
+       "DatabaseSecurityGroup7319C0F6",
+       "GroupId"
+      ]
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Database/Resource"
+   }
+  },
+  "UserPool6BA7E5F2": {
+   "Type": "AWS::Cognito::UserPool",
+   "Properties": {
+    "AccountRecoverySetting": {
+     "RecoveryMechanisms": [
+      {
+       "Name": "verified_email",
+       "Priority": 1
+      }
+     ]
+    },
+    "AdminCreateUserConfig": {
+     "AllowAdminCreateUserOnly": false
+    },
+    "AutoVerifiedAttributes": [
+     "email"
+    ],
+    "EmailVerificationMessage": "The verification code to your new account is {####}",
+    "EmailVerificationSubject": "Verify your new account",
+    "Policies": {
+     "PasswordPolicy": {
+      "MinimumLength": 12,
+      "RequireLowercase": true,
+      "RequireNumbers": true,
+      "RequireSymbols": true,
+      "RequireUppercase": true
+     }
+    },
+    "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "UserPoolName": "jobdock-users-prod",
+    "UsernameAttributes": [
+     "email"
+    ],
+    "VerificationMessageTemplate": {
+     "DefaultEmailOption": "CONFIRM_WITH_CODE",
+     "EmailMessage": "The verification code to your new account is {####}",
+     "EmailSubject": "Verify your new account",
+     "SmsMessage": "The verification code to your new account is {####}"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/UserPool/Resource"
+   }
+  },
+  "UserPoolWebClient4C9370B0": {
+   "Type": "AWS::Cognito::UserPoolClient",
+   "Properties": {
+    "AllowedOAuthFlows": [
+     "code"
+    ],
+    "AllowedOAuthFlowsUserPoolClient": true,
+    "AllowedOAuthScopes": [
+     "email",
+     "openid",
+     "profile"
+    ],
+    "CallbackURLs": [
+     "http://localhost:5173",
+     "https://thejobdock.com",
+     "https://www.thejobdock.com"
+    ],
+    "ClientName": "jobdock-web-client-prod",
+    "ExplicitAuthFlows": [
+     "ALLOW_USER_PASSWORD_AUTH",
+     "ALLOW_USER_SRP_AUTH",
+     "ALLOW_REFRESH_TOKEN_AUTH"
+    ],
+    "GenerateSecret": false,
+    "SupportedIdentityProviders": [
+     "COGNITO"
+    ],
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/UserPool/WebClient/Resource"
+   }
+  },
+  "FrontendBucketEFE2E19C": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "BucketName": "jobdock-frontend-prod-893918474562",
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/FrontendBucket/Resource"
+   }
+  },
+  "FrontendBucketPolicy1DFF75D9": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "FrontendBucketEFE2E19C"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:GetObject",
+       "Condition": {
+        "StringEquals": {
+         "AWS:SourceArn": {
+          "Fn::Join": [
+           "",
+           [
+            "arn:",
+            {
+             "Ref": "AWS::Partition"
+            },
+            ":cloudfront::",
+            {
+             "Ref": "AWS::AccountId"
+            },
+            ":distribution/",
+            {
+             "Ref": "FrontendDistributionE6EAF405"
+            }
+           ]
+          ]
+         }
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "cloudfront.amazonaws.com"
+       },
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "FrontendBucketEFE2E19C",
+            "Arn"
+           ]
+          },
+          "/*"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/FrontendBucket/Policy/Resource"
+   }
+  },
+  "FilesBucket16450113": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "BucketName": "jobdock-files-prod-893918474562",
+    "CorsConfiguration": {
+     "CorsRules": [
+      {
+       "AllowedHeaders": [
+        "*"
+       ],
+       "AllowedMethods": [
+        "GET",
+        "PUT",
+        "POST"
+       ],
+       "AllowedOrigins": [
+        "*"
+       ],
+       "MaxAge": 3000
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/FilesBucket/Resource"
+   }
+  },
+  "FrontendDistributionOrigin1S3OriginAccessControl51A3EFC6": {
+   "Type": "AWS::CloudFront::OriginAccessControl",
+   "Properties": {
+    "OriginAccessControlConfig": {
+     "Name": "JobDockStackprodFrontendDistOrigin1S3OriginAccessControl0AB0928C",
+     "OriginAccessControlOriginType": "s3",
+     "SigningBehavior": "always",
+     "SigningProtocol": "sigv4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/FrontendDistribution/Origin1/S3OriginAccessControl/Resource"
+   }
+  },
+  "FrontendDistributionE6EAF405": {
+   "Type": "AWS::CloudFront::Distribution",
+   "Properties": {
+    "DistributionConfig": {
+     "CustomErrorResponses": [
+      {
+       "ErrorCachingMinTTL": 0,
+       "ErrorCode": 404,
+       "ResponseCode": 200,
+       "ResponsePagePath": "/index.html"
+      }
+     ],
+     "DefaultCacheBehavior": {
+      "AllowedMethods": [
+       "GET",
+       "HEAD"
+      ],
+      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "CachedMethods": [
+       "GET",
+       "HEAD"
+      ],
+      "Compress": true,
+      "TargetOriginId": "JobDockStackprodFrontendDistributionOrigin1FF0590C0",
+      "ViewerProtocolPolicy": "redirect-to-https"
+     },
+     "DefaultRootObject": "index.html",
+     "Enabled": true,
+     "HttpVersion": "http2",
+     "IPV6Enabled": true,
+     "Origins": [
+      {
+       "DomainName": {
+        "Fn::GetAtt": [
+         "FrontendBucketEFE2E19C",
+         "RegionalDomainName"
+        ]
+       },
+       "Id": "JobDockStackprodFrontendDistributionOrigin1FF0590C0",
+       "OriginAccessControlId": {
+        "Fn::GetAtt": [
+         "FrontendDistributionOrigin1S3OriginAccessControl51A3EFC6",
+         "Id"
+        ]
+       },
+       "S3OriginConfig": {
+        "OriginAccessIdentity": ""
+       }
+      }
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/FrontendDistribution/Resource"
+   }
+  },
+  "LambdaExecutionRoleD5C26073": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/LambdaExecutionRole/Resource"
+   }
+  },
+  "LambdaExecutionRoleDefaultPolicy6D69732F": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "DatabaseSecretAttachmentE5D1B020"
+       }
+      },
+      {
+       "Action": "rds-db:connect",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:aws:rds-db:us-east-1:893918474562:dbuser:",
+          {
+           "Fn::GetAtt": [
+            "DatabaseB269D8BB",
+            "DbiResourceId"
+           ]
+          },
+          "/jobdock"
+         ]
+        ]
+       }
+      },
+      {
+       "Action": [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "FilesBucket16450113",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "FilesBucket16450113",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "cognito-idp:AdminConfirmSignUp",
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminDeleteUser",
+        "cognito-idp:AdminGetUser",
+        "cognito-idp:AdminUpdateUserAttributes"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "UserPool6BA7E5F2",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LambdaExecutionRoleDefaultPolicy6D69732F",
+    "Roles": [
+     {
+      "Ref": "LambdaExecutionRoleD5C26073"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/LambdaExecutionRole/DefaultPolicy/Resource"
+   }
+  },
+  "ApiF70053CD": {
+   "Type": "AWS::ApiGateway::RestApi",
+   "Properties": {
+    "BinaryMediaTypes": [
+     "multipart/form-data",
+     "image/*",
+     "application/pdf"
+    ],
+    "Description": "JobDock API - prod environment",
+    "Name": "jobdock-api-prod"
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Resource"
+   }
+  },
+  "ApiCloudWatchRole73EC6FC4": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "apigateway.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+       ]
+      ]
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/CloudWatchRole/Resource"
+   }
+  },
+  "ApiAccountA18C9B29": {
+   "Type": "AWS::ApiGateway::Account",
+   "Properties": {
+    "CloudWatchRoleArn": {
+     "Fn::GetAtt": [
+      "ApiCloudWatchRole73EC6FC4",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "ApiF70053CD"
+   ],
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Account"
+   }
+  },
+  "ApiDeploymentB17BE62Dfd951a21bb4c258d72eea21baad4ec4b": {
+   "Type": "AWS::ApiGateway::Deployment",
+   "Properties": {
+    "Description": "JobDock API - prod environment",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "DependsOn": [
+    "ApiproxyANY4946669B",
+    "ApiproxyOPTIONS230BB97B",
+    "Apiproxy05443892",
+    "ApiauthloginOPTIONSCCF6F50B",
+    "ApiauthloginPOSTFBEAB6D5",
+    "Apiauthlogin425AB418",
+    "ApiauthlogoutOPTIONS7A2D0656",
+    "ApiauthlogoutPOSTEC82FB87",
+    "Apiauthlogout70AFC6CB",
+    "ApiauthOPTIONSC18B26B2",
+    "ApiauthrefreshOPTIONSD7BE9B0F",
+    "ApiauthrefreshPOSTEF27F66F",
+    "ApiauthrefreshBF3612D0",
+    "ApiauthregisterOPTIONS2E4F097E",
+    "ApiauthregisterPOST7825E6CB",
+    "Apiauthregister43B003AC",
+    "Apiauth161C653C",
+    "ApiauthrespondtochallengeOPTIONS3B461239",
+    "ApiauthrespondtochallengePOST4DB50FCB",
+    "Apiauthrespondtochallenge655A8D1E",
+    "ApihealthGET8A9DC1E4",
+    "ApihealthOPTIONS119B6E46",
+    "Apihealth5CB7A415",
+    "ApiOPTIONS5886EA5D",
+    "ApiGatewayResponse5040AC8F0B3"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Deployment/Resource",
+    "aws:cdk:do-not-refactor": true
+   }
+  },
+  "ApiDeploymentStageprod3EB9684E": {
+   "Type": "AWS::ApiGateway::Stage",
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "ApiDeploymentB17BE62Dfd951a21bb4c258d72eea21baad4ec4b"
+    },
+    "MethodSettings": [
+     {
+      "DataTraceEnabled": false,
+      "HttpMethod": "*",
+      "LoggingLevel": "INFO",
+      "MetricsEnabled": true,
+      "ResourcePath": "/*",
+      "ThrottlingBurstLimit": 2000,
+      "ThrottlingRateLimit": 1000
+     }
+    ],
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    },
+    "StageName": "prod"
+   },
+   "DependsOn": [
+    "ApiAccountA18C9B29"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/DeploymentStage.prod/Resource"
+   }
+  },
+  "ApiOPTIONS5886EA5D": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "ApiF70053CD",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/OPTIONS/Resource"
+   }
+  },
+  "Apiauth161C653C": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "ApiF70053CD",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "auth",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/Resource"
+   }
+  },
+  "ApiauthOPTIONSC18B26B2": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "Apiauth161C653C"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/OPTIONS/Resource"
+   }
+  },
+  "Apiauthregister43B003AC": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "Apiauth161C653C"
+    },
+    "PathPart": "register",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/register/Resource"
+   }
+  },
+  "ApiauthregisterOPTIONS2E4F097E": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "Apiauthregister43B003AC"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/register/OPTIONS/Resource"
+   }
+  },
+  "ApiauthregisterPOST7825E6CB": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "Credentials": {
+      "Fn::GetAtt": [
+       "ApiGatewayInvokeRoleF33A95EC",
+       "Arn"
+      ]
+     },
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "AuthLambda6BB8C88C",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "Apiauthregister43B003AC"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/register/POST/Resource"
+   }
+  },
+  "Apiauthlogin425AB418": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "Apiauth161C653C"
+    },
+    "PathPart": "login",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/login/Resource"
+   }
+  },
+  "ApiauthloginOPTIONSCCF6F50B": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "Apiauthlogin425AB418"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/login/OPTIONS/Resource"
+   }
+  },
+  "ApiauthloginPOSTFBEAB6D5": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "Credentials": {
+      "Fn::GetAtt": [
+       "ApiGatewayInvokeRoleF33A95EC",
+       "Arn"
+      ]
+     },
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "AuthLambda6BB8C88C",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "Apiauthlogin425AB418"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/login/POST/Resource"
+   }
+  },
+  "Apiauthrespondtochallenge655A8D1E": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "Apiauth161C653C"
+    },
+    "PathPart": "respond-to-challenge",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/respond-to-challenge/Resource"
+   }
+  },
+  "ApiauthrespondtochallengeOPTIONS3B461239": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "Apiauthrespondtochallenge655A8D1E"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/respond-to-challenge/OPTIONS/Resource"
+   }
+  },
+  "ApiauthrespondtochallengePOST4DB50FCB": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "Credentials": {
+      "Fn::GetAtt": [
+       "ApiGatewayInvokeRoleF33A95EC",
+       "Arn"
+      ]
+     },
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "AuthLambda6BB8C88C",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "Apiauthrespondtochallenge655A8D1E"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/respond-to-challenge/POST/Resource"
+   }
+  },
+  "ApiauthrefreshBF3612D0": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "Apiauth161C653C"
+    },
+    "PathPart": "refresh",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/refresh/Resource"
+   }
+  },
+  "ApiauthrefreshOPTIONSD7BE9B0F": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "ApiauthrefreshBF3612D0"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/refresh/OPTIONS/Resource"
+   }
+  },
+  "ApiauthrefreshPOSTEF27F66F": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "Credentials": {
+      "Fn::GetAtt": [
+       "ApiGatewayInvokeRoleF33A95EC",
+       "Arn"
+      ]
+     },
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "AuthLambda6BB8C88C",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "ApiauthrefreshBF3612D0"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/refresh/POST/Resource"
+   }
+  },
+  "Apiauthlogout70AFC6CB": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "Apiauth161C653C"
+    },
+    "PathPart": "logout",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/logout/Resource"
+   }
+  },
+  "ApiauthlogoutOPTIONS7A2D0656": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "Apiauthlogout70AFC6CB"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/logout/OPTIONS/Resource"
+   }
+  },
+  "ApiauthlogoutPOSTEC82FB87": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "Credentials": {
+      "Fn::GetAtt": [
+       "ApiGatewayInvokeRoleF33A95EC",
+       "Arn"
+      ]
+     },
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "AuthLambda6BB8C88C",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "Apiauthlogout70AFC6CB"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/auth/logout/POST/Resource"
+   }
+  },
+  "Apihealth5CB7A415": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "ApiF70053CD",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "health",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/health/Resource"
+   }
+  },
+  "ApihealthOPTIONS119B6E46": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "Apihealth5CB7A415"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/health/OPTIONS/Resource"
+   }
+  },
+  "ApihealthGET8A9DC1E4": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "Credentials": {
+      "Fn::GetAtt": [
+       "ApiGatewayInvokeRoleF33A95EC",
+       "Arn"
+      ]
+     },
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "AuthLambda6BB8C88C",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "Apihealth5CB7A415"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/health/GET/Resource"
+   }
+  },
+  "Apiproxy05443892": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "ApiF70053CD",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "{proxy+}",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/{proxy+}/Resource"
+   }
+  },
+  "ApiproxyOPTIONS230BB97B": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+        "method.response.header.Access-Control-Allow-Origin": "'http://localhost:5173'",
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
+        "method.response.header.Access-Control-Max-Age": "'3600'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:3000\" || $origin == \"https://thejobdock.com\" || $origin == \"https://www.thejobdock.com\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Max-Age": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "Apiproxy05443892"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/{proxy+}/OPTIONS/Resource"
+   }
+  },
+  "ApiproxyANY4946669B": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "ANY",
+    "Integration": {
+     "Credentials": {
+      "Fn::GetAtt": [
+       "ApiGatewayInvokeRoleF33A95EC",
+       "Arn"
+      ]
+     },
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "DataLambda06623DA9",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "Apiproxy05443892"
+    },
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/Default/{proxy+}/ANY/Resource"
+   }
+  },
+  "ApiGatewayResponse5040AC8F0B3": {
+   "Type": "AWS::ApiGateway::GatewayResponse",
+   "Properties": {
+    "ResponseParameters": {
+     "gatewayresponse.header.Access-Control-Allow-Origin": "'*'",
+     "gatewayresponse.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Tenant-ID'",
+     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'"
+    },
+    "ResponseTemplates": {
+     "application/json": "{\"message\":\"Gateway timeout. The request took too long to process.\",\"statusCode\":504}"
+    },
+    "ResponseType": "INTEGRATION_TIMEOUT",
+    "RestApiId": {
+     "Ref": "ApiF70053CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/Api/GatewayResponse504/Resource"
+   }
+  },
+  "AuthLambda6BB8C88C": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-893918474562-us-east-1",
+     "S3Key": "cc6e890d9e415adc0b28634b4451ad6f4dbd95e62b8c9f615e2138c61a6ef4ef.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "DATABASE_SECRET_ARN": {
+       "Ref": "DatabaseSecretAttachmentE5D1B020"
+      },
+      "DATABASE_ENDPOINT": {
+       "Fn::GetAtt": [
+        "DatabaseB269D8BB",
+        "Endpoint.Address"
+       ]
+      },
+      "DATABASE_NAME": "jobdock",
+      "DATABASE_HOST": {
+       "Fn::GetAtt": [
+        "DatabaseB269D8BB",
+        "Endpoint.Address"
+       ]
+      },
+      "DATABASE_USER": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:username::}}"
+        ]
+       ]
+      },
+      "DATABASE_PASSWORD": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:password::}}"
+        ]
+       ]
+      },
+      "DATABASE_PORT": "5432",
+      "DATABASE_OPTIONS": "schema=public",
+      "USER_POOL_ID": {
+       "Ref": "UserPool6BA7E5F2"
+      },
+      "USER_POOL_CLIENT_ID": {
+       "Ref": "UserPoolWebClient4C9370B0"
+      },
+      "FILES_BUCKET": {
+       "Ref": "FilesBucket16450113"
+      },
+      "ENVIRONMENT": "prod",
+      "PUBLIC_APP_URL": "https://thejobdock.com",
+      "DEFAULT_TENANT_ID": "demo-tenant",
+      "EMAIL_PROVIDER": "resend",
+      "EMAIL_FROM_ADDRESS": "noreply@thejobdock.com",
+      "RESEND_API_KEY": "",
+      "STRIPE_SECRET_KEY": "",
+      "STRIPE_WEBHOOK_SECRET": "",
+      "STRIPE_PRICE_ID": "",
+      "STRIPE_TEAM_PRICE_ID": "",
+      "STRIPE_ENFORCE_SUBSCRIPTION": "false",
+      "TEAM_TESTING_SKIP_STRIPE": "false",
+      "EARLY_ACCESS_ENFORCE": "true",
+      "EARLY_ACCESS_ADMIN_EMAILS": "jordan@westwavecreative.com"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "LambdaExecutionRoleD5C26073",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "LambdaExecutionRoleDefaultPolicy6D69732F",
+    "LambdaExecutionRoleD5C26073"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/AuthLambda/Resource",
+    "aws:asset:path": "asset.cc6e890d9e415adc0b28634b4451ad6f4dbd95e62b8c9f615e2138c61a6ef4ef",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ApiGatewayInvokeRoleF33A95EC": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "apigateway.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/ApiGatewayInvokeRole/Resource"
+   }
+  },
+  "ApiGatewayInvokeRoleDefaultPolicy22BA4EF9": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AuthLambda6BB8C88C",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::GetAtt": [
+          "DataLambda06623DA9",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "AuthLambda6BB8C88C",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "DataLambda06623DA9",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ApiGatewayInvokeRoleDefaultPolicy22BA4EF9",
+    "Roles": [
+     {
+      "Ref": "ApiGatewayInvokeRoleF33A95EC"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/ApiGatewayInvokeRole/DefaultPolicy/Resource"
+   }
+  },
+  "DataLambda06623DA9": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-893918474562-us-east-1",
+     "S3Key": "15842d71db3698026e7dd6c3ecd32542aebb8c47d3cd33d7989cc1e9fd0906e9.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "DATABASE_SECRET_ARN": {
+       "Ref": "DatabaseSecretAttachmentE5D1B020"
+      },
+      "DATABASE_ENDPOINT": {
+       "Fn::GetAtt": [
+        "DatabaseB269D8BB",
+        "Endpoint.Address"
+       ]
+      },
+      "DATABASE_NAME": "jobdock",
+      "DATABASE_HOST": {
+       "Fn::GetAtt": [
+        "DatabaseB269D8BB",
+        "Endpoint.Address"
+       ]
+      },
+      "DATABASE_USER": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:username::}}"
+        ]
+       ]
+      },
+      "DATABASE_PASSWORD": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:password::}}"
+        ]
+       ]
+      },
+      "DATABASE_PORT": "5432",
+      "DATABASE_OPTIONS": "schema=public",
+      "USER_POOL_ID": {
+       "Ref": "UserPool6BA7E5F2"
+      },
+      "USER_POOL_CLIENT_ID": {
+       "Ref": "UserPoolWebClient4C9370B0"
+      },
+      "FILES_BUCKET": {
+       "Ref": "FilesBucket16450113"
+      },
+      "ENVIRONMENT": "prod",
+      "API_BASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Ref": "ApiF70053CD"
+         },
+         ".execute-api.us-east-1.",
+         {
+          "Ref": "AWS::URLSuffix"
+         },
+         "/prod"
+        ]
+       ]
+      },
+      "PUBLIC_APP_URL": "https://thejobdock.com",
+      "DEFAULT_TENANT_ID": "demo-tenant",
+      "EMAIL_PROVIDER": "resend",
+      "EMAIL_FROM_ADDRESS": "noreply@thejobdock.com",
+      "RESEND_API_KEY": "",
+      "STRIPE_SECRET_KEY": "",
+      "STRIPE_WEBHOOK_SECRET": "",
+      "STRIPE_PRICE_ID": "",
+      "STRIPE_TEAM_PRICE_ID": "",
+      "STRIPE_ENFORCE_SUBSCRIPTION": "false",
+      "TEAM_TESTING_SKIP_STRIPE": "false",
+      "EARLY_ACCESS_ENFORCE": "true",
+      "EARLY_ACCESS_ADMIN_EMAILS": "jordan@westwavecreative.com"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "LambdaExecutionRoleD5C26073",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "LambdaExecutionRoleDefaultPolicy6D69732F",
+    "LambdaExecutionRoleD5C26073"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/DataLambda/Resource",
+    "aws:asset:path": "asset.15842d71db3698026e7dd6c3ecd32542aebb8c47d3cd33d7989cc1e9fd0906e9",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "MigrationLambdaServiceRole4BCC3349": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/MigrationLambda/ServiceRole/Resource"
+   }
+  },
+  "MigrationLambdaServiceRoleDefaultPolicyCBBB8436": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "DatabaseSecretAttachmentE5D1B020"
+       }
+      },
+      {
+       "Action": "rds-db:connect",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:aws:rds-db:us-east-1:893918474562:dbuser:",
+          {
+           "Fn::GetAtt": [
+            "DatabaseB269D8BB",
+            "DbiResourceId"
+           ]
+          },
+          "/jobdock"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "MigrationLambdaServiceRoleDefaultPolicyCBBB8436",
+    "Roles": [
+     {
+      "Ref": "MigrationLambdaServiceRole4BCC3349"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/MigrationLambda/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "MigrationLambdaDC97547E": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-893918474562-us-east-1",
+     "S3Key": "7c8d6af97e36b1c64388667317fec0a9243f353cdf2a1b7d7174c278e854f52b.zip"
+    },
+    "Description": "Runs Prisma database migrations",
+    "Environment": {
+     "Variables": {
+      "DATABASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "postgresql://{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:username::}}:{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:password::}}@",
+         {
+          "Fn::GetAtt": [
+           "DatabaseB269D8BB",
+           "Endpoint.Address"
+          ]
+         },
+         ":5432/jobdock?schema=public"
+        ]
+       ]
+      },
+      "DATABASE_SECRET_ARN": {
+       "Ref": "DatabaseSecretAttachmentE5D1B020"
+      },
+      "DATABASE_HOST": {
+       "Fn::GetAtt": [
+        "DatabaseB269D8BB",
+        "Endpoint.Address"
+       ]
+      },
+      "DATABASE_USER": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:username::}}"
+        ]
+       ]
+      },
+      "DATABASE_PASSWORD": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:password::}}"
+        ]
+       ]
+      },
+      "DATABASE_PORT": "5432",
+      "DATABASE_NAME": "jobdock",
+      "ENV": "prod",
+      "ENVIRONMENT": "prod"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "MigrationLambdaServiceRole4BCC3349",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 300
+   },
+   "DependsOn": [
+    "MigrationLambdaServiceRoleDefaultPolicyCBBB8436",
+    "MigrationLambdaServiceRole4BCC3349"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/MigrationLambda/Resource",
+    "aws:asset:path": "asset.7c8d6af97e36b1c64388667317fec0a9243f353cdf2a1b7d7174c278e854f52b",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "MigrationLambdaLogRetention42F58A17": {
+   "Type": "Custom::LogRetention",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+      "Arn"
+     ]
+    },
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/lambda/",
+       {
+        "Ref": "MigrationLambdaDC97547E"
+       }
+      ]
+     ]
+    },
+    "RetentionInDays": 7
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/MigrationLambda/LogRetention/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:DeleteRetentionPolicy",
+        "logs:PutRetentionPolicy"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+    "Roles": [
+     {
+      "Ref": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Handler": "index.handler",
+    "Runtime": "nodejs22.x",
+    "Timeout": 900,
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-893918474562-us-east-1",
+     "S3Key": "2819175352ad1ce0dae768e83fc328fb70fb5f10b4a8ff0ccbcb791f02b0716d.zip"
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/Resource",
+    "aws:asset:path": "asset.2819175352ad1ce0dae768e83fc328fb70fb5f10b4a8ff0ccbcb791f02b0716d",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CleanupJobsLambda9924724C": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-893918474562-us-east-1",
+     "S3Key": "9ac49f57ac40ae559f8f94ca9f5d89735eb9a513cf7c3e032b64aebc40ff48e0.zip"
+    },
+    "Description": "Archives jobs older than 1 year to S3 and cleans up database",
+    "Environment": {
+     "Variables": {
+      "DATABASE_SECRET_ARN": {
+       "Ref": "DatabaseSecretAttachmentE5D1B020"
+      },
+      "DATABASE_ENDPOINT": {
+       "Fn::GetAtt": [
+        "DatabaseB269D8BB",
+        "Endpoint.Address"
+       ]
+      },
+      "DATABASE_NAME": "jobdock",
+      "DATABASE_HOST": {
+       "Fn::GetAtt": [
+        "DatabaseB269D8BB",
+        "Endpoint.Address"
+       ]
+      },
+      "DATABASE_USER": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:username::}}"
+        ]
+       ]
+      },
+      "DATABASE_PASSWORD": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseSecretAttachmentE5D1B020"
+         },
+         ":SecretString:password::}}"
+        ]
+       ]
+      },
+      "DATABASE_PORT": "5432",
+      "DATABASE_OPTIONS": "schema=public",
+      "FILES_BUCKET": {
+       "Ref": "FilesBucket16450113"
+      },
+      "ENVIRONMENT": "prod"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "LambdaExecutionRoleD5C26073",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 300
+   },
+   "DependsOn": [
+    "LambdaExecutionRoleDefaultPolicy6D69732F",
+    "LambdaExecutionRoleD5C26073"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/CleanupJobsLambda/Resource",
+    "aws:asset:path": "asset.9ac49f57ac40ae559f8f94ca9f5d89735eb9a513cf7c3e032b64aebc40ff48e0",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CleanupJobsLambdaLogRetentionC1037841": {
+   "Type": "Custom::LogRetention",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+      "Arn"
+     ]
+    },
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/lambda/",
+       {
+        "Ref": "CleanupJobsLambda9924724C"
+       }
+      ]
+     ]
+    },
+    "RetentionInDays": 30
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/CleanupJobsLambda/LogRetention/Resource"
+   }
+  },
+  "CleanupJobsSchedule95DD87BE": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "Description": "Triggers job cleanup weekly to archive old jobs",
+    "ScheduleExpression": "cron(0 2 ? * SUN *)",
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "CleanupJobsLambda9924724C",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/CleanupJobsSchedule/Resource"
+   }
+  },
+  "CleanupJobsScheduleAllowEventRuleJobDockStackprodCleanupJobsLambda3D74FF27597F997E": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CleanupJobsLambda9924724C",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "CleanupJobsSchedule95DD87BE",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/CleanupJobsSchedule/AllowEventRuleJobDockStackprodCleanupJobsLambda3D74FF27"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31S0W7bMAz8lr4rWubsB5wEKwJsa2B3fQ1omXWV2JIhUgkCw/8+WHLspED3xOPxJB4lJjJZLeXyCS60UOVpUetCdjmDOgm40KFDlcjurVVi827e9hux90WtVe4LgzxwM8qsZ3yFosaZn7mUyCoNrK2ZxGLv9BkY5zt2htEZ5GdgvMB1bDpmKTOojwYNixyVd5qvz876NrT7L7EzlUOiXriSZBfbTcrt+p7YAkMBhDtDDEbhROSoXDS5Xd+KvdDQyC6zceYQ97bWKjiPqBcUTlIDBip0sovuhstieAVXId9NNwk+V3qhbGU0W9n9JXR7a+tBPOEb2NR6vOeR6QWtZLf26hQnGVEMs/GHPCZrIOyFqq0v3501LLutJna68OFH89WL05U2qVJItLGGXbT2BX1/uBfQ6ip+sewyJE5bHZ5zhqlS1hsWW2xre7090l2WM1Rx7wLIkKx3Cgfb4jfyhy2H4ohu1bFJxOOSZUitNRRqn6he1NAUJRyMLfFI8k8IP71R4Q1odQAiZJLpEEZx+O5JM2wFukYThcFrW5H8ZasMGU0Q4BkNk+wyP66Ur7HvHxy/eG49i9BkmFab6n6QXgz25JG+nZNEfv8hl09H0nrhvGHdoMxi/AeXvIup+AMAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "JobDockStack-prod/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ApiEndpoint4F160690": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "ApiF70053CD"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "ApiDeploymentStageprod3EB9684E"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
+  "ApiUrl": {
+   "Description": "API Gateway endpoint URL",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "ApiF70053CD"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "ApiDeploymentStageprod3EB9684E"
+      },
+      "/"
+     ]
+    ]
+   },
+   "Export": {
+    "Name": "JobDock-prod-ApiUrl"
+   }
+  },
+  "UserPoolId": {
+   "Description": "Cognito User Pool ID",
+   "Value": {
+    "Ref": "UserPool6BA7E5F2"
+   },
+   "Export": {
+    "Name": "JobDock-prod-UserPoolId"
+   }
+  },
+  "UserPoolClientId": {
+   "Description": "Cognito User Pool Client ID",
+   "Value": {
+    "Ref": "UserPoolWebClient4C9370B0"
+   },
+   "Export": {
+    "Name": "JobDock-prod-UserPoolClientId"
+   }
+  },
+  "DatabaseSecretArn": {
+   "Description": "Database credentials secret ARN",
+   "Value": {
+    "Ref": "DatabaseSecretAttachmentE5D1B020"
+   },
+   "Export": {
+    "Name": "JobDock-prod-DatabaseSecretArn"
+   }
+  },
+  "DatabaseEndpoint": {
+   "Description": "Database endpoint",
+   "Value": {
+    "Fn::GetAtt": [
+     "DatabaseB269D8BB",
+     "Endpoint.Address"
+    ]
+   },
+   "Export": {
+    "Name": "JobDock-prod-DatabaseEndpoint"
+   }
+  },
+  "FrontendBucketName": {
+   "Description": "Frontend S3 bucket name",
+   "Value": {
+    "Ref": "FrontendBucketEFE2E19C"
+   },
+   "Export": {
+    "Name": "JobDock-prod-FrontendBucket"
+   }
+  },
+  "FilesBucketName": {
+   "Description": "Files S3 bucket name",
+   "Value": {
+    "Ref": "FilesBucket16450113"
+   },
+   "Export": {
+    "Name": "JobDock-prod-FilesBucket"
+   }
+  },
+  "CloudFrontUrl": {
+   "Description": "CloudFront distribution URL",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Fn::GetAtt": [
+        "FrontendDistributionE6EAF405",
+        "DomainName"
+       ]
+      }
+     ]
+    ]
+   },
+   "Export": {
+    "Name": "JobDock-prod-CloudFrontUrl"
+   }
+  },
+  "MigrationLambdaName": {
+   "Description": "Migration Lambda function name for running database migrations",
+   "Value": {
+    "Ref": "MigrationLambdaDC97547E"
+   },
+   "Export": {
+    "Name": "JobDock-prod-MigrationLambdaName"
+   }
+  },
+  "CleanupJobsLambdaName": {
+   "Description": "Cleanup Lambda function name for archiving old jobs",
+   "Value": {
+    "Ref": "CleanupJobsLambda9924724C"
+   },
+   "Export": {
+    "Name": "JobDock-prod-CleanupJobsLambdaName"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

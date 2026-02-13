@@ -1115,21 +1115,8 @@ export async function sendInvoiceEmail(data: {
       })
     : 'Upon Receipt'
 
-  const paymentStatusText =
-    invoiceData.paymentStatus === 'paid'
-      ? 'Paid in Full'
-      : invoiceData.paymentStatus === 'partial'
-        ? 'Partially Paid'
-        : 'Payment Pending'
-
-  const statusColor =
-    invoiceData.paymentStatus === 'paid'
-      ? '#4CAF50'
-      : invoiceData.paymentStatus === 'partial'
-        ? '#FFA500'
-        : '#ff6b6b'
-
-  const balance = invoiceData.total - invoiceData.paidAmount
+  // Check tracking flags (default to true for backward compatibility)
+  const trackResponse = invoiceData.trackResponse !== false
 
   // Convert body template newlines to HTML
   const bodyHtml = bodyTemplate
@@ -1137,11 +1124,11 @@ export async function sendInvoiceEmail(data: {
     .map(line => `<p>${line}</p>`)
     .join('')
 
-  // Generate approval token and URLs
-  const approvalToken = generateApprovalToken('invoice', invoiceData.id, tenantId)
+  // Generate approval token and URLs (only if tracking response)
+  const approvalToken = trackResponse ? generateApprovalToken('invoice', invoiceData.id, tenantId) : null
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
-  const acceptUrl = `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}`
-  const declineUrl = `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}`
+  const acceptUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}` : ''
+  const declineUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}` : ''
 
   const htmlBody = `
     <html>
@@ -1151,12 +1138,10 @@ export async function sendInvoiceEmail(data: {
         <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>Invoice Number:</strong> ${invoiceData.invoiceNumber}</p>
           <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${invoiceData.total.toFixed(2)}</p>
-          ${invoiceData.paidAmount > 0 ? `<p style="margin: 5px 0;"><strong>Paid:</strong> $${invoiceData.paidAmount.toFixed(2)}</p>` : ''}
-          ${balance > 0 ? `<p style="margin: 5px 0;"><strong>Balance Due:</strong> <span style="color: ${statusColor};">$${balance.toFixed(2)}</span></p>` : ''}
           <p style="margin: 5px 0;"><strong>Due Date:</strong> ${dueDateText}</p>
-          <p style="margin: 5px 0;"><strong>Payment Status:</strong> <span style="color: ${statusColor};">${paymentStatusText}</span></p>
           ${invoiceData.paymentTerms ? `<p style="margin: 5px 0;"><strong>Payment Terms:</strong> ${invoiceData.paymentTerms}</p>` : ''}
         </div>
+        ${trackResponse ? `
         <div style="margin: 30px 0; text-align: center;">
           <p style="margin-bottom: 15px;"><strong>Please confirm receipt and acceptance of this invoice:</strong></p>
           <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
@@ -1182,6 +1167,7 @@ export async function sendInvoiceEmail(data: {
             </tr>
           </table>
         </div>
+        ` : ''}
         ${settings?.companySupportEmail ? `<p style="color: #666; font-size: 0.9em;">Questions? Contact us at ${settings.companySupportEmail}</p>` : ''}
         ${settings?.companyPhone ? `<p style="color: #666; font-size: 0.9em;">Call us at ${settings.companyPhone}</p>` : ''}
         <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
@@ -1200,19 +1186,16 @@ Please find your invoice attached as a PDF document.
 
 Invoice Number: ${invoiceData.invoiceNumber}
 Total Amount: $${invoiceData.total.toFixed(2)}
-${invoiceData.paidAmount > 0 ? `Paid: $${invoiceData.paidAmount.toFixed(2)}` : ''}
-${balance > 0 ? `Balance Due: $${balance.toFixed(2)}` : ''}
 Due Date: ${dueDateText}
-Payment Status: ${paymentStatusText}
 ${invoiceData.paymentTerms ? `Payment Terms: ${invoiceData.paymentTerms}` : ''}
 
-**PLEASE CONFIRM RECEIPT:**
+${trackResponse ? `**PLEASE CONFIRM RECEIPT:**
 
 Approve Invoice: ${acceptUrl}
 
 Decline Invoice: ${declineUrl}
 
-${balance > 0 ? 'Please remit payment by the due date.' : 'Thank you for your payment!'}
+` : ''}Please remit payment by the due date.
 
 If you have any questions about this invoice, please don't hesitate to contact us.
 

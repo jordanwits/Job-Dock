@@ -24,6 +24,8 @@ export const invoiceSchema = z.object({
   paymentTerms: z.string().optional(),
   status: z.enum(['draft', 'sent', 'overdue', 'cancelled']).optional(),
   paymentStatus: z.enum(['pending', 'partial', 'paid']).optional(),
+  trackResponse: z.boolean().optional(),
+  trackPayment: z.boolean().optional(),
 })
 
 export type InvoiceFormData = z.infer<typeof invoiceSchema>

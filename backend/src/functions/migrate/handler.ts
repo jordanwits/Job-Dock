@@ -641,6 +641,14 @@ const PENDING_MIGRATIONS = [
     ],
     description: 'Add granular permission fields for team member privileges',
   },
+  {
+    name: '20260216000000_add_invoice_tracking_fields',
+    statements: [
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "trackResponse" BOOLEAN NOT NULL DEFAULT true`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "trackPayment" BOOLEAN NOT NULL DEFAULT true`,
+    ],
+    description: 'Add trackResponse and trackPayment fields to Invoice table',
+  },
 ]
 
 export const handler = async (

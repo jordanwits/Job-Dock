@@ -503,6 +503,8 @@ const serializeInvoice = (
   dueDate: invoice.dueDate?.toISOString(),
   paymentTerms: invoice.paymentTerms,
   paidAmount: toNumber(invoice.paidAmount),
+  trackResponse: (invoice as any).trackResponse ?? true,
+  trackPayment: (invoice as any).trackPayment ?? true,
   createdAt: invoice.createdAt.toISOString(),
   updatedAt: invoice.updatedAt.toISOString(),
   ...withContactInfo(invoice.contact),
@@ -1239,6 +1241,8 @@ export const dataServices = {
           dueDate: payload.dueDate ? new Date(payload.dueDate) : null,
           paymentTerms: payload.paymentTerms || 'Net 30',
           paidAmount,
+          trackResponse: payload.trackResponse !== undefined ? payload.trackResponse : true,
+          trackPayment: payload.trackPayment !== undefined ? payload.trackPayment : true,
           lineItems: {
             create: lineItems.map((item: any) => ({
               description: item.description,
@@ -1327,6 +1331,10 @@ export const dataServices = {
             paymentTerms:
               payload.paymentTerms !== undefined ? payload.paymentTerms || null : undefined,
             paidAmount,
+            trackResponse:
+              payload.trackResponse !== undefined ? payload.trackResponse : undefined,
+            trackPayment:
+              payload.trackPayment !== undefined ? payload.trackPayment : undefined,
           } as any,
         })
       })

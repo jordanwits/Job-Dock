@@ -99,6 +99,10 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     return filtered
   }, [invoices, statusFilter, paymentStatusFilter, searchQuery])
 
+  // Check if any invoices have tracking enabled to show columns
+  const hasAnyTrackResponse = filteredInvoices.some(inv => inv.trackResponse !== false)
+  const hasAnyTrackPayment = filteredInvoices.some(inv => inv.trackPayment !== false)
+
   // Handle bulk delete
   const handleBulkDelete = async () => {
     try {
@@ -513,12 +517,16 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                       Total
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
-                      Response
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
-                      Payment
-                    </th>
+                    {hasAnyTrackResponse && (
+                      <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                        Response
+                      </th>
+                    )}
+                    {hasAnyTrackPayment && (
+                      <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                        Payment
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary-blue">
@@ -587,34 +595,40 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                           <div className="text-sm font-semibold text-primary-gold">
                             {formatCurrency(invoice.total)}
                           </div>
-                          {invoice.paymentStatus === 'partial' && (
+                          {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
                             <div className="text-xs text-primary-light/50">
                               Paid: {formatCurrency(invoice.paidAmount)}
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {invoice.approvalStatus && (
-                            <span
-                              className={cn(
-                                'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
-                                approvalStatusColors[invoice.approvalStatus]
-                              )}
-                            >
-                              {approvalStatusLabels[invoice.approvalStatus]}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className={cn(
-                              'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
-                              paymentStatusColors[invoice.paymentStatus]
+                        {hasAnyTrackResponse && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {invoice.trackResponse !== false && invoice.approvalStatus && (
+                              <span
+                                className={cn(
+                                  'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
+                                  approvalStatusColors[invoice.approvalStatus]
+                                )}
+                              >
+                                {approvalStatusLabels[invoice.approvalStatus]}
+                              </span>
                             )}
-                          >
-                            {paymentStatusLabels[invoice.paymentStatus]}
-                          </span>
-                        </td>
+                          </td>
+                        )}
+                        {hasAnyTrackPayment && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {invoice.trackPayment !== false && (
+                              <span
+                                className={cn(
+                                  'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
+                                  paymentStatusColors[invoice.paymentStatus]
+                                )}
+                              >
+                                {paymentStatusLabels[invoice.paymentStatus]}
+                              </span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
@@ -691,7 +705,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                           })}
                         </div>
                       )}
-                      {invoice.approvalStatus && (
+                      {invoice.trackResponse !== false && invoice.approvalStatus && (
                         <span
                           className={cn(
                             'px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border',
@@ -701,19 +715,21 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                           {approvalStatusLabels[invoice.approvalStatus]}
                         </span>
                       )}
-                      <span
-                        className={cn(
-                          'px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border',
-                          paymentStatusColors[invoice.paymentStatus]
-                        )}
-                      >
-                        {paymentStatusLabels[invoice.paymentStatus]}
-                      </span>
+                      {invoice.trackPayment !== false && (
+                        <span
+                          className={cn(
+                            'px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border',
+                            paymentStatusColors[invoice.paymentStatus]
+                          )}
+                        >
+                          {paymentStatusLabels[invoice.paymentStatus]}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* Partial Payment Info */}
-                  {invoice.paymentStatus === 'partial' && (
+                  {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
                     <div className="text-xs text-primary-light/50 pt-2 border-t border-primary-blue">
                       Paid: {formatCurrency(invoice.paidAmount)} of {formatCurrency(invoice.total)}
                     </div>

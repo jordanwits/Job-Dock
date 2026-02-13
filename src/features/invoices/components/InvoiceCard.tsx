@@ -42,8 +42,8 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
   // Hide status for: sent (since paymentStatus already shows pending/partial/paid)
   const shouldShowStatus = invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
 
-  // Show approval status for sent invoices
-  const shouldShowApproval = invoice.status === 'sent' && invoice.approvalStatus && invoice.approvalStatus !== 'none'
+  // Show approval status for sent invoices only if trackResponse is enabled
+  const shouldShowApproval = invoice.trackResponse !== false && invoice.status === 'sent' && invoice.approvalStatus && invoice.approvalStatus !== 'none'
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -129,14 +129,16 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
                 Client {invoice.approvalStatus}
               </span>
             )}
-            <span
-              className={cn(
-                'px-2 py-1 text-xs font-medium rounded border',
-                paymentStatusColors[invoice.paymentStatus]
-              )}
-            >
-              {paymentStatusLabels[invoice.paymentStatus]}
-            </span>
+            {invoice.trackPayment !== false && (
+              <span
+                className={cn(
+                  'px-2 py-1 text-xs font-medium rounded border',
+                  paymentStatusColors[invoice.paymentStatus]
+                )}
+              >
+                {paymentStatusLabels[invoice.paymentStatus]}
+              </span>
+            )}
           </div>
         </div>
 
@@ -146,7 +148,7 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
         </div>
 
         {/* Payment Info */}
-        {invoice.paymentStatus === 'partial' && (
+        {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
           <div className="text-sm text-primary-light/70">
             Paid: {formatCurrency(invoice.paidAmount)} / {formatCurrency(invoice.total)}
           </div>

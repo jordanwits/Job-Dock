@@ -251,7 +251,7 @@ const InvoiceDetail = ({
                   size="md"
                 />
               )}
-              {invoice.approvalStatus && (
+              {invoice.trackResponse !== false && invoice.approvalStatus && (
                 <StatusBadgeSelect
                   value={invoice.approvalStatus}
                   options={approvalStatusOptions}
@@ -261,19 +261,21 @@ const InvoiceDetail = ({
                   size="md"
                 />
               )}
-              <StatusBadgeSelect
-                value={invoice.paymentStatus}
-                options={paymentStatusOptions}
-                colorClassesByValue={paymentStatusColors}
-                onChange={handlePaymentStatusChange}
-                isLoading={isLoading}
-                size="md"
-              />
+              {invoice.trackPayment !== false && (
+                <StatusBadgeSelect
+                  value={invoice.paymentStatus}
+                  options={paymentStatusOptions}
+                  colorClassesByValue={paymentStatusColors}
+                  onChange={handlePaymentStatusChange}
+                  isLoading={isLoading}
+                  size="md"
+                />
+              )}
             </div>
           </div>
 
           {/* Payment Info */}
-          {invoice.paymentStatus === 'partial' && (
+          {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
             <div className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-primary-light/70">Amount Paid</span>

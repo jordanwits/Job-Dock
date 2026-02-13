@@ -29,6 +29,8 @@ export interface Invoice {
   dueDate?: string
   paymentTerms?: string
   paidAmount: number
+  trackResponse?: boolean
+  trackPayment?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -45,6 +47,8 @@ export interface CreateInvoiceData {
   paymentTerms?: string
   status?: 'draft' | 'sent' | 'overdue' | 'cancelled'
   paymentStatus?: 'pending' | 'partial' | 'paid'
+  trackResponse?: boolean
+  trackPayment?: boolean
 }
 
 export interface UpdateInvoiceData extends Partial<CreateInvoiceData> {
