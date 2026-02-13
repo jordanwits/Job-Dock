@@ -55,9 +55,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           console.log('Loading all services for tenant:', id)
           const services = await servicesService.getAllActiveForTenant(id)
           console.log('Loaded services for tenant:', services)
-          if (services.length === 0) {
-            throw new Error('No services are currently available for booking')
-          }
+          // Don't throw error - just set empty array and let UI handle it gracefully
           set({ services, isLoading: false })
         } else {
           // Load specific service by ID
@@ -65,9 +63,11 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           const service = await servicesService.getById(id)
           console.log('Loaded specific service:', service)
           if (!service.isActive) {
-            throw new Error('This service is not currently available for booking')
+            // Set empty array instead of throwing error
+            set({ services: [], isLoading: false })
+          } else {
+            set({ services: [service], isLoading: false })
           }
-          set({ services: [service], isLoading: false })
         }
       } else {
         // Load all services (requires authentication)

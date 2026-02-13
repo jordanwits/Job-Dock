@@ -760,6 +760,44 @@ export const dataServices = {
 
       return result
     },
+    // Public method for getting tenant settings (for public booking pages)
+    getPublic: async (tenantId: string) => {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      })
+      let settings = await prisma.tenantSettings.findUnique({
+        where: { tenantId },
+      })
+
+      // If settings don't exist, create default settings
+      if (!settings) {
+        settings = await prisma.tenantSettings.create({
+          data: {
+            tenantId,
+            companyDisplayName: tenant?.name || 'Your Company',
+          },
+        })
+      }
+
+      // Generate signed URL for logo if it exists
+      // Only return companyDisplayName if it's actually set (don't fallback to tenant.name)
+      const result: any = {
+        companyDisplayName: settings.companyDisplayName || null,
+        tenantName: tenant?.name,
+        logoSignedUrl: null,
+      }
+
+      if (settings.logoUrl) {
+        try {
+          result.logoSignedUrl = await getFileUrl(settings.logoUrl, 3600)
+        } catch (error) {
+          console.error('Error generating logo signed URL:', error)
+        }
+      }
+
+      return result
+    },
     update: async (tenantId: string, payload: any) => {
       await ensureTenantExists(tenantId)
 

@@ -101,6 +101,7 @@ const SchedulingPage = () => {
   )
 
   const [linkCopied, setLinkCopied] = useState(false)
+  const [buttonLinkCopied, setButtonLinkCopied] = useState(false)
   const [showFollowupModal, setShowFollowupModal] = useState(false)
   const [followupDefaults, setFollowupDefaults] = useState<{
     contactId?: string
@@ -128,6 +129,7 @@ const SchedulingPage = () => {
   const [deletedJobId, setDeletedJobId] = useState<string | null>(null)
   const [deletedRecurrenceId, setDeletedRecurrenceId] = useState<string | null>(null)
   const [showJobDetail, setShowJobDetail] = useState(false)
+  const [showNoServicesModal, setShowNoServicesModal] = useState(false)
 
   // External drag state for "To Be Scheduled" chips
   const [externalDragState, setExternalDragState] = useState<{
@@ -599,11 +601,19 @@ const SchedulingPage = () => {
   }
 
   const handleOpenBookingLink = () => {
-    // Open unified tenant booking link directly in a new tab
+    // Check if there are any services set up
+    if (services.length === 0) {
+      setShowNoServicesModal(true)
+      return
+    }
+    
+    // Copy unified tenant booking link to clipboard
     const tenantId = user?.tenantId || localStorage.getItem('tenant_id') || ''
     const baseUrl = import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin
     const unifiedLink = `${baseUrl}/book?tenant=${tenantId}`
-    window.open(unifiedLink, '_blank')
+    navigator.clipboard.writeText(unifiedLink)
+    setButtonLinkCopied(true)
+    setTimeout(() => setButtonLinkCopied(false), 2000)
   }
 
   const handleGetBookingLink = async () => {
@@ -794,7 +804,26 @@ const SchedulingPage = () => {
                   variant="secondary"
                   className="w-full sm:w-auto"
                 >
-                  Booking Link
+                  {buttonLinkCopied ? (
+                    <span className="flex items-center gap-1.5">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span>Copied!</span>
+                    </span>
+                  ) : (
+                    'Copy Booking Link'
+                  )}
                 </Button>
               )}
             </>
@@ -813,7 +842,26 @@ const SchedulingPage = () => {
                 variant="secondary"
                 className="w-full sm:w-auto"
               >
-                Booking Link
+                {buttonLinkCopied ? (
+                  <span className="flex items-center gap-1.5">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    <span>Copied!</span>
+                  </span>
+                ) : (
+                  'Copy Booking Link'
+                )}
               </Button>
             </>
           )}
@@ -1383,6 +1431,62 @@ const SchedulingPage = () => {
           <p className="text-xs text-primary-light/60">
             Clients can select a time and book without logging in.
           </p>
+        </div>
+      </Modal>
+
+      {/* No Services Modal */}
+      <Modal
+        isOpen={showNoServicesModal}
+        onClose={() => setShowNoServicesModal(false)}
+        title=""
+        size="md"
+      >
+        <div className="space-y-6 py-2">
+          {/* Icon and Title */}
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-amber-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-primary-light mb-2">
+              No Services Set Up
+            </h2>
+            <p className="text-sm text-primary-light/70">
+              Oops! You haven't set up any services. Set up service now.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => setShowNoServicesModal(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowNoServicesModal(false)
+                setActiveTab('services')
+                setShowServiceForm(true)
+              }}
+              className="flex-1 bg-primary-gold hover:bg-primary-gold/90 text-primary-dark font-medium"
+            >
+              Set Up Service Now
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

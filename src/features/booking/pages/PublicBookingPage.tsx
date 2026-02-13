@@ -8,10 +8,12 @@ import { Button, Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { BookingFormValues } from '../types/booking'
+import { settingsApi } from '@/lib/api/settings'
 
 const PublicBookingPage = () => {
   const { serviceId } = useParams<{ serviceId?: string }>()
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [branding, setBranding] = useState<{ companyDisplayName?: string; tenantName?: string; logoSignedUrl?: string | null } | null>(null)
   
   // Extract tenantId from query params if present (for tenant-level booking links)
   const searchParams = new URLSearchParams(window.location.search)
@@ -36,6 +38,16 @@ const PublicBookingPage = () => {
   useEffect(() => {
     console.log('PublicBookingPage mounted', { serviceId, tenantId })
     
+    // Load branding if tenantId is in URL
+    if (tenantId) {
+      settingsApi.getPublicSettings(tenantId)
+        .then(setBranding)
+        .catch(error => {
+          console.error('Failed to load tenant branding:', error)
+          // Don't show error - branding is optional
+        })
+    }
+    
     // Determine what to load:
     // - If serviceId in URL path: load that specific service
     // - If tenantId in query param: load all services for that tenant
@@ -54,6 +66,21 @@ const PublicBookingPage = () => {
       })
     }
   }, [loadServicesForBooking, selectService, serviceId, tenantId])
+
+  // Load branding when service is loaded (for service-specific links)
+  useEffect(() => {
+    if (serviceId && services.length > 0 && !tenantId && !branding) {
+      const service = services.find(s => s.id === serviceId) || services[0]
+      if (service?.tenantId) {
+        settingsApi.getPublicSettings(service.tenantId)
+          .then(setBranding)
+          .catch(error => {
+            console.error('Failed to load tenant branding:', error)
+            // Don't show error - branding is optional
+          })
+      }
+    }
+  }, [serviceId, services, tenantId, branding])
 
   const handleServiceSelect = (id: string) => {
     selectService(id)
@@ -98,10 +125,28 @@ const PublicBookingPage = () => {
   // Show confirmation screen after successful booking
   if (showConfirmation && bookingConfirmation) {
     const requiresConfirmation = selectedService?.bookingSettings?.requireConfirmation ?? false
+    const companyName = branding?.companyDisplayName || branding?.tenantName || null
     
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
+          {/* Branding on confirmation screen */}
+          {(branding?.logoSignedUrl || companyName) && (
+            <div className="flex items-center justify-center gap-3 mb-6">
+              {branding.logoSignedUrl && (
+                <img
+                  src={branding.logoSignedUrl}
+                  alt={companyName || 'Company logo'}
+                  className="h-10 w-auto max-w-[150px] object-contain"
+                />
+              )}
+              {companyName && (
+                <h2 className="text-lg font-semibold text-primary-light">
+                  {companyName}
+                </h2>
+              )}
+            </div>
+          )}
           <div className="mb-6">
             <div className={cn(
               "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4",
@@ -180,11 +225,31 @@ const PublicBookingPage = () => {
     )
   }
 
+  // Get company name for display - only show companyDisplayName if set, don't show generic tenant names
+  const companyName = branding?.companyDisplayName || null
+
   return (
     <div className="min-h-screen bg-primary-dark">
       {/* Header */}
       <div className="bg-primary-dark-secondary border-b border-primary-blue">
         <div className="max-w-7xl mx-auto px-4 py-6">
+          {/* Branding */}
+          {(branding?.logoSignedUrl || companyName) && (
+            <div className="flex items-center gap-4 mb-4">
+              {branding.logoSignedUrl && (
+                <img
+                  src={branding.logoSignedUrl}
+                  alt={companyName || 'Company logo'}
+                  className="h-12 w-auto max-w-[200px] object-contain"
+                />
+              )}
+              {companyName && (
+                <h2 className="text-xl md:text-2xl font-semibold text-primary-light">
+                  {companyName}
+                </h2>
+              )}
+            </div>
+          )}
           <h1 className="text-2xl md:text-3xl font-bold text-primary-gold">
             Book an Appointment
           </h1>
@@ -196,8 +261,8 @@ const PublicBookingPage = () => {
 
       {/* Main content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Error display */}
-        {error && (
+        {/* Error display - only show non-empty-services errors */}
+        {error && error !== 'No services are currently available for booking' && (
           <Card className="bg-red-500/10 border-red-500 mb-6">
             <div className="flex items-center justify-between">
               <p className="text-sm text-red-500">{error}</p>
@@ -215,15 +280,23 @@ const PublicBookingPage = () => {
           </div>
         )}
 
-        {/* No services available */}
+        {/* No services available - friendly message */}
         {!isLoading && services.length === 0 && (
-          <Card>
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 mx-auto text-primary-light/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-primary-light/70">
-                No services are currently available for booking
+          <Card className="max-w-2xl mx-auto">
+            <div className="text-center py-12 px-6">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary-blue/10 flex items-center justify-center">
+                <svg className="w-10 h-10 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-primary-light mb-3">
+                No Services Available
+              </h2>
+              <p className="text-primary-light/70 mb-2">
+                Oops! This contractor hasn't set up any services yet.
+              </p>
+              <p className="text-primary-light/60 text-sm">
+                Please check back later or contact them directly to schedule an appointment.
               </p>
             </div>
           </Card>

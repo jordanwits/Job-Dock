@@ -1040,6 +1040,15 @@ async function handleGet(
   event: APIGatewayProxyEvent
 ) {
   if (resource === 'settings') {
+    // Public settings endpoint for booking pages
+    // Path is /settings/public?tenantId=xxx
+    if (id === 'public') {
+      const tenantIdParam = event.queryStringParameters?.tenantId
+      if (!tenantIdParam) {
+        throw new Error('Tenant ID required for public settings endpoint')
+      }
+      return (service as typeof dataServices.settings).getPublic(tenantIdParam)
+    }
     return (service as typeof dataServices.settings).get(tenantId)
   }
 

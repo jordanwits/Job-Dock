@@ -9,6 +9,7 @@ export interface Service {
   bookingSettings: BookingSettings
   createdAt: string
   updatedAt: string
+  tenantId?: string // Included when fetched from API
 }
 
 export interface ServiceAvailability {

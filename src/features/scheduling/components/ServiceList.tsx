@@ -29,11 +29,6 @@ const ServiceList = ({ onServiceClick, onCreateClick }: ServiceListProps) => {
 
   return (
     <div className="space-y-4">
-      {onCreateClick && (
-        <Button onClick={onCreateClick} className="w-full">
-          Create New Service
-        </Button>
-      )}
       {services.length === 0 ? (
         <div className="p-6 text-center">
           <p className="text-primary-light/70 mb-4">No services created yet</p>

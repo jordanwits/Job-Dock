@@ -1,4 +1,4 @@
-import { apiClient } from './client'
+import { apiClient, publicApiClient } from './client'
 
 export interface TenantSettings {
   id: string
@@ -37,6 +37,14 @@ export const settingsApi = {
    */
   getSettings: async (): Promise<TenantSettings> => {
     const response = await apiClient.get('/settings')
+    return response.data
+  },
+
+  /**
+   * Get public tenant settings (for public booking pages)
+   */
+  getPublicSettings: async (tenantId: string): Promise<{ companyDisplayName?: string; tenantName?: string; logoSignedUrl?: string | null }> => {
+    const response = await publicApiClient.get(`/settings/public?tenantId=${tenantId}`)
     return response.data
   },
 
