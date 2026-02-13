@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 import { generateQuotePDF, generateInvoicePDF } from './pdf'
 import { generateApprovalToken } from './approvalTokens'
+import { getFileUrl } from './fileUpload'
 
 // Email configuration from environment variables
 const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'console'
@@ -817,48 +818,160 @@ export async function sendQuoteEmail(data: {
   const acceptUrl = `${publicAppUrl}/public/quote/${quoteData.id}/accept?token=${approvalToken}`
   const declineUrl = `${publicAppUrl}/public/quote/${quoteData.id}/decline?token=${approvalToken}`
 
+  // Fetch logo URL if available (7 days expiration for email)
+  let logoUrl: string | null = null
+  if (settings?.logoUrl) {
+    try {
+      logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+    } catch (error) {
+      console.error('Error fetching logo URL for email:', error)
+    }
+  }
+
+  // Build modern HTML email template
   const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #D4AF37;">New Quote</h2>
-        ${bodyHtml}
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Quote Number:</strong> ${quoteData.quoteNumber}</p>
-          <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${quoteData.total.toFixed(2)}</p>
-          <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${validUntilText}</p>
-        </div>
-        <div style="margin: 30px 0; text-align: center;">
-          <p style="margin-bottom: 15px;"><strong>Please review and respond to this quote:</strong></p>
-          <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
-            <tr>
-              <td style="padding: 0 5px;">
-                <table cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="background-color: #D4AF37; border-radius: 5px; padding: 12px 30px;">
-                      <a href="${acceptUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Accept Quote</a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-              <td style="padding: 0 5px;">
-                <table cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="background-color: #666666; border-radius: 5px; padding: 12px 30px;">
-                      <a href="${declineUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Decline Quote</a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </div>
-        ${settings?.companySupportEmail ? `<p style="color: #666; font-size: 0.9em;">Questions? Contact us at ${settings.companySupportEmail}</p>` : ''}
-        ${settings?.companyPhone ? `<p style="color: #666; font-size: 0.9em;">Call us at ${settings.companyPhone}</p>` : ''}
-        <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
-          This is an automated message. Please do not reply to this email.
-        </p>
-      </body>
-    </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>New Quote</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 30px 40px; background: linear-gradient(135deg, #0B132B 0%, #1A1F36 100%); border-radius: 8px 8px 0 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    ${logoUrl ? `
+                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; display: block;" />
+                    ` : `
+                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">${companyName}</h1>
+                    `}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">New Quote</h2>
+              
+              <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+              
+              ${bodyHtml}
+              
+              <!-- Quote Details Card -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                <tr>
+                  <td style="padding: 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                      <tr>
+                        <td style="padding: 8px 0;">
+                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Quote Number</p>
+                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${quoteData.quoteNumber}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0;">
+                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Total Amount</p>
+                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 24px; font-weight: 700; line-height: 1.4; color: #D4AF37;">$${quoteData.total.toFixed(2)}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0;">
+                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Valid Until</p>
+                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${validUntilText}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Action Buttons -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+                <tr>
+                  <td align="center" style="padding: 0 0 20px 0;">
+                    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; font-weight: 500; line-height: 1.5;">Please review and respond to this quote:</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="padding: 0 8px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="background-color: #D4AF37; border-radius: 6px;">
+                                <a href="${acceptUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Accept Quote</a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td align="center" style="padding: 0 8px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="background-color: #6c757d; border-radius: 6px;">
+                                <a href="${declineUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Decline Quote</a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">We look forward to working with you!</p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px 40px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; border-radius: 0 0 8px 8px;">
+              ${settings?.companySupportEmail || settings?.companyPhone ? `
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                ${settings?.companySupportEmail ? `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                      Questions? Contact us at <a href="mailto:${settings.companySupportEmail}" style="color: #D4AF37; text-decoration: none;">${settings.companySupportEmail}</a>
+                    </p>
+                  </td>
+                </tr>
+                ` : ''}
+                ${settings?.companyPhone ? `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                      Call us at <a href="tel:${settings.companyPhone}" style="color: #D4AF37; text-decoration: none;">${settings.companyPhone}</a>
+                    </p>
+                  </td>
+                </tr>
+                ` : ''}
+              </table>
+              ` : ''}
+              <p style="margin: 20px 0 0 0; color: #999999; font-size: 12px; line-height: 1.5;">
+                This is an automated message. Please do not reply to this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
   `
 
   const textBody = `
@@ -900,6 +1013,8 @@ This quote is valid until ${validUntilText}. Please contact us if you would like
     subject,
     htmlBody,
     textBody,
+    fromName: companyName,
+    replyTo: settings?.companySupportEmail || undefined,
     attachments: [
       {
         filename: `Quote-${quoteData.quoteNumber}.pdf`,
@@ -1130,51 +1245,170 @@ export async function sendInvoiceEmail(data: {
   const acceptUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}` : ''
   const declineUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}` : ''
 
+  // Fetch logo URL if available (7 days expiration for email)
+  let logoUrl: string | null = null
+  if (settings?.logoUrl) {
+    try {
+      logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+    } catch (error) {
+      console.error('Error fetching logo URL for email:', error)
+    }
+  }
+
+  // Build modern HTML email template
   const htmlBody = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #D4AF37;">New Invoice</h2>
-        ${bodyHtml}
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Invoice Number:</strong> ${invoiceData.invoiceNumber}</p>
-          <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${invoiceData.total.toFixed(2)}</p>
-          <p style="margin: 5px 0;"><strong>Due Date:</strong> ${dueDateText}</p>
-          ${invoiceData.paymentTerms ? `<p style="margin: 5px 0;"><strong>Payment Terms:</strong> ${invoiceData.paymentTerms}</p>` : ''}
-        </div>
-        ${trackResponse ? `
-        <div style="margin: 30px 0; text-align: center;">
-          <p style="margin-bottom: 15px;"><strong>Please confirm receipt and acceptance of this invoice:</strong></p>
-          <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
-            <tr>
-              <td style="padding: 0 5px;">
-                <table cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="background-color: #D4AF37; border-radius: 5px; padding: 12px 30px;">
-                      <a href="${acceptUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Approve Invoice</a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-              <td style="padding: 0 5px;">
-                <table cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="background-color: #666666; border-radius: 5px; padding: 12px 30px;">
-                      <a href="${declineUrl}" style="color: #ffffff; text-decoration: none; font-weight: bold; display: block; font-family: Arial, sans-serif;">Decline Invoice</a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </div>
-        ` : ''}
-        ${settings?.companySupportEmail ? `<p style="color: #666; font-size: 0.9em;">Questions? Contact us at ${settings.companySupportEmail}</p>` : ''}
-        ${settings?.companyPhone ? `<p style="color: #666; font-size: 0.9em;">Call us at ${settings.companyPhone}</p>` : ''}
-        <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
-          This is an automated message. Please do not reply to this email.
-        </p>
-      </body>
-    </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>New Invoice</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 30px 40px; background: linear-gradient(135deg, #0B132B 0%, #1A1F36 100%); border-radius: 8px 8px 0 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    ${logoUrl ? `
+                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; display: block;" />
+                    ` : `
+                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">${companyName}</h1>
+                    `}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">New Invoice</h2>
+              
+              <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+              
+              ${bodyHtml}
+              
+              <!-- Invoice Details Card -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                <tr>
+                  <td style="padding: 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                      <tr>
+                        <td style="padding: 8px 0;">
+                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Invoice Number</p>
+                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${invoiceData.invoiceNumber}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0;">
+                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Total Amount</p>
+                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 24px; font-weight: 700; line-height: 1.4; color: #D4AF37;">$${invoiceData.total.toFixed(2)}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0;">
+                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Due Date</p>
+                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dueDateText}</p>
+                        </td>
+                      </tr>
+                      ${invoiceData.paymentTerms ? `
+                      <tr>
+                        <td style="padding: 8px 0;">
+                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Payment Terms</p>
+                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${invoiceData.paymentTerms}</p>
+                        </td>
+                      </tr>
+                      ` : ''}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              ${trackResponse ? `
+              <!-- Action Buttons -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+                <tr>
+                  <td align="center" style="padding: 0 0 20px 0;">
+                    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; font-weight: 500; line-height: 1.5;">Please confirm receipt and acceptance of this invoice:</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="padding: 0 8px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="background-color: #D4AF37; border-radius: 6px;">
+                                <a href="${acceptUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Approve Invoice</a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td align="center" style="padding: 0 8px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="background-color: #6c757d; border-radius: 6px;">
+                                <a href="${declineUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Decline Invoice</a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+              
+              <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">Thank you for your business!</p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px 40px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; border-radius: 0 0 8px 8px;">
+              ${settings?.companySupportEmail || settings?.companyPhone ? `
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                ${settings?.companySupportEmail ? `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                      Questions? Contact us at <a href="mailto:${settings.companySupportEmail}" style="color: #D4AF37; text-decoration: none;">${settings.companySupportEmail}</a>
+                    </p>
+                  </td>
+                </tr>
+                ` : ''}
+                ${settings?.companyPhone ? `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                      Call us at <a href="tel:${settings.companyPhone}" style="color: #D4AF37; text-decoration: none;">${settings.companyPhone}</a>
+                    </p>
+                  </td>
+                </tr>
+                ` : ''}
+              </table>
+              ` : ''}
+              <p style="margin: 20px 0 0 0; color: #999999; font-size: 12px; line-height: 1.5;">
+                This is an automated message. Please do not reply to this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
   `
 
   const textBody = `
@@ -1217,6 +1451,8 @@ Thank you for your business!
     subject,
     htmlBody,
     textBody,
+    fromName: companyName,
+    replyTo: settings?.companySupportEmail || undefined,
     attachments: [
       {
         filename: `Invoice-${invoiceData.invoiceNumber}.pdf`,
