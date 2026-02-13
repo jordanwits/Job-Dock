@@ -114,72 +114,87 @@ export const SettingsPage = () => {
   }
 
   // Define all tabs with their configurations (after handlers are defined)
-  const allTabs: TabConfig[] = useMemo(() => [
-    {
-      id: 'company',
-      label: 'Company & Branding',
-      component: (
-        <CompanyBrandingSection
-          formData={formData}
-          settings={settings}
-          onFieldChange={handleFieldChange}
-          onLogoUpload={handleLogoUpload}
-          onSave={handleSave}
-        />
-      ),
-    },
-    {
-      id: 'team',
-      label: 'Team Members',
-      component: <TeamMembersSection />,
-      roles: ['owner', 'admin'],
-    },
-    {
-      id: 'billing',
-      label: 'Billing & Subscription',
-      component: <BillingSection />,
-      roles: ['owner'],
-    },
-    {
-      id: 'email',
-      label: 'Email Templates',
-      component: (
-        <EmailTemplatesSection
-          formData={formData}
-          onFieldChange={handleFieldChange}
-          onSave={handleSave}
-        />
-      ),
-    },
-    {
-      id: 'pdf',
-      label: 'PDF Templates',
-      component: (
-        <PdfTemplatesSection
-          settings={settings}
-          onInvoicePdfUpload={handleInvoicePdfUpload}
-          onQuotePdfUpload={handleQuotePdfUpload}
-        />
-      ),
-    },
-    {
-      id: 'early-access',
-      label: 'Early Access',
-      component: <EarlyAccessSection />,
-      emailCheck: (email) => email === 'jordan@westwavecreative.com',
-    },
-  ], [formData, settings, handleFieldChange, handleSave, handleLogoUpload, handleInvoicePdfUpload, handleQuotePdfUpload])
+  const allTabs: TabConfig[] = useMemo(
+    () => [
+      {
+        id: 'company',
+        label: 'Company & Branding',
+        component: (
+          <CompanyBrandingSection
+            formData={formData}
+            settings={settings}
+            onFieldChange={handleFieldChange}
+            onLogoUpload={handleLogoUpload}
+            onSave={handleSave}
+          />
+        ),
+      },
+      {
+        id: 'team',
+        label: 'Team Members',
+        component: <TeamMembersSection />,
+        roles: ['owner', 'admin'],
+      },
+      {
+        id: 'billing',
+        label: 'Billing & Subscription',
+        component: <BillingSection />,
+        roles: ['owner'],
+      },
+      {
+        id: 'email',
+        label: 'Email Templates',
+        component: (
+          <EmailTemplatesSection
+            formData={formData}
+            onFieldChange={handleFieldChange}
+            onSave={handleSave}
+          />
+        ),
+      },
+      {
+        id: 'pdf',
+        label: 'PDF Templates',
+        component: (
+          <PdfTemplatesSection
+            settings={settings}
+            onInvoicePdfUpload={handleInvoicePdfUpload}
+            onQuotePdfUpload={handleQuotePdfUpload}
+          />
+        ),
+      },
+      {
+        id: 'early-access',
+        label: 'Early Access',
+        component: <EarlyAccessSection />,
+        emailCheck: email => email === 'jordan@westwavecreative.com',
+      },
+    ],
+    [
+      formData,
+      settings,
+      handleFieldChange,
+      handleSave,
+      handleLogoUpload,
+      handleInvoicePdfUpload,
+      handleQuotePdfUpload,
+    ]
+  )
 
   // Filter tabs based on user role and email
-  const visibleTabs = useMemo(() => allTabs.filter((tab) => {
-    if (tab.roles && user?.role && !tab.roles.includes(user.role)) {
-      return false
-    }
-    if (tab.emailCheck && user?.email && !tab.emailCheck(user.email)) {
-      return false
-    }
-    return true
-  }), [allTabs, user?.role, user?.email])
+  const visibleTabs = useMemo(
+    () =>
+      allTabs.filter(tab => {
+        if (tab.roles && user?.role && !tab.roles.includes(user.role)) {
+          return false
+        }
+        if (tab.emailCheck && user?.email && !tab.emailCheck(user.email)) {
+          return false
+        }
+        return true
+      }),
+    [allTabs, user?.role, user?.email]
+  )
 
   // Set default tab on mount or when visible tabs change (desktop only)
   useEffect(() => {
@@ -190,7 +205,7 @@ export const SettingsPage = () => {
       if (mediaQuery.matches) {
         setActiveTab(visibleTabs[0].id)
       }
-    } else if (activeTab && !visibleTabs.find((t) => t.id === activeTab)) {
+    } else if (activeTab && !visibleTabs.find(t => t.id === activeTab)) {
       // If current tab is no longer visible, switch to first visible tab
       const mediaQuery = window.matchMedia('(min-width: 768px)')
       if (mediaQuery.matches) {
@@ -232,7 +247,7 @@ export const SettingsPage = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [mobileView, activeTab, visibleTabs])
 
-  const activeTabConfig = visibleTabs.find((tab) => tab.id === activeTab)
+  const activeTabConfig = visibleTabs.find(tab => tab.id === activeTab)
 
   if (loading) {
     return (
@@ -268,7 +283,7 @@ export const SettingsPage = () => {
         {mobileView === 'list' ? (
           /* Mobile: Vertical tab list */
           <div className="space-y-1">
-            {visibleTabs.map((tab) => (
+            {visibleTabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => handleTabSelect(tab.id)}
@@ -291,12 +306,7 @@ export const SettingsPage = () => {
                 onClick={handleBackToList}
                 className="flex items-center gap-2 -ml-2"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -317,7 +327,7 @@ export const SettingsPage = () => {
         {/* Desktop: Vertical nav list */}
         <nav className="w-56 flex-shrink-0">
           <div className="space-y-1">
-            {visibleTabs.map((tab) => {
+            {visibleTabs.map(tab => {
               const isActive = activeTab === tab.id
               return (
                 <button
@@ -340,9 +350,7 @@ export const SettingsPage = () => {
         {/* Desktop: Content Panel - Borderless */}
         <div className="flex-1 min-w-0 overflow-y-auto">
           {activeTabConfig ? (
-            <div className="pb-6">
-              {activeTabConfig.component}
-            </div>
+            <div className="pb-6">{activeTabConfig.component}</div>
           ) : (
             <div className="pb-6 text-primary-light/70">
               Select a setting category to get started

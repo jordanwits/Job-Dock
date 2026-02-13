@@ -13,7 +13,13 @@ export interface HeaderProps {
   onMenuClick?: () => void
 }
 
-const Header = ({ user, companyLogoUrl, companyDisplayName, onLogout, onMenuClick }: HeaderProps) => {
+const Header = ({
+  user,
+  companyLogoUrl,
+  companyDisplayName,
+  onLogout,
+  onMenuClick,
+}: HeaderProps) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-primary-blue bg-primary-dark-secondary/95 backdrop-blur supports-[backdrop-filter]:bg-primary-dark-secondary/60">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -41,10 +47,10 @@ const Header = ({ user, companyLogoUrl, companyDisplayName, onLogout, onMenuClic
         </div>
 
         {/* Navigation */}
-        <nav className="flex items-center gap-2 md:gap-6">
+        <nav className="flex items-center gap-6 md:gap-12">
           {user ? (
             <>
-              <div className="hidden md:flex items-center space-x-3">
+              <div className="hidden md:flex items-center gap-10">
                 {companyLogoUrl && (
                   <img
                     src={companyLogoUrl}
@@ -54,7 +60,11 @@ const Header = ({ user, companyLogoUrl, companyDisplayName, onLogout, onMenuClic
                 )}
                 <div className="text-center">
                   <p className="text-sm font-medium text-primary-light">
-                    {user.role === 'employee' ? (companyDisplayName ? `${companyDisplayName} Team` : 'Team') : user.name}
+                    {user.role === 'employee'
+                      ? companyDisplayName
+                        ? `${companyDisplayName} Team`
+                        : 'Team'
+                      : user.name}
                   </p>
                   <p className="text-xs text-primary-light/70">{user.email}</p>
                 </div>
@@ -64,18 +74,8 @@ const Header = ({ user, companyLogoUrl, companyDisplayName, onLogout, onMenuClic
                   </Button>
                 )}
               </div>
-              {/* Mobile user menu */}
-              <div className="md:hidden flex items-center gap-2">
-                {companyLogoUrl && (
-                  <img
-                    src={companyLogoUrl}
-                    alt="Company logo"
-                    className="h-6 w-auto max-w-[80px] object-contain"
-                  />
-                )}
-                <span className="text-sm font-medium text-primary-light truncate max-w-[100px]">
-                  {user.role === 'employee' ? (companyDisplayName ? `${companyDisplayName} Team` : 'Team') : user.name}
-                </span>
+              {/* Mobile user menu - simplified for space */}
+              <div className="md:hidden flex items-center gap-3">
                 {onLogout && (
                   <Button variant="ghost" size="sm" onClick={onLogout}>
                     Logout
