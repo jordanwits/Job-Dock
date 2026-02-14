@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import apiClient from '@/lib/api/client'
+import { apiClient, publicApiClient } from '@/lib/api/client'
+import { settingsApi } from '@/lib/api/settings'
 
 type ApprovalAction = 'accept' | 'decline'
 
@@ -13,6 +14,8 @@ const QuoteApprovalPage = () => {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [quoteNumber, setQuoteNumber] = useState<string>('')
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null)
+  const [companyDisplayName, setCompanyDisplayName] = useState<string | null>(null)
 
   useEffect(() => {
     const handleApproval = async () => {
@@ -22,12 +25,30 @@ const QuoteApprovalPage = () => {
         return
       }
 
+      // Fetch branding info first (before approval) - use publicApiClient for unauthenticated requests
+      try {
+        const brandingResponse = await publicApiClient.get(`/quotes/${id}/approval-info?token=${token}`)
+        console.log('Branding response:', brandingResponse.data)
+        if (brandingResponse.data.logoSignedUrl) {
+          setCompanyLogoUrl(brandingResponse.data.logoSignedUrl)
+        }
+        if (brandingResponse.data.companyDisplayName || brandingResponse.data.tenantName) {
+          setCompanyDisplayName(brandingResponse.data.companyDisplayName || brandingResponse.data.tenantName || null)
+        }
+      } catch (brandingError: any) {
+        // Log error details for debugging
+        console.error('Failed to fetch company branding:', brandingError)
+        console.error('Error response:', brandingError.response?.data)
+        console.error('Error status:', brandingError.response?.status)
+        // Silently fail - branding is optional, but log for debugging
+      }
+
       try {
         const endpoint = action === 'accept' 
           ? `/quotes/${id}/approve-public`
           : `/quotes/${id}/decline-public`
         
-        const response = await apiClient.post(`${endpoint}?token=${token}`, {})
+        const response = await publicApiClient.post(`${endpoint}?token=${token}`, {})
         setQuoteNumber(response.data.quoteNumber || id)
         setSuccess(true)
       } catch (err: any) {
@@ -51,7 +72,17 @@ const QuoteApprovalPage = () => {
       <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-8 text-center">
         {/* Logo/Branding */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-primary-gold">JobDock</h1>
+          {companyLogoUrl ? (
+            <img
+              src={companyLogoUrl}
+              alt={companyDisplayName || 'Company logo'}
+              className="h-12 w-auto max-w-[200px] mx-auto object-contain"
+            />
+          ) : companyDisplayName ? (
+            <h1 className="text-3xl font-bold text-primary-gold">{companyDisplayName}</h1>
+          ) : (
+            <h1 className="text-3xl font-bold text-primary-gold">JobDock</h1>
+          )}
         </div>
 
         {loading ? (

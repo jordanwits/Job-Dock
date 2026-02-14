@@ -1352,7 +1352,10 @@ export const dataServices = {
 
       console.log(`✅ Quote ${quote.quoteNumber} approved by client`)
 
-      return serializeQuote(updatedQuote)
+      return {
+        ...serializeQuote(updatedQuote),
+        tenantId,
+      }
     },
     decline: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)
@@ -1393,7 +1396,10 @@ export const dataServices = {
 
       console.log(`✅ Quote ${quote.quoteNumber} declined by client`)
 
-      return serializeQuote(updatedQuote)
+      return {
+        ...serializeQuote(updatedQuote),
+        tenantId,
+      }
     },
   },
   invoices: {
@@ -1704,7 +1710,10 @@ export const dataServices = {
 
       console.log(`✅ Invoice ${invoice.invoiceNumber} ${approvalStatus} by client`)
 
-      return serializeInvoice(updatedInvoice)
+      return {
+        ...serializeInvoice(updatedInvoice),
+        tenantId,
+      }
     },
     getUnconvertedAcceptedQuotes: async (tenantId: string) => {
       await ensureTenantExists(tenantId)

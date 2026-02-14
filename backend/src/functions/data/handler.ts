@@ -829,19 +829,26 @@ We look forward to working with you!',
       id &&
       ((resource === 'quotes' && (action === 'approve-public' || action === 'decline-public')) ||
         (resource === 'invoices' && (action === 'approve-public' || action === 'decline-public')))
+    
+    // Check if this is a public approval info endpoint (GET request to fetch branding before approval)
+    const isPublicApprovalInfoEndpoint =
+      event.httpMethod === 'GET' &&
+      id &&
+      ((resource === 'quotes' && action === 'approval-info') ||
+        (resource === 'invoices' && action === 'approval-info'))
 
     // For public endpoints, determine tenant ID from the resource itself
     let tenantId: string
     if (isPublicBookingEndpoint) {
       tenantId = 'public-booking-placeholder'
-    } else if (isPublicApprovalEndpoint && id) {
+    } else if ((isPublicApprovalEndpoint || isPublicApprovalInfoEndpoint) && id) {
       // For approval endpoints, look up the tenantId from the quote/invoice record
       tenantId = await getTenantIdFromResource(resource as 'quotes' | 'invoices', id)
     } else {
       tenantId = await resolveTenantId(event)
     }
 
-    if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint) {
+    if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint) {
       await ensureTenantExists(tenantId)
     }
 
@@ -853,7 +860,7 @@ We look forward to working with you!',
     const enforceSubscription = process.env.STRIPE_ENFORCE_SUBSCRIPTION === 'true'
     if (enforceSubscription && resource !== 'billing') {
       // Always allow public endpoints
-      if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint) {
+      if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint) {
         // Check subscription status
         const tenant = await prisma.tenant.findUnique({
           where: { id: tenantId },
@@ -1111,6 +1118,29 @@ async function handleGet(
       throw new ApiError('Session ID required', 400)
     }
     return (service as typeof dataServices.contacts).importStatus(tenantId, sessionId)
+  }
+
+  // Get approval info (tenantId and branding) for public approval pages
+  if ((resource === 'quotes' || resource === 'invoices') && id && action === 'approval-info') {
+    const token = event.queryStringParameters?.token
+    if (!token) {
+      throw new ApiError('Approval token required', 400)
+    }
+    
+    const { verifyApprovalToken } = await import('../../lib/approvalTokens')
+    const resourceType = resource === 'quotes' ? 'quote' : 'invoice'
+    
+    if (!verifyApprovalToken(resourceType, id, tenantId, token)) {
+      throw new ApiError('Invalid or expired approval token', 403)
+    }
+    
+    // Get branding info - need to access settings service directly
+    const branding = await dataServices.settings.getPublic(tenantId)
+    
+    return {
+      tenantId,
+      ...branding,
+    }
   }
 
   // Get unconverted accepted quotes for invoices
