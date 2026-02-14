@@ -8,9 +8,10 @@ import { PdfTemplatesSection } from './PdfTemplatesSection'
 import { EarlyAccessSection } from './EarlyAccessSection'
 import { BillingSection } from './BillingSection'
 import { TeamMembersSection } from './TeamMembersSection'
+import { HelpSection } from './HelpSection'
 import { cn } from '@/lib/utils'
 
-type TabId = 'billing' | 'team' | 'early-access' | 'company' | 'email' | 'pdf'
+type TabId = 'billing' | 'team' | 'early-access' | 'company' | 'email' | 'pdf' | 'help'
 
 interface TabConfig {
   id: TabId
@@ -168,6 +169,11 @@ export const SettingsPage = () => {
         label: 'Early Access',
         component: <EarlyAccessSection />,
         emailCheck: email => email === 'jordan@westwavecreative.com',
+      },
+      {
+        id: 'help',
+        label: 'Help',
+        component: <HelpSection />,
       },
     ],
     [
