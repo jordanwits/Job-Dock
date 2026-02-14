@@ -19,6 +19,8 @@ export interface JobAssignment {
   userId: string
   role: string
   price?: number | null
+  payType?: 'job' | 'hourly'
+  hourlyRate?: number | null
 }
 
 export interface Job {

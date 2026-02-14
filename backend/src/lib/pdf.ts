@@ -183,6 +183,9 @@ export async function generateQuotePDF(
   let y = height - 50
   let logoHeight = 0
 
+  // Header - Company name
+  const companyName = companyInfo?.name || tenantName || 'JobDock'
+  
   // Embed and draw logo if available
   if (companyInfo?.logoKey) {
     const logo = await embedLogoFromS3(pdfDoc, companyInfo.logoKey)
@@ -199,23 +202,33 @@ export async function generateQuotePDF(
         height: logoHeight,
       })
 
-      y -= logoHeight + 20
+      // Add spacing between logo and company name
+      y -= logoHeight + 30
     }
   }
 
-  // Header - Company name
-  const companyName = companyInfo?.name || tenantName || 'JobDock'
+  // Company name - left aligned
+  const companyNameX = logoHeight > 0 ? 50 + 90 : 50 // 90 = logo width (80) + 10px spacing
+  
   page.drawText(companyName, {
-    x: 50,
-    y,
+    x: companyNameX,
+    y: logoHeight > 0 ? height - 50 - (logoHeight / 2) + 12 : y, // Center vertically with logo if logo exists
     size: 24,
     font: fontBold,
     color: goldColor,
   })
-
-  y -= 20
+  
+  // Adjust y position for next elements
+  if (logoHeight === 0) {
+    y -= 20
+  } else {
+    // When logo exists, position subtitle below company name
+    y = height - 50 - (logoHeight / 2) - 8 // Position below company name
+  }
+  
+  // Subtitle - left aligned
   page.drawText('Professional Services Quote', {
-    x: 50,
+    x: companyNameX,
     y,
     size: 10,
     font: fontRegular,
@@ -227,7 +240,7 @@ export async function generateQuotePDF(
     y -= 15
     if (companyInfo.email) {
       page.drawText(`Email: ${companyInfo.email}`, {
-        x: 50,
+        x: companyNameX,
         y,
         size: 9,
         font: fontRegular,
@@ -237,7 +250,7 @@ export async function generateQuotePDF(
     }
     if (companyInfo.phone) {
       page.drawText(`Phone: ${companyInfo.phone}`, {
-        x: 50,
+        x: companyNameX,
         y,
         size: 9,
         font: fontRegular,
@@ -245,6 +258,9 @@ export async function generateQuotePDF(
       })
     }
   }
+
+  // Add extra spacing below header section
+  y -= 30
 
   // Quote details (right side) - adjust for logo height
   let rightY = height - 50
@@ -538,6 +554,9 @@ export async function generateInvoicePDF(
   let y = height - 50
   let logoHeight = 0
 
+  // Header - Company name
+  const companyName = companyInfo?.name || tenantName || 'JobDock'
+  
   // Embed and draw logo if available
   if (companyInfo?.logoKey) {
     const logo = await embedLogoFromS3(pdfDoc, companyInfo.logoKey)
@@ -554,23 +573,33 @@ export async function generateInvoicePDF(
         height: logoHeight,
       })
 
-      y -= logoHeight + 20
+      // Add spacing between logo and company name
+      y -= logoHeight + 30
     }
   }
 
-  // Header - Company name
-  const companyName = companyInfo?.name || tenantName || 'JobDock'
+  // Company name - left aligned
+  const companyNameX = logoHeight > 0 ? 50 + 90 : 50 // 90 = logo width (80) + 10px spacing
+  
   page.drawText(companyName, {
-    x: 50,
-    y,
+    x: companyNameX,
+    y: logoHeight > 0 ? height - 50 - (logoHeight / 2) + 12 : y, // Center vertically with logo if logo exists
     size: 24,
     font: fontBold,
     color: goldColor,
   })
-
-  y -= 20
+  
+  // Adjust y position for next elements
+  if (logoHeight === 0) {
+    y -= 20
+  } else {
+    // When logo exists, position subtitle below company name
+    y = height - 50 - (logoHeight / 2) - 8 // Position below company name
+  }
+  
+  // Subtitle - left aligned
   page.drawText('Professional Services Invoice', {
-    x: 50,
+    x: companyNameX,
     y,
     size: 10,
     font: fontRegular,
@@ -582,7 +611,7 @@ export async function generateInvoicePDF(
     y -= 15
     if (companyInfo.email) {
       page.drawText(`Email: ${companyInfo.email}`, {
-        x: 50,
+        x: companyNameX,
         y,
         size: 9,
         font: fontRegular,
@@ -592,7 +621,7 @@ export async function generateInvoicePDF(
     }
     if (companyInfo.phone) {
       page.drawText(`Phone: ${companyInfo.phone}`, {
-        x: 50,
+        x: companyNameX,
         y,
         size: 9,
         font: fontRegular,
@@ -600,6 +629,9 @@ export async function generateInvoicePDF(
       })
     }
   }
+
+  // Add extra spacing below header section
+  y -= 30
 
   // Invoice details (right side) - adjust for logo height
   let rightY = height - 50

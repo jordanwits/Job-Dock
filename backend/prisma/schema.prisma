@@ -41,20 +41,21 @@ model Tenant {
 }
 
 model User {
-  id                    String    @id @default(uuid())
-  cognitoId             String    @unique
+  id                    String      @id @default(uuid())
+  cognitoId             String      @unique
   email                 String
   name                  String
   tenantId              String
-  role                  String    @default("user")
-  canCreateJobs         Boolean   @default(true)
-  canScheduleAppointments Boolean @default(true)
-  canSeeOtherJobs       Boolean   @default(false)
+  role                  String      @default("user")
+  canCreateJobs         Boolean     @default(true)
+  canScheduleAppointments Boolean   @default(true)
+  canSeeOtherJobs       Boolean     @default(false)
   onboardingCompletedAt DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  tenant                Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   jobsCreated           Job[]
+  timeEntries            TimeEntry[]
 
   @@index([tenantId])
   @@index([cognitoId])
@@ -308,6 +309,7 @@ model TimeEntry {
   id           String   @id @default(uuid())
   tenantId     String
   jobLogId     String
+  userId       String?  // Nullable for backward compatibility with existing entries
   startTime    DateTime
   endTime      DateTime
   breakMinutes Int      @default(0)
@@ -316,9 +318,11 @@ model TimeEntry {
   updatedAt    DateTime @updatedAt
   jobLog       JobLog   @relation(fields: [jobLogId], references: [id], onDelete: Cascade)
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([jobLogId])
+  @@index([userId])
   @@index([startTime])
   @@map("time_entries")
 }

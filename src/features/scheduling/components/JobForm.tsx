@@ -223,14 +223,16 @@ const JobForm = ({
             return job.assignedTo as JobAssignment[]
           }
           // Old format: array of strings
-          return (job.assignedTo as string[]).map(id => ({
-            userId: id,
-            role: 'Team Member',
-            price: null,
-          }))
+            return (job.assignedTo as string[]).map(id => ({
+              userId: id,
+              role: 'Team Member',
+              price: null,
+              payType: 'job' as const,
+              hourlyRate: null,
+            }))
         }
         // Old format: single string
-        return [{ userId: job.assignedTo as string, role: 'Team Member', price: null }]
+        return [{ userId: job.assignedTo as string, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
       })(),
     },
   })
@@ -320,7 +322,7 @@ const JobForm = ({
           )
         }
       } else {
-        setAssignments([{ userId: job.assignedTo as string, role: 'Team Member', price: null }])
+        setAssignments([{ userId: job.assignedTo as string, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }])
       }
     } else {
       setAssignments([])
@@ -353,9 +355,11 @@ const JobForm = ({
               userId: id,
               role: 'Team Member',
               price: null,
+              payType: 'job' as const,
+              hourlyRate: null,
             }))
           }
-          return [{ userId: job.assignedTo as string, role: 'Team Member', price: null }]
+          return [{ userId: job.assignedTo as string, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
         })(),
       })
       if (job.startTime && job.endTime) {
@@ -765,7 +769,7 @@ const JobForm = ({
                   type="button"
                   variant="ghost"
                   onClick={() => {
-                    const newAssignments = [{ userId: '', role: 'Team Member', price: null }]
+                    const newAssignments = [{ userId: '', role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)
                   }}
@@ -784,7 +788,7 @@ const JobForm = ({
                       className="border border-primary-blue rounded-lg p-3 bg-primary-dark-secondary/50 space-y-3"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-primary-light/70 mb-1">
                               Team Member
@@ -822,33 +826,90 @@ const JobForm = ({
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-primary-light/70 mb-1">
-                              Price (Optional)
+                              Pay Type
                             </label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
-                                $
-                              </span>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={assignment.price ?? ''}
-                                onChange={e => {
-                                  const newAssignments = [...assignments]
-                                  const priceValue =
-                                    e.target.value === '' ? null : parseFloat(e.target.value)
-                                  newAssignments[index] = {
-                                    ...assignment,
-                                    price: isNaN(priceValue as number) ? null : priceValue,
-                                  }
-                                  setAssignments(newAssignments)
-                                  setValue('assignedTo', newAssignments)
-                                }}
-                                placeholder="0.00"
-                                className="pl-7 text-sm"
-                              />
-                            </div>
+                            <Select
+                              value={assignment.payType || 'job'}
+                              onChange={e => {
+                                const newAssignments = [...assignments]
+                                const payType = e.target.value as 'job' | 'hourly'
+                                newAssignments[index] = {
+                                  ...assignment,
+                                  payType,
+                                  // Clear price/hourlyRate when switching
+                                  price: payType === 'job' ? assignment.price : null,
+                                  hourlyRate: payType === 'hourly' ? assignment.hourlyRate : null,
+                                }
+                                setAssignments(newAssignments)
+                                setValue('assignedTo', newAssignments)
+                              }}
+                              options={[
+                                { value: 'job', label: 'By Job' },
+                                { value: 'hourly', label: 'By Hour' },
+                              ]}
+                            />
                           </div>
+                          {assignment.payType === 'hourly' ? (
+                            <div>
+                              <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                                Hourly Rate (Optional)
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+                                  $
+                                </span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={assignment.hourlyRate ?? ''}
+                                  onChange={e => {
+                                    const newAssignments = [...assignments]
+                                    const hourlyRateValue =
+                                      e.target.value === '' ? null : parseFloat(e.target.value)
+                                    newAssignments[index] = {
+                                      ...assignment,
+                                      hourlyRate: isNaN(hourlyRateValue as number) ? null : hourlyRateValue,
+                                    }
+                                    setAssignments(newAssignments)
+                                    setValue('assignedTo', newAssignments)
+                                  }}
+                                  placeholder="0.00"
+                                  className="pl-7 text-sm"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                                Price (Optional)
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+                                  $
+                                </span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={assignment.price ?? ''}
+                                  onChange={e => {
+                                    const newAssignments = [...assignments]
+                                    const priceValue =
+                                      e.target.value === '' ? null : parseFloat(e.target.value)
+                                    newAssignments[index] = {
+                                      ...assignment,
+                                      price: isNaN(priceValue as number) ? null : priceValue,
+                                    }
+                                    setAssignments(newAssignments)
+                                    setValue('assignedTo', newAssignments)
+                                  }}
+                                  placeholder="0.00"
+                                  className="pl-7 text-sm"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -876,7 +937,7 @@ const JobForm = ({
                   onClick={() => {
                     const newAssignments = [
                       ...assignments,
-                      { userId: '', role: 'Team Member', price: null },
+                      { userId: '', role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null },
                     ]
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)

@@ -2,11 +2,15 @@ export interface JobAssignment {
   userId: string
   role: string
   price?: number | null
+  payType?: 'job' | 'hourly'
+  hourlyRate?: number | null
 }
 
 export interface TimeEntry {
   id: string
   jobLogId?: string
+  userId?: string
+  userName?: string
   startTime: string
   endTime: string
   breakMinutes?: number

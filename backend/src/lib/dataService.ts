@@ -58,6 +58,8 @@ interface JobAssignment {
   userId: string
   role: string
   price?: number | null
+  payType?: 'job' | 'hourly'
+  hourlyRate?: number | null
 }
 
 // Normalize assignedTo to new format: array of assignment objects
@@ -75,6 +77,8 @@ function normalizeAssignedTo(assignedTo: any): JobAssignment[] | null {
           userId: item.userId.trim(),
           role: typeof item.role === 'string' ? item.role.trim() : 'Team Member',
           price: typeof item.price === 'number' ? item.price : (item.price === null || item.price === undefined ? null : undefined),
+          payType: typeof item.payType === 'string' && (item.payType === 'job' || item.payType === 'hourly') ? item.payType : 'job',
+          hourlyRate: typeof item.hourlyRate === 'number' ? item.hourlyRate : (item.hourlyRate === null || item.hourlyRate === undefined ? null : undefined),
         }))
       return normalized.length > 0 ? normalized : null
     }
@@ -86,6 +90,8 @@ function normalizeAssignedTo(assignedTo: any): JobAssignment[] | null {
         userId: id.trim(),
         role: 'Team Member',
         price: null,
+        payType: 'job' as const,
+        hourlyRate: null,
       }))
     }
   }
@@ -96,6 +102,8 @@ function normalizeAssignedTo(assignedTo: any): JobAssignment[] | null {
       userId: assignedTo.trim(),
       role: 'Team Member',
       price: null,
+      payType: 'job' as const,
+      hourlyRate: null,
     }]
   }
   
@@ -3550,7 +3558,16 @@ export const dataServices = {
         include: {
           job: { include: { createdBy: { select: { name: true } } } },
           contact: true,
-          timeEntries: true,
+          timeEntries: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       })
@@ -3618,6 +3635,8 @@ export const dataServices = {
               endTime: te.endTime.toISOString(),
               breakMinutes: te.breakMinutes,
               notes: te.notes,
+              userId: (te as any).userId ?? undefined,
+              userName: (te as any).user?.name ?? undefined,
             })),
             photos,
           }
@@ -3636,7 +3655,16 @@ export const dataServices = {
         include: {
           job: { include: { createdBy: { select: { name: true } } } },
           contact: true,
-          timeEntries: true,
+          timeEntries: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
       })
       if (!jobLog) {
@@ -3705,6 +3733,8 @@ export const dataServices = {
           notes: te.notes,
           createdAt: te.createdAt.toISOString(),
           updatedAt: te.updatedAt.toISOString(),
+          userId: (te as any).userId ?? undefined,
+          userName: (te as any).user?.name ?? undefined,
         })),
         photos,
       }
@@ -3971,17 +4001,53 @@ export const dataServices = {
     },
   },
   'time-entries': {
-    getAll: async (tenantId: string, jobLogId?: string) => {
+    getAll: async (
+      tenantId: string,
+      jobLogId?: string,
+      currentUserId?: string,
+      currentUserRole?: string
+    ) => {
       await ensureTenantExists(tenantId)
-      return prisma.timeEntry.findMany({
-        where: { tenantId, ...(jobLogId ? { jobLogId } : {}) },
+      const where: any = { tenantId }
+      if (jobLogId) {
+        where.jobLogId = jobLogId
+      }
+      // Filter by userId for employees
+      if (currentUserRole === 'employee' && currentUserId) {
+        where.userId = currentUserId
+      }
+      const entries = await prisma.timeEntry.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
         orderBy: { startTime: 'desc' },
       })
+      return entries.map((te) => ({
+        ...te,
+        startTime: te.startTime.toISOString(),
+        endTime: te.endTime.toISOString(),
+        userId: te.userId ?? undefined,
+        userName: te.user?.name ?? undefined,
+      }))
     },
     getById: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)
       const te = await prisma.timeEntry.findFirst({
         where: { id, tenantId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       })
       if (!te) {
         throw new ApiError('Time entry not found', 404)
@@ -3990,9 +4056,16 @@ export const dataServices = {
         ...te,
         startTime: te.startTime.toISOString(),
         endTime: te.endTime.toISOString(),
+        userId: te.userId ?? undefined,
+        userName: te.user?.name ?? undefined,
       }
     },
-    create: async (tenantId: string, payload: any) => {
+    create: async (
+      tenantId: string,
+      payload: any,
+      currentUserId?: string,
+      currentUserRole?: string
+    ) => {
       await ensureTenantExists(tenantId)
       const jobLog = await prisma.jobLog.findFirst({
         where: { id: payload.jobLogId, tenantId },
@@ -4000,20 +4073,46 @@ export const dataServices = {
       if (!jobLog) {
         throw new ApiError('Job log not found', 404)
       }
+      // Determine userId: use payload.userId if provided, otherwise use currentUserId
+      let userId = payload.userId ?? currentUserId ?? null
+      // For employees, enforce that they can only create entries for themselves
+      if (currentUserRole === 'employee' && userId !== currentUserId) {
+        throw new ApiError('Employees can only create time entries for themselves', 403)
+      }
+      // Validate userId exists if provided
+      if (userId) {
+        const user = await prisma.user.findFirst({
+          where: { id: userId, tenantId },
+        })
+        if (!user) {
+          throw new ApiError('User not found', 404)
+        }
+      }
       const created = await prisma.timeEntry.create({
         data: {
           tenantId,
           jobLogId: payload.jobLogId,
+          userId,
           startTime: new Date(payload.startTime),
           endTime: new Date(payload.endTime),
           breakMinutes: payload.breakMinutes ?? 0,
           notes: payload.notes ?? null,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       })
       return {
         ...created,
         startTime: created.startTime.toISOString(),
         endTime: created.endTime.toISOString(),
+        userId: created.userId ?? undefined,
+        userName: created.user?.name ?? undefined,
       }
     },
     update: async (tenantId: string, id: string, payload: any) => {
@@ -4031,12 +4130,23 @@ export const dataServices = {
           endTime: payload.endTime ? new Date(payload.endTime) : undefined,
           breakMinutes: payload.breakMinutes ?? undefined,
           notes: payload.notes ?? undefined,
+          userId: payload.userId !== undefined ? payload.userId : undefined,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       })
       return {
         ...updated,
         startTime: updated.startTime.toISOString(),
         endTime: updated.endTime.toISOString(),
+        userId: updated.userId ?? undefined,
+        userName: updated.user?.name ?? undefined,
       }
     },
     delete: async (tenantId: string, id: string) => {

@@ -424,7 +424,7 @@ const realTimeEntriesService = {
     return response.data
   },
 
-  create: async (data: { jobLogId: string; startTime: string; endTime: string; breakMinutes?: number; notes?: string }) => {
+  create: async (data: { jobLogId: string; startTime: string; endTime: string; breakMinutes?: number; notes?: string; userId?: string }) => {
     const response = await apiClient.post('/time-entries', data)
     return response.data
   },

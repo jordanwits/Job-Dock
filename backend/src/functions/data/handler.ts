@@ -1156,12 +1156,6 @@ async function handleGet(
     }
   }
 
-  // Time entries: filter by jobLogId when provided
-  if (resource === 'time-entries' && !id) {
-    const jobLogId = event.queryStringParameters?.jobLogId
-    return (service as typeof dataServices['time-entries']).getAll(tenantId, jobLogId)
-  }
-
   // Extract user context for privacy filtering (if authenticated)
   let currentUserId: string | undefined
   let currentUserRole: string | undefined
@@ -1181,6 +1175,17 @@ async function handleGet(
     }
   } catch {
     // User not authenticated or context unavailable - that's okay
+  }
+
+  // Time entries: filter by jobLogId when provided
+  if (resource === 'time-entries' && !id) {
+    const jobLogId = event.queryStringParameters?.jobLogId
+    return (service as typeof dataServices['time-entries']).getAll(
+      tenantId,
+      jobLogId,
+      currentUserId,
+      currentUserRole
+    )
   }
 
   if (id && 'getById' in service) {
@@ -1486,6 +1491,27 @@ async function handlePost(
           select: { id: true },
         })
         if (user) payload._actingUserId = user.id
+      } catch {
+        /* ignore */
+      }
+    }
+    // For time-entries create: pass user context for validation
+    if (resource === 'time-entries' && !id) {
+      try {
+        const context = await extractContext(event)
+        const { default: prisma } = await import('../../lib/db')
+        const user = await prisma.user.findFirst({
+          where: { cognitoId: context.userId },
+          select: { id: true, role: true },
+        })
+        if (user) {
+          return (service as typeof dataServices['time-entries']).create(
+            tenantId,
+            payload,
+            user.id,
+            user.role
+          )
+        }
       } catch {
         /* ignore */
       }
