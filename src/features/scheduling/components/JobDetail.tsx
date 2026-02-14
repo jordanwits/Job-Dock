@@ -331,10 +331,16 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                 const canSeePrice = isAdminOrOwner || assignment.userId === currentUserId
                 const price = canSeePrice ? assignment.price : undefined
                 
+                const hasPrice = price !== null && price !== undefined
                 return (
                   <div
                     key={assignment.userId || index}
-                    className="flex items-center justify-between gap-3 p-2 rounded-md bg-primary-dark-secondary/50 border border-primary-blue/30"
+                    className={cn(
+                      "items-center rounded-md bg-primary-dark-secondary/50 border border-primary-blue/30",
+                      hasPrice 
+                        ? "flex justify-between gap-3 p-2" 
+                        : "inline-flex px-2 py-1"
+                    )}
                   >
                     <div className="min-w-0 flex-shrink">
                       <span className="text-primary-light font-medium">{displayName}</span>
@@ -342,13 +348,10 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                         <span className="text-primary-light/60 ml-2">({assignment.role})</span>
                       )}
                     </div>
-                    {price !== null && price !== undefined && (
+                    {hasPrice && (
                       <span className="text-primary-gold font-semibold flex-shrink-0">
                         ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
-                    )}
-                    {price === undefined && (
-                      <span className="text-primary-light/30 text-sm flex-shrink-0">—</span>
                     )}
                   </div>
                 )

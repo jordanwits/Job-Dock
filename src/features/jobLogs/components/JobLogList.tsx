@@ -427,11 +427,13 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
               ? 'No jobs match your filters'
               : 'No jobs yet'}
           </p>
-          {!searchQuery && statusFilter === 'all' && (
-            <p className="text-sm text-primary-light/60">
-              Use the "Create Job" button above to get started
-            </p>
-          )}
+          {!searchQuery &&
+            statusFilter === 'all' &&
+            onCreateClick && (
+              <Button variant="primary" onClick={onCreateClick}>
+                Create Your First Job
+              </Button>
+            )}
         </div>
       ) : displayMode === 'cards' ? (
         // Card Grid Layout

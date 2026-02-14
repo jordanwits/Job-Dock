@@ -1,15 +1,18 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Button, ConfirmationDialog, Modal } from '@/components/ui'
 import type { TimeEntry } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
+import { useAuthStore } from '@/features/auth'
 
 interface TimeTrackerProps {
   jobLogId: string
   jobLogTitle: string
   timeEntries: TimeEntry[]
+  isAdmin?: boolean
+  currentUserId?: string
 }
 
 const TIMER_STORAGE_KEY = 'joblog-active-timer'
@@ -59,9 +62,7 @@ function TimeNumberInput({
     const hasMin = min !== ''
     const minute = parseInt(min, 10) || 0
     if (hasHour && hasMin) {
-      const h24 = pm
-        ? (hour12 === 12 ? 12 : hour12 + 12)
-        : (hour12 === 12 ? 0 : hour12)
+      const h24 = pm ? (hour12 === 12 ? 12 : hour12 + 12) : hour12 === 12 ? 0 : hour12
       onChange(`${h24}`.padStart(2, '0') + ':' + `${minute}`.padStart(2, '0'))
     } else {
       onChange(`${h}:${min}`)
@@ -90,9 +91,7 @@ function TimeNumberInput({
   const inputSize = 'h-9 w-8 min-w-0 px-0.5 py-1 text-base sm:text-sm'
   return (
     <div className="flex flex-col gap-0.5">
-      {label && (
-        <span className="text-xs font-medium text-primary-light/60">{label}</span>
-      )}
+      {label && <span className="text-xs font-medium text-primary-light/60">{label}</span>}
       <div className="flex items-center gap-0.5">
         <input
           type="text"
@@ -130,8 +129,41 @@ function TimeNumberInput({
   )
 }
 
-const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) => {
+const TimeTracker = ({
+  jobLogId,
+  jobLogTitle,
+  timeEntries,
+  isAdmin,
+  currentUserId,
+}: TimeTrackerProps) => {
   const { createTimeEntry, updateTimeEntry, deleteTimeEntry } = useJobLogStore()
+  const { user } = useAuthStore()
+  const effectiveIsAdmin = isAdmin ?? (user?.role === 'admin' || user?.role === 'owner')
+  const effectiveCurrentUserId = currentUserId ?? user?.id
+
+  // Filter entries for employees, show all for admins
+  const filteredEntries = useMemo(() => {
+    if (effectiveIsAdmin) {
+      return timeEntries
+    }
+    // Employee view: only show their own entries
+    return timeEntries.filter(te => te.userId === effectiveCurrentUserId)
+  }, [timeEntries, effectiveIsAdmin, effectiveCurrentUserId])
+
+  // Group entries by user for admin view
+  const entriesByUser = useMemo(() => {
+    if (!effectiveIsAdmin) return null
+    const grouped = new Map<string, { userName: string; entries: TimeEntry[] }>()
+    filteredEntries.forEach(entry => {
+      const key = entry.userId || 'unknown'
+      const userName = entry.userName || 'Unknown'
+      if (!grouped.has(key)) {
+        grouped.set(key, { userName, entries: [] })
+      }
+      grouped.get(key)!.entries.push(entry)
+    })
+    return Array.from(grouped.values())
+  }, [filteredEntries, effectiveIsAdmin])
   const [isTimerRunning, setIsTimerRunning] = useState(() => {
     try {
       const stored = localStorage.getItem(TIMER_STORAGE_KEY)
@@ -286,6 +318,7 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
         jobLogId,
         startTime,
         endTime: end.toISOString(),
+        userId: effectiveCurrentUserId, // Pass userId for backend validation
       })
     } finally {
       setIsTimerRunning(false)
@@ -308,6 +341,7 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
         jobLogId,
         startTime: start.toISOString(),
         endTime: now.toISOString(),
+        userId: effectiveCurrentUserId, // Pass userId for backend validation
       })
     } catch (e) {
       console.error(e)
@@ -421,26 +455,260 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
     }
   }
 
-  const totalSeconds = timeEntries.reduce((sum, te) => {
-    const start = new Date(te.startTime).getTime()
-    const end = new Date(te.endTime).getTime()
-    const breakMin = (te.breakMinutes ?? 0) * 60 * 1000
-    return sum + (end - start - breakMin) / 1000
-  }, 0)
-  const totalH = Math.floor(totalSeconds / 3600)
-  const totalM = Math.floor((totalSeconds % 3600) / 60)
-  const totalS = Math.round(totalSeconds % 60)
-  const totalFormatted = `${totalH.toString().padStart(2, '0')}:${totalM.toString().padStart(2, '0')}:${totalS.toString().padStart(2, '0')}`
+  // Calculate totals
+  const calculateTotalSeconds = (entries: TimeEntry[]) => {
+    return entries.reduce((sum, te) => {
+      const start = new Date(te.startTime).getTime()
+      const end = new Date(te.endTime).getTime()
+      const breakMin = (te.breakMinutes ?? 0) * 60 * 1000
+      return sum + (end - start - breakMin) / 1000
+    }, 0)
+  }
+
+  const formatTotal = (seconds: number) => {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = Math.round(seconds % 60)
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+
+  const totalSeconds = calculateTotalSeconds(filteredEntries)
+  const totalFormatted = formatTotal(totalSeconds)
+
+  // Helper function to render a single time entry row
+  const renderTimeEntryRow = (te: TimeEntry, index: number) => (
+    <div
+      key={te.id}
+      className={cn(
+        'flex gap-2 sm:gap-3 py-2 px-3 rounded-lg bg-primary-dark/30 border border-primary-blue/30 hover:bg-primary-dark/40 transition-colors',
+        inlineTimeEditId === te.id
+          ? 'flex-col sm:flex-row sm:flex-nowrap sm:items-center'
+          : 'flex-nowrap items-center overflow-x-auto'
+      )}
+    >
+      {/* Index + Job title + Team member (admin) + Notes */}
+      <div className="flex items-center gap-2 min-w-0 flex-1 w-full sm:w-auto">
+        <div className="w-8 h-8 flex items-center justify-center rounded border border-primary-blue/50 bg-primary-dark/50 text-xs font-medium text-primary-light/80 shrink-0">
+          {index + 1}
+        </div>
+        <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
+          {effectiveIsAdmin && te.userName && (
+            <>
+              <span className="text-sm font-medium text-primary-light/70 shrink-0">
+                {te.userName}
+              </span>
+              <span className="text-primary-light/50 shrink-0 hidden sm:inline">–</span>
+            </>
+          )}
+          <span className="font-semibold text-base text-primary-light truncate">{jobLogTitle}</span>
+          <span className="text-primary-light/50 shrink-0 hidden sm:inline">–</span>
+          {inlineEditId === te.id ? (
+            <input
+              type="text"
+              value={inlineNotes}
+              onChange={e => setInlineNotes(e.target.value)}
+              onBlur={() => handleInlineNotesSave(te)}
+              onKeyDown={e => e.key === 'Enter' && handleInlineNotesSave(te)}
+              placeholder="Add description"
+              className="flex-1 min-w-0 bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
+              autoFocus
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (isMobile) {
+                  setDescriptionModalId(te.id)
+                } else {
+                  setInlineEditId(te.id)
+                  setInlineNotes(te.notes ?? '')
+                }
+              }}
+              className="flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate"
+            >
+              {te.notes || <span className="text-primary-light/40">Add description</span>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Time range + Duration + Menu */}
+      <div
+        className={cn(
+          'flex gap-2 shrink-0',
+          inlineTimeEditId === te.id
+            ? 'flex-col sm:flex-row sm:items-center sm:flex-nowrap'
+            : 'flex-nowrap items-center'
+        )}
+      >
+        {/* Time range */}
+        <div className={cn('shrink-0', inlineTimeEditId === te.id && 'w-full sm:w-auto')}>
+          {inlineTimeEditId === te.id ? (
+            <div
+              className="flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0 p-2 sm:p-0 rounded-lg sm:rounded-none bg-primary-dark/50 sm:bg-transparent border border-primary-blue/30 sm:border-0"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex flex-row items-start gap-2">
+                <div className="flex flex-col gap-0.5 items-start">
+                  <span className="text-xs font-medium text-primary-light/60">Start</span>
+                  <TimeNumberInput value={inlineStartTime} onChange={setInlineStartTime} />
+                </div>
+                <div className="flex flex-col gap-0.5 items-start">
+                  <span className="text-xs font-medium text-primary-light/60">End</span>
+                  <TimeNumberInput value={inlineEndTime} onChange={setInlineEndTime} />
+                </div>
+              </div>
+              {timeEditError && <p className="text-sm text-red-400">{timeEditError}</p>}
+              <div className="flex gap-2 sm:gap-1 pt-0.5 sm:pt-0 border-t border-primary-blue/20 sm:border-0">
+                <button
+                  type="button"
+                  onClick={() => handleInlineTimeSave(te)}
+                  className="flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm font-medium text-primary-dark bg-primary-gold hover:bg-primary-gold/90 rounded-lg transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInlineTimeEditId(null)
+                    setTimeEditError(null)
+                  }}
+                  className="flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm text-primary-light/80 hover:text-primary-light rounded-lg border border-primary-blue/50 hover:border-primary-blue"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => beginTimeEdit(te)}
+              className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
+            >
+              {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
+            </button>
+          )}
+        </div>
+
+        {/* Duration */}
+        <div className="w-24 shrink-0 text-right flex flex-col items-end gap-0.5">
+          {inlineDurationEditId === te.id ? (
+            <>
+              <input
+                ref={durationInputRef}
+                type="text"
+                inputMode="numeric"
+                value={inlineDuration}
+                onChange={e => setInlineDuration(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    handleInlineDurationSave(te)
+                    return
+                  }
+                  if (e.key === 'Escape') {
+                    setInlineDurationEditId(null)
+                    setDurationError(null)
+                    return
+                  }
+                }}
+                onBlur={() => handleInlineDurationSave(te)}
+                placeholder="00:00:00"
+                className="w-full text-sm font-medium text-primary-light bg-transparent px-2 py-1 text-right focus:outline-none focus:ring-0 font-mono tabular-nums"
+                autoFocus
+              />
+              {durationError && (
+                <p className="text-xs text-red-400 text-right max-w-[140px]">{durationError}</p>
+              )}
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => beginDurationEdit(te)}
+              className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
+            >
+              {formatDuration(te)}
+            </button>
+          )}
+        </div>
+
+        {/* Kebab menu */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={e => {
+              menuButtonRef.current = e.currentTarget
+              setOpenMenuId(openMenuId === te.id ? null : te.id)
+            }}
+            className="p-1 rounded hover:bg-primary-dark text-primary-light/60 hover:text-primary-light"
+            aria-label="More options"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+            </svg>
+          </button>
+          {openMenuId === te.id &&
+            createPortal(
+              <>
+                <div
+                  className="fixed inset-0 z-[100]"
+                  onClick={() => setOpenMenuId(null)}
+                  aria-hidden
+                />
+                <div
+                  className="fixed z-[101] py-1 rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl min-w-[140px]"
+                  style={
+                    menuButtonRef.current
+                      ? (() => {
+                          const rect = menuButtonRef.current.getBoundingClientRect()
+                          return {
+                            top: rect.bottom + 4,
+                            right: window.innerWidth - rect.right,
+                          }
+                        })()
+                      : undefined
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenMenuId(null)
+                      beginTimeEdit(te)
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-primary-light hover:bg-primary-blue/10"
+                  >
+                    Edit times
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenMenuId(null)
+                      handleDeleteClick(te.id)
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </>,
+              document.body
+            )}
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-4">
       {/* Header: Today | Total */}
       <div className="flex items-center justify-between border-b border-primary-blue/50 pb-3">
-        <span className="text-sm font-medium text-primary-light/80">Today</span>
+        <span className="text-sm font-medium text-primary-light/80">
+          {effectiveIsAdmin ? 'All Time Entries' : 'My Time Entries'}
+        </span>
         <div className="flex items-center gap-2">
-          {timeEntries.length > 0 && (
+          {filteredEntries.length > 0 && (
             <span className="text-sm text-primary-light/80">
-              Total: <span className="font-medium text-primary-gold">{totalFormatted}</span>
+              {effectiveIsAdmin ? 'Overall Total' : 'Total'}:{' '}
+              <span className="font-medium text-primary-gold">{totalFormatted}</span>
             </span>
           )}
           <Button variant="outline" size="sm" onClick={handleAddEntry}>
@@ -468,233 +736,34 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
       </div>
 
       {/* Time entries list */}
-      {timeEntries.length > 0 && (
-        <div className="space-y-1">
-          {timeEntries.map((te, index) => (
-            <div
-              key={te.id}
-              className={cn(
-                'flex gap-2 sm:gap-3 py-2 px-3 rounded-lg bg-primary-dark/30 border border-primary-blue/30 hover:bg-primary-dark/40 transition-colors',
-                inlineTimeEditId === te.id
-                  ? 'flex-col sm:flex-row sm:flex-nowrap sm:items-center'
-                  : 'flex-nowrap items-center overflow-x-auto'
-              )}
-            >
-              {/* Index + Job title + Notes (stays together when row wraps) */}
-              <div className="flex items-center gap-2 min-w-0 flex-1 w-full sm:w-auto">
-                <div className="w-8 h-8 flex items-center justify-center rounded border border-primary-blue/50 bg-primary-dark/50 text-xs font-medium text-primary-light/80 shrink-0">
-                  {index + 1}
-                </div>
-                <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
-                  <span className="font-semibold text-base text-primary-light truncate">
-                    {jobLogTitle}
+      {effectiveIsAdmin && entriesByUser && entriesByUser.length > 0 ? (
+        // Admin view: grouped by team member
+        <div className="space-y-4">
+          {entriesByUser.map((group, groupIndex) => {
+            const memberTotalSeconds = calculateTotalSeconds(group.entries)
+            const memberTotalFormatted = formatTotal(memberTotalSeconds)
+            return (
+              <div key={groupIndex} className="space-y-2">
+                <div className="flex items-center justify-between border-b border-primary-blue/30 pb-2">
+                  <span className="text-sm font-semibold text-primary-light">{group.userName}</span>
+                  <span className="text-sm text-primary-light/80">
+                    Total:{' '}
+                    <span className="font-medium text-primary-gold">{memberTotalFormatted}</span>
                   </span>
-                  <span className="text-primary-light/50 shrink-0 hidden sm:inline">–</span>
-                  {inlineEditId === te.id ? (
-                    <input
-                      type="text"
-                      value={inlineNotes}
-                      onChange={e => setInlineNotes(e.target.value)}
-                      onBlur={() => handleInlineNotesSave(te)}
-                      onKeyDown={e => e.key === 'Enter' && handleInlineNotesSave(te)}
-                      placeholder="Add description"
-                      className="flex-1 min-w-0 bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
-                      autoFocus
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isMobile) {
-                          setDescriptionModalId(te.id)
-                        } else {
-                          setInlineEditId(te.id)
-                          setInlineNotes(te.notes ?? '')
-                        }
-                      }}
-                      className="flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate"
-                    >
-                      {te.notes || <span className="text-primary-light/40">Add description</span>}
-                    </button>
-                  )}
+                </div>
+                <div className="space-y-1">
+                  {group.entries.map((te, index) => renderTimeEntryRow(te, index))}
                 </div>
               </div>
-
-              {/* Time range + Duration + Menu */}
-              <div
-                className={cn(
-                  'flex gap-2 shrink-0',
-                  inlineTimeEditId === te.id
-                    ? 'flex-col sm:flex-row sm:items-center sm:flex-nowrap'
-                    : 'flex-nowrap items-center'
-                )}
-              >
-                {/* Time range – click to edit, time only (hidden on mobile, show Edit link instead) */}
-                <div className={cn('shrink-0', inlineTimeEditId === te.id && 'w-full sm:w-auto')}>
-                  {inlineTimeEditId === te.id ? (
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0 p-2 sm:p-0 rounded-lg sm:rounded-none bg-primary-dark/50 sm:bg-transparent border border-primary-blue/30 sm:border-0"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <div className="flex flex-row items-start gap-2">
-                        <div className="flex flex-col gap-0.5 items-start">
-                          <span className="text-xs font-medium text-primary-light/60">Start</span>
-                          <TimeNumberInput
-                            value={inlineStartTime}
-                            onChange={setInlineStartTime}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-0.5 items-start">
-                          <span className="text-xs font-medium text-primary-light/60">End</span>
-                          <TimeNumberInput
-                            value={inlineEndTime}
-                            onChange={setInlineEndTime}
-                          />
-                        </div>
-                      </div>
-                      {timeEditError && (
-                        <p className="text-sm text-red-400">{timeEditError}</p>
-                      )}
-                      <div className="flex gap-2 sm:gap-1 pt-0.5 sm:pt-0 border-t border-primary-blue/20 sm:border-0">
-                        <button
-                          type="button"
-                          onClick={() => handleInlineTimeSave(te)}
-                          className="flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm font-medium text-primary-dark bg-primary-gold hover:bg-primary-gold/90 rounded-lg transition-colors"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setInlineTimeEditId(null)
-                            setTimeEditError(null)
-                          }}
-                          className="flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm text-primary-light/80 hover:text-primary-light rounded-lg border border-primary-blue/50 hover:border-primary-blue"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => beginTimeEdit(te)}
-                      className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
-                    >
-                      {format(new Date(te.startTime), 'h:mma')} –{' '}
-                      {format(new Date(te.endTime), 'h:mma')}
-                    </button>
-                  )}
-                </div>
-
-                {/* Duration – click to edit, free typing with validation on save */}
-                <div className="w-24 shrink-0 text-right flex flex-col items-end gap-0.5">
-                  {inlineDurationEditId === te.id ? (
-                    <>
-                      <input
-                        ref={durationInputRef}
-                        type="text"
-                        inputMode="numeric"
-                        value={inlineDuration}
-                        onChange={e => setInlineDuration(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            handleInlineDurationSave(te)
-                            return
-                          }
-                          if (e.key === 'Escape') {
-                            setInlineDurationEditId(null)
-                            setDurationError(null)
-                            return
-                          }
-                        }}
-                        onBlur={() => handleInlineDurationSave(te)}
-                        placeholder="00:00:00"
-                        className="w-full text-sm font-medium text-primary-light bg-transparent px-2 py-1 text-right focus:outline-none focus:ring-0 font-mono tabular-nums"
-                        autoFocus
-                      />
-                      {durationError && (
-                        <p className="text-xs text-red-400 text-right max-w-[140px]">{durationError}</p>
-                      )}
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => beginDurationEdit(te)}
-                      className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
-                    >
-                      {formatDuration(te)}
-                    </button>
-                  )}
-                </div>
-
-                {/* Kebab menu – Edit times + Delete */}
-                <div className="relative shrink-0">
-                  <button
-                    type="button"
-                    onClick={e => {
-                      menuButtonRef.current = e.currentTarget
-                      setOpenMenuId(openMenuId === te.id ? null : te.id)
-                    }}
-                    className="p-1 rounded hover:bg-primary-dark text-primary-light/60 hover:text-primary-light"
-                    aria-label="More options"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                    </svg>
-                  </button>
-                  {openMenuId === te.id &&
-                    createPortal(
-                      <>
-                        <div
-                          className="fixed inset-0 z-[100]"
-                          onClick={() => setOpenMenuId(null)}
-                          aria-hidden
-                        />
-                        <div
-                          className="fixed z-[101] py-1 rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl min-w-[140px]"
-                          style={
-                            menuButtonRef.current
-                              ? (() => {
-                                  const rect = menuButtonRef.current.getBoundingClientRect()
-                                  return {
-                                    top: rect.bottom + 4,
-                                    right: window.innerWidth - rect.right,
-                                  }
-                                })()
-                              : undefined
-                          }
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId(null)
-                              beginTimeEdit(te)
-                            }}
-                            className="w-full px-3 py-2 text-left text-sm text-primary-light hover:bg-primary-blue/10"
-                          >
-                            Edit times
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId(null)
-                              handleDeleteClick(te.id)
-                            }}
-                            className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </>,
-                      document.body
-                    )}
-                </div>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
-      )}
+      ) : filteredEntries.length > 0 ? (
+        // Employee view: simple list
+        <div className="space-y-1">
+          {filteredEntries.map((te, index) => renderTimeEntryRow(te, index))}
+        </div>
+      ) : null}
 
       <ConfirmationDialog
         isOpen={deleteId !== null}
@@ -707,7 +776,9 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
       />
 
       {(() => {
-        const te = descriptionModalId ? timeEntries.find(t => t.id === descriptionModalId) : null
+        const te = descriptionModalId
+          ? filteredEntries.find(t => t.id === descriptionModalId)
+          : null
         const handleModalClose = () => {
           setDescriptionModalId(null)
           setDescriptionModalEditing(false)
@@ -732,7 +803,8 @@ const TimeTracker = ({ jobLogId, jobLogTitle, timeEntries }: TimeTrackerProps) =
             onClose={handleModalClose}
             title="Description"
             headerRight={
-              te && `${format(new Date(te.startTime), 'h:mma')} – ${format(new Date(te.endTime), 'h:mma')}`
+              te &&
+              `${format(new Date(te.startTime), 'h:mma')} – ${format(new Date(te.endTime), 'h:mma')}`
             }
             footer={
               descriptionModalEditing ? (
