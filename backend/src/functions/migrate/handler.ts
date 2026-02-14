@@ -772,6 +772,12 @@ WHERE "assignedTo" IS NOT NULL
       WHERE te."userId" IS NULL;`,
     ],
   },
+  {
+    name: '20260219000000_add_user_color_field',
+    statements: [
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "color" TEXT;`,
+    ],
+  },
 ]
 
 export const handler = async (

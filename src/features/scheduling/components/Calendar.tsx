@@ -27,6 +27,7 @@ import type { Job } from '../types/job'
 import { useJobStore } from '../store/jobStore'
 import { getTeamMemberColors } from '@/lib/utils/teamColors'
 import type { User } from '@/features/auth'
+import { services } from '@/lib/api/services'
 
 interface CalendarProps {
   jobs: Job[]
@@ -67,11 +68,36 @@ const Calendar = ({
 }: CalendarProps) => {
   // Determine if we should use team member colors (for admin/owner)
   const useTeamColors = user?.role === 'admin' || user?.role === 'owner'
+  
+  // Fetch team members and create color map
+  const [userColorMap, setUserColorMap] = useState<Record<string, string>>({})
+  
+  useEffect(() => {
+    if (useTeamColors) {
+      const loadTeamMembers = async () => {
+        try {
+          const teamMembers = await services.users.getAll()
+          const colorMap: Record<string, string> = {}
+          teamMembers.forEach((member: { name: string; color?: string | null }) => {
+            if (member.name && member.color) {
+              // Map both exact name and lowercase name for flexibility
+              colorMap[member.name] = member.color
+              colorMap[member.name.toLowerCase()] = member.color
+            }
+          })
+          setUserColorMap(colorMap)
+        } catch (error) {
+          console.error('Failed to load team members for color mapping:', error)
+        }
+      }
+      loadTeamMembers()
+    }
+  }, [useTeamColors])
 
   // Helper function to get job colors based on user role
   const getJobColors = (job: Job) => {
     if (useTeamColors) {
-      return getTeamMemberColors(job.assignedToName)
+      return getTeamMemberColors(job.assignedToName, userColorMap)
     }
     // Fall back to status-based colors for employees
     switch (job.status) {
@@ -1226,7 +1252,7 @@ const Calendar = ({
                     <div
                       className={cn(
                         'h-10 md:h-12 border-b border-primary-blue/30 cursor-pointer hover:bg-primary-blue/10 flex-shrink-0',
-                        isToday(day) && 'bg-primary-gold/20'
+                        isToday(day) && 'border-l-4 border-primary-gold'
                       )}
                       onClick={() => onDateClick(day)}
                     >
@@ -1673,7 +1699,7 @@ const Calendar = ({
                   // Only use Tailwind minHeight class on desktop (when dynamicHeight is not set)
                   !scaleSettings.dynamicHeight && scaleSettings.minHeight,
                   'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative select-none overflow-visible',
-                  isToday(day) && 'bg-primary-gold/10',
+                  isToday(day) && 'border-2 border-primary-gold',
                   isDropTarget && 'bg-primary-gold/20 ring-2 ring-primary-gold'
                 )}
                 style={

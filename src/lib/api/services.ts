@@ -509,6 +509,11 @@ const realUsersService = {
     return response.data
   },
 
+  updateColor: async (userId: string, color: string | null) => {
+    const response = await apiClient.patch(`/users/${userId}`, { color })
+    return response.data
+  },
+
   remove: async (userId: string) => {
     const response = await apiClient.delete(`/users/${userId}`)
     return response.data

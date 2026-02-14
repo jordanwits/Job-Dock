@@ -504,6 +504,7 @@ We look forward to working with you!',
             canCreateJobs: true,
             canScheduleAppointments: true,
             canSeeOtherJobs: true,
+            color: true,
             createdAt: true 
           },
         })
@@ -542,13 +543,24 @@ We look forward to working with you!',
           updateData.canSeeOtherJobs = Boolean(body.canSeeOtherJobs)
         }
         
+        // Update color if provided
+        if (body?.color !== undefined) {
+          // Allow null to clear color, or validate it's a string
+          if (body.color === null || body.color === '') {
+            updateData.color = null
+          } else if (typeof body.color === 'string') {
+            updateData.color = body.color.trim()
+          }
+        }
+        
         const target = await prisma.user.findFirst({
           where: { id: targetUserId, tenantId },
         })
         if (!target) {
           return errorResponse('User not found', 404)
         }
-        if (target.role === 'owner') {
+        // Allow color updates for all users (including owner)
+        if (target.role === 'owner' && Object.keys(updateData).some(key => key !== 'color')) {
           return errorResponse('Cannot change owner role or permissions', 403)
         }
         
