@@ -382,7 +382,15 @@ const QuoteDetail = ({
         isOpen={showScheduleJob}
         onClose={() => setShowScheduleJob(false)}
         defaultContactId={quote.contactId}
-        defaultTitle={`Job for quote ${quote.quoteNumber}`}
+        defaultTitle={(() => {
+          const title = quote.title || `Job for quote ${quote.quoteNumber}`
+          if (quote.contactName) {
+            const nameParts = quote.contactName.trim().split(/\s+/)
+            const lastName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : quote.contactName
+            return lastName ? `${lastName}-${title}` : title
+          }
+          return title
+        })()}
         sourceContext="quote"
         quoteId={quote.id}
         initialQuoteId={quote.id}

@@ -477,7 +477,15 @@ const InvoiceDetail = ({
         isOpen={showScheduleJob}
         onClose={() => setShowScheduleJob(false)}
         defaultContactId={invoice.contactId}
-        defaultTitle={`Job for invoice ${invoice.invoiceNumber}`}
+        defaultTitle={(() => {
+          const title = invoice.title || `Job for invoice ${invoice.invoiceNumber}`
+          if (invoice.contactName) {
+            const nameParts = invoice.contactName.trim().split(/\s+/)
+            const lastName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : invoice.contactName
+            return lastName ? `${lastName}-${title}` : title
+          }
+          return title
+        })()}
         sourceContext="invoice"
         invoiceId={invoice.id}
         initialInvoiceId={invoice.id}

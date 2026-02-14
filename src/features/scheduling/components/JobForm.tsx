@@ -564,6 +564,13 @@ const JobForm = ({
     return format(endDate, 'MMM d, yyyy')
   }
 
+  // Helper function to extract last name from contact name
+  const getLastName = (contactName?: string): string => {
+    if (!contactName) return ''
+    const parts = contactName.trim().split(/\s+/)
+    return parts.length > 0 ? parts[parts.length - 1] : contactName
+  }
+
   // Prepare job title options - include services, quotes, and invoices
   const approvedQuotes = quotes.filter(
     q => q.status === 'draft' || q.status === 'sent' || q.status === 'accepted'
@@ -583,21 +590,23 @@ const JobForm = ({
     // Add quotes
     ...approvedQuotes.map(q => {
       const title = q.title || `Job for quote ${q.quoteNumber}`
-      const parts = [title, q.quoteNumber, q.contactName].filter(Boolean)
+      const lastName = getLastName(q.contactName)
+      const label = lastName ? `${lastName}-${title}` : title
       return {
         value: `quote:${q.id}`,
-        label: parts.join(', '),
-        title: title,
+        label: label,
+        title: lastName ? `${lastName}-${title}` : title,
       }
     }),
     // Add invoices
     ...approvedInvoices.map(i => {
       const title = i.title || `Job for invoice ${i.invoiceNumber}`
-      const parts = [title, i.invoiceNumber, i.contactName].filter(Boolean)
+      const lastName = getLastName(i.contactName)
+      const label = lastName ? `${lastName}-${title}` : title
       return {
         value: `invoice:${i.id}`,
-        label: parts.join(', '),
-        title: title,
+        label: label,
+        title: lastName ? `${lastName}-${title}` : title,
       }
     }),
     { value: 'custom', label: 'Enter Custom Job Title', title: '' },
@@ -625,7 +634,9 @@ const JobForm = ({
       const quote = quotes.find(q => q.id === id)
       if (quote) {
         const title = quote.title || `Job for quote ${quote.quoteNumber}`
-        setValue('title', title)
+        const lastName = getLastName(quote.contactName)
+        const formattedTitle = lastName ? `${lastName}-${title}` : title
+        setValue('title', formattedTitle)
       }
     } else if (value.startsWith('invoice:')) {
       const id = value.replace('invoice:', '')
@@ -634,7 +645,9 @@ const JobForm = ({
       const invoice = invoices.find(i => i.id === id)
       if (invoice) {
         const title = invoice.title || `Job for invoice ${invoice.invoiceNumber}`
-        setValue('title', title)
+        const lastName = getLastName(invoice.contactName)
+        const formattedTitle = lastName ? `${lastName}-${title}` : title
+        setValue('title', formattedTitle)
       }
     }
   }
