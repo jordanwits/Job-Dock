@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { Button, ConfirmationDialog, Modal } from '@/components/ui'
+import { Button, ConfirmationDialog, Modal, DatePicker } from '@/components/ui'
 import type { TimeEntry } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
@@ -88,17 +88,17 @@ function TimeNumberInput({
 
   const base =
     'bg-transparent text-primary-light focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
-  const inputSize = 'h-9 w-8 min-w-0 px-0.5 py-1 text-base sm:text-sm'
+  const inputSize = 'h-9 w-7 min-w-0 px-0 py-1 text-base sm:text-sm text-center'
   return (
     <div className="flex flex-col gap-0.5">
       {label && <span className="text-xs font-medium text-primary-light/60">{label}</span>}
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0">
         <input
           type="text"
           inputMode="numeric"
           value={hourStr}
           onChange={handleHourChange}
-          className={cn(base, inputSize, 'text-left pl-0')}
+          className={cn(base, inputSize)}
           placeholder="hr"
           aria-label={label ? `${label} hour` : undefined}
         />
@@ -108,7 +108,7 @@ function TimeNumberInput({
           inputMode="numeric"
           value={minStr}
           onChange={handleMinuteChange}
-          className={cn(base, inputSize, 'text-left pl-0')}
+          className={cn(base, inputSize)}
           placeholder="min"
           aria-label={label ? `${label} minute` : undefined}
         />
@@ -117,7 +117,7 @@ function TimeNumberInput({
           onClick={toggleAMPM}
           className={cn(
             base,
-            'h-9 w-9 min-w-0 px-0.5 py-1 text-xs font-medium shrink-0',
+            'h-9 w-7 min-w-0 px-0.5 py-1 text-xs font-medium shrink-0 self-end',
             isPM ? 'text-primary-gold' : 'text-primary-light/70'
           )}
           aria-label={label ? `${label} AM/PM` : undefined}
@@ -189,6 +189,7 @@ const TimeTracker = ({
   const [inlineEditId, setInlineEditId] = useState<string | null>(null)
   const [inlineNotes, setInlineNotes] = useState('')
   const [inlineTimeEditId, setInlineTimeEditId] = useState<string | null>(null)
+  const [inlineEditDate, setInlineEditDate] = useState('')
   const [inlineStartTime, setInlineStartTime] = useState('')
   const [inlineEndTime, setInlineEndTime] = useState('')
   const [timeEditError, setTimeEditError] = useState<string | null>(null)
@@ -199,6 +200,13 @@ const TimeTracker = ({
   const [descriptionModalId, setDescriptionModalId] = useState<string | null>(null)
   const [descriptionModalEditing, setDescriptionModalEditing] = useState(false)
   const [modalEditNotes, setModalEditNotes] = useState('')
+  const [showManualEntryModal, setShowManualEntryModal] = useState(false)
+  const [manualEntryDate, setManualEntryDate] = useState('')
+  const [manualEntryStart, setManualEntryStart] = useState('')
+  const [manualEntryEnd, setManualEntryEnd] = useState('')
+  const [manualEntryNotes, setManualEntryNotes] = useState('')
+  const [manualEntryError, setManualEntryError] = useState<string | null>(null)
+  const [manualEntrySaving, setManualEntrySaving] = useState(false)
   const durationInputRef = useRef<HTMLInputElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const modalTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -332,19 +340,65 @@ const TimeTracker = ({
     }
   }
 
-  const handleAddEntry = async () => {
+  const openManualEntryModal = () => {
     const now = new Date()
     const start = new Date(now)
     start.setHours(now.getHours() - 1, now.getMinutes(), 0, 0)
+    setManualEntryDate(format(now, 'yyyy-MM-dd'))
+    setManualEntryStart(format(start, 'HH:mm'))
+    setManualEntryEnd(format(now, 'HH:mm'))
+    setManualEntryNotes('')
+    setManualEntryError(null)
+    setShowManualEntryModal(true)
+  }
+
+  const closeManualEntryModal = () => {
+    setShowManualEntryModal(false)
+    setManualEntryError(null)
+  }
+
+  const handleManualEntrySubmit = async () => {
+    setManualEntryError(null)
+    if (!manualEntryDate || !manualEntryStart || !manualEntryEnd) {
+      setManualEntryError('Please fill in date, start time, and end time.')
+      return
+    }
+    const [startH, startM] = manualEntryStart.split(':').map(Number)
+    const [endH, endM] = manualEntryEnd.split(':').map(Number)
+    if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) {
+      setManualEntryError('Invalid time format. Use 12-hour format (e.g. 9:30) with AM/PM.')
+      return
+    }
+    const startDate = new Date(`${manualEntryDate}T${manualEntryStart}:00`)
+    const endDate = new Date(`${manualEntryDate}T${manualEntryEnd}:00`)
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      setManualEntryError('Invalid date or time.')
+      return
+    }
+    if (endDate <= startDate) {
+      setManualEntryError('End time must be after start time.')
+      return
+    }
+    setManualEntrySaving(true)
     try {
       await createTimeEntry({
         jobLogId,
-        startTime: start.toISOString(),
-        endTime: now.toISOString(),
-        userId: effectiveCurrentUserId, // Pass userId for backend validation
+        startTime: startDate.toISOString(),
+        endTime: endDate.toISOString(),
+        notes: manualEntryNotes.trim() || undefined,
+        userId: effectiveCurrentUserId,
       })
+      closeManualEntryModal()
     } catch (e) {
       console.error(e)
+      setManualEntryError(
+        (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+          ?.message ||
+          (e as { message?: string })?.message ||
+          'Failed to add time entry'
+      )
+    } finally {
+      setManualEntrySaving(false)
     }
   }
 
@@ -375,10 +429,17 @@ const TimeTracker = ({
   const handleInlineTimeSave = async (te: TimeEntry) => {
     if (inlineTimeEditId !== te.id) return
     setTimeEditError(null)
-    const startDate = new Date(te.startTime)
-    const endDate = new Date(te.endTime)
-    const newStart = parseTimeToDate(inlineStartTime, startDate)
-    const newEnd = parseTimeToDate(inlineEndTime, endDate)
+    if (!inlineEditDate) {
+      setTimeEditError('Please select a date.')
+      return
+    }
+    const baseDate = new Date(inlineEditDate + 'T12:00:00')
+    if (isNaN(baseDate.getTime())) {
+      setTimeEditError('Invalid date.')
+      return
+    }
+    const newStart = parseTimeToDate(inlineStartTime, baseDate)
+    const newEnd = parseTimeToDate(inlineEndTime, baseDate)
     if (!newStart) {
       setTimeEditError('Invalid start time. Use 12-hour format (e.g. 9:30) with AM/PM.')
       return
@@ -411,6 +472,7 @@ const TimeTracker = ({
     setTimeEditError(null)
     const start = new Date(te.startTime)
     const end = new Date(te.endTime)
+    setInlineEditDate(format(start, 'yyyy-MM-dd'))
     setInlineStartTime(format(start, 'HH:mm'))
     setInlineEndTime(format(end, 'HH:mm'))
   }
@@ -548,11 +610,20 @@ const TimeTracker = ({
               className="flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0 p-2 sm:p-0 rounded-lg sm:rounded-none bg-primary-dark/50 sm:bg-transparent border border-primary-blue/30 sm:border-0"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex flex-row items-start gap-2">
+              <div className="flex flex-row items-start gap-2 flex-wrap">
+                <div className="min-w-[280px]">
+                  <DatePicker
+                    label="Date"
+                    value={inlineEditDate}
+                    onChange={date => setInlineEditDate(date ?? '')}
+                    placeholder="Select date"
+                  />
+                </div>
                 <div className="flex flex-col gap-0.5 items-start">
                   <span className="text-xs font-medium text-primary-light/60">Start</span>
                   <TimeNumberInput value={inlineStartTime} onChange={setInlineStartTime} />
                 </div>
+                <span className="text-primary-light/50 self-end pb-1">–</span>
                 <div className="flex flex-col gap-0.5 items-start">
                   <span className="text-xs font-medium text-primary-light/60">End</span>
                   <TimeNumberInput value={inlineEndTime} onChange={setInlineEndTime} />
@@ -585,10 +656,15 @@ const TimeTracker = ({
               onClick={() => beginTimeEdit(te)}
               className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
             >
-              {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
+              {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
             </button>
           )}
         </div>
+
+        {/* Date on mobile (time range hidden) */}
+        <span className="text-xs text-primary-light/60 shrink-0 sm:hidden">
+          {format(new Date(te.startTime), 'MMM d')}
+        </span>
 
         {/* Duration */}
         <div className="w-24 shrink-0 text-right flex flex-col items-end gap-0.5">
@@ -711,7 +787,7 @@ const TimeTracker = ({
               <span className="font-medium text-primary-gold">{totalFormatted}</span>
             </span>
           )}
-          <Button variant="outline" size="sm" onClick={handleAddEntry}>
+          <Button variant="outline" size="sm" onClick={openManualEntryModal}>
             Add entry
           </Button>
         </div>
@@ -775,6 +851,60 @@ const TimeTracker = ({
         confirmVariant="danger"
       />
 
+      <Modal
+        isOpen={showManualEntryModal}
+        onClose={closeManualEntryModal}
+        title="Add Manual Entry"
+        size="md"
+        footer={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={closeManualEntryModal} disabled={manualEntrySaving}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleManualEntrySubmit} disabled={manualEntrySaving}>
+              {manualEntrySaving ? 'Adding...' : 'Add Entry'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {manualEntryError && (
+            <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{manualEntryError}</p>
+          )}
+          <DatePicker
+            label="Date"
+            value={manualEntryDate}
+            onChange={date => setManualEntryDate(date ?? '')}
+            placeholder="Select date"
+          />
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-primary-light/60">Start time</label>
+              <div className="h-10 rounded-lg border border-primary-blue bg-primary-blue/10 px-3 py-2 flex items-center">
+                <TimeNumberInput value={manualEntryStart} onChange={setManualEntryStart} />
+              </div>
+            </div>
+            <span className="text-primary-light/50 self-center sm:self-end sm:pb-2">–</span>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-primary-light/60">End time</label>
+              <div className="h-10 rounded-lg border border-primary-blue bg-primary-blue/10 px-3 py-2 flex items-center">
+                <TimeNumberInput value={manualEntryEnd} onChange={setManualEntryEnd} />
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-primary-light/60">Notes (optional)</label>
+            <textarea
+              value={manualEntryNotes}
+              onChange={e => setManualEntryNotes(e.target.value)}
+              placeholder="Add description"
+              rows={3}
+              className="rounded-lg border border-primary-blue bg-primary-blue/10 px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold resize-none"
+            />
+          </div>
+        </div>
+      </Modal>
+
       {(() => {
         const te = descriptionModalId
           ? filteredEntries.find(t => t.id === descriptionModalId)
@@ -804,7 +934,7 @@ const TimeTracker = ({
             title="Description"
             headerRight={
               te &&
-              `${format(new Date(te.startTime), 'h:mma')} – ${format(new Date(te.endTime), 'h:mma')}`
+              `${format(new Date(te.startTime), 'MMM d')} • ${format(new Date(te.startTime), 'h:mma')} – ${format(new Date(te.endTime), 'h:mma')}`
             }
             footer={
               descriptionModalEditing ? (
