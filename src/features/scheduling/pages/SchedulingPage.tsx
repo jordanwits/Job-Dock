@@ -1138,7 +1138,7 @@ const SchedulingPage = () => {
         title={
           editingJob?.toBeScheduled ? 'Schedule Job' : editingJob ? 'Edit Job' : 'Schedule New Job'
         }
-        size="xl"
+        size="2xl"
       >
         <JobForm
           job={editingJob || undefined}

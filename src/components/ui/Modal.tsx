@@ -10,7 +10,7 @@ export interface ModalProps {
   headerRight?: ReactNode
   children: ReactNode
   footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   closeOnOverlayClick?: boolean
   transparentBackdrop?: boolean
   mobilePosition?: 'center' | 'bottom'
@@ -51,17 +51,21 @@ const Modal = ({
 
   if (!isOpen) return null
 
-  const sizes = {
+  const sizes: Record<string, string> = {
     sm: 'max-w-md',
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
+    '2xl': 'max-w-[95vw] sm:max-w-[90vw] md:max-w-6xl lg:max-w-7xl',
   }
+
+  const sizeClass = sizes[size] || sizes.md
 
   const modalContent = (
     <div
       className={cn(
         'fixed inset-0 z-50 flex p-2 sm:p-4',
+        'lg:pl-64', // Offset for sidebar so modal centers on main content area
         mobilePosition === 'bottom'
           ? 'items-end sm:items-center justify-center'
           : 'items-center justify-center overflow-y-auto'
@@ -74,7 +78,7 @@ const Modal = ({
           mobilePosition === 'bottom'
             ? 'max-h-[60vh] sm:max-h-[90vh] sm:my-auto'
             : 'my-auto max-h-[95vh] sm:max-h-[90vh]',
-          sizes[size]
+          sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}
       >

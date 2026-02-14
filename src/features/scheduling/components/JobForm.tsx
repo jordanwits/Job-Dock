@@ -311,13 +311,21 @@ const JobForm = ({
           typeof job.assignedTo[0] === 'object' &&
           'userId' in job.assignedTo[0]
         ) {
-          setAssignments(job.assignedTo as JobAssignment[])
+          // Ensure payType and hourlyRate are set for all assignments
+          setAssignments((job.assignedTo as JobAssignment[]).map(assignment => ({
+            ...assignment,
+            payType: assignment.payType || 'job',
+            hourlyRate: assignment.hourlyRate ?? null,
+            price: assignment.price ?? null,
+          })))
         } else {
           setAssignments(
             (job.assignedTo as string[]).map(id => ({
               userId: id,
               role: 'Team Member',
               price: null,
+              payType: 'job' as const,
+              hourlyRate: null,
             }))
           )
         }
@@ -349,7 +357,13 @@ const JobForm = ({
               typeof job.assignedTo[0] === 'object' &&
               'userId' in job.assignedTo[0]
             ) {
-              return job.assignedTo as JobAssignment[]
+              // Ensure payType and hourlyRate are set for all assignments
+              return (job.assignedTo as JobAssignment[]).map(assignment => ({
+                ...assignment,
+                payType: assignment.payType || 'job',
+                hourlyRate: assignment.hourlyRate ?? null,
+                price: assignment.price ?? null,
+              }))
             }
             return (job.assignedTo as string[]).map(id => ({
               userId: id,
@@ -667,7 +681,7 @@ const JobForm = ({
           : 'custom'
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5 sm:space-y-4">
       {/* Error Display */}
       {error && (
         <div className="rounded-lg border border-red-500 bg-red-500/10 p-4">
@@ -753,11 +767,11 @@ const JobForm = ({
       />
 
       {canShowAssignee && (
-        <div>
+        <div className="pt-2">
           <label className="block text-sm font-medium text-primary-light mb-2">
             Assign to Team Members (with Roles & Pricing)
           </label>
-          <p className="text-xs text-primary-light/50 mb-3">
+          <p className="text-xs text-primary-light/50 mb-4">
             Assign team members to this job and set their role and individual pricing. Team members
             can only see their own pricing.
           </p>
@@ -787,8 +801,8 @@ const JobForm = ({
                       key={index}
                       className="border border-primary-blue rounded-lg p-3 bg-primary-dark-secondary/50 space-y-3"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="flex flex-col sm:flex-row items-start gap-3">
+                        <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-primary-light/70 mb-1">
                               Team Member
@@ -852,7 +866,7 @@ const JobForm = ({
                           {assignment.payType === 'hourly' ? (
                             <div>
                               <label className="block text-xs font-medium text-primary-light/70 mb-1">
-                                Hourly Rate (Optional)
+                                Hourly Rate
                               </label>
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
@@ -881,9 +895,9 @@ const JobForm = ({
                             </div>
                           ) : (
                             <div>
-                              <label className="block text-xs font-medium text-primary-light/70 mb-1">
-                                Price (Optional)
-                              </label>
+                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                              Price
+                            </label>
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
                                   $
@@ -923,7 +937,7 @@ const JobForm = ({
                               setValue('assignedTo', newAssignments)
                             }
                           }}
-                          className="text-red-500 hover:text-red-600 text-sm font-medium mt-6"
+                          className="text-red-500 hover:text-red-600 text-sm font-medium mt-3 sm:mt-0 sm:self-start"
                         >
                           Remove
                         </button>

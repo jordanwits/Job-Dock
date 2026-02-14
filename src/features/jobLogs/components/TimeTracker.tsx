@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Button, ConfirmationDialog, Modal, DatePicker } from '@/components/ui'
-import type { TimeEntry } from '../types/jobLog'
+import type { TimeEntry, JobAssignment } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
 
@@ -13,6 +13,7 @@ interface TimeTrackerProps {
   timeEntries: TimeEntry[]
   isAdmin?: boolean
   currentUserId?: string
+  assignedTo?: JobAssignment[]
 }
 
 const TIMER_STORAGE_KEY = 'joblog-active-timer'
@@ -35,7 +36,9 @@ function TimeNumberInput({
   })
   const [minStr, setMinStr] = useState(() => {
     const [, m] = (value || ':').split(':')
-    return m ? String(parseInt(m, 10)) : (m ?? '')
+    if (!m) return ''
+    const parsed = parseInt(m, 10)
+    return isNaN(parsed) ? '' : String(parsed)
   })
   const [isPM, setIsPM] = useState(() => {
     const [h] = (value || ':').split(':')
@@ -52,8 +55,13 @@ function TimeNumberInput({
     } else {
       setHourStr(h || '')
     }
-    // Display minute without leading zero (same as hour) so user can type "50" after "5"
-    setMinStr(m ? String(parseInt(m, 10)) : (m ?? ''))
+    // Parse minute value for internal state (without leading zero for easy typing)
+    if (!m) {
+      setMinStr('')
+    } else {
+      const parsed = parseInt(m, 10)
+      setMinStr(isNaN(parsed) ? '' : String(parsed))
+    }
   }, [value])
 
   const emit = (h: string, min: string, pm: boolean) => {
@@ -106,7 +114,7 @@ function TimeNumberInput({
         <input
           type="text"
           inputMode="numeric"
-          value={minStr}
+          value={minStr && !isNaN(parseInt(minStr, 10)) ? String(parseInt(minStr, 10)).padStart(2, '0') : minStr}
           onChange={handleMinuteChange}
           className={cn(base, inputSize)}
           placeholder="min"
@@ -135,6 +143,7 @@ const TimeTracker = ({
   timeEntries,
   isAdmin,
   currentUserId,
+  assignedTo,
 }: TimeTrackerProps) => {
   const { createTimeEntry, updateTimeEntry, deleteTimeEntry } = useJobLogStore()
   const { user } = useAuthStore()
@@ -153,12 +162,12 @@ const TimeTracker = ({
   // Group entries by user for admin view
   const entriesByUser = useMemo(() => {
     if (!effectiveIsAdmin) return null
-    const grouped = new Map<string, { userName: string; entries: TimeEntry[] }>()
+    const grouped = new Map<string, { userId: string; userName: string; entries: TimeEntry[] }>()
     filteredEntries.forEach(entry => {
       const key = entry.userId || 'unknown'
       const userName = entry.userName || 'Unknown'
       if (!grouped.has(key)) {
-        grouped.set(key, { userName, entries: [] })
+        grouped.set(key, { userId: key, userName, entries: [] })
       }
       grouped.get(key)!.entries.push(entry)
     })
@@ -818,14 +827,29 @@ const TimeTracker = ({
           {entriesByUser.map((group, groupIndex) => {
             const memberTotalSeconds = calculateTotalSeconds(group.entries)
             const memberTotalFormatted = formatTotal(memberTotalSeconds)
+            const userId = group.userId
+            const assignment = userId ? assignedTo?.find(a => a.userId === userId) : undefined
+            const payType = assignment?.payType || 'job'
+            const hourlyRate = assignment?.hourlyRate
+            const totalHours = memberTotalSeconds / 3600
+            const earned = payType === 'hourly' && hourlyRate != null && !isNaN(hourlyRate)
+              ? totalHours * hourlyRate
+              : null
             return (
               <div key={groupIndex} className="space-y-2">
-                <div className="flex items-center justify-between border-b border-primary-blue/30 pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-primary-blue/30 pb-2">
                   <span className="text-sm font-semibold text-primary-light">{group.userName}</span>
-                  <span className="text-sm text-primary-light/80">
-                    Total:{' '}
-                    <span className="font-medium text-primary-gold">{memberTotalFormatted}</span>
-                  </span>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className="text-sm text-primary-light/80">
+                      Total:{' '}
+                      <span className="font-medium text-primary-gold">{memberTotalFormatted}</span>
+                    </span>
+                    {earned != null && (
+                      <span className="text-xs text-primary-gold/90">
+                        Earned: ${earned.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   {group.entries.map((te, index) => renderTimeEntryRow(te, index))}

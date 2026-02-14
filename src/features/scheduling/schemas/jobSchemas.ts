@@ -19,6 +19,8 @@ export const jobAssignmentSchema = z.object({
   userId: z.string().min(1, 'User ID is required'),
   role: z.string().min(1, 'Role is required'),
   price: z.number().optional().nullable(),
+  payType: z.enum(['job', 'hourly']).optional(),
+  hourlyRate: z.number().nullable().optional(),
 })
 
 export const jobSchema = z.object({
