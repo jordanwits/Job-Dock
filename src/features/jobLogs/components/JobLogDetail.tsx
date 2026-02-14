@@ -214,7 +214,7 @@ const JobLogDetail = ({
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {onStatusChange ? (
               <StatusBadgeSelect
-                value={jobLog.status === 'archived' ? 'inactive' : jobLog.status || 'active'}
+                value={String(jobLog.status) === 'archived' ? 'inactive' : jobLog.status || 'active'}
                 options={statusOptions.map(o => ({ value: o.value, label: o.label }))}
                 colorClassesByValue={statusColors}
                 onChange={async v => {
@@ -228,11 +228,11 @@ const JobLogDetail = ({
                 className={cn(
                   'px-2.5 py-1 text-xs font-medium capitalize shrink-0',
                   statusColors[
-                    (jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active'
+                    (String(jobLog.status) === 'archived' ? 'inactive' : jobLog.status) || 'active'
                   ]
                 )}
               >
-                {jobLog.status === 'archived' ? 'Inactive' : jobLog.status || 'Active'}
+                {String(jobLog.status) === 'archived' ? 'Inactive' : jobLog.status || 'Active'}
               </span>
             )}
             <span className="text-sm text-primary-light/50 shrink-0">
