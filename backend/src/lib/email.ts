@@ -294,11 +294,11 @@ function buildModernEmailTemplate(data: {
             <td style="padding: 40px 40px 30px 40px; background: linear-gradient(135deg, #0B132B 0%, #1A1F36 100%); border-radius: 8px 8px 0 0;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td align="left" style="vertical-align: middle;">
+                  <td align="center" style="vertical-align: middle;">
                     ${logoUrl ? `
-                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; display: block;" />
+                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 70px; max-width: 280px; display: block; margin: 0 auto;" />
                     ` : `
-                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">${companyName}</h1>
+                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center;">${companyName}</h1>
                     `}
                   </td>
                 </tr>
@@ -1331,11 +1331,11 @@ export async function sendQuoteEmail(data: {
             <td style="padding: 40px 40px 30px 40px; background: linear-gradient(135deg, #0B132B 0%, #1A1F36 100%); border-radius: 8px 8px 0 0;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td align="left" style="vertical-align: middle;">
+                  <td align="center" style="vertical-align: middle;">
                     ${logoUrl ? `
-                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; display: block;" />
+                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 70px; max-width: 280px; display: block; margin: 0 auto;" />
                     ` : `
-                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">${companyName}</h1>
+                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center;">${companyName}</h1>
                     `}
                   </td>
                 </tr>
@@ -1848,11 +1848,11 @@ export async function sendInvoiceEmail(data: {
             <td style="padding: 40px 40px 30px 40px; background: linear-gradient(135deg, #0B132B 0%, #1A1F36 100%); border-radius: 8px 8px 0 0;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td align="left" style="vertical-align: middle;">
+                  <td align="center" style="vertical-align: middle;">
                     ${logoUrl ? `
-                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; display: block;" />
+                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 70px; max-width: 280px; display: block; margin: 0 auto;" />
                     ` : `
-                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">${companyName}</h1>
+                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center;">${companyName}</h1>
                     `}
                   </td>
                 </tr>
