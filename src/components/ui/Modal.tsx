@@ -106,7 +106,7 @@ const Modal = ({
       >
         {/* Header */}
         {(title || headerRight || closeOnOverlayClick) && (
-          <div className="flex items-center justify-between gap-2 p-4 sm:p-6 border-b border-primary-blue flex-shrink-0">
+          <div className="flex items-center justify-between gap-2 p-4 sm:p-6 border-b border-primary-blue flex-shrink-0 relative z-20 pointer-events-auto">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {title && (
                 <h2 className="text-lg sm:text-xl font-semibold text-primary-light shrink-0">{title}</h2>
@@ -117,8 +117,18 @@ const Modal = ({
             </div>
             {closeOnOverlayClick && (
               <button
-                onClick={onClose}
-                className="text-primary-light hover:text-primary-gold transition-colors flex-shrink-0"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onClose()
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onClose()
+                }}
+                className="text-primary-light hover:text-primary-gold transition-colors flex-shrink-0 touch-manipulation relative z-10"
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 aria-label="Close modal"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
