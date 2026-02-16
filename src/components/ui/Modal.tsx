@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react'
+import { ReactNode, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import Button from './Button'
@@ -28,14 +28,36 @@ const Modal = ({
   transparentBackdrop = false,
   mobilePosition = 'center',
 }: ModalProps) => {
+  const scrollYRef = useRef(0)
+
   useEffect(() => {
     if (isOpen) {
+      // Prevent background scrolling on mobile (especially iOS Safari).
+      // Using position: fixed is more reliable than overflow: hidden alone.
+      scrollYRef.current = window.scrollY
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollYRef.current}px`
+      document.body.style.left = '0'
+      document.body.style.right = '0'
+      document.body.style.width = '100%'
       document.body.style.overflow = 'hidden'
     } else {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
       document.body.style.overflow = 'unset'
+      window.scrollTo(0, scrollYRef.current)
     }
     return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
       document.body.style.overflow = 'unset'
+      window.scrollTo(0, scrollYRef.current)
     }
   }, [isOpen])
 
@@ -64,7 +86,7 @@ const Modal = ({
   const modalContent = (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex p-2 sm:p-4',
+        'fixed inset-0 z-50 flex p-2 sm:p-4 overscroll-contain',
         'lg:pl-64', // Offset for sidebar so modal centers on main content area
         mobilePosition === 'bottom'
           ? 'items-end sm:items-center justify-center'
@@ -76,8 +98,8 @@ const Modal = ({
         className={cn(
           'relative w-full rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl flex flex-col',
           mobilePosition === 'bottom'
-            ? 'max-h-[60vh] sm:max-h-[90vh] sm:my-auto'
-            : 'my-auto h-[calc(100vh-1rem)] sm:h-auto sm:max-h-[90vh]',
+            ? 'max-h-[75dvh] sm:max-h-[90vh] sm:my-auto'
+            : 'my-auto max-h-[85dvh] sm:max-h-[90vh]',
           sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}
@@ -113,7 +135,9 @@ const Modal = ({
         )}
 
         {/* Content - Scrollable */}
-        <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden flex-1 min-h-0 custom-scrollbar">{children}</div>
+        <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden overscroll-contain flex-1 min-h-0 custom-scrollbar">
+          {children}
+        </div>
 
         {/* Footer */}
         {footer && (
