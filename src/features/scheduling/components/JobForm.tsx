@@ -206,9 +206,9 @@ const JobForm = ({
       invoiceId: job?.invoiceId || initialInvoiceId || '',
       startTime: job?.startTime || '',
       endTime: job?.endTime || '',
-      status: job?.status || 'scheduled',
+      status: job?.status || 'active',
       location: job?.location || defaultLocation || '',
-      price: job?.price?.toString() || defaultPrice?.toString() || '',
+      price: job?.price != null ? job.price.toString() : (defaultPrice != null ? defaultPrice.toString() : ''),
       notes: job?.notes || defaultNotes || '',
       assignedTo: (() => {
         // Handle both old format (string/string[]) and new format (JobAssignment[])
@@ -348,6 +348,7 @@ const JobForm = ({
         endTime: job.endTime,
         status: job.status,
         location: job.location || '',
+        price: job.price != null ? job.price.toString() : '',
         notes: job.notes || '',
         assignedTo: (() => {
           if (!job.assignedTo) return []

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { Card, Button, StatusBadgeSelect } from '@/components/ui'
@@ -9,6 +9,9 @@ import JobLogForm from './JobLogForm'
 import TimeTracker from './TimeTracker'
 import PhotoCapture from './PhotoCapture'
 import JobLogNotes from './JobLogNotes'
+import { useJobLogStore } from '../store/jobLogStore'
+
+const TIMER_STORAGE_KEY = 'joblog-active-timer'
 
 interface JobLogDetailProps {
   jobLog: JobLog
@@ -60,9 +63,120 @@ const JobLogDetail = ({
 }: JobLogDetailProps) => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const { createTimeEntry } = useJobLogStore()
   const [activeTab, setActiveTab] = useState<Tab>('notes')
   const [showMenu, setShowMenu] = useState(false)
   const canAccessQuotes = user?.role !== 'employee'
+
+  // Timer state management
+  const [isTimerRunning, setIsTimerRunning] = useState(() => {
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (!stored) return false
+      const { jobLogId: storedId, startTime } = JSON.parse(stored)
+      return storedId === jobLog.id && startTime
+    } catch {
+      return false
+    }
+  })
+  const [timerStart, setTimerStart] = useState<Date | null>(() => {
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (!stored) return null
+      const { jobLogId: storedId, startTime } = JSON.parse(stored)
+      return storedId === jobLog.id && startTime ? new Date(startTime) : null
+    } catch {
+      return null
+    }
+  })
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+
+  // Timer tick effect
+  const tick = useCallback(() => {
+    if (timerStart) {
+      setElapsedSeconds(Math.floor((Date.now() - timerStart.getTime()) / 1000))
+    }
+  }, [timerStart])
+
+  useEffect(() => {
+    if (!isTimerRunning || !timerStart) return
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [isTimerRunning, timerStart, tick])
+
+  const formatElapsed = (sec: number) => {
+    const h = Math.floor(sec / 3600)
+    const m = Math.floor((sec % 3600) / 60)
+    const s = sec % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+
+  const handleStartTimer = () => {
+    const start = new Date()
+    setTimerStart(start)
+    setIsTimerRunning(true)
+    try {
+      localStorage.setItem(
+        TIMER_STORAGE_KEY,
+        JSON.stringify({
+          jobLogId: jobLog.id,
+          startTime: start.toISOString(),
+        })
+      )
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleStopTimer = async () => {
+    let startTime: string
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (stored) {
+        const { jobLogId: storedId, startTime: storedStart } = JSON.parse(stored)
+        if (storedId === jobLog.id && storedStart) {
+          startTime = storedStart
+        } else if (timerStart) {
+          startTime = timerStart.toISOString()
+        } else {
+          return
+        }
+      } else if (timerStart) {
+        startTime = timerStart.toISOString()
+      } else {
+        return
+      }
+    } catch {
+      if (!timerStart) return
+      startTime = timerStart.toISOString()
+    }
+    const end = new Date()
+    try {
+      await createTimeEntry({
+        jobLogId: jobLog.id,
+        startTime,
+        endTime: end.toISOString(),
+        userId: user?.id,
+      })
+    } finally {
+      setIsTimerRunning(false)
+      setTimerStart(null)
+      setElapsedSeconds(0)
+      try {
+        localStorage.removeItem(TIMER_STORAGE_KEY)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const handleMarkCompleted = async () => {
+    if (onStatusChange) {
+      await onStatusChange('completed')
+    }
+  }
+
+  const isCompleted = jobLog.status === 'completed' || String(jobLog.status) === 'archived'
 
   const parsedAssignments = useMemo((): JobAssignment[] => {
     if (!jobLog.assignedTo) return []
@@ -135,6 +249,18 @@ const JobLogDetail = ({
   }
 
   const hasOverview = jobLog.location || jobLog.contact
+  const primaryPrice =
+    jobLog.price ??
+    jobLog.job?.price ??
+    (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.price : null) ??
+    null
+  const primaryServiceName =
+    jobLog.serviceName ??
+    jobLog.job?.serviceName ??
+    (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.service?.name : null) ??
+    null
+  const primaryStartTime = jobLog.startTime ?? jobLog.job?.startTime ?? null
+  const primaryEndTime = jobLog.endTime ?? jobLog.job?.endTime ?? null
 
   return (
     <div className="space-y-6 w-full min-w-0">
@@ -214,7 +340,9 @@ const JobLogDetail = ({
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {onStatusChange ? (
               <StatusBadgeSelect
-                value={String(jobLog.status) === 'archived' ? 'inactive' : jobLog.status || 'active'}
+                value={
+                  String(jobLog.status) === 'archived' ? 'inactive' : jobLog.status || 'active'
+                }
                 options={statusOptions.map(o => ({ value: o.value, label: o.label }))}
                 colorClassesByValue={statusColors}
                 onChange={async v => {
@@ -238,6 +366,15 @@ const JobLogDetail = ({
             <span className="text-sm text-primary-light/50 shrink-0">
               {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
             </span>
+            {primaryPrice != null && (
+              <span className="text-sm font-semibold text-primary-gold shrink-0">
+                $
+                {primaryPrice.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            )}
           </div>
           {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
             <div className="flex flex-col gap-2 mt-2">
@@ -295,9 +432,7 @@ const JobLogDetail = ({
                                 key={assignment.userId || index}
                                 className={cn(
                                   'flex items-center rounded-md bg-primary-dark-secondary/50 border border-primary-blue/30 w-full',
-                                  hasPayInfo
-                                    ? 'flex-row gap-3 px-2 py-1.5'
-                                    : 'px-2 py-1'
+                                  hasPayInfo ? 'flex-row gap-3 px-2 py-1.5' : 'px-2 py-1'
                                 )}
                               >
                                 <div className="min-w-0 flex-shrink">
@@ -380,33 +515,316 @@ const JobLogDetail = ({
             </div>
           )}
         </div>
-        {/* Desktop: inline buttons */}
-        <div className="hidden sm:flex flex-wrap gap-2 shrink-0">
-          {canAccessQuotes && (
-            <Button variant="outline" size="sm" onClick={handleCreateQuote}>
-              Create Quote
-            </Button>
+
+        {/* Mobile: Timer and Mark Completed buttons - after header */}
+        <div className="sm:hidden flex items-center gap-2 pt-2">
+          {!isTimerRunning ? (
+            <>
+              <Button
+                onClick={handleStartTimer}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5"
+                size="sm"
+              >
+                <svg
+                  className="w-4 h-4 mr-1.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Start Timer
+              </Button>
+              {!isCompleted && onStatusChange && (
+                <Button
+                  onClick={handleMarkCompleted}
+                  className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark px-4 py-1.5"
+                  size="sm"
+                  disabled={isLoading}
+                >
+                  <svg
+                    className="w-4 h-4 mr-1.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  Mark Complete
+                </Button>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-dark rounded-lg border border-primary-blue/30 shrink-0">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-lg font-mono text-primary-gold tabular-nums">
+                  {formatElapsed(elapsedSeconds)}
+                </span>
+              </div>
+              <Button
+                onClick={handleStopTimer}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 shrink-0"
+                size="sm"
+              >
+                <svg
+                  className="w-4 h-4 mr-1.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 10h6v4H9z"
+                  />
+                </svg>
+                Stop Timer
+              </Button>
+            </div>
           )}
-          <Button variant="outline" size="sm" onClick={handleScheduleAppointment}>
-            Schedule Appointment
-          </Button>
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-red-400 border-red-500/50 hover:bg-red-500/10"
-            onClick={onDelete}
-          >
-            Delete
-          </Button>
+        </div>
+
+        {/* Desktop: inline buttons */}
+        <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2">
+            {canAccessQuotes && (
+              <Button variant="outline" size="sm" onClick={handleCreateQuote}>
+                Create Quote
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={handleScheduleAppointment}>
+              Schedule Appointment
+            </Button>
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-400 border-red-500/50 hover:bg-red-500/10"
+              onClick={onDelete}
+            >
+              Delete
+            </Button>
+          </div>
+
+          {/* Desktop: Timer and Mark Completed buttons - separate row, aligned right */}
+          <div className="flex items-center gap-2">
+            {!isTimerRunning ? (
+              <>
+                <Button
+                  onClick={handleStartTimer}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5"
+                  size="sm"
+                >
+                  <svg
+                    className="w-4 h-4 mr-1.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  Start Timer
+                </Button>
+                {!isCompleted && onStatusChange && (
+                  <Button
+                    onClick={handleMarkCompleted}
+                    className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark px-4 py-1.5"
+                    size="sm"
+                    disabled={isLoading}
+                  >
+                    <svg
+                      className="w-4 h-4 mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    Mark Complete
+                  </Button>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-dark rounded-lg border border-primary-blue/30">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-lg font-mono text-primary-gold tabular-nums">
+                    {formatElapsed(elapsedSeconds)}
+                  </span>
+                </div>
+                <Button
+                  onClick={handleStopTimer}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5"
+                  size="sm"
+                >
+                  <svg
+                    className="w-4 h-4 mr-1.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 10h6v4H9z"
+                    />
+                  </svg>
+                  Stop Timer
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Overview: contact and location */}
-      {hasOverview && (
+      {/* Upcoming Bookings */}
+      {jobLog.bookings && jobLog.bookings.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-primary-light/70 uppercase tracking-wider">
+            Upcoming Bookings
+          </h3>
+          <div className="space-y-2">
+            {jobLog.bookings
+              .filter(b => b.status !== 'cancelled')
+              .sort((a, b) => {
+                const aTime = a.startTime ? new Date(a.startTime).getTime() : 0
+                const bTime = b.startTime ? new Date(b.startTime).getTime() : 0
+                return aTime - bTime
+              })
+              .slice(0, 10)
+              .map(booking => (
+                <div
+                  key={booking.id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary-dark/50 border border-primary-blue/20"
+                >
+                  <div className="min-w-0 flex-1">
+                    {booking.toBeScheduled ? (
+                      <span className="text-primary-light/70 text-sm">To be scheduled</span>
+                    ) : booking.startTime && booking.endTime ? (
+                      <span className="text-primary-light text-sm">
+                        {format(new Date(booking.startTime), 'MMM d, yyyy • h:mm a')} –{' '}
+                        {format(new Date(booking.endTime), 'h:mm a')}
+                      </span>
+                    ) : (
+                      <span className="text-primary-light/70 text-sm">No time set</span>
+                    )}
+                    {booking.service?.name && (
+                      <p className="text-xs text-primary-light/50 mt-0.5">{booking.service.name}</p>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    {booking.price != null && booking.price !== undefined && (
+                      <span className="text-sm font-semibold text-primary-gold">
+                        $
+                        {booking.price.toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Overview: contact, location, and price */}
+      {(hasOverview ||
+        !!jobLog.description ||
+        primaryPrice != null ||
+        !!primaryServiceName ||
+        (!!primaryStartTime && !!primaryEndTime)) && (
         <dl className="space-y-3">
+          {jobLog.description && (
+            <div>
+              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+                Description
+              </dt>
+              <dd className="text-sm text-primary-light/90 mt-1 whitespace-pre-wrap">
+                {jobLog.description}
+              </dd>
+            </div>
+          )}
+          {primaryServiceName && (
+            <div>
+              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+                Service
+              </dt>
+              <dd className="text-sm text-primary-light/90 mt-1">{primaryServiceName}</dd>
+            </div>
+          )}
+          {primaryStartTime && primaryEndTime && (
+            <div>
+              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+                Scheduled
+              </dt>
+              <dd className="text-sm text-primary-light/90 mt-1">
+                {(() => {
+                  const start = new Date(primaryStartTime)
+                  const end = new Date(primaryEndTime)
+                  const isMultiDay = end.getTime() - start.getTime() >= 24 * 60 * 60 * 1000
+
+                  if (isMultiDay) {
+                    // Multi-day job: show date range
+                    return `${format(start, 'MMM d, yyyy')} – ${format(end, 'MMM d, yyyy')}`
+                  } else {
+                    // Same day: show date with times
+                    return `${format(start, 'MMM d, yyyy • h:mm a')} – ${format(end, 'h:mm a')}`
+                  }
+                })()}
+              </dd>
+            </div>
+          )}
           {jobLog.location && (
             <div>
               <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
@@ -425,6 +843,20 @@ const JobLogDetail = ({
                 {jobLog.contact.email && (
                   <span className="text-primary-light/60"> · {jobLog.contact.email}</span>
                 )}
+              </dd>
+            </div>
+          )}
+          {primaryPrice != null && (
+            <div>
+              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+                Price
+              </dt>
+              <dd className="text-sm text-primary-gold font-semibold mt-1">
+                $
+                {primaryPrice.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </dd>
             </div>
           )}
@@ -477,6 +909,13 @@ const JobLogDetail = ({
             isAdmin={user?.role === 'admin' || user?.role === 'owner'}
             currentUserId={user?.id}
             assignedTo={parsedAssignments}
+            externalTimerState={{
+              isRunning: isTimerRunning,
+              start: timerStart,
+              elapsed: elapsedSeconds,
+              onStart: handleStartTimer,
+              onStop: handleStopTimer,
+            }}
           />
         )}
 

@@ -1598,23 +1598,62 @@ const Calendar = ({
     // Month view "all-day lane" sizing.
     // Multi-day pills are absolutely positioned and can overflow into adjacent day cells.
     // We reserve lane height in-flow so normal (timed) jobs never overlap those pills.
-    const monthLaneStepMobileRem = 1.25
-    const monthLaneStepDesktopRem = 1.5
+    // Fixed pill height + lane step = even spacing everywhere (same-cell, overflow, any row).
+    const monthPillHeightRem = 1.5
+    const monthLaneGapRem = 0.4
+    const monthLaneStepMobileRem = monthPillHeightRem + monthLaneGapRem
+    const monthLaneStepDesktopRem = monthPillHeightRem + monthLaneGapRem
 
-    // Group multi-day jobs by their first visible day to avoid duplicates
+    // Multi-day jobs in the visible month grid (deduped by id)
     const multiDayJobMap = new Map<string, Job>()
     jobs.forEach(job => {
       if (job.startTime && job.endTime && isMultiDayJob(job)) {
+        // Only include jobs that intersect the visible calendar range
         const jobDates = getJobDateRange(job, calendarStart, calendarEnd)
-        if (jobDates.length > 0) {
-          const firstDate = jobDates[0].toISOString()
-          if (!multiDayJobMap.has(firstDate) || jobDates.length > 1) {
-            multiDayJobMap.set(job.id, job)
-          }
-        }
+        if (jobDates.length > 0) multiDayJobMap.set(job.id, job)
       }
     })
     const multiDayJobs = Array.from(multiDayJobMap.values())
+
+    // Stable lane assignment per *week row*.
+    // This prevents "lane collapsing" mid-week (e.g. when a job ends on the 17th) which can
+    // cause a newly-starting job on the 18th to reuse the same lane as an ongoing bar that
+    // was rendered from the row's anchor cell (Sunday), resulting in stacked pills.
+    const weekLaneInfoByRowStartIso = new Map<
+      string,
+      { laneMap: Map<string, number>; laneCount: number }
+    >()
+    for (let i = 0; i < days.length; i += 7) {
+      const rowStartDay = days[i]
+      const rowEndDay = days[i + 6]
+      if (!rowStartDay || !rowEndDay) continue
+
+      const jobsInRow = multiDayJobs
+        .filter(job => {
+          const jobStartDay = startOfDay(new Date(job.startTime!))
+          const jobEndDay = startOfDay(new Date(job.endTime!))
+          return (
+            jobStartDay.getTime() <= rowEndDay.getTime() &&
+            jobEndDay.getTime() >= rowStartDay.getTime()
+          )
+        })
+        .sort((a, b) => {
+          const aStart = startOfDay(new Date(a.startTime!)).getTime()
+          const bStart = startOfDay(new Date(b.startTime!)).getTime()
+          if (aStart !== bStart) return aStart - bStart
+          const aEnd = startOfDay(new Date(a.endTime!)).getTime()
+          const bEnd = startOfDay(new Date(b.endTime!)).getTime()
+          if (aEnd !== bEnd) return bEnd - aEnd // longer first
+          return a.id.localeCompare(b.id)
+        })
+
+      const laneMap = new Map<string, number>()
+      jobsInRow.forEach((job, idx) => laneMap.set(job.id, idx))
+      weekLaneInfoByRowStartIso.set(rowStartDay.toISOString(), {
+        laneMap,
+        laneCount: jobsInRow.length,
+      })
+    }
 
     return (
       <div ref={monthViewRef} className="flex-1 overflow-auto p-0.5">
@@ -1680,10 +1719,14 @@ const Calendar = ({
               .filter((item): item is NonNullable<typeof item> => item !== null)
               .sort((a, b) => a.jobStartDay.getTime() - b.jobStartDay.getTime())
 
-            // Count ALL multi-day jobs active on this day (for spacing calculation)
-            // multiDayJobsForDay already includes all multi-day jobs that span this day,
-            // regardless of where their pill is rendered
-            const allMultiDayJobsActiveOnDay = multiDayJobsForDay.length
+            // Lane assignment: stable per week-row (precomputed above).
+            const rowStartIndex = dayIndex - dayColumn
+            const rowStartDay = days[rowStartIndex]
+            const rowLaneInfo = rowStartDay
+              ? weekLaneInfoByRowStartIso.get(rowStartDay.toISOString())
+              : undefined
+            const jobLaneMap = rowLaneInfo?.laneMap ?? new Map<string, number>()
+            const allMultiDayJobsActiveOnDay = rowLaneInfo?.laneCount ?? multiDayJobsForDay.length
 
             const isCurrentMonth = isSameMonth(day, selectedDate)
             const isSelected = isSameDay(day, selectedDate)
@@ -1795,9 +1838,12 @@ const Calendar = ({
                       validSegmentDates[validSegmentDates.length - 1]?.getTime() ===
                       jobEndDay.getTime()
 
-                    // Lane positioning for stacking multi-day segments
-                    const topOffsetMobile = jobIndex * monthLaneStepMobileRem
-                    const topOffsetDesktop = jobIndex * monthLaneStepDesktopRem
+                    // Lane positioning: use global lane from jobLaneMap (all overlapping jobs
+                    // on this day, sorted by start) so jobs always wrap underneath regardless of
+                    // which cell they render in vs overflow from
+                    const lane = jobLaneMap.get(job.id) ?? 0
+                    const topOffsetMobile = lane * monthLaneStepMobileRem
+                    const topOffsetDesktop = lane * monthLaneStepDesktopRem
 
                     const jobColors = getJobColors(job)
                     return (
@@ -1817,7 +1863,7 @@ const Calendar = ({
                           onJobClick(job)
                         }}
                         className={cn(
-                          'month-multi-day-pill text-[10px] md:text-xs p-0.5 md:p-1 leading-4 cursor-grab active:cursor-grabbing touch-none border-l-2 truncate relative',
+                          'month-multi-day-pill text-[10px] md:text-xs p-0.5 md:p-1 leading-4 cursor-grab active:cursor-grabbing touch-none border-l-2 truncate relative flex items-center overflow-hidden',
                           'hover:opacity-80',
                           !isCurrentMonth && 'opacity-60',
                           jobColors.bg,
@@ -1833,6 +1879,7 @@ const Calendar = ({
                             position: 'absolute',
                             left: '0.125rem',
                             top: `${topOffsetMobile}rem`,
+                            height: `${monthPillHeightRem}rem`,
                             width: `calc(${Math.min(segmentSpanDays, daysUntilEndOfRow)} * (100% + 0.25rem + 1px) - 0.25rem)`,
                             '--top-desktop': `${topOffsetDesktop}rem`,
                             transform: isMonthMoving

@@ -39,7 +39,7 @@ export interface Job {
   startTime: string | null
   endTime: string | null
   toBeScheduled?: boolean
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
+  status: 'active' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
   location?: string
   price?: number
   notes?: string
@@ -65,7 +65,7 @@ export interface CreateJobData {
   startTime?: string
   endTime?: string
   toBeScheduled?: boolean
-  status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
+  status?: 'active' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'pending-confirmation'
   location?: string
   price?: number
   notes?: string

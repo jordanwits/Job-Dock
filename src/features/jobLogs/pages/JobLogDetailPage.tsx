@@ -52,6 +52,8 @@ const JobLogDetailPage = () => {
     notes?: string
     jobId?: string
     contactId?: string
+    price?: number | null
+    serviceId?: string
     assignedTo?: import('../types/jobLog').JobAssignment[]
     status?: string
   }) => {

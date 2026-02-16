@@ -42,64 +42,38 @@ export const handler = async (
   let deletedCount = 0
   
   try {
-    // 1. Find jobs older than 1 year that need archiving
-    const jobsToArchive = await prisma.job.findMany({
+    // 1. Find bookings older than 1 year that need archiving
+    const bookingsToArchive = await prisma.booking.findMany({
       where: {
         endTime: { lt: oneYearAgo },
         archivedAt: null,
       },
       include: {
-        contact: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            company: true,
-          }
-        },
-        service: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            price: true,
-          }
-        },
-        quote: {
-          select: {
-            id: true,
-            quoteNumber: true,
-            total: true,
-          }
-        },
-        invoice: {
-          select: {
-            id: true,
-            invoiceNumber: true,
-            total: true,
-            paymentStatus: true,
-          }
-        },
-        recurrence: {
-          select: {
-            id: true,
-            title: true,
-            frequency: true,
-          }
+        job: {
+          include: {
+            contact: true,
+            bookings: { include: { service: true } },
+          },
         },
       },
     })
     
-    console.log(`Found ${jobsToArchive.length} jobs to archive`)
+    const jobIdsToArchive = [...new Set(bookingsToArchive.map(b => b.jobId))]
+    console.log(`Found ${jobIdsToArchive.length} jobs to archive`)
     
     // 2. Archive each job to S3
-    for (const job of jobsToArchive) {
+    for (const jobId of jobIdsToArchive) {
       try {
-        const archiveKey = `archives/jobs/${job.tenantId}/${job.id}.json`
+        const job = await prisma.job.findFirst({
+          where: { id: jobId },
+          include: {
+            contact: true,
+            bookings: { include: { service: true } },
+          },
+        })
+        if (!job) continue
         
-        // Prepare archive data with metadata
+        const archiveKey = `archives/jobs/${job.tenantId}/${job.id}.json`
         const archiveData = {
           ...job,
           archivedDate: now.toISOString(),
@@ -107,7 +81,6 @@ export const handler = async (
         }
         
         if (!dryRun) {
-          // Upload to S3
           await s3.send(new PutObjectCommand({
             Bucket: process.env.FILES_BUCKET!,
             Key: archiveKey,
@@ -119,58 +92,41 @@ export const handler = async (
               archivedDate: now.toISOString(),
             },
           }))
-          
-          // Mark as archived in database (don't delete yet - keep for reference)
-          await prisma.job.update({
-            where: { id: job.id },
+          await prisma.booking.updateMany({
+            where: { jobId },
             data: { archivedAt: now },
           })
-          
           console.log(`Archived job ${job.id} to ${archiveKey}`)
         } else {
           console.log(`[DRY RUN] Would archive job ${job.id} to ${archiveKey}`)
         }
-        
         archivedCount++
       } catch (error: any) {
-        const errorMsg = `Failed to archive job ${job.id}: ${error.message}`
+        const errorMsg = `Failed to archive job ${jobId}: ${error.message}`
         console.error(errorMsg)
         errors.push(errorMsg)
       }
     }
     
-    // 3. Find jobs that have been archived and are ready for deletion
-    // Keep archived jobs in DB for a grace period (e.g., 30 days after archiving)
+    // 3. Find bookings archived long ago, ready for deletion
     const gracePeriodDays = 30
     const gracePeriodDate = new Date(now)
     gracePeriodDate.setDate(gracePeriodDate.getDate() - gracePeriodDays)
     
-    const jobsToDelete = await prisma.job.findMany({
+    const oldArchivedBookings = await prisma.booking.findMany({
       where: {
-        archivedAt: {
-          not: null,
-          lt: gracePeriodDate,
-        },
+        archivedAt: { not: null, lt: gracePeriodDate },
       },
-      select: {
-        id: true,
-        tenantId: true,
-        title: true,
-        archivedAt: true,
-      },
+      select: { jobId: true },
     })
+    const jobsToDelete = [...new Set(oldArchivedBookings.map(b => b.jobId))]
     
     console.log(`Found ${jobsToDelete.length} archived jobs ready for deletion (older than ${gracePeriodDays} days)`)
     
-    // 4. Delete old archived jobs from database
     if (jobsToDelete.length > 0) {
       if (!dryRun) {
         const deleteResult = await prisma.job.deleteMany({
-          where: {
-            id: {
-              in: jobsToDelete.map(j => j.id),
-            },
-          },
+          where: { id: { in: jobsToDelete } },
         })
         
         deletedCount = deleteResult.count

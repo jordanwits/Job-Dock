@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { jobLogSchema, type JobLogFormData } from '../schemas/jobLogSchemas'
 import type { JobLog, JobAssignment } from '../types/jobLog'
-import { Input, Button, Select } from '@/components/ui'
+import { Input, Button, Select, Textarea } from '@/components/ui'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
@@ -110,8 +110,12 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     resolver: zodResolver(jobLogSchema),
     defaultValues: {
       title: jobLog?.title ?? '',
+      description: jobLog?.description ?? '',
       location: jobLog?.location ?? '',
+      notes: jobLog?.notes ?? '',
       contactId: jobLog?.contactId ?? '',
+      price: jobLog?.price ?? null,
+      serviceId: jobLog?.serviceId ?? undefined,
       assignedTo: (() => {
         // Handle both old format (string/string[]) and new format (JobAssignment[])
         if (!jobLog?.assignedTo) return []
@@ -141,8 +145,13 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
 
   const handleFormSubmit = async (data: JobLogFormData) => {
     // Convert empty/undefined assignedTo to null so backend clears it
+    // Ensure price is explicitly included and properly normalized
     const formData: any = {
       ...data,
+      // Price: normalize to number or null (never undefined or empty string)
+      price: data.price === '' || data.price === null || data.price === undefined 
+        ? null 
+        : (typeof data.price === 'number' ? data.price : Number(data.price)),
       assignedTo: Array.isArray(data.assignedTo) && data.assignedTo.length > 0 
         ? data.assignedTo.filter(a => a.userId && a.userId.trim() !== '')
         : null,
@@ -158,11 +167,59 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
         error={errors.title?.message}
         placeholder="Job site name or description"
       />
+      <Textarea
+        label="Description"
+        {...register('description')}
+        error={errors.description?.message ? String(errors.description.message) : undefined}
+        placeholder="Add any details for this job"
+        rows={3}
+      />
       <Input
         label="Location"
         {...register('location')}
         error={errors.location?.message}
         placeholder="Address or job site location"
+      />
+      <div>
+        <label className="block text-sm font-medium text-primary-light mb-2">Price</label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">$</span>
+          <Controller
+            name="price"
+            control={control}
+            render={({ field }) => (
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                {...field}
+                value={field.value === null || field.value === undefined ? '' : field.value}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value === '' || value === null || value === undefined) {
+                    field.onChange(null)
+                  } else {
+                    const num = Number(value)
+                    field.onChange(Number.isFinite(num) ? num : null)
+                  }
+                }}
+                error={errors.price?.message ? String(errors.price.message) : undefined}
+                placeholder="0.00"
+                className="pl-7"
+              />
+            )}
+          />
+        </div>
+        <p className="text-xs text-primary-light/50 mt-1">
+          This is the job price shown on the Jobs page (not the individual assignee pay).
+        </p>
+      </div>
+      <Textarea
+        label="Notes"
+        {...register('notes')}
+        error={errors.notes?.message ? String(errors.notes.message) : undefined}
+        placeholder="Internal notes (optional)"
+        rows={3}
       />
       <div>
         <label className="block text-sm font-medium text-primary-light mb-2">

@@ -1,41 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
-import { Card, Button, Modal } from '@/components/ui'
+import { Card, Button } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
-import JobDetail from '@/features/scheduling/components/JobDetail'
-import JobForm from '@/features/scheduling/components/JobForm'
-
 const DashboardPage = () => {
+  const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { 
-    jobs, 
-    fetchJobs, 
-    isLoading: jobsLoading, 
-    setSelectedJob, 
-    selectedJob,
-    updateJob,
-    deleteJob,
-    permanentDeleteJob,
-    restoreJob,
-    confirmJob,
-    declineJob,
-    error: jobsError,
-    clearError: clearJobsError
-  } = useJobStore()
+  const { jobs, fetchJobs, isLoading: jobsLoading } = useJobStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
   const { invoices, fetchInvoices, isLoading: invoicesLoading } = useInvoiceStore()
   const { jobLogs, fetchJobLogs, isLoading: jobLogsLoading } = useJobLogStore()
   
-  const [editingJob, setEditingJob] = useState<typeof selectedJob>(null)
-  const [showJobForm, setShowJobForm] = useState(false)
-  const [showDeclineModal, setShowDeclineModal] = useState(false)
-  const [declineReason, setDeclineReason] = useState('')
 
   // Scroll to top on mount
   useEffect(() => {
@@ -128,72 +108,6 @@ const DashboardPage = () => {
     ? jobsLoading || jobLogsLoading
     : jobsLoading || jobLogsLoading || quotesLoading || invoicesLoading
 
-  // Job handlers
-  const handleUpdateJob = async (data: any) => {
-    if (!editingJob) return
-    try {
-      await updateJob({ id: editingJob.id, ...data })
-      setShowJobForm(false)
-      setEditingJob(null)
-      setSelectedJob(null)
-      clearJobsError()
-    } catch (error) {
-      // Error handled by store
-    }
-  }
-
-  const handleDeleteJob = async () => {
-    if (!selectedJob) return
-    try {
-      await deleteJob(selectedJob.id)
-      setSelectedJob(null)
-    } catch (error) {
-      // Error handled by store
-    }
-  }
-
-  const handlePermanentDeleteJob = async () => {
-    if (!selectedJob) return
-    try {
-      await permanentDeleteJob(selectedJob.id)
-      setSelectedJob(null)
-    } catch (error) {
-      // Error handled by store
-    }
-  }
-
-  const handleRestoreJob = async () => {
-    if (!selectedJob) return
-    try {
-      await restoreJob(selectedJob.id)
-      setSelectedJob(null)
-    } catch (error) {
-      // Error handled by store
-    }
-  }
-
-  const handleConfirmJob = async () => {
-    if (!selectedJob) return
-    try {
-      await confirmJob(selectedJob.id)
-      setSelectedJob(null)
-    } catch (error) {
-      // Error handled by store
-    }
-  }
-
-  const handleDeclineJob = async () => {
-    if (!selectedJob) return
-    try {
-      await declineJob(selectedJob.id, declineReason)
-      setShowDeclineModal(false)
-      setDeclineReason('')
-      setSelectedJob(null)
-    } catch (error) {
-      // Error handled by store
-    }
-  }
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -249,7 +163,7 @@ const DashboardPage = () => {
               <h2 className="text-lg font-semibold text-primary-light tracking-tight">
                 {isEmployee ? 'Your Upcoming Appointments' : 'Upcoming Appointments'}
               </h2>
-              <Link to="/app/scheduling?tab=jobs">
+              <Link to="/app/job-logs">
                 <Button variant="ghost" size="sm">
                   View All
                 </Button>
@@ -265,6 +179,7 @@ const DashboardPage = () => {
               <div className="space-y-2">
                 {upcomingJobs.map((job) => {
                   const statusColors = {
+                    active: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
                     scheduled: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
                     'in-progress': 'bg-yellow-500/10 text-yellow-400 ring-1 ring-yellow-500/20',
                     completed: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20',
@@ -275,7 +190,7 @@ const DashboardPage = () => {
                   return (
                     <div
                       key={job.id}
-                      onClick={() => setSelectedJob(job)}
+                      onClick={() => navigate(`/app/job-logs/${job.id}`)}
                       className="p-3 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -515,96 +430,6 @@ const DashboardPage = () => {
           )}
         </div>
       )}
-
-      {/* Job Form Modal */}
-      <Modal
-        isOpen={showJobForm}
-        onClose={() => {
-          setShowJobForm(false)
-          setEditingJob(null)
-          clearJobsError()
-        }}
-        title={editingJob ? 'Edit Appointment' : 'Schedule New Appointment'}
-        size="xl"
-      >
-        <JobForm
-          job={editingJob || undefined}
-          onSubmit={handleUpdateJob}
-          onCancel={() => {
-            setShowJobForm(false)
-            setEditingJob(null)
-            clearJobsError()
-          }}
-          isLoading={jobsLoading}
-          error={jobsError}
-        />
-      </Modal>
-
-      {/* Job Detail Modal */}
-      {selectedJob && (
-        <JobDetail
-          job={selectedJob}
-          isOpen={!!selectedJob}
-          onClose={() => setSelectedJob(null)}
-          onEdit={() => {
-            setEditingJob(selectedJob)
-            setShowJobForm(true)
-          }}
-          onDelete={handleDeleteJob}
-          onPermanentDelete={handlePermanentDeleteJob}
-          onRestore={handleRestoreJob}
-          onConfirm={handleConfirmJob}
-          onDecline={() => setShowDeclineModal(true)}
-        />
-      )}
-
-      {/* Decline Job Modal */}
-      <Modal
-        isOpen={showDeclineModal}
-        onClose={() => {
-          setShowDeclineModal(false)
-          setDeclineReason('')
-        }}
-        title="Decline Appointment"
-        footer={
-          <>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setShowDeclineModal(false)
-                setDeclineReason('')
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDeclineJob}
-              disabled={jobsLoading}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {jobsLoading ? 'Declining...' : 'Decline Appointment'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <p className="text-primary-light">
-            Are you sure you want to decline this appointment?
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-primary-light mb-2">
-              Reason (optional)
-            </label>
-            <textarea
-              value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
-              className="w-full px-3 py-2 bg-primary-dark-secondary border border-primary-blue rounded-lg text-primary-light focus:outline-none focus:ring-2 focus:ring-primary-gold"
-              rows={3}
-              placeholder="Let the client know why you're declining..."
-            />
-          </div>
-        </div>
-      </Modal>
     </div>
   )
 }

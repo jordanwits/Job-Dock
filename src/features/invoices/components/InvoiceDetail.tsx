@@ -188,7 +188,11 @@ const InvoiceDetail = ({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={invoice.invoiceNumber}
+        title={
+          invoice.contactName && invoice.title
+            ? `${invoice.contactName} ${invoice.title}`
+            : invoice.contactName || invoice.title || invoice.invoiceNumber
+        }
         size="lg"
         footer={
           <div className="flex flex-col sm:flex-row justify-between w-full gap-3">
@@ -230,22 +234,22 @@ const InvoiceDetail = ({
       >
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-primary-light">{invoice.invoiceNumber}</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-2xl font-bold text-primary-light break-words">{invoice.invoiceNumber}</h2>
               {invoice.contactName && (
                 <div className="mt-1">
-                  <p className="text-primary-light/70">
+                  <p className="text-primary-light/70 break-words">
                     {invoice.contactName}
                     {invoice.contactCompany && ` - ${invoice.contactCompany}`}
                   </p>
                   {invoice.contactEmail && (
-                    <p className="text-sm text-primary-light/50 mt-1">{invoice.contactEmail}</p>
+                    <p className="text-sm text-primary-light/50 mt-1 break-words">{invoice.contactEmail}</p>
                   )}
                 </div>
               )}
             </div>
-            <div className="flex flex-col gap-2 items-end">
+            <div className="flex flex-col gap-2 items-start sm:items-end flex-shrink-0">
               {shouldShowStatus && (
                 <StatusBadgeSelect
                   value={invoice.status}

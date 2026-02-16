@@ -34,7 +34,7 @@ const normalizeJob = (apiJob: any): Job => {
     toBeScheduled: apiJob.toBeScheduled || false,
     status: apiJob.status,
     location: apiJob.location,
-    price: apiJob.price ? parseFloat(apiJob.price) : undefined,
+    price: apiJob.price != null ? (typeof apiJob.price === 'number' ? apiJob.price : parseFloat(apiJob.price)) : null,
     notes: apiJob.notes,
     assignedTo: apiJob.assignedTo,
     assignedToName: apiJob.assignedToUser?.name ?? apiJob.assignedToName ?? undefined,

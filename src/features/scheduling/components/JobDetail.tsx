@@ -62,6 +62,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
   const linkedInvoice = job.invoiceId ? invoices.find(i => i.id === job.invoiceId) : null
   
   const statusColors = {
+    active: 'border-blue-500 bg-blue-500/10 text-blue-300',
     scheduled: 'border-blue-500 bg-blue-500/10 text-blue-300',
     'in-progress': 'border-yellow-500 bg-yellow-500/10 text-yellow-300',
     completed: 'border-green-500 bg-green-500/10 text-green-300',
@@ -70,6 +71,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
   }
 
   const statusLabels = {
+    active: 'Active',
     scheduled: 'Scheduled',
     'in-progress': 'In Progress',
     completed: 'Completed',

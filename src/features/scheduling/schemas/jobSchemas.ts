@@ -32,7 +32,7 @@ export const jobSchema = z.object({
   invoiceId: z.string().optional(),
   startTime: z.string().optional(), // Computed from date/time pickers
   endTime: z.string().optional(), // Computed from date/time pickers
-  status: z.enum(['scheduled', 'in-progress', 'completed', 'cancelled', 'pending-confirmation']).optional(),
+  status: z.enum(['active', 'scheduled', 'in-progress', 'completed', 'cancelled', 'pending-confirmation']).optional(),
   location: z.string().optional(),
   price: z.string().optional().or(z.number().optional()),
   notes: z.string().optional(),

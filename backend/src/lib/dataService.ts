@@ -486,7 +486,7 @@ async function createRecurringJobs(params: {
   location?: string
   price?: number
   notes?: string
-  assignedTo?: string | string[] | null
+  assignedTo?: string | string[] | JobAssignment[] | null
   breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
   recurrence: RecurrencePayload
   forceBooking?: boolean
@@ -503,7 +503,7 @@ async function createRecurringJobs(params: {
     invoiceId,
     startTime,
     endTime,
-    status = 'scheduled',
+    status = 'active',
     location,
     price,
     notes,
@@ -599,45 +599,63 @@ async function createRecurringJobs(params: {
 
     // Double booking check removed - allowing overlapping recurring jobs
 
-    // 4. Create all job instances
-    const jobs = await Promise.all(
+    // 4. Create one Job and multiple Bookings (one per instance)
+    const job = await tx.job.create({
+      data: {
+        tenantId,
+        title,
+        description,
+        contactId,
+        quoteId,
+        invoiceId,
+        status: 'active',
+        location,
+        notes,
+        assignedTo: (assignedToForJobs ?? undefined) as unknown as Prisma.InputJsonValue,
+        createdById: createdById ?? undefined,
+      },
+      include: {
+        contact: true,
+      },
+    })
+
+    const bookings = await Promise.all(
       instances.map(instance =>
-        tx.job.create({
+        tx.booking.create({
           data: {
             tenantId,
-            title,
-            description,
-            contactId,
+            jobId: job.id,
             serviceId,
             quoteId,
             invoiceId,
             recurrenceId: jobRecurrence.id,
             startTime: instance.startTime,
             endTime: instance.endTime,
+            toBeScheduled: false,
             status,
             location,
             price: price !== undefined ? price : null,
             notes,
-            assignedTo: assignedToForJobs,
-            breaks: undefined, // Recurring jobs don't have breaks initially
+            assignedTo: (assignedToForJobs ?? undefined) as unknown as Prisma.InputJsonValue,
             createdById: createdById ?? undefined,
           },
           include: {
-            contact: true,
             service: true,
           },
         })
       )
     )
 
-    // Return the first job with recurrence metadata
-    const firstJob = jobs[0]
-    const assignedToName = await getAssignedToName(tenantId, firstJob.assignedTo)
+    // Return the first booking with job and recurrence metadata (for backward compat)
+    const firstBooking = bookings[0]
+    const merged = { ...job, ...firstBooking, service: (firstBooking as any).service }
+    const assignedToName = await getAssignedToName(tenantId, merged.assignedTo)
     return {
-      ...firstJob,
+      ...merged,
+      id: job.id,
       assignedToName,
       recurrenceId: jobRecurrence.id,
-      occurrenceCount: jobs.length,
+      occurrenceCount: bookings.length,
     }
   })
 }
@@ -1780,85 +1798,93 @@ export const dataServices = {
     ) => {
       await ensureTenantExists(tenantId)
       
-      // Build the where clause
-      const whereClause: Prisma.JobWhereInput = {
+      // Fetch Bookings (for calendar) - bookings have startTime, endTime
+      const bookingWhere: Prisma.BookingWhereInput = {
         tenantId,
-        // Filter archived jobs based on includeArchived flag
-        // Note: showDeleted parameter is deprecated, we only use archive now
         ...(includeArchived ? {} : { archivedAt: null }),
       }
       
-      // Note: If user cannot see other jobs, we'll filter in memory after fetching
-      // This allows us to check both createdById and assignedTo (which requires JSONB filtering)
-      // For performance, we could use a raw SQL query, but filtering in memory is simpler and works correctly
-      
-      // When date filters are provided, return scheduled jobs in range OR unscheduled jobs
       if (startDate || endDate) {
-        const dateFilter = {
-          OR: [
-            {
-              startTime: {
-                gte: startDate,
-                lte: endDate,
-              },
+        bookingWhere.OR = [
+          {
+            startTime: {
+              gte: startDate,
+              lte: endDate,
             },
-            {
-              toBeScheduled: true,
-            },
-          ],
-        }
-        
-        // If we already have an OR clause (from canSeeOtherJobs filtering), combine them
-        if (whereClause.OR) {
-          whereClause.AND = [
-            { OR: whereClause.OR },
-            dateFilter,
-          ]
-          delete whereClause.OR
-        } else {
-          whereClause.OR = dateFilter.OR
-        }
+          },
+          {
+            toBeScheduled: true,
+          },
+        ]
       }
       
-      const jobs = await prisma.job.findMany({
-        where: whereClause,
+      const bookings = await prisma.booking.findMany({
+        where: bookingWhere,
         include: {
-          contact: true,
+          job: {
+            include: {
+              contact: true,
+              createdBy: { select: { name: true } },
+            },
+          },
           service: true,
           createdBy: { select: { name: true } },
         },
         orderBy: [
-          { toBeScheduled: 'desc' }, // Unscheduled jobs first
+          { toBeScheduled: 'desc' },
           { startTime: 'asc' },
         ],
       })
       
-      // Filter out jobs user cannot see (if canSeeOtherJobs is false, also filter by assignedTo)
-      let filteredJobs = jobs
+      // Filter by user visibility
+      let filtered = bookings
       if (currentUserId && canSeeOtherJobs !== true) {
-        filteredJobs = jobs.filter(job => {
-          // User can see if they created it (already filtered by query)
+        filtered = bookings.filter(b => {
+          const job = b.job
           if (job.createdById === currentUserId) return true
-          
-          // User can also see if they're assigned to it
-          const userIds = extractUserIds(job.assignedTo)
+          const userIds = extractUserIds(b.assignedTo ?? job.assignedTo)
           return userIds.includes(currentUserId)
         })
       }
       
-      // Map assignedToName and apply privacy filtering for all jobs
+      // Flatten to Job-like shape for backward compat (id = job.id for navigation to job detail)
       const jobsWithNames = await Promise.all(
-        filteredJobs.map(async (job) => {
-          const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+        filtered.map(async (b) => {
+          const job = b.job
+          const assignedToName = await getAssignedToName(tenantId, b.assignedTo ?? job.assignedTo)
           const assignedToWithPrivacy = getAssignedToWithPrivacy(
-            job.assignedTo,
+            b.assignedTo ?? job.assignedTo,
             currentUserId,
             currentUserRole
           )
-          return { 
-            ...job, 
+          return {
+            id: job.id,
+            tenantId: job.tenantId,
+            title: job.title,
+            description: job.description,
+            contactId: job.contactId,
+            contactName: job.contact ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim() : undefined,
+            serviceId: b.serviceId,
+            serviceName: b.service?.name,
+            quoteId: b.quoteId ?? job.quoteId,
+            invoiceId: b.invoiceId ?? job.invoiceId,
+            recurrenceId: b.recurrenceId,
+            startTime: b.startTime?.toISOString() ?? null,
+            endTime: b.endTime?.toISOString() ?? null,
+            toBeScheduled: b.toBeScheduled,
+            status: b.status,
+            location: b.location ?? job.location,
+            price: b.price != null ? Number(b.price) : null,
+            notes: b.notes ?? job.notes,
+            assignedTo: assignedToWithPrivacy ?? b.assignedTo ?? job.assignedTo,
             assignedToName,
-            assignedTo: assignedToWithPrivacy || job.assignedTo
+            bookingId: b.id,
+            archivedAt: b.archivedAt?.toISOString() ?? null,
+            deletedAt: b.deletedAt?.toISOString() ?? null,
+            createdById: b.createdById ?? job.createdById,
+            createdByName: (job.createdBy as any)?.name ?? (b.createdBy as any)?.name,
+            createdAt: job.createdAt.toISOString(),
+            updatedAt: job.updatedAt.toISOString(),
           }
         })
       )
@@ -1873,36 +1899,48 @@ export const dataServices = {
       canSeeOtherJobs?: boolean
     ) => {
       const job = await prisma.job.findFirst({
-        where: {
-          id,
-          tenantId,
-        },
+        where: { id, tenantId },
         include: {
           contact: true,
-          service: true,
           createdBy: { select: { name: true } },
+          bookings: {
+            include: { service: true },
+            orderBy: { startTime: 'asc' },
+          },
+          timeEntries: {
+            include: { user: { select: { id: true, name: true } } },
+            orderBy: { startTime: 'desc' },
+          },
         },
       })
       if (!job) throw new Error('Job not found')
       
-      // Check if user can see this job (if canSeeOtherJobs is false, they can only see jobs they created or are assigned to)
       if (currentUserId && canSeeOtherJobs !== true) {
         const canSee = job.createdById === currentUserId || extractUserIds(job.assignedTo).includes(currentUserId)
-        if (!canSee) {
-          throw new Error('Job not found')
-        }
+        if (!canSee) throw new Error('Job not found')
       }
       
       const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
-      const assignedToWithPrivacy = getAssignedToWithPrivacy(
-        job.assignedTo,
-        currentUserId,
-        currentUserRole
-      )
-      return { 
-        ...job, 
+      const assignedToWithPrivacy = getAssignedToWithPrivacy(job.assignedTo, currentUserId, currentUserRole)
+      const primaryBooking = job.bookings[0]
+      return {
+        ...job,
         assignedToName,
-        assignedTo: assignedToWithPrivacy || job.assignedTo
+        assignedTo: assignedToWithPrivacy || job.assignedTo,
+        serviceId: primaryBooking?.serviceId,
+        service: primaryBooking?.service,
+        startTime: primaryBooking?.startTime?.toISOString() ?? null,
+        endTime: primaryBooking?.endTime?.toISOString() ?? null,
+        toBeScheduled: primaryBooking?.toBeScheduled ?? false,
+        status: primaryBooking?.status ?? job.status,
+        price: primaryBooking?.price != null ? Number(primaryBooking.price) : null,
+        timeEntries: job.timeEntries.map((te: any) => ({
+          ...te,
+          startTime: te.startTime.toISOString(),
+          endTime: te.endTime.toISOString(),
+          userId: te.userId ?? undefined,
+          userName: te.user?.name ?? undefined,
+        })),
       }
     },
     create: async (tenantId: string, payload: any) => {
@@ -1920,7 +1958,7 @@ export const dataServices = {
       // Normalize assignedTo to array format
       const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
 
-      // If toBeScheduled, create without times and skip conflict checks
+      // If toBeScheduled, create Job + Booking (unscheduled)
       if (toBeScheduled) {
         const job = await prisma.job.create({
           data: {
@@ -1928,23 +1966,37 @@ export const dataServices = {
             title: payload.title,
             description: payload.description,
             contactId: payload.contactId,
+            quoteId: payload.quoteId,
+            invoiceId: payload.invoiceId,
+            status: 'active',
+            location: payload.location,
+            notes: payload.notes,
+            assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+            createdById: payload.createdById ?? undefined,
+          },
+          include: { contact: true, createdBy: { select: { name: true } } },
+        })
+        const booking = await prisma.booking.create({
+          data: {
+            tenantId,
+            jobId: job.id,
             serviceId: payload.serviceId,
             quoteId: payload.quoteId,
             invoiceId: payload.invoiceId,
             startTime: null,
             endTime: null,
             toBeScheduled: true,
-            status: payload.status || 'scheduled',
+            status: payload.status || 'active',
             location: payload.location,
             price: payload.price !== undefined ? payload.price : null,
             notes: payload.notes,
-            assignedTo: normalizedAssignedTo,
-            breaks: undefined,
+            assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
             createdById: payload.createdById ?? undefined,
           },
-          include: { contact: true, service: true, createdBy: { select: { name: true } } },
+          include: { service: true },
         })
         if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
+          const jobWithContact = job as { contact?: { firstName?: string; lastName?: string } }
           sendAssignmentNotification({
             tenantId,
             assignedTo: normalizedAssignedTo,
@@ -1953,11 +2005,22 @@ export const dataServices = {
             startTime: null,
             endTime: null,
             location: job.location,
-            contactName: job.contact ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim() || undefined : undefined,
+            contactName: jobWithContact.contact ? `${jobWithContact.contact.firstName ?? ''} ${jobWithContact.contact.lastName ?? ''}`.trim() || undefined : undefined,
           }).catch((e) => console.error('Failed to send assignment notification:', e))
         }
         const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
-        return { ...job, assignedToName }
+        return {
+          ...job,
+          ...booking,
+          serviceId: booking.serviceId,
+          service: booking.service,
+          startTime: null,
+          endTime: null,
+          toBeScheduled: true,
+          status: booking.status,
+          price: booking.price != null ? Number(booking.price) : null,
+          assignedToName,
+        }
       }
 
       // Otherwise, require times
@@ -1989,7 +2052,7 @@ export const dataServices = {
           invoiceId: payload.invoiceId,
           startTime,
           endTime,
-          status: payload.status || 'scheduled',
+          status: payload.status || 'active',
           location: payload.location,
           price: payload.price,
           notes: payload.notes,
@@ -2000,6 +2063,7 @@ export const dataServices = {
           createdById: payload.createdById ?? undefined,
         })
         if (recurringResult.assignedTo) {
+          const recWithContact = recurringResult as { contact?: { firstName?: string; lastName?: string } }
           sendAssignmentNotification({
             tenantId,
             assignedTo: recurringResult.assignedTo,
@@ -2008,7 +2072,7 @@ export const dataServices = {
             startTime: recurringResult.startTime,
             endTime: recurringResult.endTime,
             location: recurringResult.location,
-            contactName: recurringResult.contact ? `${recurringResult.contact.firstName ?? ''} ${recurringResult.contact.lastName ?? ''}`.trim() || undefined : undefined,
+            contactName: recWithContact.contact ? `${recWithContact.contact.firstName ?? ''} ${recWithContact.contact.lastName ?? ''}`.trim() || undefined : undefined,
           }).catch((e) => console.error('Failed to send assignment notification:', e))
         }
         return recurringResult
@@ -2022,474 +2086,355 @@ export const dataServices = {
           title: payload.title,
           description: payload.description,
           contactId: payload.contactId,
+          quoteId: payload.quoteId,
+          invoiceId: payload.invoiceId,
+          status: 'active',
+          location: payload.location,
+          notes: payload.notes,
+          assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+          createdById: payload.createdById ?? undefined,
+        },
+        include: { contact: true, createdBy: { select: { name: true } } },
+      })
+      const booking = await prisma.booking.create({
+        data: {
+          tenantId,
+          jobId: job.id,
           serviceId: payload.serviceId,
           quoteId: payload.quoteId,
           invoiceId: payload.invoiceId,
           startTime,
           endTime,
           toBeScheduled: false,
-          status: payload.status || 'scheduled',
+          status: payload.status || 'active',
           location: payload.location,
           price: payload.price !== undefined ? payload.price : null,
           notes: payload.notes,
-          assignedTo: normalizedAssignedTo,
+          assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
           breaks: payload.breaks || null,
           createdById: payload.createdById ?? undefined,
         },
-        include: { contact: true, service: true, createdBy: { select: { name: true } } },
+        include: { service: true },
       })
       const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
-      if (job.assignedTo) {
+      if (job.assignedTo && Array.isArray(job.assignedTo)) {
+        const jobWithContact = job as { contact?: { firstName?: string; lastName?: string } }
         sendAssignmentNotification({
           tenantId,
-          assignedTo: job.assignedTo,
+          assignedTo: job.assignedTo as any,
           assignerUserId: payload.createdById,
           jobTitle: job.title,
-          startTime: job.startTime,
-          endTime: job.endTime,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
           location: job.location,
-          contactName: job.contact ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim() || undefined : undefined,
+          contactName: jobWithContact.contact ? `${jobWithContact.contact.firstName ?? ''} ${jobWithContact.contact.lastName ?? ''}`.trim() || undefined : undefined,
         }).catch((e) => console.error('Failed to send assignment notification:', e))
       }
-      return job
+      return {
+        ...job,
+        ...booking,
+        serviceId: booking.serviceId,
+        service: booking.service,
+        startTime: booking.startTime?.toISOString(),
+        endTime: booking.endTime?.toISOString(),
+        toBeScheduled: false,
+        status: booking.status,
+        price: booking.price != null ? Number(booking.price) : null,
+        assignedToName,
+      }
     },
     update: async (tenantId: string, id: string, payload: any) => {
-      console.log('🔄 Job update called:', {
-        id,
-        updateAll: payload.updateAll,
-        hasRecurrenceId: !!payload.recurrenceId,
-        hasRecurrenceInPayload: !!payload.recurrence,
-        recurrencePayload: payload.recurrence,
-      })
-
-      // Verify job belongs to tenant before updating
       const existingJob = await prisma.job.findFirst({
         where: { id, tenantId },
-        include: { contact: true, service: true },
+        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
       })
-      if (!existingJob) {
-        throw new ApiError('Job not found', 404)
-      }
+      if (!existingJob) throw new ApiError('Job not found', 404)
 
-      console.log('📋 Existing job:', {
-        id: existingJob.id,
-        recurrenceId: existingJob.recurrenceId,
-        title: existingJob.title,
-      })
+      const primaryBooking = existingJob.bookings[0]
+      const jobUpdateData: any = {}
+      if (payload.title !== undefined) jobUpdateData.title = payload.title
+      if (payload.description !== undefined) jobUpdateData.description = payload.description
+      if (payload.contactId !== undefined) jobUpdateData.contactId = payload.contactId
+      if (payload.quoteId !== undefined) jobUpdateData.quoteId = payload.quoteId
+      if (payload.invoiceId !== undefined) jobUpdateData.invoiceId = payload.invoiceId
+      if (payload.status !== undefined) jobUpdateData.status = payload.status
+      if (payload.location !== undefined) jobUpdateData.location = payload.location
+      if (payload.notes !== undefined) jobUpdateData.notes = payload.notes
+      if (payload.assignedTo !== undefined) jobUpdateData.assignedTo = (normalizeAssignedTo(payload.assignedTo) ?? undefined) as unknown as Prisma.InputJsonValue
 
-      // Extract only the fields that can be directly updated
-      const updateData: any = {}
-      if (payload.title !== undefined) updateData.title = payload.title
-      if (payload.description !== undefined) updateData.description = payload.description
-      if (payload.contactId !== undefined) updateData.contactId = payload.contactId
-      if (payload.serviceId !== undefined) updateData.serviceId = payload.serviceId
-      if (payload.quoteId !== undefined) updateData.quoteId = payload.quoteId
-      if (payload.invoiceId !== undefined) updateData.invoiceId = payload.invoiceId
-      if (payload.status !== undefined) updateData.status = payload.status
-      if (payload.location !== undefined) updateData.location = payload.location
-      // Handle price explicitly - allow 0, null, or undefined
+      const bookingUpdateData: any = {}
+      if (payload.serviceId !== undefined) bookingUpdateData.serviceId = payload.serviceId
       if (payload.price !== undefined) {
-        updateData.price = payload.price !== null && payload.price !== '' ? payload.price : null
-      }
-      if (payload.notes !== undefined) updateData.notes = payload.notes
-      if (payload.assignedTo !== undefined) updateData.assignedTo = normalizeAssignedTo(payload.assignedTo)
-      if (payload.breaks !== undefined) updateData.breaks = payload.breaks
-
-      const actingUserId = payload._actingUserId
-
-      await validateAssignedTo(tenantId, updateData.assignedTo ?? payload.assignedTo)
-
-      // Validate and parse dates if provided
-      if (payload.startTime !== undefined) {
-        const parsedStartTime = parseValidDate(payload.startTime)
-        if (!parsedStartTime) {
-          throw new ApiError('Invalid startTime format. Please provide a valid date string.', 400)
+        // Normalize price: convert to number or null
+        if (payload.price === null || payload.price === '') {
+          bookingUpdateData.price = null
+        } else {
+          const numPrice = typeof payload.price === 'number' ? payload.price : parseFloat(payload.price)
+          bookingUpdateData.price = isNaN(numPrice) ? null : numPrice
         }
-        updateData.startTime = parsedStartTime
+      }
+      if (payload.breaks !== undefined) bookingUpdateData.breaks = payload.breaks
+      if (payload.startTime !== undefined) {
+        const parsed = parseValidDate(payload.startTime)
+        if (!parsed) throw new ApiError('Invalid startTime format', 400)
+        bookingUpdateData.startTime = parsed
       }
       if (payload.endTime !== undefined) {
-        const parsedEndTime = parseValidDate(payload.endTime)
-        if (!parsedEndTime) {
-          throw new ApiError('Invalid endTime format. Please provide a valid date string.', 400)
-        }
-        updateData.endTime = parsedEndTime
+        const parsed = parseValidDate(payload.endTime)
+        if (!parsed) throw new ApiError('Invalid endTime format', 400)
+        bookingUpdateData.endTime = parsed
       }
-
-      // Handle toBeScheduled flag changes
       if (payload.toBeScheduled !== undefined) {
-        updateData.toBeScheduled = payload.toBeScheduled
-
-        if (payload.toBeScheduled === true) {
-          // Setting to unscheduled - clear times
-          updateData.startTime = null
-          updateData.endTime = null
-        } else if (payload.toBeScheduled === false) {
-          // Setting to scheduled - require times
-          if (!payload.startTime || !payload.endTime) {
-            if (!existingJob.startTime || !existingJob.endTime) {
-              throw new ApiError('startTime and endTime are required when scheduling a job', 400)
-            }
-          }
-          // Validate that the dates that will be used are valid
-          const finalStartTime = updateData.startTime || existingJob.startTime
-          const finalEndTime = updateData.endTime || existingJob.endTime
-          if (
-            !finalStartTime ||
-            !finalEndTime ||
-            isNaN(new Date(finalStartTime).getTime()) ||
-            isNaN(new Date(finalEndTime).getTime())
-          ) {
-            throw new ApiError(
-              'Valid startTime and endTime are required when scheduling a job',
-              400
-            )
-          }
+        bookingUpdateData.toBeScheduled = payload.toBeScheduled
+        if (payload.toBeScheduled) {
+          bookingUpdateData.startTime = null
+          bookingUpdateData.endTime = null
         }
       }
+      if (payload.status !== undefined) bookingUpdateData.status = payload.status
 
-      // Check if adding recurrence to a non-recurring job
-      if (payload.recurrence && !existingJob.recurrenceId) {
-        console.log('➕ Adding recurrence to existing job:', { id, recurrence: payload.recurrence })
+      await validateAssignedTo(tenantId, jobUpdateData.assignedTo ?? payload.assignedTo)
 
-        // Get the final start and end times for the job
-        const finalStartTime = updateData.startTime || existingJob.startTime
-        const finalEndTime = updateData.endTime || existingJob.endTime
-
-        if (!finalStartTime || !finalEndTime) {
-          throw new ApiError('Job must have start and end times to add recurrence', 400)
-        }
-
-        // Create the recurring series starting from this job
-        const recurringJobsResult = await createRecurringJobs({
+      // Recurrence: if adding recurrence, use createRecurringJobs (simplified - would need primary booking times)
+      if (payload.recurrence && !primaryBooking?.recurrenceId) {
+        const finalStart = bookingUpdateData.startTime || primaryBooking?.startTime
+        const finalEnd = bookingUpdateData.endTime || primaryBooking?.endTime
+        if (!finalStart || !finalEnd) throw new ApiError('Job must have start and end times to add recurrence', 400)
+        const recurringResult = await createRecurringJobs({
           tenantId,
-          title: updateData.title || existingJob.title,
-          description:
-            updateData.description !== undefined
-              ? updateData.description
-              : existingJob.description || undefined,
-          contactId: updateData.contactId || existingJob.contactId,
-          serviceId:
-            updateData.serviceId !== undefined
-              ? updateData.serviceId
-              : existingJob.serviceId || undefined,
-          quoteId:
-            updateData.quoteId !== undefined
-              ? updateData.quoteId
-              : existingJob.quoteId || undefined,
-          invoiceId:
-            updateData.invoiceId !== undefined
-              ? updateData.invoiceId
-              : existingJob.invoiceId || undefined,
-          startTime: new Date(finalStartTime),
-          endTime: new Date(finalEndTime),
-          status: updateData.status || existingJob.status,
-          location:
-            updateData.location !== undefined
-              ? updateData.location
-              : existingJob.location || undefined,
-          price:
-            updateData.price !== undefined
-              ? updateData.price
-              : existingJob.price
-                ? parseFloat(existingJob.price.toString())
-                : undefined,
-          notes: updateData.notes !== undefined ? updateData.notes : existingJob.notes || undefined,
-          assignedTo:
-            updateData.assignedTo !== undefined
-              ? updateData.assignedTo
-              : existingJob.assignedTo || undefined,
-          breaks:
-            updateData.breaks !== undefined
-              ? updateData.breaks
-              : (existingJob.breaks as any) || undefined,
+          title: jobUpdateData.title || existingJob.title,
+          description: jobUpdateData.description ?? existingJob.description ?? undefined,
+          contactId: jobUpdateData.contactId || existingJob.contactId,
+          serviceId: bookingUpdateData.serviceId ?? primaryBooking?.serviceId ?? undefined,
+          quoteId: jobUpdateData.quoteId ?? existingJob.quoteId ?? undefined,
+          invoiceId: jobUpdateData.invoiceId ?? existingJob.invoiceId ?? undefined,
+          startTime: new Date(finalStart),
+          endTime: new Date(finalEnd),
+          status: bookingUpdateData.status ?? primaryBooking?.status ?? 'active',
+          location: jobUpdateData.location ?? existingJob.location ?? undefined,
+          price: bookingUpdateData.price != null ? bookingUpdateData.price : (primaryBooking?.price != null ? Number(primaryBooking.price) : null),
+          notes: jobUpdateData.notes ?? existingJob.notes ?? undefined,
+          assignedTo: jobUpdateData.assignedTo ?? existingJob.assignedTo ?? undefined,
+          breaks: bookingUpdateData.breaks ?? (primaryBooking?.breaks as any) ?? undefined,
           recurrence: payload.recurrence,
-          excludeJobId: existingJob.id, // Exclude the original job from conflict checking
           createdById: (existingJob as any).createdById ?? payload.createdById,
         })
-
-        // Delete the original job since we've created a recurring series
-        await prisma.job.delete({
-          where: { id },
-        })
-
-        console.log('✅ Converted job to recurring series')
-
-        if (recurringJobsResult.assignedTo) {
-          sendAssignmentNotification({
-            tenantId,
-            assignedTo: recurringJobsResult.assignedTo,
-            assignerUserId: actingUserId,
-            jobTitle: recurringJobsResult.title,
-            startTime: recurringJobsResult.startTime,
-            endTime: recurringJobsResult.endTime,
-            location: recurringJobsResult.location,
-            contactName: recurringJobsResult.contact ? `${recurringJobsResult.contact.firstName ?? ''} ${recurringJobsResult.contact.lastName ?? ''}`.trim() || undefined : undefined,
-          }).catch((e) => console.error('Failed to send assignment notification:', e))
-        }
-
-        // Return the first job in the series
-        return recurringJobsResult
+        await prisma.booking.deleteMany({ where: { jobId: id } })
+        await prisma.job.delete({ where: { id } })
+        return recurringResult
       }
 
-      // If updateAll is true and this job is part of a recurrence, update all future jobs
-      if (payload.updateAll && existingJob.recurrenceId) {
-        console.log('🔁 Updating all future jobs in recurrence:', existingJob.recurrenceId)
-        // Calculate time delta if times are being changed
-        let timeDelta = 0
-        if (payload.startTime !== undefined && existingJob.startTime) {
-          const oldStartTime = new Date(existingJob.startTime)
-          const newStartTime = new Date(payload.startTime)
-          timeDelta = newStartTime.getTime() - oldStartTime.getTime()
-        }
-
-        // Get all future jobs in the series (including this one)
-        const futureJobs = await prisma.job.findMany({
+      // Update all future bookings in recurrence
+      if (payload.updateAll && primaryBooking?.recurrenceId) {
+        const futureBookings = await prisma.booking.findMany({
           where: {
-            recurrenceId: existingJob.recurrenceId,
+            recurrenceId: primaryBooking.recurrenceId,
             tenantId,
-            ...(existingJob.startTime
-              ? {
-                  startTime: {
-                    gte: existingJob.startTime,
-                  },
-                }
-              : {}),
+            ...(primaryBooking.startTime ? { startTime: { gte: primaryBooking.startTime } } : {}),
           },
         })
-
-        console.log(`📅 Found ${futureJobs.length} future jobs to update`)
-
-        // Update each job
-        const updatePromises = futureJobs.map(async job => {
-          const jobUpdateData: any = { ...updateData }
-
-          // If times are being changed, apply the time delta to all jobs
-          if (timeDelta !== 0 && job.startTime && job.endTime) {
-            const originalStart = new Date(job.startTime)
-            const originalEnd = new Date(job.endTime)
-            jobUpdateData.startTime = new Date(originalStart.getTime() + timeDelta)
-            jobUpdateData.endTime = new Date(originalEnd.getTime() + timeDelta)
-          }
-
-          return prisma.job.update({
-            where: { id: job.id },
-            data: jobUpdateData,
-          })
-        })
-
-        await Promise.all(updatePromises)
-
-        console.log('✅ All future jobs updated successfully')
-
-        const updatedJob = await prisma.job.findFirst({
-          where: { id },
-          include: { contact: true, service: true },
-        })
-        const assignedToName = await getAssignedToName(tenantId, updatedJob.assignedTo)
-        const newAssignedTo = updateData.assignedTo !== undefined ? updateData.assignedTo : existingJob.assignedTo
-        if (newAssignedTo && JSON.stringify(newAssignedTo) !== JSON.stringify(existingJob.assignedTo) && updatedJob) {
-          sendAssignmentNotification({
-            tenantId,
-            assignedTo: newAssignedTo,
-            assignerUserId: actingUserId,
-            jobTitle: updatedJob.title,
-            startTime: updatedJob.startTime,
-            endTime: updatedJob.endTime,
-            location: updatedJob.location,
-            contactName: updatedJob.contact ? `${updatedJob.contact.firstName ?? ''} ${updatedJob.contact.lastName ?? ''}`.trim() || undefined : undefined,
-          }).catch((e) => console.error('Failed to send assignment notification:', e))
+        let timeDelta = 0
+        if (payload.startTime !== undefined && primaryBooking.startTime) {
+          timeDelta = new Date(payload.startTime).getTime() - new Date(primaryBooking.startTime).getTime()
         }
-        return { ...updatedJob, assignedToName }
+        for (const b of futureBookings) {
+          const data: any = { ...bookingUpdateData }
+          if (timeDelta !== 0 && b.startTime && b.endTime) {
+            data.startTime = new Date(new Date(b.startTime).getTime() + timeDelta)
+            data.endTime = new Date(new Date(b.endTime).getTime() + timeDelta)
+          }
+          if (Object.keys(data).length > 0) {
+            await prisma.booking.update({ where: { id: b.id }, data })
+          }
+        }
+      } else if (primaryBooking) {
+        if (Object.keys(bookingUpdateData).length > 0) {
+          await prisma.booking.update({ where: { id: primaryBooking.id }, data: bookingUpdateData })
+        }
+      } else if (Object.keys(bookingUpdateData).length > 0) {
+        await prisma.booking.create({
+          data: {
+            tenantId,
+            jobId: id,
+            ...bookingUpdateData,
+            toBeScheduled: bookingUpdateData.toBeScheduled ?? true,
+            status: bookingUpdateData.status ?? 'active',
+          },
+        })
       }
 
-      console.log('📝 Updating single job only')
+      if (Object.keys(jobUpdateData).length > 0) {
+        await prisma.job.update({ where: { id }, data: jobUpdateData })
+      }
 
-      const updatedJob = await prisma.job.update({
+      const updated = await prisma.job.findFirst({
         where: { id },
-        data: updateData,
-        include: { contact: true, service: true },
+        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
       })
-      const assignedToName = await getAssignedToName(tenantId, updatedJob.assignedTo)
-      const newAssignedTo = updateData.assignedTo !== undefined ? updateData.assignedTo : existingJob.assignedTo
-      if (newAssignedTo && JSON.stringify(newAssignedTo) !== JSON.stringify(existingJob.assignedTo)) {
+      const b = updated!.bookings[0]
+      const assignedToName = await getAssignedToName(tenantId, updated!.assignedTo)
+      if (jobUpdateData.assignedTo && JSON.stringify(jobUpdateData.assignedTo) !== JSON.stringify(existingJob.assignedTo)) {
         sendAssignmentNotification({
           tenantId,
-          assignedTo: newAssignedTo,
-          assignerUserId: actingUserId,
-          jobTitle: updatedJob.title,
-          startTime: updatedJob.startTime,
-          endTime: updatedJob.endTime,
-          location: updatedJob.location,
-          contactName: updatedJob.contact ? `${updatedJob.contact.firstName ?? ''} ${updatedJob.contact.lastName ?? ''}`.trim() || undefined : undefined,
+          assignedTo: jobUpdateData.assignedTo,
+          assignerUserId: payload._actingUserId,
+          jobTitle: updated!.title,
+          startTime: b?.startTime ?? null,
+          endTime: b?.endTime ?? null,
+          location: updated!.location,
+          contactName: updated!.contact ? `${updated!.contact.firstName ?? ''} ${updated!.contact.lastName ?? ''}`.trim() || undefined : undefined,
         }).catch((e) => console.error('Failed to send assignment notification:', e))
       }
-      return { ...updatedJob, assignedToName }
+      return {
+        ...updated,
+        serviceId: b?.serviceId,
+        service: b?.service,
+        startTime: b?.startTime?.toISOString() ?? null,
+        endTime: b?.endTime?.toISOString() ?? null,
+        toBeScheduled: b?.toBeScheduled ?? false,
+        status: b?.status ?? updated!.status,
+        price: b?.price != null ? Number(b.price) : null,
+        assignedToName,
+      }
     },
     delete: async (tenantId: string, id: string, deleteAll?: boolean) => {
-      // Soft delete - archives the job
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
+        include: { bookings: true },
       })
-      if (!job) {
-        throw new ApiError('Job not found', 404)
-      }
+      if (!job) throw new ApiError('Job not found', 404)
 
       const now = new Date()
+      const primaryBooking = job.bookings[0]
 
-      if (deleteAll && job.recurrenceId) {
-        // Archive all jobs with the same recurrenceId
-        await prisma.job.updateMany({
-          where: {
-            recurrenceId: job.recurrenceId,
-            tenantId,
-          },
-          data: {
-            archivedAt: now,
-          },
+      if (deleteAll && primaryBooking?.recurrenceId) {
+        await prisma.booking.updateMany({
+          where: { recurrenceId: primaryBooking.recurrenceId, tenantId },
+          data: { archivedAt: now },
         })
       } else {
-        // Archive only this job
-        await prisma.job.update({
-          where: { id },
-          data: {
-            archivedAt: now,
-          },
+        await prisma.booking.updateMany({
+          where: { jobId: id },
+          data: { archivedAt: now },
         })
       }
-
       return { success: true }
     },
     permanentDelete: async (tenantId: string, id: string, deleteAll?: boolean) => {
-      // Permanent delete - removes from database and S3 archive (if exists)
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
+        include: { bookings: true },
       })
-      if (!job) {
-        throw new ApiError('Job not found', 404)
-      }
+      if (!job) throw new ApiError('Job not found', 404)
 
-      // If job was archived, delete from S3
-      if (job.archivedAt) {
+      const primaryBooking = job.bookings[0]
+      const hasArchived = job.bookings.some((b: any) => b.archivedAt)
+
+      if (hasArchived) {
         try {
           const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
           const s3 = new S3Client({})
-          const archiveKey = `archives/jobs/${tenantId}/${id}.json`
-
           await s3.send(
             new DeleteObjectCommand({
               Bucket: process.env.FILES_BUCKET!,
-              Key: archiveKey,
+              Key: `archives/jobs/${tenantId}/${id}.json`,
             })
           )
-
-          console.log(`Deleted archived job from S3: ${archiveKey}`)
         } catch (s3Error) {
           console.error('Failed to delete job from S3:', s3Error)
-          // Continue with DB deletion even if S3 deletion fails
         }
       }
 
-      if (deleteAll && job.recurrenceId) {
-        // Get all job IDs for S3 cleanup
-        const recurringJobs = await prisma.job.findMany({
-          where: {
-            recurrenceId: job.recurrenceId,
-            tenantId,
-          },
-          select: { id: true, archivedAt: true },
+      if (deleteAll && primaryBooking?.recurrenceId) {
+        const recurringBookings = await prisma.booking.findMany({
+          where: { recurrenceId: primaryBooking.recurrenceId, tenantId },
         })
-
-        // Delete archived jobs from S3
-        for (const recurringJob of recurringJobs) {
-          if (recurringJob.archivedAt) {
-            try {
-              const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
-              const s3 = new S3Client({})
-              const archiveKey = `archives/jobs/${tenantId}/${recurringJob.id}.json`
-
-              await s3.send(
-                new DeleteObjectCommand({
-                  Bucket: process.env.FILES_BUCKET!,
-                  Key: archiveKey,
-                })
-              )
-            } catch (s3Error) {
-              console.error(`Failed to delete job ${recurringJob.id} from S3:`, s3Error)
-            }
-          }
+        const jobIds = [...new Set(recurringBookings.map((b: any) => b.jobId))]
+        for (const jid of jobIds) {
+          try {
+            const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
+            const s3 = new S3Client({})
+            await s3.send(
+              new DeleteObjectCommand({
+                Bucket: process.env.FILES_BUCKET!,
+                Key: `archives/jobs/${tenantId}/${jid}.json`,
+              })
+            )
+          } catch (_) {}
         }
-
-        // Hard delete all jobs with the same recurrenceId
-        await prisma.job.deleteMany({
-          where: {
-            recurrenceId: job.recurrenceId,
-            tenantId,
-          },
-        })
+        for (const jid of jobIds) {
+          await prisma.job.delete({ where: { id: jid } })
+        }
       } else {
-        // Hard delete only this job
         await prisma.job.delete({ where: { id } })
       }
 
       return { success: true, permanent: true }
     },
     restore: async (tenantId: string, id: string) => {
-      // Restore an archived job
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
+        include: { bookings: true, contact: true },
       })
-      if (!job) {
-        throw new ApiError('Job not found', 404)
-      }
-      if (!job.archivedAt) {
-        throw new ApiError('Job is not archived', 400)
-      }
+      if (!job) throw new ApiError('Job not found', 404)
+      const hasArchived = job.bookings.some((b: any) => b.archivedAt)
+      if (!hasArchived) throw new ApiError('Job is not archived', 400)
 
-      return prisma.job.update({
-        where: { id },
-        data: {
-          archivedAt: null,
-        },
-        include: { contact: true, service: true },
+      await prisma.booking.updateMany({
+        where: { jobId: id },
+        data: { archivedAt: null },
       })
+      const b = job.bookings[0]
+      return {
+        ...job,
+        serviceId: b?.serviceId,
+        service: null,
+        startTime: b?.startTime?.toISOString() ?? null,
+        endTime: b?.endTime?.toISOString() ?? null,
+        archivedAt: null,
+      }
     },
     confirm: async (tenantId: string, id: string) => {
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
-        include: { contact: true, service: true },
+        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
       })
 
       if (!job) throw new Error('Job not found')
-      if (job.status !== 'pending-confirmation') {
+      const primaryBooking = job.bookings[0]
+      if (primaryBooking?.status !== 'pending-confirmation') {
         throw new Error('Only pending jobs can be confirmed')
       }
 
-      const updatedJob = await prisma.job.update({
+      if (primaryBooking) {
+        await prisma.booking.update({
+          where: { id: primaryBooking.id },
+          data: { status: 'active' },
+        })
+      }
+      const updatedJob = await prisma.job.findFirst({
         where: { id },
-        data: { status: 'scheduled' },
-        include: { contact: true, service: true },
+        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
       })
 
       // Send confirmation email to client
       try {
+        const b = primaryBooking ?? updatedJob!.bookings[0]
         if (job.contact.email) {
           console.log(`📧 Sending confirmation email to ${job.contact.email}`)
 
-          // Get tenant settings for company name and reply-to email
           const settings = await prisma.tenantSettings.findUnique({
             where: { tenantId },
           })
 
-          // Get timezone offset from service availability settings
-          const serviceAvailability = (job.service?.availability as any) || {}
+          const serviceAvailability = ((b as any)?.service?.availability as any) || {}
           const timezoneOffset = serviceAvailability?.timezoneOffset ?? -8
 
-          // Fetch logo URL if available (7 days expiration for email)
           let logoUrl: string | null = null
           if (settings?.logoUrl) {
             try {
               const { getFileUrl } = await import('./fileUpload')
-              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
             } catch (error) {
               console.error('Error fetching logo URL for email:', error)
             }
@@ -2499,10 +2444,10 @@ export const dataServices = {
 
           const emailPayload = buildClientBookingConfirmedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
-            serviceName: job.service?.name || 'Service',
-            startTime: job.startTime ? new Date(job.startTime) : new Date(),
-            endTime: job.endTime ? new Date(job.endTime) : new Date(),
-            location: job.location || undefined,
+            serviceName: (b as any)?.service?.name || 'Service',
+            startTime: b?.startTime ? new Date(b.startTime) : new Date(),
+            endTime: b?.endTime ? new Date(b.endTime) : new Date(),
+            location: (b?.location ?? job.location) || undefined,
             timezoneOffset,
             companyName,
             logoUrl,
@@ -2529,26 +2474,33 @@ export const dataServices = {
     decline: async (tenantId: string, id: string, reason?: string) => {
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
-        include: { contact: true, service: true },
+        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
       })
 
       if (!job) throw new Error('Job not found')
-      if (job.status !== 'pending-confirmation') {
+      const primaryBooking = (job as any).bookings?.[0]
+      if (primaryBooking?.status !== 'pending-confirmation') {
         throw new Error('Only pending jobs can be declined')
       }
 
-      const updatedJob = await prisma.job.update({
+      await prisma.booking.update({
+        where: { id: primaryBooking.id },
+        data: { status: 'cancelled' },
+      })
+      if (reason) {
+        await prisma.job.update({
+          where: { id },
+          data: { notes: `${job.notes ? job.notes + '\n' : ''}Declined: ${reason}` },
+        })
+      }
+
+      const updatedJob = await prisma.job.findFirst({
         where: { id },
-        data: {
-          status: 'cancelled',
-          notes: reason ? `${job.notes ? job.notes + '\n' : ''}Declined: ${reason}` : job.notes,
-        },
-        include: { contact: true, service: true },
+        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
       })
 
-      // Send declined email to client
       try {
-        if (job.contact.email) {
+        if (job.contact?.email) {
           console.log(`📧 Sending decline email to ${job.contact.email}`)
 
           // Get tenant settings for company name and reply-to email
@@ -2571,8 +2523,8 @@ export const dataServices = {
 
           const emailPayload = buildClientBookingDeclinedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
-            serviceName: job.service?.name || 'Service',
-            startTime: job.startTime ? new Date(job.startTime) : new Date(),
+            serviceName: (primaryBooking as any)?.service?.name || 'Service',
+            startTime: primaryBooking?.startTime ? new Date(primaryBooking.startTime) : new Date(),
             reason,
             companyName,
             logoUrl,
@@ -2594,7 +2546,15 @@ export const dataServices = {
         console.error('❌ Failed to send decline email:', emailError)
       }
 
-      return updatedJob
+      const b = (updatedJob as any)?.bookings?.[0]
+      return {
+        ...updatedJob,
+        serviceId: b?.serviceId,
+        service: (b as any)?.service,
+        startTime: b?.startTime?.toISOString() ?? null,
+        endTime: b?.endTime?.toISOString() ?? null,
+        status: 'cancelled',
+      }
     },
   },
   services: {
@@ -2724,12 +2684,12 @@ export const dataServices = {
       const rangeStart = startDate || now
       const rangeEnd = endDate || new Date(now.getTime() + advanceBookingDays * 24 * 60 * 60 * 1000)
 
-      // Fetch all relevant jobs in the range
-      // Include pending-confirmation to prevent double-booking before confirmation
-      const jobs = await prisma.job.findMany({
+      // Fetch all relevant bookings in the range
+      const bookings = await prisma.booking.findMany({
         where: {
           tenantId: actualTenantId,
-          status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+          serviceId: id,
+          status: { in: ['active', 'scheduled', 'in-progress', 'pending-confirmation'] },
           deletedAt: null,
           archivedAt: null,
           toBeScheduled: false,
@@ -2738,19 +2698,17 @@ export const dataServices = {
         },
       })
 
-      // Helper to convert HH:mm to minutes since midnight
       const timeToMinutes = (time: string): number => {
         const [hours, minutes] = time.split(':').map(Number)
         return hours * 60 + minutes
       }
 
-      // Helper to check if a slot overlaps with any jobs
       const countOverlappingJobs = (slotStart: Date, slotEnd: Date): number => {
-        return jobs.filter(job => {
-          if (!job.startTime || !job.endTime) return false
-          const jobStart = new Date(job.startTime)
-          const jobEnd = new Date(job.endTime)
-          return slotStart < jobEnd && slotEnd > jobStart
+        return bookings.filter(b => {
+          if (!b.startTime || !b.endTime) return false
+          const bStart = new Date(b.startTime)
+          const bEnd = new Date(b.endTime)
+          return slotStart < bEnd && slotEnd > bStart
         }).length
       }
 
@@ -2847,6 +2805,7 @@ export const dataServices = {
 
         const availability = service.availability as any
         const bookingSettings = service.bookingSettings as any
+        const maxBookingsPerSlot = (bookingSettings as any)?.maxBookingsPerSlot || 1
         const timezoneOffset = availability.timezoneOffset ?? -8 // Default to PST
         const startTime = new Date(payload.startTime)
         const endTime = new Date(startTime.getTime() + service.duration * 60 * 1000)
@@ -2947,7 +2906,7 @@ export const dataServices = {
         // 5. Create job(s)
         // Set status based on whether confirmation is required
         const requireConfirmation = bookingSettings?.requireConfirmation ?? false
-        const initialStatus = requireConfirmation ? 'pending-confirmation' : 'scheduled'
+        const initialStatus = requireConfirmation ? 'pending-confirmation' : 'active'
 
         let job: any
 
@@ -2987,10 +2946,10 @@ export const dataServices = {
           const conflicts: Array<{ date: string; time: string }> = []
 
           for (const instance of instances) {
-            const overlappingJobs = await tx.job.count({
+            const overlappingBookings = await tx.booking.count({
               where: {
                 tenantId: actualTenantId,
-                status: { in: ['scheduled', 'in-progress', 'pending-confirmation'] },
+                status: { in: ['active', 'scheduled', 'in-progress', 'pending-confirmation'] },
                 deletedAt: null,
                 archivedAt: null,
                 toBeScheduled: false,
@@ -2999,7 +2958,7 @@ export const dataServices = {
               },
             })
 
-            if (overlappingJobs >= maxBookingsPerSlot) {
+            if (overlappingBookings >= maxBookingsPerSlot) {
               conflicts.push({
                 date: instance.startTime.toISOString().split('T')[0],
                 time: instance.startTime.toLocaleTimeString('en-US', {
@@ -3023,63 +2982,90 @@ export const dataServices = {
             )
           }
 
-          // Create all job instances
-          // Map contact address to job location if provided
           const jobLocation = payload.location || contactData.address || undefined
 
-          const jobs = await Promise.all(
+          const createdJob = await tx.job.create({
+            data: {
+              tenantId: actualTenantId,
+              title,
+              contactId: contact.id,
+              status: 'active',
+              location: jobLocation,
+              notes: payload.notes,
+            },
+            include: { contact: true },
+          })
+
+          const bookings = await Promise.all(
             instances.map(instance =>
-              tx.job.create({
+              tx.booking.create({
                 data: {
                   tenantId: actualTenantId,
-                  title,
-                  contactId: contact.id,
+                  jobId: createdJob.id,
                   serviceId: service.id,
                   recurrenceId: jobRecurrence.id,
                   startTime: instance.startTime,
                   endTime: instance.endTime,
+                  toBeScheduled: false,
                   status: initialStatus,
                   location: jobLocation,
                   notes: payload.notes,
-                  breaks: undefined, // Recurring jobs don't have breaks initially
                 },
-                include: {
-                  contact: true,
-                  service: true,
-                },
+                include: { service: true },
               })
             )
           )
 
-          // Use the first job for email notifications
           job = {
-            ...jobs[0],
+            ...createdJob,
+            ...bookings[0],
+            serviceId: service.id,
+            service,
+            startTime: bookings[0].startTime,
+            endTime: bookings[0].endTime,
+            status: initialStatus,
             recurrenceId: jobRecurrence.id,
-            occurrenceCount: jobs.length,
+            occurrenceCount: bookings.length,
           }
         } else {
-          // Single job creation (existing logic)
-          // Map contact address to job location if provided
           const jobLocation = payload.location || contactData.address || undefined
 
-          job = await tx.job.create({
+          const createdJob = await tx.job.create({
             data: {
               tenantId: actualTenantId,
               title: `${service.name} with ${contact.firstName} ${contact.lastName}`.trim(),
               contactId: contact.id,
+              status: 'active',
+              location: jobLocation,
+              notes: payload.notes,
+            },
+            include: { contact: true },
+          })
+
+          const booking = await tx.booking.create({
+            data: {
+              tenantId: actualTenantId,
+              jobId: createdJob.id,
               serviceId: service.id,
               startTime,
               endTime,
+              toBeScheduled: false,
               status: initialStatus,
               location: jobLocation,
               notes: payload.notes,
-              breaks: undefined, // Public booking jobs don't have breaks initially
             },
-            include: {
-              contact: true,
-              service: true,
-            },
+            include: { service: true },
           })
+
+          job = {
+            ...createdJob,
+            ...booking,
+            serviceId: service.id,
+            service,
+            startTime,
+            endTime,
+            status: initialStatus,
+          }
         }
 
         // 6. Send notification emails (after transaction commits)
@@ -3553,44 +3539,39 @@ export const dataServices = {
       currentUserRole?: string
     ) => {
       await ensureTenantExists(tenantId)
-      const logs = await prisma.jobLog.findMany({
+      const jobs = await prisma.job.findMany({
         where: { tenantId },
         include: {
-          job: { include: { createdBy: { select: { name: true } } } },
           contact: true,
+          createdBy: { select: { name: true } },
+          bookings: { include: { service: true }, orderBy: { startTime: 'asc' } },
           timeEntries: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
+            include: { user: { select: { id: true, name: true } } },
+            orderBy: { startTime: 'desc' },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
       })
-      const logIds = logs.map((l) => l.id)
+      const jobIds = jobs.map((j) => j.id)
       const documents = await prisma.document.findMany({
-        where: { tenantId, entityType: 'job_log', entityId: { in: logIds } },
+        where: { tenantId, entityType: 'job', entityId: { in: jobIds } },
       })
-      const photosByLogId = new Map<string, typeof documents>()
+      const photosByJobId = new Map<string, typeof documents>()
       for (const doc of documents) {
-        const list = photosByLogId.get(doc.entityId) ?? []
+        const list = photosByJobId.get(doc.entityId) ?? []
         list.push(doc)
-        photosByLogId.set(doc.entityId, list)
+        photosByJobId.set(doc.entityId, list)
       }
       const apiBase = (process.env.API_BASE_URL || '').replace(/\/$/, '')
       return Promise.all(
-        logs.map(async (log) => {
-          const docs = photosByLogId.get(log.id) ?? []
+        jobs.map(async (job) => {
+          const docs = photosByJobId.get(job.id) ?? []
           const photos = apiBase
             ? docs.map((doc) => ({
                 id: doc.id,
                 fileName: doc.fileName,
                 fileKey: doc.fileKey,
-                url: `${apiBase}/job-logs/${log.id}/photo-file?photoId=${doc.id}&token=${createPhotoToken(doc.id, log.id)}`,
+                url: `${apiBase}/job-logs/${job.id}/photo-file?photoId=${doc.id}&token=${createPhotoToken(doc.id, job.id)}`,
                 notes: doc.notes ?? null,
                 markup: doc.markup ?? null,
                 createdAt: doc.createdAt.toISOString(),
@@ -3606,37 +3587,44 @@ export const dataServices = {
                   createdAt: doc.createdAt.toISOString(),
                 }))
               )
-          const assignedToName = await getAssignedToName(tenantId, log.assignedTo)
-          const assignedToWithPrivacy = getAssignedToWithPrivacy(
-            log.assignedTo,
-            currentUserId,
-            currentUserRole
-          )
+          const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+          const assignedToWithPrivacy = getAssignedToWithPrivacy(job.assignedTo, currentUserId, currentUserRole)
+          const primaryBooking = job.bookings[0]
           return {
-            ...log,
+            ...job,
             assignedToName,
-            assignedTo: assignedToWithPrivacy || log.assignedTo,
-            job: log.job
+            assignedTo: assignedToWithPrivacy || job.assignedTo,
+            // Flatten primary booking fields for Jobs page parity with calendar jobs
+            startTime: primaryBooking?.startTime?.toISOString() ?? null,
+            endTime: primaryBooking?.endTime?.toISOString() ?? null,
+            toBeScheduled: primaryBooking?.toBeScheduled ?? false,
+            bookingStatus: primaryBooking?.status ?? null,
+            serviceName: primaryBooking?.service?.name ?? null,
+            price: primaryBooking?.price != null ? Number(primaryBooking.price) : null,
+            job: primaryBooking
               ? {
-                  id: log.job.id,
-                  title: log.job.title,
-                  startTime: log.job.startTime?.toISOString(),
-                  endTime: log.job.endTime?.toISOString(),
-                  status: log.job.status,
-                  createdByName: (log.job as any).createdBy?.name,
+                  id: job.id,
+                  title: job.title,
+                  startTime: primaryBooking.startTime?.toISOString(),
+                  endTime: primaryBooking.endTime?.toISOString(),
+                  status: primaryBooking.status,
+                  createdByName: (job.createdBy as any)?.name,
+                  serviceName: primaryBooking.service?.name ?? null,
+                  price: primaryBooking.price != null ? Number(primaryBooking.price) : null,
+                  toBeScheduled: primaryBooking.toBeScheduled ?? false,
                 }
+              : { id: job.id, title: job.title, startTime: undefined, endTime: undefined, status: job.status, createdByName: (job.createdBy as any)?.name },
+            contact: job.contact
+              ? { id: job.contact.id, name: `${job.contact.firstName} ${job.contact.lastName}`.trim(), email: job.contact.email }
               : null,
-            contact: log.contact
-              ? { id: log.contact.id, name: `${log.contact.firstName} ${log.contact.lastName}`.trim(), email: log.contact.email }
-              : null,
-            timeEntries: log.timeEntries.map((te) => ({
+            timeEntries: job.timeEntries.map((te: any) => ({
               id: te.id,
               startTime: te.startTime.toISOString(),
               endTime: te.endTime.toISOString(),
               breakMinutes: te.breakMinutes,
               notes: te.notes,
-              userId: (te as any).userId ?? undefined,
-              userName: (te as any).user?.name ?? undefined,
+              userId: te.userId ?? undefined,
+              userName: te.user?.name ?? undefined,
             })),
             photos,
           }
@@ -3650,35 +3638,23 @@ export const dataServices = {
       currentUserRole?: string
     ) => {
       await ensureTenantExists(tenantId)
-      const jobLog = await prisma.jobLog.findFirst({
+      const job = await prisma.job.findFirst({
         where: { id, tenantId },
         include: {
-          job: { include: { createdBy: { select: { name: true } } } },
           contact: true,
+          createdBy: { select: { name: true } },
+          bookings: { include: { service: true }, orderBy: { startTime: 'asc' } },
           timeEntries: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
+            include: { user: { select: { id: true, name: true } } },
+            orderBy: { startTime: 'desc' },
           },
         },
       })
-      if (!jobLog) {
-        throw new ApiError('Job log not found', 404)
-      }
-      const assignedToName = await getAssignedToName(tenantId, jobLog.assignedTo)
-      const assignedToWithPrivacy = getAssignedToWithPrivacy(
-        jobLog.assignedTo,
-        currentUserId,
-        currentUserRole
-      )
-      // Fetch photos (Documents) from DB and add URLs (proxy preferred to avoid S3 ERR_CONNECTION_RESET)
+      if (!job) throw new ApiError('Job not found', 404)
+      const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+      const assignedToWithPrivacy = getAssignedToWithPrivacy(job.assignedTo, currentUserId, currentUserRole)
       const documents = await prisma.document.findMany({
-        where: { tenantId, entityType: 'job_log', entityId: id },
+        where: { tenantId, entityType: 'job', entityId: id },
       })
       const apiBase = (process.env.API_BASE_URL || '').replace(/\/$/, '')
       const photos = apiBase
@@ -3702,30 +3678,41 @@ export const dataServices = {
               createdAt: doc.createdAt.toISOString(),
             }))
           )
+      const primaryBooking = job.bookings[0]
       return {
-        ...jobLog,
+        ...job,
         assignedToName,
-        assignedTo: assignedToWithPrivacy || jobLog.assignedTo,
-        job: jobLog.job
+        assignedTo: assignedToWithPrivacy || job.assignedTo,
+        // Flatten primary booking fields for Jobs page parity with calendar jobs
+        startTime: primaryBooking?.startTime?.toISOString() ?? null,
+        endTime: primaryBooking?.endTime?.toISOString() ?? null,
+        toBeScheduled: primaryBooking?.toBeScheduled ?? false,
+        bookingStatus: primaryBooking?.status ?? null,
+        serviceName: primaryBooking?.service?.name ?? null,
+        price: primaryBooking?.price != null ? Number(primaryBooking.price) : null,
+        job: primaryBooking
           ? {
-              id: jobLog.job.id,
-              title: jobLog.job.title,
-              startTime: jobLog.job.startTime?.toISOString(),
-              endTime: jobLog.job.endTime?.toISOString(),
-              status: jobLog.job.status,
-              createdByName: (jobLog.job as any).createdBy?.name,
+              id: job.id,
+              title: job.title,
+              startTime: primaryBooking.startTime?.toISOString(),
+              endTime: primaryBooking.endTime?.toISOString(),
+              status: primaryBooking.status,
+              createdByName: (job.createdBy as any)?.name,
+              serviceName: primaryBooking.service?.name ?? null,
+              price: primaryBooking.price != null ? Number(primaryBooking.price) : null,
+              toBeScheduled: primaryBooking.toBeScheduled ?? false,
+            }
+          : { id: job.id, title: job.title, startTime: undefined, endTime: undefined, status: job.status, createdByName: (job.createdBy as any)?.name },
+        contact: job.contact
+          ? {
+              id: job.contact.id,
+              firstName: job.contact.firstName,
+              lastName: job.contact.lastName,
+              email: job.contact.email,
+              name: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             }
           : null,
-        contact: jobLog.contact
-          ? {
-              id: jobLog.contact.id,
-              firstName: jobLog.contact.firstName,
-              lastName: jobLog.contact.lastName,
-              email: jobLog.contact.email,
-              name: `${jobLog.contact.firstName} ${jobLog.contact.lastName}`.trim(),
-            }
-          : null,
-        timeEntries: jobLog.timeEntries.map((te) => ({
+        timeEntries: job.timeEntries.map((te: any) => ({
           id: te.id,
           startTime: te.startTime.toISOString(),
           endTime: te.endTime.toISOString(),
@@ -3733,50 +3720,85 @@ export const dataServices = {
           notes: te.notes,
           createdAt: te.createdAt.toISOString(),
           updatedAt: te.updatedAt.toISOString(),
-          userId: (te as any).userId ?? undefined,
-          userName: (te as any).user?.name ?? undefined,
+          userId: te.userId ?? undefined,
+          userName: te.user?.name ?? undefined,
         })),
         photos,
+        bookings: job.bookings.map((b: any) => ({
+          id: b.id,
+          startTime: b.startTime?.toISOString() ?? null,
+          endTime: b.endTime?.toISOString() ?? null,
+          status: b.status,
+          toBeScheduled: b.toBeScheduled ?? false,
+          service: b.service ? { name: b.service.name } : null,
+          price: b.price != null ? Number(b.price) : null,
+        })),
       }
     },
     create: async (tenantId: string, payload: any) => {
       await ensureTenantExists(tenantId)
-      const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
-      if (normalizedAssignedTo) {
-        await validateAssignedTo(tenantId, normalizedAssignedTo)
+      const normalizePrice = (v: any): number | null => {
+        if (v === null || v === undefined || v === '') return null
+        if (typeof v === 'number') return isNaN(v) ? null : v
+        if (typeof v === 'string') {
+          const n = parseFloat(v)
+          return isNaN(n) ? null : n
+        }
+        return null
       }
-      const jobId = payload.jobId && payload.jobId.trim() ? payload.jobId : null
+      const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
+      if (normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
       const contactId = payload.contactId && payload.contactId.trim() ? payload.contactId : null
-      const created = await prisma.jobLog.create({
+      if (!contactId) throw new ApiError('contactId is required', 400)
+      const created = await prisma.job.create({
         data: {
           tenantId,
           title: payload.title,
           description: payload.description ?? null,
+          contactId,
           location: payload.location ?? null,
           notes: payload.notes ?? null,
-          jobId,
-          contactId,
-          assignedTo: normalizedAssignedTo,
+          assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
           status: payload.status ?? 'active',
         },
-        include: { job: true, contact: true, timeEntries: true },
+        include: { contact: true, bookings: true, timeEntries: true },
       })
+
+      // Ensure Jobs-page-created jobs have a primary (unscheduled) booking so
+      // calendar/job detail screens can display price/service consistently.
+      const createdBooking = await prisma.booking.create({
+        data: {
+          tenantId,
+          jobId: created.id,
+          startTime: null,
+          endTime: null,
+          toBeScheduled: true,
+          status: 'active',
+          location: created.location ?? null,
+          price: normalizePrice(payload.price),
+          serviceId: payload.serviceId ?? null,
+          notes: created.notes ?? null,
+          assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+          createdById: payload.createdById ?? payload._actingUserId ?? null,
+        },
+        include: { service: true },
+      })
+
       if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
-        const job = created.job
-        const contact = created.contact
+        const b = createdBooking
+        const createdWithContact = created as { contact?: { firstName?: string; lastName?: string } }
         sendAssignmentNotification({
           tenantId,
           assignedTo: normalizedAssignedTo,
           assignerUserId: payload._actingUserId,
           jobTitle: created.title,
-          startTime: job?.startTime ?? null,
-          endTime: job?.endTime ?? null,
-          location: created.location ?? job?.location ?? undefined,
-          contactName: contact ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || undefined : undefined,
+          startTime: b?.startTime ?? null,
+          endTime: b?.endTime ?? null,
+          location: created.location ?? undefined,
+          contactName: createdWithContact.contact ? `${createdWithContact.contact.firstName ?? ''} ${createdWithContact.contact.lastName ?? ''}`.trim() || undefined : undefined,
           viewPath: '/app/job-logs',
-        }).catch((e) => console.error('Failed to send job log assignment notification:', e))
+        }).catch((e) => console.error('Failed to send job assignment notification:', e))
       }
-      // Fetch assigned users separately - extract userIds from assignment objects
       const assignedUserIds = extractUserIds(created.assignedTo)
       const assignedUsers = assignedUserIds.length > 0
         ? await prisma.user.findMany({
@@ -3785,53 +3807,111 @@ export const dataServices = {
           })
         : []
       const assignedToNames = assignedUsers.map(u => u.name).filter(Boolean).join(', ')
-      return { ...created, assignedToName: assignedToNames || undefined, assignedToUsers: assignedUsers }
+      return {
+        ...created,
+        // flattened primary booking fields for Jobs page
+        startTime: createdBooking.startTime?.toISOString() ?? null,
+        endTime: createdBooking.endTime?.toISOString() ?? null,
+        toBeScheduled: createdBooking.toBeScheduled ?? false,
+        bookingStatus: createdBooking.status,
+        serviceName: createdBooking.service?.name ?? null,
+        price: createdBooking.price != null ? Number(createdBooking.price) : null,
+        bookings: [
+          {
+            id: createdBooking.id,
+            startTime: createdBooking.startTime?.toISOString() ?? null,
+            endTime: createdBooking.endTime?.toISOString() ?? null,
+            status: createdBooking.status,
+            toBeScheduled: createdBooking.toBeScheduled ?? false,
+            service: createdBooking.service ? { name: createdBooking.service.name } : null,
+            price: createdBooking.price != null ? Number(createdBooking.price) : null,
+          },
+        ],
+        assignedToName: assignedToNames || undefined,
+        assignedToUsers: assignedUsers,
+      }
     },
     update: async (tenantId: string, id: string, payload: any) => {
       await ensureTenantExists(tenantId)
-      const existing = await prisma.jobLog.findFirst({
-        where: { id, tenantId },
-      })
-      if (!existing) {
-        throw new ApiError('Job log not found', 404)
+      const normalizePrice = (v: any): number | null => {
+        if (v === null || v === undefined || v === '') return null
+        if (typeof v === 'number') return isNaN(v) ? null : v
+        if (typeof v === 'string') {
+          const n = parseFloat(v)
+          return isNaN(n) ? null : n
+        }
+        return null
       }
-      const jobId = payload.jobId !== undefined ? (payload.jobId && payload.jobId.trim() ? payload.jobId : null) : undefined
+      const existing = await prisma.job.findFirst({
+        where: { id, tenantId },
+        include: { bookings: { orderBy: { startTime: 'asc' } } },
+      })
+      if (!existing) throw new ApiError('Job not found', 404)
       const contactId = payload.contactId !== undefined ? (payload.contactId && payload.contactId.trim() ? payload.contactId : null) : undefined
       const normalizedAssignedTo = payload.assignedTo !== undefined ? normalizeAssignedTo(payload.assignedTo) : undefined
-      if (normalizedAssignedTo !== undefined && normalizedAssignedTo) {
-        await validateAssignedTo(tenantId, normalizedAssignedTo)
+      if (normalizedAssignedTo !== undefined && normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
+
+      // Update primary booking fields (price/service) when provided
+      const primaryBooking = existing.bookings[0]
+      if (payload.price !== undefined || payload.serviceId !== undefined) {
+        const bookingData: any = {}
+        if (payload.price !== undefined) {
+          bookingData.price = normalizePrice(payload.price)
+        }
+        if (payload.serviceId !== undefined) {
+          bookingData.serviceId = payload.serviceId || null
+        }
+        if (Object.keys(bookingData).length > 0) {
+          if (primaryBooking) {
+            await prisma.booking.update({ where: { id: primaryBooking.id }, data: bookingData })
+          } else {
+            await prisma.booking.create({
+              data: {
+                tenantId,
+                jobId: id,
+                startTime: null,
+                endTime: null,
+                toBeScheduled: true,
+                status: 'active',
+                location: existing.location ?? null,
+                notes: existing.notes ?? null,
+                assignedTo: (normalizedAssignedTo ?? existing.assignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+                createdById: payload.createdById ?? payload._actingUserId ?? null,
+                ...bookingData,
+              },
+            })
+          }
+        }
       }
-      const updated = await prisma.jobLog.update({
+
+      const updated = await prisma.job.update({
         where: { id },
         data: {
           title: payload.title,
           description: payload.description ?? undefined,
           location: payload.location ?? undefined,
           notes: payload.notes ?? undefined,
-          jobId,
           contactId,
-          assignedTo: normalizedAssignedTo,
+          assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
           status: payload.status ?? undefined,
         },
-        include: { job: true, contact: true, timeEntries: true },
+        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } }, timeEntries: true },
       })
       const newAssignedTo = normalizedAssignedTo !== undefined ? normalizedAssignedTo : (existing.assignedTo as string[] | null)
       if (newAssignedTo && JSON.stringify(newAssignedTo) !== JSON.stringify(existing.assignedTo)) {
-        const job = updated.job
-        const contact = updated.contact
+        const b = (updated as { bookings: Array<{ startTime?: Date; endTime?: Date }> }).bookings[0]
         sendAssignmentNotification({
           tenantId,
           assignedTo: newAssignedTo,
           assignerUserId: payload._actingUserId,
           jobTitle: updated.title,
-          startTime: job?.startTime ?? null,
-          endTime: job?.endTime ?? null,
-          location: updated.location ?? job?.location ?? undefined,
-          contactName: contact ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || undefined : undefined,
+          startTime: b?.startTime ?? null,
+          endTime: b?.endTime ?? null,
+          location: updated.location ?? undefined,
+          contactName: (() => { const c = (updated as { contact?: { firstName?: string; lastName?: string } }).contact; return c ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || undefined : undefined })(),
           viewPath: '/app/job-logs',
-        }).catch((e) => console.error('Failed to send job log assignment notification:', e))
+        }).catch((e) => console.error('Failed to send job assignment notification:', e))
       }
-      // Fetch assigned users separately - extract userIds from assignment objects
       const assignedUserIds = extractUserIds(updated.assignedTo)
       const assignedUsers = assignedUserIds.length > 0
         ? await prisma.user.findMany({
@@ -3840,19 +3920,39 @@ export const dataServices = {
           })
         : []
       const assignedToNames = assignedUsers.map(u => u.name).filter(Boolean).join(', ')
-      return { ...updated, assignedToName: assignedToNames || undefined, assignedToUsers: assignedUsers }
+      const updatedPrimary = (updated as any).bookings?.[0]
+      return {
+        ...updated,
+        // flattened primary booking fields for Jobs page parity with calendar jobs
+        startTime: updatedPrimary?.startTime ? new Date(updatedPrimary.startTime).toISOString() : null,
+        endTime: updatedPrimary?.endTime ? new Date(updatedPrimary.endTime).toISOString() : null,
+        toBeScheduled: updatedPrimary?.toBeScheduled ?? false,
+        bookingStatus: updatedPrimary?.status ?? null,
+        serviceName: updatedPrimary?.service?.name ?? null,
+        price: updatedPrimary?.price != null ? Number(updatedPrimary.price) : null,
+        bookings: Array.isArray((updated as any).bookings)
+          ? (updated as any).bookings.map((b: any) => ({
+              id: b.id,
+              startTime: b.startTime?.toISOString?.() ?? (b.startTime ? new Date(b.startTime).toISOString() : null),
+              endTime: b.endTime?.toISOString?.() ?? (b.endTime ? new Date(b.endTime).toISOString() : null),
+              status: b.status,
+              toBeScheduled: b.toBeScheduled ?? false,
+              service: b.service ? { name: b.service.name } : null,
+              price: b.price != null ? Number(b.price) : null,
+            }))
+          : undefined,
+        assignedToName: assignedToNames || undefined,
+        assignedToUsers: assignedUsers,
+      }
     },
     delete: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)
-      const existing = await prisma.jobLog.findFirst({
+      const existing = await prisma.job.findFirst({
         where: { id, tenantId },
       })
-      if (!existing) {
-        throw new ApiError('Job log not found', 404)
-      }
-      // Delete documents (photos) for this job log
+      if (!existing) throw new ApiError('Job not found', 404)
       const documents = await prisma.document.findMany({
-        where: { tenantId, entityType: 'job_log', entityId: id },
+        where: { tenantId, entityType: 'job', entityId: id },
       })
       for (const doc of documents) {
         try {
@@ -3862,30 +3962,28 @@ export const dataServices = {
         }
       }
       await prisma.document.deleteMany({
-        where: { tenantId, entityType: 'job_log', entityId: id },
+        where: { tenantId, entityType: 'job', entityId: id },
       })
-      await prisma.jobLog.delete({ where: { id } })
+      await prisma.job.delete({ where: { id } })
       return { success: true }
     },
     getUploadUrl: async (
       tenantId: string,
-      jobLogId: string,
+      jobId: string,
       payload: { filename: string; contentType: string }
     ) => {
       await ensureTenantExists(tenantId)
-      const jobLog = await prisma.jobLog.findFirst({
-        where: { id: jobLogId, tenantId },
+      const job = await prisma.job.findFirst({
+        where: { id: jobId, tenantId },
       })
-      if (!jobLog) {
-        throw new ApiError('Job log not found', 404)
-      }
+      if (!job) throw new ApiError('Job not found', 404)
       const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
       if (!allowedTypes.includes(payload.contentType)) {
         throw new ApiError('Invalid file type. Only PNG, JPEG, JPG, and WebP are allowed.', 400)
       }
       const { randomUUID } = await import('crypto')
       const ext = payload.filename.split('.').pop()
-      const key = `job_logs/${tenantId}/${jobLogId}/${randomUUID()}.${ext}`
+      const key = `jobs/${tenantId}/${jobId}/${randomUUID()}.${ext}`
       const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
       const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner')
       const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
@@ -3903,16 +4001,14 @@ export const dataServices = {
     },
     confirmUpload: async (
       tenantId: string,
-      jobLogId: string,
+      jobId: string,
       payload: { key: string; fileName: string; fileSize: number; mimeType: string; uploadedBy: string }
     ) => {
       await ensureTenantExists(tenantId)
-      const jobLog = await prisma.jobLog.findFirst({
-        where: { id: jobLogId, tenantId },
+      const job = await prisma.job.findFirst({
+        where: { id: jobId, tenantId },
       })
-      if (!jobLog) {
-        throw new ApiError('Job log not found', 404)
-      }
+      if (!job) throw new ApiError('Job not found', 404)
       const user = await prisma.user.findFirst({
         where: { tenantId },
         select: { id: true },
@@ -3924,8 +4020,8 @@ export const dataServices = {
           fileKey: payload.key,
           fileSize: payload.fileSize,
           mimeType: payload.mimeType,
-          entityType: 'job_log',
-          entityId: jobLogId,
+          entityType: 'job',
+          entityId: jobId,
           uploadedBy: (payload.uploadedBy || user?.id) ?? 'system',
         },
       })
@@ -3933,7 +4029,7 @@ export const dataServices = {
     },
     updatePhoto: async (
       tenantId: string,
-      jobLogId: string,
+      jobId: string,
       payload: { photoId: string; notes?: string; markup?: object }
     ) => {
       await ensureTenantExists(tenantId)
@@ -3941,8 +4037,8 @@ export const dataServices = {
         where: {
           id: payload.photoId,
           tenantId,
-          entityType: 'job_log',
-          entityId: jobLogId,
+          entityType: 'job',
+          entityId: jobId,
         },
       })
       if (!doc) {
@@ -3957,29 +4053,24 @@ export const dataServices = {
       })
       return { success: true }
     },
-    deletePhoto: async (tenantId: string, jobLogId: string, photoId: string) => {
+    deletePhoto: async (tenantId: string, jobId: string, photoId: string) => {
       await ensureTenantExists(tenantId)
       const doc = await prisma.document.findFirst({
         where: {
           id: photoId,
           tenantId,
-          entityType: 'job_log',
-          entityId: jobLogId,
+          entityType: 'job',
+          entityId: jobId,
         },
       })
-      if (!doc) {
-        throw new ApiError('Photo not found', 404)
-      }
-      // Always delete the DB record scoped to tenant + entity.
-      // Using deleteMany is more robust than delete(where: {id}) if the schema ever changes
-      // or if ids are not globally unique in some environments.
+      if (!doc) throw new ApiError('Photo not found', 404)
       const deleteResult = await prisma.$transaction(async (tx) => {
         const res = await tx.document.deleteMany({
           where: {
             id: photoId,
             tenantId,
-            entityType: 'job_log',
-            entityId: jobLogId,
+            entityType: 'job',
+            entityId: jobId,
           },
         })
         return res
@@ -4003,14 +4094,14 @@ export const dataServices = {
   'time-entries': {
     getAll: async (
       tenantId: string,
-      jobLogId?: string,
+      jobId?: string,
       currentUserId?: string,
       currentUserRole?: string
     ) => {
       await ensureTenantExists(tenantId)
       const where: any = { tenantId }
-      if (jobLogId) {
-        where.jobLogId = jobLogId
+      if (jobId) {
+        where.jobId = jobId
       }
       // Filter by userId for employees
       if (currentUserRole === 'employee' && currentUserId) {
@@ -4067,12 +4158,10 @@ export const dataServices = {
       currentUserRole?: string
     ) => {
       await ensureTenantExists(tenantId)
-      const jobLog = await prisma.jobLog.findFirst({
+      const job = await prisma.job.findFirst({
         where: { id: payload.jobLogId, tenantId },
       })
-      if (!jobLog) {
-        throw new ApiError('Job log not found', 404)
-      }
+      if (!job) throw new ApiError('Job not found', 404)
       // Determine userId: use payload.userId if provided, otherwise use currentUserId
       let userId = payload.userId ?? currentUserId ?? null
       // For employees, enforce that they can only create entries for themselves
@@ -4091,7 +4180,7 @@ export const dataServices = {
       const created = await prisma.timeEntry.create({
         data: {
           tenantId,
-          jobLogId: payload.jobLogId,
+          jobId: payload.jobLogId,
           userId,
           startTime: new Date(payload.startTime),
           endTime: new Date(payload.endTime),

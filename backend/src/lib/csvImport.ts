@@ -73,11 +73,10 @@ const importSessions = new Map<string, ImportSession>()
  */
 export function parseCSVPreview(csvContent: string): CSVPreview {
   console.log('[parseCSVPreview] Starting, content length:', csvContent?.length)
-  const parsed = Papa.parse(csvContent, {
+  const parsed = Papa.parse<Record<string, string>>(csvContent, {
     header: true,
     skipEmptyLines: 'greedy', // Skip lines with all empty values
     transformHeader: (header) => header.trim(),
-    newline: '', // Auto-detect line endings
     quoteChar: '"',
     escapeChar: '"',
   })
@@ -87,7 +86,7 @@ export function parseCSVPreview(csvContent: string): CSVPreview {
   if (parsed.errors.length > 0) {
     console.error('[parseCSVPreview] Parse errors:', parsed.errors)
     // Only throw if it's a critical error, not just warnings
-    const criticalErrors = parsed.errors.filter(e => e.type === 'Quotes' || e.type === 'FieldMismatch')
+    const criticalErrors = parsed.errors.filter((e: { type?: string }) => e.type === 'Quotes' || e.type === 'FieldMismatch')
     if (criticalErrors.length > 0) {
       throw new Error(`CSV parsing error: ${criticalErrors[0].message}`)
     }
@@ -236,11 +235,10 @@ export async function processImportSession(
   session.status = 'processing'
 
   const csvContent = Buffer.from(session.csvData, 'base64').toString('utf-8')
-  const parsed = Papa.parse(csvContent, {
+  const parsed = Papa.parse<Record<string, string>>(csvContent, {
     header: true,
     skipEmptyLines: 'greedy',
     transformHeader: (header) => header.trim(),
-    newline: '',
     quoteChar: '"',
     escapeChar: '"',
   })

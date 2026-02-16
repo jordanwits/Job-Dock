@@ -161,8 +161,8 @@ const QuoteDetail = ({
         onClose={onClose}
         title={
           quote.contactName && quote.title
-            ? `${quote.quoteNumber} — ${quote.contactName} ${quote.title}`
-            : quote.quoteNumber
+            ? `${quote.contactName} ${quote.title}`
+            : quote.contactName || quote.title || quote.quoteNumber
         }
         size="lg"
         footer={

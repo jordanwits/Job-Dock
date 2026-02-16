@@ -63,6 +63,7 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
   const displayPrice = getDisplayPrice()
 
   const statusColors = {
+    active: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
     scheduled: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
     'in-progress': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     completed: 'bg-green-500/20 text-green-400 border-green-500/30',
@@ -71,6 +72,7 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
   }
 
   const statusLabels = {
+    active: 'Active',
     scheduled: 'Scheduled',
     'in-progress': 'In Progress',
     completed: 'Completed',

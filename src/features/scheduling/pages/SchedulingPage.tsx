@@ -4,7 +4,6 @@ import { useJobStore } from '../store/jobStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useAuthStore } from '@/features/auth'
 import Calendar from '../components/Calendar'
-import JobList from '../components/JobList'
 import JobForm from '../components/JobForm'
 import JobDetail from '../components/JobDetail'
 import ServiceList from '../components/ServiceList'
@@ -93,11 +92,13 @@ const SchedulingPage = () => {
   // Initialize activeTab from URL query parameter or default to 'calendar'
   const tabParam = searchParams.get('tab')
   const initialTab =
-    tabParam === 'jobs' || tabParam === 'services' || tabParam === 'calendar'
+    tabParam === 'services' || tabParam === 'calendar'
       ? tabParam
-      : 'calendar'
-  const [activeTab, setActiveTab] = useState<'calendar' | 'jobs' | 'services' | 'archived'>(
-    initialTab as 'calendar' | 'jobs' | 'services' | 'archived'
+      : tabParam === 'jobs'
+        ? 'calendar' // Jobs tab now navigates to job-logs; default to calendar
+        : 'calendar'
+  const [activeTab, setActiveTab] = useState<'calendar' | 'services' | 'archived'>(
+    initialTab as 'calendar' | 'services' | 'archived'
   )
 
   const [linkCopied, setLinkCopied] = useState(false)
@@ -277,7 +278,7 @@ const SchedulingPage = () => {
   // Set active tab from URL parameter on mount
   useEffect(() => {
     const tabParam = searchParams.get('tab')
-    if (tabParam === 'jobs' || tabParam === 'services' || tabParam === 'calendar') {
+    if (tabParam === 'services' || tabParam === 'calendar') {
       setActiveTab(tabParam)
     }
   }, [searchParams])
@@ -787,7 +788,7 @@ const SchedulingPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {(activeTab === 'calendar' || activeTab === 'jobs') && (
+          {activeTab === 'calendar' && (
             <>
               {user?.canScheduleAppointments !== false && (
                 <Button
@@ -942,17 +943,10 @@ const SchedulingPage = () => {
           Calendar
         </button>
         <button
-          onClick={() => setActiveTab('jobs')}
-          className={`
-            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
-            ${
-              activeTab === 'jobs'
-                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-                : 'text-primary-light/60 hover:text-primary-light/90'
-            }
-          `}
+          onClick={() => navigate('/app/job-logs')}
+          className="px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0 text-primary-light/60 hover:text-primary-light/90"
         >
-          Upcoming Jobs
+          Jobs
         </button>
         <button
           onClick={() => setActiveTab('services')}
@@ -1085,12 +1079,6 @@ const SchedulingPage = () => {
                 user={user}
               />
             </div>
-          </div>
-        )}
-
-        {activeTab === 'jobs' && (
-          <div className="h-full overflow-y-auto">
-            <JobList showCreatedBy={isTeamAccount} />
           </div>
         )}
 

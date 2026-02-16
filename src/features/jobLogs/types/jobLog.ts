@@ -49,6 +49,16 @@ export interface JobLogNoteEntry {
   date?: string
 }
 
+export interface JobLogBooking {
+  id: string
+  startTime?: string | null
+  endTime?: string | null
+  status: string
+  toBeScheduled?: boolean
+  service?: { name: string } | null
+  price?: number | null
+}
+
 export interface JobLog {
   id: string
   tenantId: string
@@ -58,6 +68,14 @@ export interface JobLog {
   notes?: string
   jobId?: string
   contactId?: string
+  // Flattened primary booking fields (so Jobs page can show what calendar sets)
+  startTime?: string | null
+  endTime?: string | null
+  toBeScheduled?: boolean
+  bookingStatus?: string | null
+  serviceId?: string | null
+  serviceName?: string | null
+  price?: number | null
   assignedTo?: JobAssignment[] | string | string[] // Support old format for backward compatibility
   assignedToName?: string
   status: 'active' | 'completed' | 'inactive'
@@ -70,6 +88,9 @@ export interface JobLog {
     endTime?: string
     status: string
     createdByName?: string
+    toBeScheduled?: boolean
+    serviceName?: string | null
+    price?: number | null
   } | null
   contact?: {
     id: string
@@ -78,6 +99,7 @@ export interface JobLog {
   } | null
   timeEntries?: TimeEntry[]
   photos?: JobLogPhoto[]
+  bookings?: JobLogBooking[]
 }
 
 export interface CreateJobLogData {
@@ -87,6 +109,8 @@ export interface CreateJobLogData {
   notes?: string
   jobId?: string
   contactId?: string
+  price?: number | null
+  serviceId?: string
   assignedTo?: JobAssignment[]
   status?: 'active' | 'completed' | 'inactive'
 }

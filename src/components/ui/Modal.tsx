@@ -68,7 +68,7 @@ const Modal = ({
         'lg:pl-64', // Offset for sidebar so modal centers on main content area
         mobilePosition === 'bottom'
           ? 'items-end sm:items-center justify-center'
-          : 'items-center justify-center overflow-y-auto'
+          : 'items-center justify-center sm:overflow-y-auto'
       )}
       onMouseDown={closeOnOverlayClick ? (e) => { if (e.target === e.currentTarget) onClose() } : undefined}
     >
@@ -77,7 +77,7 @@ const Modal = ({
           'relative w-full rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl flex flex-col',
           mobilePosition === 'bottom'
             ? 'max-h-[60vh] sm:max-h-[90vh] sm:my-auto'
-            : 'my-auto max-h-[95vh] sm:max-h-[90vh]',
+            : 'my-auto h-[calc(100vh-1rem)] sm:h-auto sm:max-h-[90vh]',
           sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}
@@ -113,7 +113,7 @@ const Modal = ({
         )}
 
         {/* Content - Scrollable */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar">{children}</div>
+        <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden flex-1 min-h-0 custom-scrollbar">{children}</div>
 
         {/* Footer */}
         {footer && (

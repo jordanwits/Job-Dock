@@ -26,7 +26,7 @@ model Tenant {
   contacts                 Contact[]
   invoices                 Invoice[]
   jobs                     Job[]
-  jobLogs                  JobLog[]
+  bookings                 Booking[]
   timeEntries              TimeEntry[]
   jobRecurrences           JobRecurrence[]
   quotes                   Quote[]
@@ -56,7 +56,8 @@ model User {
   updatedAt             DateTime    @updatedAt
   tenant                Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   jobsCreated           Job[]
-  timeEntries            TimeEntry[]
+  bookingsCreated       Booking[]
+  timeEntries           TimeEntry[]
 
   @@index([tenantId])
   @@index([cognitoId])
@@ -86,7 +87,6 @@ model Contact {
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices       Invoice[]
   jobs           Job[]
-  jobLogs        JobLog[]
   jobRecurrences JobRecurrence[]
   quotes         Quote[]
 
@@ -117,6 +117,7 @@ model Quote {
   contact        Contact         @relation(fields: [contactId], references: [id])
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   jobs           Job[]
+  bookings       Booking[]
 
   @@index([tenantId])
   @@index([contactId])
@@ -168,6 +169,7 @@ model Invoice {
   tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   payments       Payment[]
   jobs           Job[]
+  bookings       Booking[]
 
   @@index([tenantId])
   @@index([contactId])
@@ -222,7 +224,7 @@ model Service {
   bookingSettings Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-  jobs            Job[]
+  bookings        Booking[]
   jobRecurrences  JobRecurrence[]
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -237,6 +239,36 @@ model Job {
   title         String
   description   String?
   contactId     String
+  quoteId       String?
+  invoiceId     String?
+  status        String         @default("active")
+  location      String?
+  notes         String?
+  assignedTo    Json?      // Array of assignments: [{userId: "id1", role: "Lead", price: 500}, ...]
+  createdById   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contact       Contact        @relation(fields: [contactId], references: [id])
+  quote         Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  invoice       Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy     User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  bookings      Booking[]
+  timeEntries   TimeEntry[]
+
+  @@index([tenantId])
+  @@index([createdById])
+  @@index([contactId])
+  @@index([quoteId])
+  @@index([invoiceId])
+  @@index([status])
+  @@map("jobs")
+}
+
+model Booking {
+  id            String         @id @default(uuid())
+  tenantId      String
+  jobId         String
   serviceId     String?
   quoteId       String?
   invoiceId     String?
@@ -244,29 +276,27 @@ model Job {
   startTime     DateTime?
   endTime       DateTime?
   toBeScheduled Boolean        @default(false)
-  status        String         @default("scheduled")
+  status        String         @default("active")
   location      String?
   price         Decimal?       @db.Decimal(10, 2)
   notes         String?
-  assignedTo    Json?      // Array of assignments: [{userId: "id1", role: "Lead", price: 500}, ...]
+  assignedTo    Json?
   breaks        Json?
   deletedAt     DateTime?
-  archivedAt   DateTime?
+  archivedAt    DateTime?
   createdById   String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  contact       Contact        @relation(fields: [contactId], references: [id])
-  service       Service?       @relation(fields: [serviceId], references: [id])
-  quote         Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
-  invoice       Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  recurrence    JobRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy        User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  jobLogs          JobLog[]
+  job           Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  service       Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  quote         Quote?          @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  invoice       Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  recurrence    JobRecurrence?  @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy     User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
-  @@index([createdById])
-  @@index([contactId])
+  @@index([jobId])
   @@index([serviceId])
   @@index([quoteId])
   @@index([invoiceId])
@@ -277,39 +307,13 @@ model Job {
   @@index([deletedAt])
   @@index([archivedAt])
   @@index([toBeScheduled])
-  @@map("jobs")
-}
-
-model JobLog {
-  id          String      @id @default(uuid())
-  tenantId    String
-  title       String
-  description String?
-  location    String?
-  notes       String?
-  jobId       String?
-  contactId   String?
-  assignedTo  Json?      // Array of user IDs: ["id1", "id2", ...]
-  status      String      @default("active")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  job         Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
-  contact     Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  timeEntries TimeEntry[]
-
-  @@index([tenantId])
-  @@index([jobId])
-  @@index([contactId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("job_logs")
+  @@map("bookings")
 }
 
 model TimeEntry {
   id           String   @id @default(uuid())
   tenantId     String
-  jobLogId     String
+  jobId        String
   userId       String?  // Nullable for backward compatibility with existing entries
   startTime    DateTime
   endTime      DateTime
@@ -317,12 +321,12 @@ model TimeEntry {
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  jobLog       JobLog   @relation(fields: [jobLogId], references: [id], onDelete: Cascade)
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
-  @@index([jobLogId])
+  @@index([jobId])
   @@index([userId])
   @@index([startTime])
   @@map("time_entries")
@@ -352,7 +356,7 @@ model JobRecurrence {
   contact     Contact  @relation(fields: [contactId], references: [id])
   service     Service? @relation(fields: [serviceId], references: [id])
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  jobs        Job[]
+  bookings    Booking[]
 
   @@index([tenantId])
   @@index([contactId])

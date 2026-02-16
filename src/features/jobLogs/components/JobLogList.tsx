@@ -367,7 +367,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       Job
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
-                      Date
+                      Last Updated
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                       Contact
@@ -475,7 +475,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                     Job
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
-                    Date
+                    Last Updated
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                     Contact

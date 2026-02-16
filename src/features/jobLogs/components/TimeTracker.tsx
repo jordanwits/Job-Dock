@@ -14,6 +14,13 @@ interface TimeTrackerProps {
   isAdmin?: boolean
   currentUserId?: string
   assignedTo?: JobAssignment[]
+  externalTimerState?: {
+    isRunning: boolean
+    start: Date | null
+    elapsed: number
+    onStart: () => void
+    onStop: () => Promise<void>
+  }
 }
 
 const TIMER_STORAGE_KEY = 'joblog-active-timer'
@@ -144,11 +151,42 @@ const TimeTracker = ({
   isAdmin,
   currentUserId,
   assignedTo,
+  externalTimerState,
 }: TimeTrackerProps) => {
   const { createTimeEntry, updateTimeEntry, deleteTimeEntry } = useJobLogStore()
   const { user } = useAuthStore()
   const effectiveIsAdmin = isAdmin ?? (user?.role === 'admin' || user?.role === 'owner')
   const effectiveCurrentUserId = currentUserId ?? user?.id
+  
+  // Internal timer state (only used if externalTimerState is not provided)
+  const [internalIsTimerRunning, setInternalIsTimerRunning] = useState(() => {
+    if (externalTimerState) return false
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (!stored) return false
+      const { jobLogId: storedId, startTime } = JSON.parse(stored)
+      return storedId === jobLogId && startTime
+    } catch {
+      return false
+    }
+  })
+  const [internalTimerStart, setInternalTimerStart] = useState<Date | null>(() => {
+    if (externalTimerState) return null
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (!stored) return null
+      const { jobLogId: storedId, startTime } = JSON.parse(stored)
+      return storedId === jobLogId && startTime ? new Date(startTime) : null
+    } catch {
+      return null
+    }
+  })
+  const [internalElapsedSeconds, setInternalElapsedSeconds] = useState(0)
+
+  // Use external timer state if provided, otherwise use internal state
+  const isTimerRunning = externalTimerState ? externalTimerState.isRunning : internalIsTimerRunning
+  const timerStart = externalTimerState ? externalTimerState.start : internalTimerStart
+  const elapsedSeconds = externalTimerState ? externalTimerState.elapsed : internalElapsedSeconds
 
   // Filter entries for employees, show all for admins
   const filteredEntries = useMemo(() => {
@@ -173,27 +211,6 @@ const TimeTracker = ({
     })
     return Array.from(grouped.values())
   }, [filteredEntries, effectiveIsAdmin])
-  const [isTimerRunning, setIsTimerRunning] = useState(() => {
-    try {
-      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
-      if (!stored) return false
-      const { jobLogId: storedId, startTime } = JSON.parse(stored)
-      return storedId === jobLogId && startTime
-    } catch {
-      return false
-    }
-  })
-  const [timerStart, setTimerStart] = useState<Date | null>(() => {
-    try {
-      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
-      if (!stored) return null
-      const { jobLogId: storedId, startTime } = JSON.parse(stored)
-      return storedId === jobLogId && startTime ? new Date(startTime) : null
-    } catch {
-      return null
-    }
-  })
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [inlineEditId, setInlineEditId] = useState<string | null>(null)
   const [inlineNotes, setInlineNotes] = useState('')
@@ -241,16 +258,18 @@ const TimeTracker = ({
   }, [descriptionModalEditing])
 
   const tick = useCallback(() => {
-    if (timerStart) {
-      setElapsedSeconds(Math.floor((Date.now() - timerStart.getTime()) / 1000))
+    if (externalTimerState) return // External timer handles its own updates
+    if (internalTimerStart) {
+      setInternalElapsedSeconds(Math.floor((Date.now() - internalTimerStart.getTime()) / 1000))
     }
-  }, [timerStart])
+  }, [internalTimerStart, externalTimerState])
 
   useEffect(() => {
-    if (!isTimerRunning || !timerStart) return
+    if (externalTimerState) return // External timer handles its own updates
+    if (!internalIsTimerRunning || !internalTimerStart) return
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [isTimerRunning, timerStart, tick])
+  }, [internalIsTimerRunning, internalTimerStart, tick, externalTimerState])
 
   const formatElapsed = (sec: number) => {
     const h = Math.floor(sec / 3600)
@@ -290,9 +309,13 @@ const TimeTracker = ({
   }
 
   const handleStartTimer = () => {
+    if (externalTimerState) {
+      externalTimerState.onStart()
+      return
+    }
     const start = new Date()
-    setTimerStart(start)
-    setIsTimerRunning(true)
+    setInternalTimerStart(start)
+    setInternalIsTimerRunning(true)
     try {
       localStorage.setItem(
         TIMER_STORAGE_KEY,
@@ -307,6 +330,10 @@ const TimeTracker = ({
   }
 
   const handleStopTimer = async () => {
+    if (externalTimerState) {
+      await externalTimerState.onStop()
+      return
+    }
     // Use localStorage as source of truth for start time (survives navigation/refresh)
     let startTime: string
     try {
@@ -315,19 +342,19 @@ const TimeTracker = ({
         const { jobLogId: storedId, startTime: storedStart } = JSON.parse(stored)
         if (storedId === jobLogId && storedStart) {
           startTime = storedStart
-        } else if (timerStart) {
-          startTime = timerStart.toISOString()
+        } else if (internalTimerStart) {
+          startTime = internalTimerStart.toISOString()
         } else {
           return
         }
-      } else if (timerStart) {
-        startTime = timerStart.toISOString()
+      } else if (internalTimerStart) {
+        startTime = internalTimerStart.toISOString()
       } else {
         return
       }
     } catch {
-      if (!timerStart) return
-      startTime = timerStart.toISOString()
+      if (!internalTimerStart) return
+      startTime = internalTimerStart.toISOString()
     }
     const end = new Date()
     try {
@@ -338,9 +365,9 @@ const TimeTracker = ({
         userId: effectiveCurrentUserId, // Pass userId for backend validation
       })
     } finally {
-      setIsTimerRunning(false)
-      setTimerStart(null)
-      setElapsedSeconds(0)
+      setInternalIsTimerRunning(false)
+      setInternalTimerStart(null)
+      setInternalElapsedSeconds(0)
       try {
         localStorage.removeItem(TIMER_STORAGE_KEY)
       } catch {
@@ -745,6 +772,19 @@ const TimeTracker = ({
                     menuButtonRef.current
                       ? (() => {
                           const rect = menuButtonRef.current.getBoundingClientRect()
+                          const menuHeight = 90
+                          const spaceBelow = window.innerHeight - rect.bottom
+                          const spaceAbove = rect.top
+                          
+                          // If not enough space below but more space above, position above
+                          if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+                            return {
+                              bottom: window.innerHeight - rect.top + 4,
+                              right: window.innerWidth - rect.right,
+                            }
+                          }
+                          
+                          // Otherwise position below
                           return {
                             top: rect.bottom + 4,
                             right: window.innerWidth - rect.right,

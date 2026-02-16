@@ -874,6 +874,7 @@ We look forward to working with you!',
       // Always allow public endpoints
       if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint) {
         // Check subscription status
+        const { default: prisma } = await import('../../lib/db')
         const tenant = await prisma.tenant.findUnique({
           where: { id: tenantId },
           select: { stripeSubscriptionStatus: true },
@@ -925,7 +926,7 @@ We look forward to working with you!',
     const isEmployeeJobAccessResource = (r: string) =>
       employeeJobAccessResources.includes(r as any)
 
-    let currentUser: { id: string; role: string } | null = null
+    let currentUser: { id: string; role: string; canSeeOtherJobs?: boolean } | null = null
     const authHeader = event.headers?.Authorization || event.headers?.authorization
     if (
       authHeader &&
@@ -1011,6 +1012,7 @@ We look forward to working with you!',
           if (currentUser.role === 'employee') {
             return errorResponse('Only admins and owners can assign jobs to team members', 403)
           }
+          const { default: prisma } = await import('../../lib/db')
           const tenant = await prisma.tenant.findUnique({
             where: { id: tenantId },
             select: { subscriptionTier: true },
@@ -1023,16 +1025,16 @@ We look forward to working with you!',
       }
     }
 
-    const service = dataServices[resource]
+    const service = dataServices[resource as ResourceKey]
     if (!service) {
       return errorResponse('Route not found', 404)
     }
 
     switch (event.httpMethod) {
       case 'GET':
-        return successResponse(await handleGet(resource, service, tenantId, id, action, event))
+        return successResponse(await handleGet(resource as ResourceKey, service, tenantId, id, action, event))
       case 'POST':
-        return successResponse(await handlePost(resource, service, tenantId, id, action, event))
+        return successResponse(await handlePost(resource as ResourceKey, service, tenantId, id, action, event))
       case 'PUT':
       case 'PATCH':
         // Settings resource doesn't require an ID
