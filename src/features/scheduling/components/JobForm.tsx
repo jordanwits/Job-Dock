@@ -65,6 +65,8 @@ const JobForm = ({
   const [startDate, setStartDate] = useState(
     job && job.startTime ? format(new Date(job.startTime), 'yyyy-MM-dd') : ''
   )
+  const [scheduleDateError, setScheduleDateError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [startTime, setStartTime] = useState(
     job && job.startTime ? format(new Date(job.startTime), 'HH:mm') : '09:00'
   )
@@ -344,9 +346,10 @@ const JobForm = ({
         description: job.description || '',
         contactId: job.contactId,
         serviceId: job.serviceId || '',
-        startTime: job.startTime,
-        endTime: job.endTime,
-        status: job.status,
+        // API can return null for unscheduled jobs; schema expects string (or empty string).
+        startTime: job.startTime ?? '',
+        endTime: job.endTime ?? '',
+        status: job.status || 'active',
         location: job.location || '',
         price: job.price != null ? job.price.toString() : '',
         notes: job.notes || '',
@@ -383,6 +386,13 @@ const JobForm = ({
         const inferred = inferDurationUnit(job.startTime, job.endTime)
         setDurationUnit(inferred.unit)
         setDurationValue(inferred.value)
+        setScheduleDateError(null)
+      }
+      if (!job.startTime || !job.endTime) {
+        // Ensure we don't keep stale date/time state when switching between jobs
+        setStartDate('')
+        setStartTime('09:00')
+        setScheduleDateError(null)
       }
       // If we're scheduling an unscheduled job, automatically uncheck toBeScheduled
       // But if user can't schedule, force toBeScheduled to true
@@ -393,6 +403,9 @@ const JobForm = ({
   }, [job, reset, schedulingUnscheduledJob])
 
   const handleFormSubmit = async (data: JobFormData) => {
+    // Clear any previous submit-level error (invalid form, etc.)
+    if (submitError) setSubmitError(null)
+
     // Helper function to safely convert price to number
     const convertPrice = (price: any): number | undefined => {
       if (price === undefined || price === null || price === '') {
@@ -401,6 +414,11 @@ const JobForm = ({
       const numPrice = typeof price === 'string' ? parseFloat(price) : price
       return !isNaN(numPrice) ? numPrice : undefined
     }
+
+    const normalizedAssignments =
+      Array.isArray(data.assignedTo) && data.assignedTo.length > 0
+        ? data.assignedTo.filter(a => a?.userId && a.userId.trim() !== '')
+        : null
 
     // If toBeScheduled, skip date/time validation and send without times
     if (toBeScheduled) {
@@ -413,10 +431,7 @@ const JobForm = ({
         quoteId: dataWithoutTimes.quoteId || undefined,
         invoiceId: dataWithoutTimes.invoiceId || undefined,
         serviceId: dataWithoutTimes.serviceId || undefined,
-        assignedTo:
-          Array.isArray(dataWithoutTimes.assignedTo) && dataWithoutTimes.assignedTo.length > 0
-            ? dataWithoutTimes.assignedTo
-            : null,
+        assignedTo: normalizedAssignments,
         // Convert price string to number, or undefined if empty
         price: convertPrice(dataWithoutTimes.price),
       }
@@ -426,6 +441,8 @@ const JobForm = ({
 
     // Validate date is selected
     if (!startDate) {
+      // This used to be a silent no-op (felt like the button "did nothing")
+      setScheduleDateError('Please select a date.')
       return
     }
 
@@ -470,10 +487,7 @@ const JobForm = ({
       quoteId: data.quoteId || undefined,
       invoiceId: data.invoiceId || undefined,
       serviceId: data.serviceId || undefined,
-      assignedTo:
-        Array.isArray(data.assignedTo) && data.assignedTo.length > 0
-          ? data.assignedTo.filter(a => a.userId && a.userId.trim() !== '')
-          : null,
+      assignedTo: normalizedAssignments,
       // Convert price string to number, or undefined if empty
       price: convertPrice(data.price),
     }
@@ -553,6 +567,31 @@ const JobForm = ({
       recurrenceDetails: formData.recurrence,
     })
     await onSubmit(formData)
+  }
+
+  const handleInvalidSubmit = (invalid: any) => {
+    // React Hook Form will not call handleFormSubmit when invalid; without this it can feel like "nothing happened".
+    // Surface the actual failing fields, even if the UI doesn't highlight them (e.g. nested assignedTo.* paths).
+    const messages: string[] = []
+    const walk = (obj: any, path: string) => {
+      if (!obj) return
+      if (typeof obj.message === 'string') {
+        messages.push(path ? `${path}: ${obj.message}` : obj.message)
+      }
+      if (typeof obj === 'object') {
+        for (const key of Object.keys(obj)) {
+          if (key === 'message' || key === 'type' || key === 'ref') continue
+          walk(obj[key], path ? `${path}.${key}` : key)
+        }
+      }
+    }
+    walk(invalid, '')
+
+    setSubmitError(
+      messages.length > 0
+        ? `Fix these fields: ${messages.slice(0, 3).join(' | ')}`
+        : 'Form is invalid. Please review the fields and try again.'
+    )
   }
 
   // Calculate end date for recurrence preview
@@ -682,7 +721,7 @@ const JobForm = ({
           : 'custom'
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5 sm:space-y-4">
+    <form onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} className="space-y-5 sm:space-y-4">
       {/* Error Display */}
       {error && (
         <div className="rounded-lg border border-red-500 bg-red-500/10 p-4">
@@ -1080,9 +1119,15 @@ const JobForm = ({
                     : 'Start Date *'
               }
               value={startDate}
-              onChange={setStartDate}
+              onChange={(date) => {
+                setStartDate(date)
+                if (scheduleDateError) setScheduleDateError(null)
+              }}
               disabled={!canSchedule || toBeScheduled}
             />
+            {scheduleDateError && (
+              <p className="text-red-500 text-xs -mt-2 sm:mt-0 sm:col-span-2">{scheduleDateError}</p>
+            )}
 
             {!isAllDay && (durationUnit === 'minutes' || durationUnit === 'hours') && (
               <TimePicker
@@ -1489,6 +1534,11 @@ const JobForm = ({
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
+        {submitError && (
+          <div className="w-full sm:flex-1 sm:mr-auto">
+            <p className="text-red-500 text-xs">{submitError}</p>
+          </div>
+        )}
         <Button
           type="button"
           variant="ghost"

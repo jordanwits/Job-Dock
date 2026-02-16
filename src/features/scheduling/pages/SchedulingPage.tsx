@@ -286,7 +286,10 @@ const SchedulingPage = () => {
     return activeJobs.filter(job => job.toBeScheduled || !job.startTime || !job.endTime)
   }, [activeJobs])
 
-  const showFloatingToBeScheduled = toBeScheduledJobs.length > 0 && !inlineToBeScheduledInView
+  // Don't render the floating overlay while the Job modal is open.
+  // (The overlay is fixed and can interfere with modal interactions on small screens.)
+  const showFloatingToBeScheduled =
+    toBeScheduledJobs.length > 0 && !inlineToBeScheduledInView && !showJobForm
 
   // Toggle between inline list and floating overlay based on whether the inline list is in view
   useEffect(() => {
