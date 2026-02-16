@@ -186,17 +186,28 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
     }
   } else {
     // Log to console in dev mode
-    console.log('\n📧 =============== EMAIL (Dev Mode - Resend Not Configured) ===============')
-    console.log(`EMAIL_PROVIDER: ${EMAIL_PROVIDER}`)
-    console.log(`RESEND_API_KEY: ${RESEND_API_KEY ? 'SET' : 'NOT SET'}`)
-    console.log(`resendClient: ${resendClient ? 'INITIALIZED' : 'NULL'}`)
-    console.log(`To: ${to}`)
-    console.log(`From: ${fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS}`)
-    if (replyTo) console.log(`Reply-To: ${replyTo}`)
-    console.log(`Subject: ${subject}`)
-    console.log('---')
-    console.log(textBody || htmlBody.replace(/<[^>]*>/g, ''))
-    console.log('================================================\n')
+    const warningMsg = EMAIL_PROVIDER === 'resend' && !RESEND_API_KEY
+      ? '⚠️ WARNING: EMAIL_PROVIDER=resend but RESEND_API_KEY is missing! Email will NOT be sent.'
+      : `📧 EMAIL (Dev Mode - ${EMAIL_PROVIDER === 'console' ? 'Console Mode' : 'Resend Not Configured'})`
+    
+    console.error('\n❌ =============== EMAIL NOT SENT ===============')
+    console.error(warningMsg)
+    console.error(`EMAIL_PROVIDER: ${EMAIL_PROVIDER}`)
+    console.error(`RESEND_API_KEY: ${RESEND_API_KEY ? 'SET' : 'NOT SET'}`)
+    console.error(`resendClient: ${resendClient ? 'INITIALIZED' : 'NULL'}`)
+    console.error(`ENVIRONMENT: ${ENVIRONMENT}`)
+    console.error(`To: ${to}`)
+    console.error(`From: ${fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS}`)
+    if (replyTo) console.error(`Reply-To: ${replyTo}`)
+    console.error(`Subject: ${subject}`)
+    console.error('---')
+    console.error(textBody || htmlBody.replace(/<[^>]*>/g, ''))
+    console.error('================================================\n')
+    
+    // In production, throw error instead of silently failing
+    if ((ENVIRONMENT === 'prod' || ENVIRONMENT === 'production') && EMAIL_PROVIDER === 'resend' && !RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured. Emails cannot be sent in production.')
+    }
   }
 }
 

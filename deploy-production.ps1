@@ -129,9 +129,17 @@ if (-not $SkipInfrastructure) {
 
     if ($envFileToRead) {
         $envContent = Get-Content $envFileToRead -Raw
-        if ($envContent -match 'RESEND_API_KEY\s*=\s*(.+)') {
-            $env:RESEND_API_KEY = $matches[1].Trim()
-            Write-Host "[SUCCESS] RESEND_API_KEY loaded from $envFileToRead" -ForegroundColor Green
+        # Match RESEND_API_KEY=value (handles quoted and unquoted values, comments)
+        if ($envContent -match '(?m)^\s*RESEND_API_KEY\s*=\s*([^\r\n#]+)') {
+            $keyValue = $matches[1].Trim()
+            # Remove quotes if present
+            $keyValue = $keyValue -replace '^["'']|["'']$', ''
+            $env:RESEND_API_KEY = $keyValue
+            if ($keyValue -and $keyValue.Length -gt 0) {
+                Write-Host "[SUCCESS] RESEND_API_KEY loaded from $envFileToRead (${keyValue.Length} chars)" -ForegroundColor Green
+            } else {
+                Write-Host "[WARNING] RESEND_API_KEY found but value is empty in $envFileToRead" -ForegroundColor Yellow
+            }
         } else {
             Write-Host "[WARNING] RESEND_API_KEY not found in $envFileToRead" -ForegroundColor Yellow
         }

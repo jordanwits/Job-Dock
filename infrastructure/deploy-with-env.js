@@ -30,6 +30,15 @@ const envVars = Object.keys(process.env).filter(
 )
 if (envVars.length > 0) {
   console.log(`✓ Loaded ${envVars.length} environment variable(s) for deploy`)
+  envVars.forEach(key => {
+    const value = process.env[key]
+    const displayValue = value && value.length > 0 
+      ? `${value.substring(0, 10)}...${value.substring(value.length - 4)}` 
+      : '(empty)'
+    console.log(`   ${key}: ${displayValue}`)
+  })
+} else {
+  console.log('⚠ No email/stripe environment variables found')
 }
 
 // Block prod deploy if RESEND_API_KEY is missing (prevents overwriting with empty)
@@ -43,7 +52,14 @@ if (isProdDeploy && (!process.env.RESEND_API_KEY || !String(process.env.RESEND_A
   process.exit(1)
 }
 if (isProdDeploy) {
-  console.log('✓ RESEND_API_KEY is set (emails will send in prod)')
+  const keyValue = process.env.RESEND_API_KEY || ''
+  if (keyValue && keyValue.trim().length > 0) {
+    console.log(`✓ RESEND_API_KEY is set (${keyValue.length} chars, emails will send in prod)`)
+  } else {
+    console.error('❌ RESEND_API_KEY is empty or not set!')
+    console.error('   Check that .env.local exists and contains RESEND_API_KEY=re_...')
+    console.error('   Current value:', keyValue || '(undefined)')
+  }
 }
 
 // Build the CDK command
