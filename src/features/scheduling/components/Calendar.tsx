@@ -205,26 +205,6 @@ const Calendar = ({
 
   const { updateJob } = useJobStore()
 
-  // Detect if device is using coarse pointer (touch)
-  const [isCoarsePointer, setIsCoarsePointer] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0
-  })
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const updatePointerType = () => {
-      setIsCoarsePointer(
-        window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0
-      )
-    }
-
-    const mediaQuery = window.matchMedia('(pointer: coarse)')
-    mediaQuery.addEventListener('change', updatePointerType)
-    return () => mediaQuery.removeEventListener('change', updatePointerType)
-  }, [])
-
   // Update scale and viewport height when window is resized
   useEffect(() => {
     const handleResize = () => {
@@ -446,7 +426,7 @@ const Calendar = ({
   const handleDragStart = (
     e: React.PointerEvent,
     job: Job,
-    type: 'move' | 'resize' | 'month-move'
+    type: 'move' | 'resize' | 'month-move' | 'week-all-day-move'
   ) => {
     e.stopPropagation()
 
@@ -725,7 +705,7 @@ const Calendar = ({
         const minutesChange = Math.round((deltaY / slotHeight) * 60)
         const snappedMinutesChange = Math.round(minutesChange / 15) * 15
 
-        if (dragState.type === 'resize' && dragState.originalEndTime && dragState.job.startTime) {
+        if (dragState.type === 'resize' && dragState.originalEndTime && dragState.job?.startTime) {
           // Calculate real-time preview with 15-minute snapping for resize
           const newEndTime = addMinutes(new Date(dragState.originalEndTime), snappedMinutesChange)
           const startTime = new Date(dragState.job.startTime)
@@ -841,7 +821,6 @@ const Calendar = ({
         // Handle week view all-day job drop - only change date, keep time
         const originalStart = new Date(dragState.originalStartTime!)
         const originalEnd = new Date(dragState.originalEndTime!)
-        const duration = originalEnd.getTime() - originalStart.getTime()
 
         // Calculate the day offset
         const originalStartDay = startOfDay(originalStart)
@@ -956,6 +935,7 @@ const Calendar = ({
     }
   }, [
     dragState,
+    dragTargetDay,
     viewMode,
     previewStartTime,
     selectedDate,
@@ -1403,7 +1383,6 @@ const Calendar = ({
                         .filter(job => {
                           if (!job.startTime || !job.endTime) return false
                           const jobStartDay = startOfDay(new Date(job.startTime))
-                          const jobEndDay = startOfDay(new Date(job.endTime))
 
                           // Calculate the first day this job appears in the week
                           const firstDayInWeek = jobStartDay < weekStart ? weekStart : jobStartDay
@@ -1864,11 +1843,8 @@ const Calendar = ({
             const allMultiDayJobsActiveOnDay = rowLaneInfo?.laneCount ?? multiDayJobsForDay.length
 
             const isCurrentMonth = isSameMonth(day, selectedDate)
-            const isSelected = isSameDay(day, selectedDate)
             const isDropTarget =
               dragOverDate && isSameDay(dragOverDate, day) && dragState.type === 'month-move'
-            const isFirstColumn = dayColumn === 0
-            const isLastColumn = dayColumn === 6
 
             return (
               <div
@@ -1944,8 +1920,8 @@ const Calendar = ({
                 </div>
                 <div className="space-y-0.5 md:space-y-1 relative z-10">
                   {/* Multi-day job pills - handle week wrapping */}
-                  {multiDayJobsToRender.map((jobData, jobIndex) => {
-                    const { job, jobStartDay, jobEndDay, isJobStartDay, jobDates } = jobData
+                  {multiDayJobsToRender.map((jobData, _jobIndex) => {
+                    const { job, jobEndDay, isJobStartDay, jobDates } = jobData
 
                     const isDragging = dragState.job?.id === job.id
                     const isMonthMoving = isDragging && dragState.type === 'month-move'
@@ -2059,7 +2035,7 @@ const Calendar = ({
                   )}
 
                   {/* Single-day jobs - positioned below multi-day jobs */}
-                  {singleDayJobs.slice(0, scaleSettings.maxItems).map((job, singleJobIndex) => {
+                  {singleDayJobs.slice(0, scaleSettings.maxItems).map((job, _singleJobIndex) => {
                     // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
                     if (!job.startTime || !job.endTime) return null
 
