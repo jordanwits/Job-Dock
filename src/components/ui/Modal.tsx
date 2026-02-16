@@ -98,8 +98,8 @@ const Modal = ({
         className={cn(
           'relative w-full rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl flex flex-col',
           mobilePosition === 'bottom'
-            ? 'max-h-[75dvh] sm:max-h-[90vh] sm:my-auto'
-            : 'my-auto max-h-[85dvh] sm:max-h-[90vh]',
+            ? 'h-[calc(100svh-1rem)] sm:h-auto sm:max-h-[90vh] sm:my-auto'
+            : 'my-auto h-[calc(100svh-1rem)] sm:h-auto sm:max-h-[90vh]',
           sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}
