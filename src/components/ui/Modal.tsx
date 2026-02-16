@@ -29,6 +29,13 @@ const Modal = ({
   mobilePosition = 'center',
 }: ModalProps) => {
   const scrollYRef = useRef(0)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const onCloseRef = useRef(onClose)
+  
+  // Keep onClose ref up to date
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (isOpen) {
@@ -64,12 +71,34 @@ const Modal = ({
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose()
+        onCloseRef.current()
       }
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
+  }, [isOpen])
+
+  // Set up direct event listeners for close button to ensure it always works
+  useEffect(() => {
+    const button = closeButtonRef.current
+    if (!button || !isOpen) return
+
+    const handleClose = (e: Event) => {
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+      onCloseRef.current()
+    }
+
+    // Use capture phase to ensure we get the event first
+    button.addEventListener('click', handleClose, { capture: true })
+    button.addEventListener('touchend', handleClose, { capture: true, passive: false })
+    
+    return () => {
+      button.removeEventListener('click', handleClose, { capture: true })
+      button.removeEventListener('touchend', handleClose, { capture: true })
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -117,19 +146,11 @@ const Modal = ({
             </div>
             {closeOnOverlayClick && (
               <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  onClose()
-                }}
-                onTouchEnd={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  onClose()
-                }}
+                ref={closeButtonRef}
                 className="text-primary-light hover:text-primary-gold transition-colors flex-shrink-0 touch-manipulation relative z-10"
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', cursor: 'pointer' }}
                 aria-label="Close modal"
+                type="button"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
