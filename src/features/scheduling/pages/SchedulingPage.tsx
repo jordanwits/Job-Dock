@@ -66,6 +66,17 @@ const SchedulingPage = () => {
     clearError: clearJobsError,
   } = useJobStore()
 
+  // Floating overlay for unscheduled jobs (keeps them accessible on small screens)
+  const [toBeScheduledOverlayOpen, setToBeScheduledOverlayOpen] = useState(true)
+  const toBeScheduledInlineRef = useRef<HTMLDivElement | null>(null)
+  const calendarPaneRef = useRef<HTMLDivElement | null>(null)
+  const [inlineToBeScheduledInView, setInlineToBeScheduledInView] = useState(true)
+  const [floatingToBeScheduledPos, setFloatingToBeScheduledPos] = useState<{
+    top: number
+    left: number
+    maxWidth: number
+  }>({ top: 12, left: 12, maxWidth: 520 })
+
   const {
     services,
     selectedService,
@@ -274,6 +285,71 @@ const SchedulingPage = () => {
   const toBeScheduledJobs = useMemo(() => {
     return activeJobs.filter(job => job.toBeScheduled || !job.startTime || !job.endTime)
   }, [activeJobs])
+
+  const showFloatingToBeScheduled = toBeScheduledJobs.length > 0 && !inlineToBeScheduledInView
+
+  // Toggle between inline list and floating overlay based on whether the inline list is in view
+  useEffect(() => {
+    if (activeTab !== 'calendar' || toBeScheduledJobs.length === 0) {
+      setInlineToBeScheduledInView(true)
+      return
+    }
+
+    const el = toBeScheduledInlineRef.current
+    if (!el) return
+
+    // Fallback for environments without IntersectionObserver
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      const check = () => {
+        const rect = el.getBoundingClientRect()
+        const inView = rect.bottom > 0 && rect.top < window.innerHeight
+        setInlineToBeScheduledInView(inView)
+      }
+      check()
+      window.addEventListener('scroll', check, true)
+      window.addEventListener('resize', check)
+      return () => {
+        window.removeEventListener('scroll', check, true)
+        window.removeEventListener('resize', check)
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      entries => {
+        const entry = entries[0]
+        setInlineToBeScheduledInView(Boolean(entry?.isIntersecting))
+      },
+      { threshold: 0.01 }
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [activeTab, toBeScheduledJobs.length])
+
+  // Keep the floating overlay anchored to the top-left of the calendar pane (when active)
+  useEffect(() => {
+    if (!showFloatingToBeScheduled) return
+    if (typeof window === 'undefined') return
+
+    const update = () => {
+      const rect = calendarPaneRef.current?.getBoundingClientRect()
+      if (!rect) return
+
+      const left = Math.max(12, rect.left + 12)
+      const top = Math.max(12, rect.top + 12)
+      const maxWidth = Math.max(240, Math.min(520, rect.width - 24))
+
+      setFloatingToBeScheduledPos({ left, top, maxWidth })
+    }
+
+    update()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [showFloatingToBeScheduled, viewMode])
 
   // Set active tab from URL parameter on mount
   useEffect(() => {
@@ -607,7 +683,7 @@ const SchedulingPage = () => {
       setShowNoServicesModal(true)
       return
     }
-    
+
     // Copy unified tenant booking link to clipboard
     const tenantId = user?.tenantId || localStorage.getItem('tenant_id') || ''
     const baseUrl = import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin
@@ -845,12 +921,7 @@ const SchedulingPage = () => {
               >
                 {buttonLinkCopied ? (
                   <span className="flex items-center gap-1.5">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -980,9 +1051,9 @@ const SchedulingPage = () => {
       <div className="flex-1 min-w-0 overflow-hidden">
         {activeTab === 'calendar' && (
           <div className="h-full flex flex-col min-w-0">
-            {/* To Be Scheduled List */}
+            {/* To Be Scheduled List (inline at top when visible) */}
             {toBeScheduledJobs.length > 0 && (
-              <div className="border-b border-white/10 bg-primary-dark-secondary/50 p-4">
+              <div ref={toBeScheduledInlineRef} className="border-b border-white/10 p-4">
                 <h3 className="text-sm font-semibold text-primary-gold mb-3">
                   To Be Scheduled ({toBeScheduledJobs.length})
                 </h3>
@@ -1060,7 +1131,119 @@ const SchedulingPage = () => {
             )}
 
             {/* Calendar */}
-            <div className="flex-1 min-h-0">
+            <div ref={calendarPaneRef} className="flex-1 min-h-0 relative">
+              {/* Floating "To Be Scheduled" overlay (always visible) */}
+              {showFloatingToBeScheduled && (
+                <div
+                  className="fixed z-50 pointer-events-auto"
+                  style={{
+                    top: floatingToBeScheduledPos.top,
+                    left: floatingToBeScheduledPos.left,
+                    maxWidth: floatingToBeScheduledPos.maxWidth,
+                  }}
+                >
+                  <div className="rounded-xl border border-amber-500/30 bg-primary-dark/95 backdrop-blur-md shadow-lg ring-1 ring-black/20">
+                    <button
+                      type="button"
+                      onClick={() => setToBeScheduledOverlayOpen(v => !v)}
+                      className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left"
+                      aria-expanded={toBeScheduledOverlayOpen}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-400 flex-shrink-0">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </span>
+                        <span className="text-sm font-semibold text-primary-gold truncate">
+                          To Be Scheduled
+                        </span>
+                        <span className="text-xs text-primary-light/60 flex-shrink-0">
+                          ({toBeScheduledJobs.length})
+                        </span>
+                      </div>
+                      <span className="text-primary-light/60 flex-shrink-0">
+                        {toBeScheduledOverlayOpen ? 'Hide' : 'Show'}
+                      </span>
+                    </button>
+
+                    {toBeScheduledOverlayOpen && (
+                      <div className="px-3 pb-3">
+                        <div className="flex gap-2 flex-wrap max-h-40 overflow-auto pr-1">
+                          {toBeScheduledJobs.map(job => {
+                            const isDragging =
+                              externalDragState.jobId === job.id && externalDragState.isDragging
+                            return (
+                              <div
+                                key={job.id}
+                                onPointerDown={e => {
+                                  // Use pointer-based drag for ALL devices (mouse + touch)
+                                  e.stopPropagation()
+                                  e.currentTarget.setPointerCapture(e.pointerId)
+                                  externalDragRef.current = true
+
+                                  // Initialize drag ghost
+                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                  setExternalDragGhost({
+                                    isVisible: false,
+                                    x: rect.left,
+                                    y: rect.top,
+                                    width: rect.width,
+                                    height: rect.height,
+                                    offsetX: e.clientX - rect.left,
+                                    offsetY: e.clientY - rect.top,
+                                  })
+
+                                  setExternalDragState({
+                                    jobId: job.id,
+                                    pointerId: e.pointerId,
+                                    isDragging: false,
+                                    hasMoved: false,
+                                  })
+                                }}
+                                onClick={() => {
+                                  // Prevent click entirely if we're dragging or have started a drag
+                                  if (
+                                    externalDragRef.current ||
+                                    externalDragState.isDragging ||
+                                    externalDragState.hasMoved
+                                  ) {
+                                    return
+                                  }
+                                  setSelectedJob(job)
+                                  setShowJobDetail(true)
+                                }}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all touch-none"
+                                style={{
+                                  opacity: isDragging ? 0 : undefined,
+                                  pointerEvents: isDragging ? 'none' : undefined,
+                                }}
+                                title="Drag to calendar to schedule"
+                              >
+                                <span className="font-medium truncate max-w-[220px]">
+                                  {job.title}
+                                </span>
+                                <span className="text-xs text-amber-400/60">({job.contactName})</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <Calendar
                 jobs={scheduledJobs}
                 viewMode={viewMode}
@@ -1447,9 +1630,7 @@ const SchedulingPage = () => {
                 />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-primary-light mb-2">
-              No Services Set Up
-            </h2>
+            <h2 className="text-xl font-semibold text-primary-light mb-2">No Services Set Up</h2>
             <p className="text-sm text-primary-light/70">
               Oops! You haven't set up any services. Set up service now.
             </p>

@@ -68,10 +68,10 @@ const Calendar = ({
 }: CalendarProps) => {
   // Determine if we should use team member colors (for admin/owner)
   const useTeamColors = user?.role === 'admin' || user?.role === 'owner'
-  
+
   // Fetch team members and create color map
   const [userColorMap, setUserColorMap] = useState<Record<string, string>>({})
-  
+
   useEffect(() => {
     if (useTeamColors) {
       const loadTeamMembers = async () => {
@@ -102,17 +102,53 @@ const Calendar = ({
     // Fall back to status-based colors for employees
     switch (job.status) {
       case 'scheduled':
-        return { bg: 'bg-blue-500/20', border: 'border-blue-500', text: 'text-blue-300', isMultiAssignment: false, memberCount: 0 }
+        return {
+          bg: 'bg-blue-500/20',
+          border: 'border-blue-500',
+          text: 'text-blue-300',
+          isMultiAssignment: false,
+          memberCount: 0,
+        }
       case 'in-progress':
-        return { bg: 'bg-yellow-500/20', border: 'border-yellow-500', text: 'text-yellow-300', isMultiAssignment: false, memberCount: 0 }
+        return {
+          bg: 'bg-yellow-500/20',
+          border: 'border-yellow-500',
+          text: 'text-yellow-300',
+          isMultiAssignment: false,
+          memberCount: 0,
+        }
       case 'completed':
-        return { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-300', isMultiAssignment: false, memberCount: 0 }
+        return {
+          bg: 'bg-green-500/20',
+          border: 'border-green-500',
+          text: 'text-green-300',
+          isMultiAssignment: false,
+          memberCount: 0,
+        }
       case 'cancelled':
-        return { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-300', isMultiAssignment: false, memberCount: 0 }
+        return {
+          bg: 'bg-red-500/20',
+          border: 'border-red-500',
+          text: 'text-red-300',
+          isMultiAssignment: false,
+          memberCount: 0,
+        }
       case 'pending-confirmation':
-        return { bg: 'bg-orange-500/20', border: 'border-orange-500', text: 'text-orange-300', isMultiAssignment: false, memberCount: 0 }
+        return {
+          bg: 'bg-orange-500/20',
+          border: 'border-orange-500',
+          text: 'text-orange-300',
+          isMultiAssignment: false,
+          memberCount: 0,
+        }
       default:
-        return { bg: 'bg-gray-500/20', border: 'border-gray-500', text: 'text-gray-300', isMultiAssignment: false, memberCount: 0 }
+        return {
+          bg: 'bg-gray-500/20',
+          border: 'border-gray-500',
+          text: 'text-gray-300',
+          isMultiAssignment: false,
+          memberCount: 0,
+        }
     }
   }
   // Set initial scale based on screen size
@@ -225,7 +261,7 @@ const Calendar = ({
 
     // Also measure on window resize
     window.addEventListener('resize', measureContainer)
-    
+
     return () => {
       window.removeEventListener('resize', measureContainer)
       if (resizeObserver) {
@@ -1196,14 +1232,14 @@ const Calendar = ({
     sortedAllDayJobs.forEach(job => {
       const jobStartDay = startOfDay(new Date(job.startTime!))
       const jobEndDay = startOfDay(new Date(job.endTime!))
-      
+
       // Find visible start/end in the week
       const visibleStart = jobStartDay < weekStart ? weekStart : jobStartDay
       const visibleEnd = jobEndDay > weekEnd ? weekEnd : jobEndDay
-      
+
       const startDayIndex = weekDays.findIndex(d => isSameDay(startOfDay(d), visibleStart))
       const endDayIndex = weekDays.findIndex(d => isSameDay(startOfDay(d), visibleEnd))
-      
+
       if (startDayIndex === -1 || endDayIndex === -1) return
 
       // Find the first lane where this job doesn't overlap with any existing job
@@ -1215,7 +1251,7 @@ const Calendar = ({
           // Two jobs overlap if: this job starts before existing ends AND this job ends after existing starts
           return startDayIndex <= existingJob.end && endDayIndex >= existingJob.start
         })
-        
+
         if (!overlaps) {
           // This lane is free, use it
           assignedLane = lane
@@ -1223,13 +1259,13 @@ const Calendar = ({
           break
         }
       }
-      
+
       if (assignedLane === -1) {
         // Need a new lane
         assignedLane = laneJobs.length
         laneJobs.push([{ start: startDayIndex, end: endDayIndex }])
       }
-      
+
       weekLaneMap.set(job.id, assignedLane)
     })
 
@@ -1280,7 +1316,7 @@ const Calendar = ({
               {/* Empty space for day headers */}
               <div className="h-10 md:h-12 border-b border-primary-blue/30"></div>
               {/* All-day slot label */}
-              <div 
+              <div
                 className="border-b border-primary-blue/30 p-1 md:p-2 text-xs text-primary-light/70 font-normal"
                 style={{
                   minHeight: `${allDaySlotHeight}rem`,
@@ -1355,7 +1391,7 @@ const Calendar = ({
                     </div>
 
                     {/* All-day slot - dedicated row for multi-day jobs */}
-                    <div 
+                    <div
                       className="border-b border-primary-blue/30 relative flex-shrink-0 overflow-visible"
                       style={{
                         minHeight: `${allDaySlotHeight}rem`,
@@ -1649,34 +1685,34 @@ const Calendar = ({
     // Calculate visible items and cell height based on scale
     const getScaleSettings = () => {
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-      
+
       // For mobile, calculate dynamic height based on available space
       if (isMobile && weeksInView > 0) {
         // Use calendar container height if available, otherwise fall back to viewport
         const containerHeight = calendarContainerHeight || viewportHeight
-        
+
         // Account for header, week day labels, and padding
         // Header: ~50px, week labels: ~30px, padding: ~10px
         const reservedHeight = 90
         const availableHeight = Math.max(400, containerHeight - reservedHeight) // Minimum 400px available
-        
+
         // Calculate height per week, then divide by 7 for each day cell
         const heightPerWeek = availableHeight / weeksInView
         const cellHeight = Math.max(80, Math.floor(heightPerWeek / 7)) // Minimum 80px
-        
+
         // Determine max items based on cell height
         let maxItems = 2
         if (cellHeight >= 120) maxItems = 3
         if (cellHeight >= 150) maxItems = 4
         if (cellHeight >= 180) maxItems = 5
-        
-        return { 
-          maxItems, 
+
+        return {
+          maxItems,
           minHeight: `min-h-[${cellHeight}px]`,
-          dynamicHeight: cellHeight
+          dynamicHeight: cellHeight,
         }
       }
-      
+
       // Desktop uses fixed heights based on scale
       switch (calendarScale) {
         case 100:
@@ -2045,17 +2081,18 @@ const Calendar = ({
                           jobColors.border,
                           jobColors.text
                         )}
-                        style={{
-                          transform: isMonthMoving
-                            ? `translate3d(${translateX}px, ${translateY}px, 0)`
-                            : undefined,
-                          transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
-                          willChange: isMonthMoving ? 'transform' : undefined,
-                          zIndex: isMonthMoving && dragState.isDragging ? 50 : 1, // Lower z-index than multi-day jobs (5)
-                          pointerEvents:
-                            isMonthMoving && dragState.isDragging ? 'none' : undefined,
-                          ...jobColors.gradientStyle,
-                        } as React.CSSProperties
+                        style={
+                          {
+                            transform: isMonthMoving
+                              ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                              : undefined,
+                            transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
+                            willChange: isMonthMoving ? 'transform' : undefined,
+                            zIndex: isMonthMoving && dragState.isDragging ? 50 : 1, // Lower z-index than multi-day jobs (5)
+                            pointerEvents:
+                              isMonthMoving && dragState.isDragging ? 'none' : undefined,
+                            ...jobColors.gradientStyle,
+                          } as React.CSSProperties
                         }
                         onPointerDown={e => {
                           // Month view: use pointer-based drag for ALL devices (mouse + touch)
@@ -2174,7 +2211,7 @@ const Calendar = ({
         )}
 
       {/* Toolbar */}
-      <div 
+      <div
         className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 md:p-4 border-b border-primary-blue overflow-hidden flex-shrink-0"
         style={{ touchAction: 'none', overscrollBehavior: 'none' }}
       >
@@ -2184,7 +2221,12 @@ const Calendar = ({
             className="p-1.5 sm:p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors flex-shrink-0"
             aria-label="Previous"
           >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-4 h-4 sm:w-5 sm:h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -2204,7 +2246,12 @@ const Calendar = ({
             className="p-1.5 sm:p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors flex-shrink-0"
             aria-label="Next"
           >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-4 h-4 sm:w-5 sm:h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
