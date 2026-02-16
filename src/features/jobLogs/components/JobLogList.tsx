@@ -4,6 +4,7 @@ import JobLogCard from './JobLogCard'
 import { Input, Button, Select } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { getRecurringTag } from '../utils/recurringPattern'
 
 interface JobLogListProps {
   onCreateClick?: () => void
@@ -497,6 +498,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
               <tbody className="divide-y divide-primary-blue">
                 {filteredJobLogs.map((jobLog) => {
                   const hasTime = (jobLog.timeEntries?.length ?? 0) > 0
+                  const recurringTag = jobLog.bookings ? getRecurringTag(jobLog.bookings) : null
                   return (
                     <tr
                       key={jobLog.id}
@@ -519,8 +521,15 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-primary-light">
-                          {jobLog.title}
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-primary-light">
+                            {jobLog.title}
+                          </div>
+                          {recurringTag && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
+                              {recurringTag}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">

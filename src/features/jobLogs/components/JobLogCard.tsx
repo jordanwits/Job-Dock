@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { JobLog } from '../types/jobLog'
+import { getRecurringTag } from '../utils/recurringPattern'
 
 interface JobLogCardProps {
   jobLog: JobLog
@@ -31,6 +32,7 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
     completed: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
     inactive: 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20',
   }
+  const recurringTag = jobLog.bookings ? getRecurringTag(jobLog.bookings) : null
 
   return (
     <Card
@@ -67,9 +69,16 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
 
         {/* Header */}
         <div className={cn(onToggleSelect && 'pl-8', 'min-w-0')}>
-          <h3 className="text-lg font-semibold text-primary-light break-words">
-            {jobLog.title}
-          </h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-lg font-semibold text-primary-light break-words flex-1">
+              {jobLog.title}
+            </h3>
+            {recurringTag && (
+              <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
+                {recurringTag}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0', statusColors[statusLabel] || statusColors.inactive)}>
               {statusLabel}

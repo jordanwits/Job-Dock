@@ -5,6 +5,7 @@ import { Card, Button, StatusBadgeSelect } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/features/auth'
 import type { JobLog, JobAssignment } from '../types/jobLog'
+import { getRecurringTag } from '../utils/recurringPattern'
 import JobLogForm from './JobLogForm'
 import TimeTracker from './TimeTracker'
 import PhotoCapture from './PhotoCapture'
@@ -12,6 +13,7 @@ import JobLogNotes from './JobLogNotes'
 import { useJobLogStore } from '../store/jobLogStore'
 
 const TIMER_STORAGE_KEY = 'joblog-active-timer'
+
 
 interface JobLogDetailProps {
   jobLog: JobLog
@@ -727,56 +729,73 @@ const JobLogDetail = ({
       </div>
 
       {/* Upcoming Bookings */}
-      {jobLog.bookings && jobLog.bookings.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-primary-light/70 uppercase tracking-wider">
-            Upcoming Bookings
-          </h3>
-          <div className="space-y-2">
-            {jobLog.bookings
-              .filter(b => b.status !== 'cancelled')
-              .sort((a, b) => {
-                const aTime = a.startTime ? new Date(a.startTime).getTime() : 0
-                const bTime = b.startTime ? new Date(b.startTime).getTime() : 0
-                return aTime - bTime
-              })
-              .slice(0, 10)
-              .map(booking => (
-                <div
-                  key={booking.id}
-                  className="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary-dark/50 border border-primary-blue/20"
-                >
-                  <div className="min-w-0 flex-1">
-                    {booking.toBeScheduled ? (
+      {jobLog.bookings && jobLog.bookings.length > 0 && (() => {
+        const sortedBookings = jobLog.bookings
+          .filter(b => b.status !== 'cancelled')
+          .sort((a, b) => {
+            const aTime = a.startTime ? new Date(a.startTime).getTime() : 0
+            const bTime = b.startTime ? new Date(b.startTime).getTime() : 0
+            return aTime - bTime
+          })
+
+        // Get the next upcoming booking
+        const nextBooking = sortedBookings.find(b => {
+          if (b.toBeScheduled) return false
+          if (!b.startTime) return false
+          const bookingDate = new Date(b.startTime)
+          return bookingDate >= new Date()
+        }) || sortedBookings[0]
+
+        if (!nextBooking) return null
+
+        // Check if bookings follow a recurring pattern
+        const recurringTag = getRecurringTag(sortedBookings)
+
+        return (
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-primary-light/70 uppercase tracking-wider">
+              Upcoming Bookings
+            </h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary-dark/50 border border-primary-blue/20">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {nextBooking.toBeScheduled ? (
                       <span className="text-primary-light/70 text-sm">To be scheduled</span>
-                    ) : booking.startTime && booking.endTime ? (
+                    ) : nextBooking.startTime && nextBooking.endTime ? (
                       <span className="text-primary-light text-sm">
-                        {format(new Date(booking.startTime), 'MMM d, yyyy • h:mm a')} –{' '}
-                        {format(new Date(booking.endTime), 'h:mm a')}
+                        {format(new Date(nextBooking.startTime), 'MMM d, yyyy • h:mm a')} –{' '}
+                        {format(new Date(nextBooking.endTime), 'h:mm a')}
                       </span>
                     ) : (
                       <span className="text-primary-light/70 text-sm">No time set</span>
                     )}
-                    {booking.service?.name && (
-                      <p className="text-xs text-primary-light/50 mt-0.5">{booking.service.name}</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    {booking.price != null && booking.price !== undefined && (
-                      <span className="text-sm font-semibold text-primary-gold">
-                        $
-                        {booking.price.toLocaleString('en-US', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                    {recurringTag && (
+                      <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
+                        {recurringTag}
                       </span>
                     )}
                   </div>
+                  {nextBooking.service?.name && (
+                    <p className="text-xs text-primary-light/50 mt-0.5">{nextBooking.service.name}</p>
+                  )}
                 </div>
-              ))}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {nextBooking.price != null && nextBooking.price !== undefined && (
+                    <span className="text-sm font-semibold text-primary-gold">
+                      $
+                      {nextBooking.price.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Overview: contact, location, and price */}
       {(hasOverview ||
