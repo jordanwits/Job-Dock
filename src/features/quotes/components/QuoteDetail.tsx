@@ -391,6 +391,7 @@ const QuoteDetail = ({
           }
           return title
         })()}
+        defaultPrice={quote.total}
         sourceContext="quote"
         quoteId={quote.id}
         initialQuoteId={quote.id}

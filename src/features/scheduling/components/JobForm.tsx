@@ -242,6 +242,25 @@ const JobForm = ({
   const selectedServiceId = watch('serviceId')
   const selectedContactId = watch('contactId')
 
+  // Set price from quote/invoice when initialQuoteId/initialInvoiceId is provided and quote/invoice loads
+  // Only set if price is empty or matches defaultPrice (user hasn't manually changed it)
+  useEffect(() => {
+    if (initialQuoteId && quotes.length > 0 && !job) {
+      const quote = quotes.find(q => q.id === initialQuoteId)
+      const currentPrice = watch('price')
+      if (quote && (currentPrice === '' || currentPrice === defaultPrice?.toString() || currentPrice === '0')) {
+        setValue('price', quote.total.toString())
+      }
+    }
+    if (initialInvoiceId && invoices.length > 0 && !job) {
+      const invoice = invoices.find(i => i.id === initialInvoiceId)
+      const currentPrice = watch('price')
+      if (invoice && (currentPrice === '' || currentPrice === defaultPrice?.toString() || currentPrice === '0')) {
+        setValue('price', invoice.total.toString())
+      }
+    }
+  }, [initialQuoteId, initialInvoiceId, quotes, invoices, defaultPrice, job, setValue, watch])
+
   // Auto-populate location when contact changes
   useEffect(() => {
     if (locationMode === 'contact' && selectedContactId) {
@@ -265,6 +284,7 @@ const JobForm = ({
         setValue('contactId', quote.contactId)
         setValue('quoteId', quote.id)
         setValue('invoiceId', '')
+        setValue('price', quote.total.toString())
       }
     } else if (selectedSource.type === 'invoice' && selectedSource.id) {
       const invoice = invoices.find(i => i.id === selectedSource.id)
@@ -272,6 +292,7 @@ const JobForm = ({
         setValue('contactId', invoice.contactId)
         setValue('invoiceId', invoice.id)
         setValue('quoteId', '')
+        setValue('price', invoice.total.toString())
       }
     } else if (selectedSource.type === 'none') {
       setValue('quoteId', '')
@@ -280,6 +301,7 @@ const JobForm = ({
       if (!job && !isCustomTitle) {
         setValue('contactId', defaultContactId || '')
         setValue('notes', defaultNotes || '')
+        setValue('price', defaultPrice != null ? defaultPrice.toString() : '')
       }
     }
   }, [
@@ -290,6 +312,7 @@ const JobForm = ({
     defaultContactId,
     defaultTitle,
     defaultNotes,
+    defaultPrice,
     job,
     isCustomTitle,
   ])
@@ -695,6 +718,7 @@ const JobForm = ({
         const lastName = getLastName(quote.contactName)
         const formattedTitle = lastName ? `${lastName}-${title}` : title
         setValue('title', formattedTitle)
+        setValue('price', quote.total.toString())
       }
     } else if (value.startsWith('invoice:')) {
       const id = value.replace('invoice:', '')
@@ -706,6 +730,7 @@ const JobForm = ({
         const lastName = getLastName(invoice.contactName)
         const formattedTitle = lastName ? `${lastName}-${title}` : title
         setValue('title', formattedTitle)
+        setValue('price', invoice.total.toString())
       }
     }
   }

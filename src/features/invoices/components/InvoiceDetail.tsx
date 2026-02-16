@@ -490,6 +490,7 @@ const InvoiceDetail = ({
           }
           return title
         })()}
+        defaultPrice={invoice.total}
         sourceContext="invoice"
         invoiceId={invoice.id}
         initialInvoiceId={invoice.id}
