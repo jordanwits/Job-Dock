@@ -1164,6 +1164,81 @@ const Calendar = ({
     const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
     const hours = Array.from({ length: 24 }, (_, i) => i)
 
+    // Calculate lane assignments for all-day jobs in the week
+    // Collect all all-day jobs that appear in this week
+    const allWeekAllDayJobs = new Map<string, Job>()
+    weekDays.forEach(day => {
+      const dayAllDayJobs = getJobsActiveOnDate(day).filter(job => isMultiDayJob(job))
+      dayAllDayJobs.forEach(job => {
+        if (!allWeekAllDayJobs.has(job.id)) {
+          allWeekAllDayJobs.set(job.id, job)
+        }
+      })
+    })
+
+    // Sort jobs by start date, then by end date (longer first), then by id for stability
+    const sortedAllDayJobs = Array.from(allWeekAllDayJobs.values())
+      .filter(job => job.startTime && job.endTime)
+      .sort((a, b) => {
+        const aStart = startOfDay(new Date(a.startTime!)).getTime()
+        const bStart = startOfDay(new Date(b.startTime!)).getTime()
+        if (aStart !== bStart) return aStart - bStart
+        const aEnd = startOfDay(new Date(a.endTime!)).getTime()
+        const bEnd = startOfDay(new Date(b.endTime!)).getTime()
+        if (aEnd !== bEnd) return bEnd - aEnd // longer first
+        return a.id.localeCompare(b.id)
+      })
+
+    // Assign lanes: each job gets the first available lane that doesn't overlap with previous jobs
+    const weekLaneMap = new Map<string, number>()
+    const laneJobs: Array<Array<{ start: number; end: number }>> = [] // Track all jobs in each lane
+
+    sortedAllDayJobs.forEach(job => {
+      const jobStartDay = startOfDay(new Date(job.startTime!))
+      const jobEndDay = startOfDay(new Date(job.endTime!))
+      
+      // Find visible start/end in the week
+      const visibleStart = jobStartDay < weekStart ? weekStart : jobStartDay
+      const visibleEnd = jobEndDay > weekEnd ? weekEnd : jobEndDay
+      
+      const startDayIndex = weekDays.findIndex(d => isSameDay(startOfDay(d), visibleStart))
+      const endDayIndex = weekDays.findIndex(d => isSameDay(startOfDay(d), visibleEnd))
+      
+      if (startDayIndex === -1 || endDayIndex === -1) return
+
+      // Find the first lane where this job doesn't overlap with any existing job
+      let assignedLane = -1
+      for (let lane = 0; lane < laneJobs.length; lane++) {
+        const jobsInLane = laneJobs[lane]
+        // Check if this job overlaps with any job in this lane
+        const overlaps = jobsInLane.some(existingJob => {
+          // Two jobs overlap if: this job starts before existing ends AND this job ends after existing starts
+          return startDayIndex <= existingJob.end && endDayIndex >= existingJob.start
+        })
+        
+        if (!overlaps) {
+          // This lane is free, use it
+          assignedLane = lane
+          jobsInLane.push({ start: startDayIndex, end: endDayIndex })
+          break
+        }
+      }
+      
+      if (assignedLane === -1) {
+        // Need a new lane
+        assignedLane = laneJobs.length
+        laneJobs.push([{ start: startDayIndex, end: endDayIndex }])
+      }
+      
+      weekLaneMap.set(job.id, assignedLane)
+    })
+
+    // Calculate height needed for all-day slot based on number of lanes
+    // Each lane is 1.75rem tall with a small gap
+    const laneHeight = 1.75 // rem per lane
+    const laneGap = 0.125 // rem gap between lanes
+    const allDaySlotHeight = Math.max(1, laneJobs.length) * (laneHeight + laneGap) + 0.25 // Add small padding at bottom
+
     return (
       <>
         <style>{`
@@ -1205,7 +1280,13 @@ const Calendar = ({
               {/* Empty space for day headers */}
               <div className="h-10 md:h-12 border-b border-primary-blue/30"></div>
               {/* All-day slot label */}
-              <div className="h-7 md:h-9 border-b border-primary-blue/30 p-1 md:p-2 text-xs text-primary-light/70 font-normal">
+              <div 
+                className="border-b border-primary-blue/30 p-1 md:p-2 text-xs text-primary-light/70 font-normal"
+                style={{
+                  minHeight: `${allDaySlotHeight}rem`,
+                  height: `${allDaySlotHeight}rem`,
+                }}
+              >
                 All Day
               </div>
               {/* Time slots */}
@@ -1274,7 +1355,13 @@ const Calendar = ({
                     </div>
 
                     {/* All-day slot - dedicated row for multi-day jobs */}
-                    <div className="h-7 md:h-9 border-b border-primary-blue/30 relative flex-shrink-0 overflow-visible">
+                    <div 
+                      className="border-b border-primary-blue/30 relative flex-shrink-0 overflow-visible"
+                      style={{
+                        minHeight: `${allDaySlotHeight}rem`,
+                        height: `${allDaySlotHeight}rem`,
+                      }}
+                    >
                       {/* Render multi-day jobs on the first day they appear in this week */}
                       {allDayJobs
                         .filter(job => {
@@ -1323,6 +1410,12 @@ const Calendar = ({
                           const leftOffset =
                             columnOffset > 0 ? `calc(-${columnOffset} * (100% + 1px))` : '0.125rem'
 
+                          // Get lane assignment for vertical positioning
+                          const lane = weekLaneMap.get(job.id) ?? 0
+                          const laneHeight = 1.75 // rem per lane
+                          const laneGap = 0.125 // rem gap between lanes
+                          const topOffset = lane * (laneHeight + laneGap)
+
                           const jobColors = getJobColors(job)
                           return (
                             <div
@@ -1335,20 +1428,27 @@ const Calendar = ({
                                 isJobStart && 'rounded-l',
                                 isJobEnd && 'rounded-r'
                               )}
-                              style={{
-                                left: leftOffset,
-                                top: 0,
-                                bottom: 0,
-                                width: `calc(${spanDays} * 100% + ${spanDays - 1} * 1px)`,
-                                paddingLeft: '0.125rem',
-                                paddingRight: '0.125rem',
-                                transform: isMoving
-                                  ? `translate3d(${translateX}px, ${translateY}px, 0)`
-                                  : undefined,
-                                transition: isMoving || justFinishedDrag ? 'none' : 'all 0.2s ease',
-                                opacity: isMoving && dragState.isDragging ? 0.5 : 1,
-                                ...jobColors.gradientStyle,
-                              }}
+                              style={
+                                {
+                                  left: leftOffset,
+                                  // Mobile uses inline top; desktop uses CSS rule:
+                                  // `.multi-day-job-bar { top: var(--top-desktop, 0) !important; }`
+                                  // so we must set the CSS var for proper lane stacking.
+                                  top: `${topOffset}rem`,
+                                  '--top-desktop': `${topOffset}rem`,
+                                  height: `${laneHeight}rem`,
+                                  width: `calc(${spanDays} * 100% + ${spanDays - 1} * 1px)`,
+                                  paddingLeft: '0.125rem',
+                                  paddingRight: '0.125rem',
+                                  transform: isMoving
+                                    ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                                    : undefined,
+                                  transition:
+                                    isMoving || justFinishedDrag ? 'none' : 'all 0.2s ease',
+                                  opacity: isMoving && dragState.isDragging ? 0.5 : 1,
+                                  ...jobColors.gradientStyle,
+                                } as React.CSSProperties & { '--top-desktop': string }
+                              }
                               onPointerDown={e => {
                                 e.stopPropagation()
                                 handleDragStart(e, job, 'week-all-day-move')
