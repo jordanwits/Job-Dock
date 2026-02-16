@@ -1251,8 +1251,7 @@ const Calendar = ({
                     {/* Day header */}
                     <div
                       className={cn(
-                        'h-10 md:h-12 border-b border-primary-blue/30 cursor-pointer hover:bg-primary-blue/10 flex-shrink-0',
-                        isToday(day) && 'border-l-4 border-primary-gold'
+                        'h-10 md:h-12 border-b border-primary-blue/30 cursor-pointer hover:bg-primary-blue/10 flex-shrink-0'
                       )}
                       onClick={() => onDateClick(day)}
                     >
@@ -1742,7 +1741,6 @@ const Calendar = ({
                   // Only use Tailwind minHeight class on desktop (when dynamicHeight is not set)
                   !scaleSettings.dynamicHeight && scaleSettings.minHeight,
                   'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative select-none overflow-visible',
-                  isToday(day) && 'border-2 border-primary-gold',
                   isDropTarget && 'bg-primary-gold/20 ring-2 ring-primary-gold'
                 )}
                 style={
