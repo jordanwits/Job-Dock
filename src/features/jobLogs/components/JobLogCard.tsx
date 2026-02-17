@@ -69,8 +69,8 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
 
         {/* Header */}
         <div className={cn(onToggleSelect && 'pl-8', 'min-w-0')}>
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="text-lg font-semibold text-primary-light break-words flex-1">
+          <div className="flex items-start gap-2 flex-wrap">
+            <h3 className="text-lg font-semibold text-primary-light break-words">
               {jobLog.title}
             </h3>
             {recurringTag && (
@@ -115,9 +115,9 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
           </div>
         </div>
 
-        {/* Updated */}
+        {/* Created */}
         <div className="text-xs text-primary-light/50">
-          Updated: {format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d, yyyy')}
+          Created: {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
         </div>
       </div>
     </Card>

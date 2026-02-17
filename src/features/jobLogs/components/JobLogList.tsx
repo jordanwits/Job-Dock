@@ -142,7 +142,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       }
       // recent
-      return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
 
     return sorted
@@ -368,7 +368,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       Job
                     </th>
                     <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
-                      Last Updated
+                      Created
                     </th>
                     <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                       Contact
@@ -476,7 +476,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                     Job
                   </th>
                   <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
-                    Last Updated
+                    Created
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                     Contact
@@ -522,9 +522,9 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       </td>
                       <td className="px-2 sm:px-4 py-3 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="text-sm font-medium text-primary-light truncate min-w-0 flex-1">
+                          <span className="text-sm font-medium text-primary-light truncate min-w-0">
                             {jobLog.title}
-                          </div>
+                          </span>
                           {recurringTag && (
                             <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
                               {recurringTag}
@@ -534,10 +534,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       </td>
                       <td className="px-2 sm:px-4 py-3 text-sm text-primary-light/70">
                         <span className="hidden sm:inline whitespace-nowrap">
-                          {format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d, yyyy')}
+                          {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
                         </span>
                         <span className="sm:hidden whitespace-nowrap">
-                          {format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d')}
+                          {format(new Date(jobLog.createdAt), 'MMM d')}
                         </span>
                       </td>
                       <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">

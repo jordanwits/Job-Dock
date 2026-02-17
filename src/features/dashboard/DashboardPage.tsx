@@ -75,7 +75,7 @@ const DashboardPage = () => {
     const active = jobLogs.filter((j) => norm(j.status) === 'active')
     const completed = jobLogs.filter((j) => norm(j.status) === 'completed')
     const recentJobs = [...jobLogs]
-      .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5)
     return { activeCount: active.length, completedCount: completed.length, recentJobs }
   }, [jobLogs])
@@ -283,7 +283,7 @@ const DashboardPage = () => {
                         <p className="text-primary-light/50 text-xs mt-1.5">
                           {jobLog.timeEntries && jobLog.timeEntries.length > 0
                             ? `${hours}h ${mins}m total`
-                            : format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d, yyyy')}
+                            : format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
                         </p>
                       </Link>
                     )
