@@ -6,6 +6,7 @@ import { useAuthStore } from '@/features/auth'
 import Calendar from '../components/Calendar'
 import JobForm from '../components/JobForm'
 import JobDetail from '../components/JobDetail'
+import JobList from '../components/JobList'
 import ServiceList from '../components/ServiceList'
 import ServiceForm from '../components/ServiceForm'
 import ServiceDetail from '../components/ServiceDetail'
@@ -103,13 +104,11 @@ const SchedulingPage = () => {
   // Initialize activeTab from URL query parameter or default to 'calendar'
   const tabParam = searchParams.get('tab')
   const initialTab =
-    tabParam === 'services' || tabParam === 'calendar'
+    tabParam === 'services' || tabParam === 'calendar' || tabParam === 'upcoming-bookings'
       ? tabParam
-      : tabParam === 'jobs'
-        ? 'calendar' // Jobs tab now navigates to job-logs; default to calendar
-        : 'calendar'
-  const [activeTab, setActiveTab] = useState<'calendar' | 'services' | 'archived'>(
-    initialTab as 'calendar' | 'services' | 'archived'
+      : 'calendar'
+  const [activeTab, setActiveTab] = useState<'calendar' | 'upcoming-bookings' | 'services' | 'archived'>(
+    (initialTab as 'calendar' | 'upcoming-bookings' | 'services' | 'archived') || 'calendar'
   )
 
   const [linkCopied, setLinkCopied] = useState(false)
@@ -357,8 +356,8 @@ const SchedulingPage = () => {
   // Set active tab from URL parameter on mount
   useEffect(() => {
     const tabParam = searchParams.get('tab')
-    if (tabParam === 'services' || tabParam === 'calendar') {
-      setActiveTab(tabParam)
+    if (tabParam === 'services' || tabParam === 'calendar' || tabParam === 'upcoming-bookings') {
+      setActiveTab(tabParam as 'calendar' | 'upcoming-bookings' | 'services' | 'archived')
     }
   }, [searchParams])
 
@@ -422,7 +421,7 @@ const SchedulingPage = () => {
           if (activeTab === 'services' && user?.role !== 'employee') {
             setShowServiceForm(true)
           } else if (activeTab !== 'services') {
-            // For both 'calendar' and 'jobs' tabs, create a job
+            // For 'calendar' and 'upcoming-bookings' tabs, create a job
             setShowJobForm(true)
           }
         }
@@ -867,7 +866,7 @@ const SchedulingPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {activeTab === 'calendar' && (
+          {(activeTab === 'calendar' || activeTab === 'upcoming-bookings') && (
             <>
               {user?.canScheduleAppointments !== false && (
                 <Button
@@ -1004,7 +1003,12 @@ const SchedulingPage = () => {
         style={{ touchAction: 'pan-x', overscrollBehaviorY: 'none' }}
       >
         <button
-          onClick={() => setActiveTab('calendar')}
+          onClick={() => {
+            setActiveTab('calendar')
+            const params = new URLSearchParams(searchParams)
+            params.set('tab', 'calendar')
+            setSearchParams(params, { replace: true })
+          }}
           className={`
             px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
             ${
@@ -1017,13 +1021,30 @@ const SchedulingPage = () => {
           Calendar
         </button>
         <button
-          onClick={() => navigate('/app/job-logs')}
-          className="px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0 text-primary-light/60 hover:text-primary-light/90"
+          onClick={() => {
+            setActiveTab('upcoming-bookings')
+            const params = new URLSearchParams(searchParams)
+            params.set('tab', 'upcoming-bookings')
+            setSearchParams(params, { replace: true })
+          }}
+          className={`
+            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
+            ${
+              activeTab === 'upcoming-bookings'
+                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+                : 'text-primary-light/60 hover:text-primary-light/90'
+            }
+          `}
         >
-          Jobs
+          Upcoming Bookings
         </button>
         <button
-          onClick={() => setActiveTab('services')}
+          onClick={() => {
+            setActiveTab('services')
+            const params = new URLSearchParams(searchParams)
+            params.set('tab', 'services')
+            setSearchParams(params, { replace: true })
+          }}
           className={`
             px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
             ${
@@ -1036,7 +1057,12 @@ const SchedulingPage = () => {
           Services
         </button>
         <button
-          onClick={() => setActiveTab('archived')}
+          onClick={() => {
+            setActiveTab('archived')
+            const params = new URLSearchParams(searchParams)
+            params.set('tab', 'archived')
+            setSearchParams(params, { replace: true })
+          }}
           className={`
             px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
             ${
@@ -1052,6 +1078,18 @@ const SchedulingPage = () => {
 
       {/* Content */}
       <div className="flex-1 min-w-0 overflow-hidden">
+        {activeTab === 'upcoming-bookings' && (
+          <div className="h-full overflow-y-auto p-6">
+            <JobList 
+              showCreatedBy={isTeamAccount}
+              onJobClick={job => {
+                setSelectedJob(job)
+                setShowJobDetail(true)
+              }}
+            />
+          </div>
+        )}
+
         {activeTab === 'calendar' && (
           <div className="h-full flex flex-col min-w-0">
             {/* To Be Scheduled List (inline at top when visible) */}

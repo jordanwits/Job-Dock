@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useJobStore } from '../store/jobStore'
+import type { Job } from '../types/job'
 import JobCard from './JobCard'
 import { startOfMonth, endOfMonth, addMonths, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -8,9 +9,10 @@ type TimeFrame = 'day' | 'week' | 'month'
 
 interface JobListProps {
   showCreatedBy?: boolean
+  onJobClick?: (job: Job) => void
 }
 
-const JobList = ({ showCreatedBy }: JobListProps) => {
+const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
   const {
     jobs,
     isLoading,
@@ -116,7 +118,12 @@ const JobList = ({ showCreatedBy }: JobListProps) => {
         ) : (
           <div className="space-y-3">
             {filteredJobs.map((job) => (
-              <JobCard key={job.id} job={job} showCreatedBy={showCreatedBy} />
+              <JobCard 
+                key={job.id} 
+                job={job} 
+                showCreatedBy={showCreatedBy}
+                onClick={onJobClick}
+              />
             ))}
           </div>
         )}

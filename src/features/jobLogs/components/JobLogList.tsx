@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogCard from './JobLogCard'
-import { Input, Button, Select } from '@/components/ui'
+import { Input, Button, Select, Checkbox } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { getRecurringTag } from '../utils/recurringPattern'
@@ -27,6 +27,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
 
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'inactive'>('all')
+  const [showCompleted, setShowCompleted] = useState<boolean>(() => {
+    const saved = localStorage.getItem('joblogs-show-completed')
+    return saved !== null ? saved === 'true' : true // Default to showing completed
+  })
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
     const saved = localStorage.getItem('joblogs-display-mode')
     return (saved as DisplayMode) || 'cards'
@@ -50,6 +54,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
   useEffect(() => {
     localStorage.setItem('joblogs-sort-by', sortBy)
   }, [sortBy])
+
+  useEffect(() => {
+    localStorage.setItem('joblogs-show-completed', String(showCompleted))
+  }, [showCompleted])
 
   const hasFilters = Boolean(searchQuery.trim()) || statusFilter !== 'all'
   const clearFilters = () => {
@@ -117,6 +125,14 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
   const filteredJobLogs = useMemo(() => {
     let filtered = jobLogs
 
+    // Filter out completed jobs if toggle is off
+    if (!showCompleted) {
+      filtered = filtered.filter((j) => {
+        const s = j.status ?? 'active'
+        return s !== 'completed'
+      })
+    }
+
     if (statusFilter !== 'all') {
       filtered = filtered.filter((j) => {
         const s = j.status ?? 'active'
@@ -146,7 +162,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
     })
 
     return sorted
-  }, [jobLogs, statusFilter, searchQuery, sortBy])
+  }, [jobLogs, statusFilter, searchQuery, sortBy, showCompleted])
 
   const computeTotalHours = (jobLog: (typeof jobLogs)[0]) => {
     const totalMinutes =
@@ -191,7 +207,14 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap items-center">
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary-blue/30 bg-primary-dark-secondary cursor-pointer whitespace-nowrap flex-shrink-0">
+            <Checkbox
+              checked={showCompleted}
+              onChange={(e) => setShowCompleted(e.target.checked)}
+            />
+            <span className="text-sm text-primary-light select-none">Show completed</span>
+          </label>
           <Select
             value={statusFilter}
             onChange={(e) =>

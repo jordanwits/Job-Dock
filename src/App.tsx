@@ -13,6 +13,7 @@ import { JobLogsListPage, JobLogDetailPage } from '@/features/jobLogs'
 import { PublicBookingPage } from '@/features/booking'
 import { SettingsPage, ProfileSettingsPage } from '@/features/settings'
 import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
+import { ReportsPage } from '@/features/reports'
 import {
   LandingPage,
   RequestAccessPage,
@@ -40,6 +41,7 @@ const ALL_SIDEBAR_ITEMS = [
   { label: 'Quotes', href: '/app/quotes' },
   { label: 'Invoices', href: '/app/invoices' },
   { label: 'Calendar', href: '/app/scheduling' },
+  { label: 'Reports', href: '/app/reports' },
   { label: 'Settings', href: '/app/settings' },
 ] as const
 
@@ -245,6 +247,25 @@ function App() {
               ) : (
                 <Navigate to="/app/settings" replace />
               )}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/app/reports"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <AdminRoute userRole={user?.role}>
+                <BillingGuard>
+                  <AppLayout
+                    sidebarItems={sidebarItems}
+                    user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
+                    onLogout={handleLogout}
+                  >
+                    <ReportsPage />
+                  </AppLayout>
+                </BillingGuard>
+              </AdminRoute>
             </ProtectedRoute>
           }
         />
