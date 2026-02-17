@@ -48,6 +48,8 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
   const assignments = getAssignments()
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const currentUserId = user?.id
+  const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
+  const canEditJobs = isAdminOrOwner || user?.canCreateJobs || user?.canScheduleAppointments
   
   useEffect(() => {
     if (job?.quoteId && quotes.length === 0) {
@@ -217,7 +219,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                     )}
                   </div>
                 )}
-                {onEdit && !isArchived && (
+                {onEdit && !isArchived && canEditJobs && (
                   <Button variant="ghost" onClick={onEdit} className="bg-primary-light/10 text-primary-light hover:bg-primary-light/20 sm:bg-transparent sm:hover:bg-primary-light/5 w-full sm:w-auto justify-center">
                     Edit
                   </Button>
@@ -330,7 +332,9 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                 const nameFromString = nameParts[index]?.trim()
                 // Show "Unassigned" instead of "User 1", "User 2", etc. when name is not available
                 const displayName = nameFromString || 'Unassigned'
-                const canSeePrice = isAdminOrOwner || assignment.userId === currentUserId
+                // Employees can always see their own assignment price, even if canSeeJobPrices is false
+                // Admins/owners can see all prices if canSeeJobPrices is true
+                const canSeePrice = isAdminOrOwner ? canSeeJobPrices : (assignment.userId === currentUserId)
                 const price = canSeePrice ? assignment.price : undefined
                 
                 const hasPrice = price !== null && price !== undefined

@@ -69,6 +69,7 @@ const JobLogDetail = ({
   const [activeTab, setActiveTab] = useState<Tab>('notes')
   const [showMenu, setShowMenu] = useState(false)
   const canAccessQuotes = user?.role !== 'employee'
+  const canEditJobs = user?.role === 'admin' || user?.role === 'owner' || user?.canCreateJobs || user?.canScheduleAppointments
 
   // Timer state management
   const [isTimerRunning, setIsTimerRunning] = useState(() => {
@@ -251,11 +252,14 @@ const JobLogDetail = ({
   }
 
   const hasOverview = jobLog.location || jobLog.contact
-  const primaryPrice =
+  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
+  const canSeePrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
+  const primaryPrice = canSeePrices ? (
     jobLog.price ??
     jobLog.job?.price ??
     (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.price : null) ??
     null
+  ) : null
   const primaryServiceName =
     jobLog.serviceName ??
     jobLog.job?.serviceName ??
@@ -311,15 +315,17 @@ const JobLogDetail = ({
                 >
                   Schedule Appointment
                 </button>
-                <button
-                  onClick={() => {
-                    setShowMenu(false)
-                    onEdit()
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
-                >
-                  Edit
-                </button>
+                {canEditJobs && (
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      onEdit()
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                  >
+                    Edit
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowMenu(false)
@@ -395,6 +401,7 @@ const JobLogDetail = ({
                   const assignments = parsedAssignments
                   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
                   const currentUserId = user?.id
+                  const canSeePrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
 
                   // If we have assignments with roles, show them with pricing
                   if (assignments.length > 0 && assignments[0].role) {
@@ -411,7 +418,7 @@ const JobLogDetail = ({
                             // Show "Unassigned" instead of "User 1", "User 2", etc. when name is not available
                             const displayName = nameFromString || 'Unassigned'
                             const canSeePrice =
-                              isAdminOrOwner || assignment.userId === currentUserId
+                              canSeePrices && (isAdminOrOwner || assignment.userId === currentUserId)
                             const payType = assignment.payType || 'job'
                             const price = canSeePrice ? assignment.price : undefined
                             const hourlyRate = canSeePrice ? assignment.hourlyRate : undefined
@@ -621,9 +628,11 @@ const JobLogDetail = ({
             <Button variant="outline" size="sm" onClick={handleScheduleAppointment}>
               Schedule Appointment
             </Button>
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              Edit
-            </Button>
+            {canEditJobs && (
+              <Button variant="outline" size="sm" onClick={onEdit}>
+                Edit
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -781,7 +790,7 @@ const JobLogDetail = ({
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  {nextBooking.price != null && nextBooking.price !== undefined && (
+                  {canSeePrices && nextBooking.price != null && nextBooking.price !== undefined && (
                     <span className="text-sm font-semibold text-primary-gold">
                       $
                       {nextBooking.price.toLocaleString('en-US', {

@@ -504,6 +504,7 @@ We look forward to working with you!',
             canCreateJobs: true,
             canScheduleAppointments: true,
             canSeeOtherJobs: true,
+            canSeeJobPrices: true,
             color: true,
             createdAt: true 
           },
@@ -541,6 +542,9 @@ We look forward to working with you!',
         }
         if (body?.canSeeOtherJobs !== undefined) {
           updateData.canSeeOtherJobs = Boolean(body.canSeeOtherJobs)
+        }
+        if (body?.canSeeJobPrices !== undefined) {
+          updateData.canSeeJobPrices = Boolean(body.canSeeJobPrices)
         }
         
         // Update color if provided
@@ -944,6 +948,7 @@ We look forward to working with you!',
           canCreateJobs: true,
           canScheduleAppointments: true,
           canSeeOtherJobs: true,
+          canSeeJobPrices: true,
         },
       })
       currentUser = user
@@ -966,15 +971,24 @@ We look forward to working with you!',
       }
     }
 
-    // Check edit/delete permissions: users without canSeeOtherJobs can only edit their own jobs
+    // Check edit/delete permissions: users without canCreateJobs cannot edit jobs
+    // Users without canSeeOtherJobs can only edit their own jobs
     if (
       currentUser &&
       resource === 'jobs' &&
       id &&
       (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH' || event.httpMethod === 'DELETE')
     ) {
-      // Admins and owners always have canSeeOtherJobs set to true (or default behavior)
-      const canSeeOther = currentUser.role === 'admin' || currentUser.role === 'owner' || currentUser.canSeeOtherJobs
+      // First check: users without canCreateJobs cannot edit jobs at all
+      const isAdminOrOwner = currentUser.role === 'admin' || currentUser.role === 'owner'
+      const canCreate = isAdminOrOwner || currentUser.canCreateJobs || currentUser.canScheduleAppointments
+      
+      if (!canCreate) {
+        return errorResponse('You do not have permission to edit jobs', 403)
+      }
+      
+      // Second check: users without canSeeOtherJobs can only edit their own jobs
+      const canSeeOther = isAdminOrOwner || currentUser.canSeeOtherJobs
       
       if (!canSeeOther) {
         const { default: prisma } = await import('../../lib/db')

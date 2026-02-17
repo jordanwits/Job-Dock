@@ -166,8 +166,24 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
         ...(replyTo && { reply_to: replyTo }),
       })
 
-      const emailId =
-        (result as any)?.data?.id ?? (result as any)?.id ?? (result as any)?.data ?? 'unknown'
+      // Log full response for debugging
+      console.log('📧 Resend API response:', JSON.stringify(result, null, 2))
+
+      // Check Resend response structure - it can be { data: { id: ... } } or { id: ... } or error
+      const emailId = (result as any)?.data?.id ?? (result as any)?.id ?? (result as any)?.data ?? 'unknown'
+      const hasError = (result as any)?.error
+
+      if (hasError) {
+        const errorMsg = typeof hasError === 'string' ? hasError : JSON.stringify(hasError)
+        console.error('❌ Resend API returned error:', errorMsg)
+        console.error('Full Resend response:', JSON.stringify(result, null, 2))
+        throw new Error(`Resend API error: ${errorMsg}`)
+      }
+
+      if (!emailId || emailId === 'unknown') {
+        console.warn('⚠️ Resend API response missing email ID. Full response:', JSON.stringify(result, null, 2))
+      }
+
       console.log(
         `✅ Email sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''} (ID: ${emailId})`
       )
@@ -231,13 +247,15 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
       // Build FROM address with optional display name
       const fromAddress = fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS
 
+      console.log(`📧 Attempting to send email with attachments via Resend to ${to}: ${subject}`)
+
       // Convert Buffer attachments to base64 strings for Resend
       const resendAttachments = attachments.map(attachment => ({
         filename: attachment.filename,
         content: attachment.content.toString('base64'),
       }))
 
-      await resendClient.emails.send({
+      const result = await resendClient.emails.send({
         from: fromAddress,
         to,
         subject,
@@ -247,11 +265,36 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
         ...(resendAttachments.length > 0 && { attachments: resendAttachments }),
       })
 
+      // Log full response for debugging
+      console.log('📧 Resend API response (with attachments):', JSON.stringify(result, null, 2))
+
+      // Check Resend response structure - it can be { data: { id: ... } } or { id: ... } or error
+      const emailId = (result as any)?.data?.id ?? (result as any)?.id ?? (result as any)?.data ?? 'unknown'
+      const hasError = (result as any)?.error
+
+      if (hasError) {
+        const errorMsg = typeof hasError === 'string' ? hasError : JSON.stringify(hasError)
+        console.error('❌ Resend API returned error:', errorMsg)
+        console.error('Full Resend response:', JSON.stringify(result, null, 2))
+        throw new Error(`Resend API error: ${errorMsg}`)
+      }
+
+      if (!emailId || emailId === 'unknown') {
+        console.warn('⚠️ Resend API response missing email ID. Full response:', JSON.stringify(result, null, 2))
+      }
+
       console.log(
-        `✅ Email with attachments sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''}`
+        `✅ Email with attachments sent via Resend to ${to}: ${subject}${replyTo ? ` (Reply-To: ${replyTo})` : ''} (ID: ${emailId})`
       )
     } catch (error) {
       console.error('❌ Failed to send email with attachments via Resend:', error)
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+        })
+      }
       throw new Error(
         `Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`
       )

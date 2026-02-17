@@ -29,6 +29,10 @@ const statusOptions = [
 const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { user } = useAuthStore()
+  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
+  // "See price" controls the overall job price visibility/editing.
+  // Employees should still be able to see their own assignment pay elsewhere in the app.
+  const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
   const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [assignments, setAssignments] = useState<JobAssignment[]>([])
@@ -148,14 +152,23 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     // Ensure price is explicitly included and properly normalized
     const formData: any = {
       ...data,
-      // Price: normalize to number or null (never undefined or empty string)
-      price: data.price === '' || data.price === null || data.price === undefined 
-        ? null 
-        : (typeof data.price === 'number' ? data.price : Number(data.price)),
       assignedTo: Array.isArray(data.assignedTo) && data.assignedTo.length > 0 
         ? data.assignedTo.filter(a => a.userId && a.userId.trim() !== '')
         : null,
     }
+
+    // Only include job price if user has permission.
+    if (canSeeJobPrices) {
+      formData.price =
+        data.price === '' || data.price === null || data.price === undefined
+          ? null
+          : typeof data.price === 'number'
+            ? data.price
+            : Number(data.price)
+    } else {
+      delete formData.price
+    }
+
     await onSubmit(formData)
   }
 
@@ -193,8 +206,16 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                 step="0.01"
                 min="0"
                 {...field}
-                value={field.value === null || field.value === undefined ? '' : field.value}
+                // Don't reveal the price when permission is off.
+                value={
+                  !canSeeJobPrices
+                    ? ''
+                    : field.value === null || field.value === undefined
+                      ? ''
+                      : field.value
+                }
                 onChange={(e) => {
+                  if (!canSeeJobPrices) return
                   const value = e.target.value
                   if (value === '' || value === null || value === undefined) {
                     field.onChange(null)
@@ -206,13 +227,20 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                 error={errors.price?.message ? String(errors.price.message) : undefined}
                 placeholder="0.00"
                 className="pl-7"
+                disabled={!canSeeJobPrices}
               />
             )}
           />
         </div>
-        <p className="text-xs text-primary-light/50 mt-1">
-          This is the job price shown on the Jobs page (not the individual assignee pay).
-        </p>
+        {!canSeeJobPrices ? (
+          <p className="text-xs mt-1 text-yellow-400">
+            Insufficient permissions to view or edit job price.
+          </p>
+        ) : (
+          <p className="text-xs text-primary-light/50 mt-1">
+            This is the job price shown on the Jobs page (not the individual assignee pay).
+          </p>
+        )}
       </div>
       <Textarea
         label="Notes"

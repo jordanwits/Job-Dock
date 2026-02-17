@@ -12,6 +12,7 @@ interface TeamMember {
   canCreateJobs?: boolean
   canScheduleAppointments?: boolean
   canSeeOtherJobs?: boolean
+  canSeeJobPrices?: boolean
   color?: string | null
   createdAt: string
 }
@@ -150,6 +151,7 @@ export const TeamMembersSection = () => {
         canCreateJobs: member.canCreateJobs ?? true,
         canScheduleAppointments: member.canScheduleAppointments ?? true,
         canSeeOtherJobs: member.canSeeOtherJobs ?? false,
+        canSeeJobPrices: member.canSeeJobPrices ?? true,
       } : undefined
       await services.users.updateRole(userId, role, permissions)
       await loadMembers()
@@ -160,7 +162,7 @@ export const TeamMembersSection = () => {
 
   const handlePermissionChange = async (
     userId: string,
-    permission: 'canCreateJobs' | 'canScheduleAppointments' | 'canSeeOtherJobs',
+    permission: 'canCreateJobs' | 'canScheduleAppointments' | 'canSeeOtherJobs' | 'canSeeJobPrices',
     value: boolean,
     currentRole: string
   ) => {
@@ -174,6 +176,7 @@ export const TeamMembersSection = () => {
         canCreateJobs: permission === 'canCreateJobs' ? value : (member.canCreateJobs ?? true),
         canScheduleAppointments: permission === 'canScheduleAppointments' ? value : (member.canScheduleAppointments ?? true),
         canSeeOtherJobs: permission === 'canSeeOtherJobs' ? value : (member.canSeeOtherJobs ?? false),
+        canSeeJobPrices: permission === 'canSeeJobPrices' ? value : (member.canSeeJobPrices ?? true),
       }
       
       await services.users.updateRole(userId, currentRole as 'admin' | 'employee', permissions)
@@ -455,19 +458,34 @@ export const TeamMembersSection = () => {
                       </div>
                     </label>
                     {m.role === 'employee' && (
-                      <label className="flex items-start gap-3 cursor-pointer group">
-                        <div className="mt-0.5 flex-shrink-0">
-                          <Checkbox
-                            checked={m.canSeeOtherJobs ?? false}
-                            onChange={(e) => handlePermissionChange(m.id, 'canSeeOtherJobs', e.target.checked, m.role)}
-                            disabled={updatingPermissions === m.id}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <span className="text-sm text-primary-light/90 block">Can see other people's jobs</span>
-                          <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to see, edit, and delete jobs created by others</span>
-                        </div>
-                      </label>
+                      <>
+                        <label className="flex items-start gap-3 cursor-pointer group">
+                          <div className="mt-0.5 flex-shrink-0">
+                            <Checkbox
+                              checked={m.canSeeOtherJobs ?? false}
+                              onChange={(e) => handlePermissionChange(m.id, 'canSeeOtherJobs', e.target.checked, m.role)}
+                              disabled={updatingPermissions === m.id}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm text-primary-light/90 block">Can see other people's jobs</span>
+                            <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to see, edit, and delete jobs created by others</span>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-3 cursor-pointer group">
+                          <div className="mt-0.5 flex-shrink-0">
+                            <Checkbox
+                              checked={m.canSeeJobPrices ?? true}
+                              onChange={(e) => handlePermissionChange(m.id, 'canSeeJobPrices', e.target.checked, m.role)}
+                              disabled={updatingPermissions === m.id}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm text-primary-light/90 block">Can see job prices</span>
+                            <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to see job prices and assignment prices</span>
+                          </div>
+                        </label>
+                      </>
                     )}
                     {m.role === 'admin' && (
                       <div className="flex items-start gap-3">

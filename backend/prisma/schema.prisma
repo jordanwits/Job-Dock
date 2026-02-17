@@ -50,6 +50,7 @@ model User {
   canCreateJobs         Boolean     @default(true)
   canScheduleAppointments Boolean   @default(true)
   canSeeOtherJobs       Boolean     @default(false)
+  canSeeJobPrices       Boolean     @default(true)
   color                 String?     // Color for calendar display (e.g., "blue-500", "green-500")
   onboardingCompletedAt DateTime?
   createdAt             DateTime    @default(now())

@@ -226,6 +226,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         canCreateJobs: true,
         canScheduleAppointments: true,
         canSeeOtherJobs: true,
+        canSeeJobPrices: true,
         onboardingCompletedAt: true,
       },
     })
@@ -312,6 +313,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         canCreateJobs: user.canCreateJobs ?? true,
         canScheduleAppointments: user.canScheduleAppointments ?? true,
         canSeeOtherJobs: user.canSeeOtherJobs ?? false,
+        canSeeJobPrices: user.canSeeJobPrices ?? true,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
@@ -374,6 +376,7 @@ async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<AP
         canCreateJobs: true,
         canScheduleAppointments: true,
         canSeeOtherJobs: true,
+        canSeeJobPrices: true,
         onboardingCompletedAt: true,
       },
     })
@@ -394,6 +397,7 @@ async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<AP
         canCreateJobs: user.canCreateJobs ?? true,
         canScheduleAppointments: user.canScheduleAppointments ?? true,
         canSeeOtherJobs: user.canSeeOtherJobs ?? false,
+        canSeeJobPrices: user.canSeeJobPrices ?? true,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
@@ -437,6 +441,7 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         canCreateJobs: true,
         canScheduleAppointments: true,
         canSeeOtherJobs: true,
+        canSeeJobPrices: true,
         onboardingCompletedAt: true,
       },
     })
@@ -458,6 +463,7 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         canCreateJobs: user.canCreateJobs ?? true,
         canScheduleAppointments: user.canScheduleAppointments ?? true,
         canSeeOtherJobs: user.canSeeOtherJobs ?? false,
+        canSeeJobPrices: user.canSeeJobPrices ?? true,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })

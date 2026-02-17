@@ -778,6 +778,14 @@ WHERE "assignedTo" IS NOT NULL
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "color" TEXT;`,
     ],
   },
+  {
+    name: '20260216000001_add_can_see_job_prices',
+    statements: [
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "canSeeJobPrices" BOOLEAN NOT NULL DEFAULT true;`,
+      `UPDATE "users" SET "canSeeJobPrices" = true WHERE "canSeeJobPrices" IS NULL;`,
+    ],
+    description: 'Add canSeeJobPrices permission field to allow controlling employee access to job prices',
+  },
 ]
 
 export const handler = async (

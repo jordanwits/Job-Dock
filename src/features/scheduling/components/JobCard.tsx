@@ -29,15 +29,16 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
   const assignments = getAssignments()
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const currentUserId = user?.id
+  const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
   
-  // Calculate display price based on user role
+  // Calculate display price based on user role and permissions
   const getDisplayPrice = (): number | null => {
     // If job has a total price, show it for admins/owners
     if (job.price != null && isAdminOrOwner) {
       return job.price
     }
     
-    // For employees, show their assignment price if assigned
+    // For employees, show their assignment price if assigned (even if canSeeJobPrices is false)
     if (user?.role === 'employee' && currentUserId && assignments.length > 0) {
       const userAssignment = assignments.find(a => a.userId === currentUserId)
       if (userAssignment && userAssignment.price != null && userAssignment.price !== undefined) {
@@ -56,8 +57,12 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
       if (total > 0) return total
     }
     
-    // Fallback to job price
-    return job.price ?? null
+    // Show job price only if user has permission
+    if (canSeeJobPrices && job.price != null) {
+      return job.price
+    }
+    
+    return null
   }
   
   const displayPrice = getDisplayPrice()
@@ -141,14 +146,18 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
         <div className="pt-2 border-t border-primary-blue">
           <div className="flex justify-between items-center">
             <span className="text-sm text-primary-light/70">
-              {displayPrice != null ? 'Price' : 'Scheduled'}
+              {displayPrice != null || !canSeePrices ? 'Price' : 'Scheduled'}
             </span>
-            <span className="text-xl font-bold text-primary-gold">
-              {displayPrice != null
-                ? formatCurrency(displayPrice)
-                : job.startTime
-                  ? format(new Date(job.startTime), 'h:mm a')
-                  : '—'}
+            <span className={`text-xl font-bold ${displayPrice == null && !canSeeJobPrices ? 'text-primary-light/40' : 'text-primary-gold'}`}>
+              {displayPrice == null && !canSeeJobPrices && job.price != null ? (
+                <span className="text-xs italic">Insufficient permissions</span>
+              ) : displayPrice != null ? (
+                formatCurrency(displayPrice)
+              ) : job.startTime ? (
+                format(new Date(job.startTime), 'h:mm a')
+              ) : (
+                '—'
+              )}
             </span>
           </div>
         </div>

@@ -59,6 +59,11 @@ const JobForm = ({
   const { user } = useAuthStore()
   const canSchedule = user?.canScheduleAppointments !== false
   const canCreateJobs = user?.canCreateJobs !== false
+  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
+  // Employees can see job prices only if permission is enabled
+  // But they can always see their own assignment pay
+  const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
+  const currentUserId = user?.id
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
   const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [assignments, setAssignments] = useState<JobAssignment[]>([])
@@ -438,9 +443,42 @@ const JobForm = ({
       return !isNaN(numPrice) ? numPrice : undefined
     }
 
+    // If user doesn't have permission to see job prices, don't send job price
+    // But they can still see their own assignment pay
+    const shouldIncludeJobPrice = canSeeJobPrices
+
     const normalizedAssignments =
       Array.isArray(data.assignedTo) && data.assignedTo.length > 0
-        ? data.assignedTo.filter(a => a?.userId && a.userId.trim() !== '')
+        ? data.assignedTo
+            .filter(a => a?.userId && a.userId.trim() !== '')
+            .map(a => {
+              // Employees can see their own assignment pay, but not others'
+              // If user doesn't have permission to see job prices, they can't edit assignment prices
+              // But they can still see their own assignment pay (read-only, handled in UI)
+              if (!canSeeJobPrices) {
+                if (a.userId === currentUserId) {
+                  // Keep their own assignment but don't allow price changes
+                  // Preserve existing price from the job if editing, otherwise null
+                  const existingAssignment = job?.assignedTo && Array.isArray(job.assignedTo) 
+                    ? (job.assignedTo as JobAssignment[]).find(existing => existing.userId === a.userId)
+                    : null
+                  return {
+                    ...a,
+                    // Preserve existing price/hourlyRate if editing, otherwise keep what's in form (but it's disabled)
+                    price: existingAssignment?.price ?? a.price,
+                    hourlyRate: existingAssignment?.hourlyRate ?? a.hourlyRate,
+                  }
+                } else {
+                  // Remove other people's prices if user doesn't have permission
+                  return {
+                    ...a,
+                    price: null,
+                    hourlyRate: null,
+                  }
+                }
+              }
+              return a
+            })
         : null
 
     // If toBeScheduled, skip date/time validation and send without times
@@ -456,7 +494,8 @@ const JobForm = ({
         serviceId: dataWithoutTimes.serviceId || undefined,
         assignedTo: normalizedAssignments,
         // Convert price string to number, or undefined if empty
-        price: convertPrice(dataWithoutTimes.price),
+        // Don't include job price if user doesn't have permission
+        price: shouldIncludeJobPrice ? convertPrice(dataWithoutTimes.price) : undefined,
       }
       await onSubmit(formData)
       return
@@ -512,7 +551,8 @@ const JobForm = ({
       serviceId: data.serviceId || undefined,
       assignedTo: normalizedAssignments,
       // Convert price string to number, or undefined if empty
-      price: convertPrice(data.price),
+      // Don't include job price if user doesn't have permission
+      price: shouldIncludeJobPrice ? convertPrice(data.price) : undefined,
     }
 
     // Add recurrence if selected
@@ -955,8 +995,14 @@ const JobForm = ({
                                   }}
                                   placeholder="0.00"
                                   className="pl-7 text-sm"
+                                  disabled={!canSeeJobPrices || (user?.role === 'employee' && assignment.userId !== currentUserId)}
                                 />
                               </div>
+                              {(!canSeeJobPrices || (user?.role === 'employee' && assignment.userId !== currentUserId)) && (
+                                <p className="text-xs text-yellow-400 mt-0.5">
+                                  {assignment.userId === currentUserId ? 'Read-only: Your pay' : 'Insufficient permissions'}
+                                </p>
+                              )}
                             </div>
                           ) : (
                             <div>
@@ -985,8 +1031,14 @@ const JobForm = ({
                                   }}
                                   placeholder="0.00"
                                   className="pl-7 text-sm"
+                                  disabled={!canSeeJobPrices || (user?.role === 'employee' && assignment.userId !== currentUserId)}
                                 />
                               </div>
+                              {(!canSeeJobPrices || (user?.role === 'employee' && assignment.userId !== currentUserId)) && (
+                                <p className="text-xs text-yellow-400 mt-0.5">
+                                  {assignment.userId === currentUserId ? 'Read-only: Your pay' : 'Insufficient permissions'}
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1292,9 +1344,14 @@ const JobForm = ({
             placeholder="0.00"
             className="pl-7"
             error={errors.price?.message}
+            disabled={!canSeeJobPrices}
           />
         </div>
-        <p className="text-xs text-primary-light/50 mt-1">Optional job price or estimated cost</p>
+        {!canSeeJobPrices ? (
+          <p className="text-xs text-primary-light/50 mt-1 text-yellow-400">Insufficient permissions to view or edit prices</p>
+        ) : (
+          <p className="text-xs text-primary-light/50 mt-1">Optional job price or estimated cost</p>
+        )}
       </div>
 
       {/* Job Timeline & Breaks */}

@@ -61,18 +61,16 @@ const SessionMonitor = () => {
       }
     }, 30000) // Check every 30 seconds
 
-    // Also check immediately on mount
+    // Also check immediately on mount (and pull latest user/permissions)
     const initialCheck = async () => {
       const token = localStorage.getItem('auth_token')
+      // Always try a refresh once on mount so role/permission changes take effect
+      // without requiring logout or waiting for expiry.
       if (token) {
-        const remaining = getTokenTimeRemaining(token)
-        // Auto-refresh if less than 5 minutes on mount
-        if (remaining > 0 && remaining <= 300) {
-          try {
-            await refreshAccessToken()
-          } catch (error) {
-            console.error('Initial token refresh failed:', error)
-          }
+        try {
+          await refreshAccessToken()
+        } catch (error) {
+          console.error('Initial token refresh failed:', error)
         }
       }
       checkTokenValidity()

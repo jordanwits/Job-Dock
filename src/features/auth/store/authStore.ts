@@ -15,6 +15,7 @@ export interface User {
   canCreateJobs?: boolean
   canScheduleAppointments?: boolean
   canSeeOtherJobs?: boolean
+  canSeeJobPrices?: boolean
   onboardingCompletedAt?: string | null
 }
 
