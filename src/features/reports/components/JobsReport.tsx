@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Card, Button } from '@/components/ui'
 import { downloadCsv } from '../utils/exportCsv'
+import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { JobLog } from '@/features/jobLogs/types/jobLog'
 import type { Invoice } from '@/features/invoices/types/invoice'
@@ -171,10 +172,10 @@ export const JobsReport = ({
         'Status': status,
         'Contact': job.contact?.name || '',
         'Location': job.location || '',
-        'Price': job.price || '',
+        'Price': job.price != null ? formatCurrency(job.price) : '',
         'Linked Invoice': invoice ? invoice.invoiceNumber : '',
-        'Invoice Total': invoice ? invoice.total.toFixed(2) : '',
-        'Invoice Paid': invoice ? invoice.paidAmount.toFixed(2) : '',
+        'Invoice Total': invoice ? formatCurrency(invoice.total) : '',
+        'Invoice Paid': invoice ? formatCurrency(invoice.paidAmount) : '',
         'Created': format(new Date(job.createdAt), 'yyyy-MM-dd'),
         'Updated': format(new Date(job.updatedAt), 'yyyy-MM-dd'),
       }
@@ -208,19 +209,19 @@ export const JobsReport = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Jobs</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">{totals.total}</p>
+              <p className="text-2xl font-bold text-primary-gold mt-1">{formatNumber(totals.total)}</p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Active</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">{totals.active}</p>
+              <p className="text-2xl font-bold text-green-400 mt-1">{formatNumber(totals.active)}</p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Completed</p>
-              <p className="text-2xl font-bold text-primary-blue mt-1">{totals.completed}</p>
+              <p className="text-2xl font-bold text-primary-blue mt-1">{formatNumber(totals.completed)}</p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Inactive</p>
-              <p className="text-2xl font-bold text-primary-light/70 mt-1">{totals.inactive}</p>
+              <p className="text-2xl font-bold text-primary-light/70 mt-1">{formatNumber(totals.inactive)}</p>
             </div>
           </div>
 
@@ -229,24 +230,24 @@ export const JobsReport = ({
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Revenue</p>
               <p className="text-2xl font-bold text-primary-gold mt-1">
-                ${totals.revenue.toFixed(2)}
+                ${formatCurrency(totals.revenue)}
               </p>
               {totals.outstandingRevenue > 0 && (
                 <p className="text-xs text-primary-light/60 mt-1">
-                  ${totals.outstandingRevenue.toFixed(2)} outstanding
+                  ${formatCurrency(totals.outstandingRevenue)} outstanding
                 </p>
               )}
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
               <p className="text-2xl font-bold text-green-400 mt-1">
-                ${totals.paidRevenue.toFixed(2)}
+                ${formatCurrency(totals.paidRevenue)}
               </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Cost</p>
               <p className="text-2xl font-bold text-red-400 mt-1">
-                ${totals.cost.toFixed(2)}
+                ${formatCurrency(totals.cost)}
               </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
@@ -254,7 +255,7 @@ export const JobsReport = ({
               <p className={`text-2xl font-bold mt-1 ${
                 totals.profit >= 0 ? 'text-green-400' : 'text-red-400'
               }`}>
-                ${totals.profit.toFixed(2)}
+                ${formatCurrency(totals.profit)}
               </p>
             </div>
           </div>
@@ -292,7 +293,7 @@ export const JobsReport = ({
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-sm text-primary-light">{group.length} jobs</span>
+                      <span className="text-sm text-primary-light">{formatNumber(group.length)} jobs</span>
                     </div>
                   </div>
                 )

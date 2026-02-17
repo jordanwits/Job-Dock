@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Card, Button } from '@/components/ui'
 import { downloadCsv } from '../utils/exportCsv'
+import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { Quote } from '@/features/quotes/types/quote'
 
@@ -67,10 +68,10 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
       'Contact': quote.contactName || '',
       'Company': quote.contactCompany || '',
       'Status': quote.status,
-      'Subtotal': quote.subtotal.toFixed(2),
-      'Tax': quote.taxAmount.toFixed(2),
-      'Discount': quote.discount.toFixed(2),
-      'Total': quote.total.toFixed(2),
+      'Subtotal': formatCurrency(quote.subtotal),
+      'Tax': formatCurrency(quote.taxAmount),
+      'Discount': formatCurrency(quote.discount),
+      'Total': formatCurrency(quote.total),
       'Valid Until': quote.validUntil ? format(new Date(quote.validUntil), 'yyyy-MM-dd') : '',
       'Created': format(new Date(quote.createdAt), 'yyyy-MM-dd'),
       'Updated': format(new Date(quote.updatedAt), 'yyyy-MM-dd'),
@@ -104,23 +105,23 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Quotes</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">{totals.count}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${totals.total.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-primary-gold mt-1">{formatNumber(totals.count)}</p>
+              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.total)}</p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Accepted</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">{totals.acceptedCount}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${totals.accepted.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-green-400 mt-1">{formatNumber(totals.acceptedCount)}</p>
+              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.accepted)}</p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Sent</p>
-              <p className="text-2xl font-bold text-primary-blue mt-1">{totals.sentCount}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${totals.sent.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-primary-blue mt-1">{formatNumber(totals.sentCount)}</p>
+              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.sent)}</p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Draft</p>
-              <p className="text-2xl font-bold text-primary-light/70 mt-1">{totals.draftCount}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${totals.draft.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-primary-light/70 mt-1">{formatNumber(totals.draftCount)}</p>
+              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.draft)}</p>
             </div>
           </div>
 
@@ -163,10 +164,10 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-sm text-primary-light">{group.length} quotes</span>
+                      <span className="text-sm text-primary-light">{formatNumber(group.length)} quotes</span>
                     </div>
                     <span className="text-sm font-semibold text-primary-gold">
-                      ${total.toFixed(2)}
+                      ${formatCurrency(total)}
                     </span>
                   </div>
                 )

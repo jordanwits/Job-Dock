@@ -3,6 +3,7 @@ import { Card, Button } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 import { downloadCsv } from '../utils/exportCsv'
+import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { TimeEntry } from '@/features/jobLogs/types/jobLog'
 import type { JobLog } from '@/features/jobLogs/types/jobLog'
@@ -273,8 +274,8 @@ export const EmployeeHoursReport = ({
           'Employee Name': emp.userName,
           'Email': emp.userEmail,
           'Total Hours': emp.totalHours.toFixed(2),
-          'Total Pay': emp.totalPay.toFixed(2),
-          'Entry Count': emp.entryCount,
+          'Total Pay': formatCurrency(emp.totalPay),
+          'Entry Count': formatNumber(emp.entryCount),
           'Job': 'N/A',
           'Job Hours': '',
           'Job Pay': '',
@@ -289,7 +290,7 @@ export const EmployeeHoursReport = ({
         'Entry Count': emp.entryCount,
         'Job': job.jobTitle,
         'Job Hours': job.hours.toFixed(2),
-        'Job Pay': job.pay.toFixed(2),
+        'Job Pay': formatCurrency(job.pay),
         'Pay Type': job.payType,
       }))
     })
@@ -332,13 +333,13 @@ export const EmployeeHoursReport = ({
             <div>
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Hours</p>
               <p className="text-2xl font-bold text-primary-gold mt-1">
-                {totalHours.toFixed(1)}h
+                {totalHours.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h
               </p>
             </div>
             <div>
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Pay</p>
               <p className="text-2xl font-bold text-primary-gold mt-1">
-                ${totalPay.toFixed(2)}
+                ${formatCurrency(totalPay)}
               </p>
             </div>
           </div>
@@ -372,7 +373,7 @@ export const EmployeeHoursReport = ({
                         </p>
                         {emp.totalPay > 0 && (
                           <p className="text-sm text-primary-light/60">
-                            ${emp.totalPay.toFixed(2)}
+                            ${formatCurrency(emp.totalPay)}
                           </p>
                         )}
                       </>
@@ -383,7 +384,7 @@ export const EmployeeHoursReport = ({
                   <div className="mt-3 pt-3 border-t border-white/5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-primary-light/60">Entries</span>
-                      <span className="text-primary-light">{emp.entryCount}</span>
+                      <span className="text-primary-light">{formatNumber(emp.entryCount)}</span>
                     </div>
                     {emp.jobs.length > 0 && (
                     <div className="mt-2">
@@ -406,7 +407,7 @@ export const EmployeeHoursReport = ({
                               <div className="flex justify-between mt-1 text-primary-light/60">
                                 <span>{job.hours.toFixed(2)}h</span>
                                 {job.pay > 0 && (
-                                  <span>${job.pay.toFixed(2)} ({job.payType})</span>
+                                  <span>${formatCurrency(job.pay)} ({job.payType})</span>
                                 )}
                               </div>
                             </div>

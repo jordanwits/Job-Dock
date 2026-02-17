@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Card, Button } from '@/components/ui'
 import { downloadCsv } from '../utils/exportCsv'
+import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { Invoice } from '@/features/invoices/types/invoice'
 
@@ -94,12 +95,12 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
       'Company': invoice.contactCompany || '',
       'Status': invoice.status,
       'Payment Status': invoice.paymentStatus,
-      'Subtotal': invoice.subtotal.toFixed(2),
-      'Tax': invoice.taxAmount.toFixed(2),
-      'Discount': invoice.discount.toFixed(2),
-      'Total': invoice.total.toFixed(2),
-      'Paid': invoice.paidAmount.toFixed(2),
-      'Outstanding': (invoice.total - invoice.paidAmount).toFixed(2),
+      'Subtotal': formatCurrency(invoice.subtotal),
+      'Tax': formatCurrency(invoice.taxAmount),
+      'Discount': formatCurrency(invoice.discount),
+      'Total': formatCurrency(invoice.total),
+      'Paid': formatCurrency(invoice.paidAmount),
+      'Outstanding': formatCurrency(invoice.total - invoice.paidAmount),
       'Due Date': invoice.dueDate ? format(new Date(invoice.dueDate), 'yyyy-MM-dd') : '',
       'Created': format(new Date(invoice.createdAt), 'yyyy-MM-dd'),
       'Updated': format(new Date(invoice.updatedAt), 'yyyy-MM-dd'),
@@ -133,27 +134,27 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Invoices</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">{totals.count}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${totals.total.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-primary-gold mt-1">{formatNumber(totals.count)}</p>
+              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.total)}</p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">{totals.paidCount}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${totals.paid.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-green-400 mt-1">{formatNumber(totals.paidCount)}</p>
+              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.paid)}</p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Outstanding</p>
               <p className="text-2xl font-bold text-primary-blue mt-1">
-                ${totals.outstanding.toFixed(2)}
+                ${formatCurrency(totals.outstanding)}
               </p>
               <p className="text-sm text-primary-light/60 mt-1">
-                {totals.pendingCount + totals.partialCount} invoices
+                {formatNumber(totals.pendingCount + totals.partialCount)} invoices
               </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Overdue</p>
-              <p className="text-2xl font-bold text-red-400 mt-1">{totals.overdueCount}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${totals.overdue.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-red-400 mt-1">{formatNumber(totals.overdueCount)}</p>
+              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.overdue)}</p>
             </div>
           </div>
 
@@ -194,10 +195,10 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-sm text-primary-light">{group.length} invoices</span>
+                      <span className="text-sm text-primary-light">{formatNumber(group.length)} invoices</span>
                     </div>
                     <span className="text-sm font-semibold text-primary-gold">
-                      ${total.toFixed(2)}
+                      ${formatCurrency(total)}
                     </span>
                   </div>
                 )
