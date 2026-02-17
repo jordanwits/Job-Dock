@@ -367,22 +367,22 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                       Job
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
                       Last Updated
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                       Contact
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
                       Assigned to
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
                       Location
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                       Total
                     </th>
                   </tr>
@@ -457,7 +457,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
             <table className="w-full">
               <thead className="bg-primary-dark-secondary border-b border-primary-blue">
                 <tr>
-                  <th className="px-4 py-3 w-12">
+                  <th className="px-2 sm:px-4 py-3 w-8 sm:w-12">
                     <div
                       onClick={toggleSelectAll}
                       className={cn(
@@ -472,10 +472,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       )}
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                     Job
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
                     Last Updated
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
@@ -487,10 +487,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                   <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
                     Location
                   </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
                       Total
                     </th>
                   </tr>
@@ -505,7 +505,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                       className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
                       onClick={() => onSelectJobLog(jobLog.id)}
                     >
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-2 sm:px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div
                           onClick={(e) => toggleSelection(jobLog.id, e)}
                           className={cn(
@@ -520,9 +520,9 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="text-sm font-medium text-primary-light">
+                      <td className="px-2 sm:px-4 py-3 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="text-sm font-medium text-primary-light truncate min-w-0 flex-1">
                             {jobLog.title}
                           </div>
                           {recurringTag && (
@@ -532,30 +532,35 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
-                        {format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d, yyyy')}
+                      <td className="px-2 sm:px-4 py-3 text-sm text-primary-light/70">
+                        <span className="hidden sm:inline whitespace-nowrap">
+                          {format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d, yyyy')}
+                        </span>
+                        <span className="sm:hidden whitespace-nowrap">
+                          {format(new Date(jobLog.updatedAt || jobLog.createdAt), 'MMM d')}
+                        </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
                         <div className="truncate max-w-[150px]">{jobLog.contact?.name || '-'}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
                         <div className="truncate max-w-[150px]">{jobLog.assignedToName || '-'}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
                         <div className="truncate max-w-[150px]">{jobLog.location || '-'}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell">
                         {(() => {
                           const s = jobLog.status === 'archived' ? 'inactive' : (jobLog.status || 'active')
                           const classes = { active: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20', completed: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20', inactive: 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20' }
                           return (
-                            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize', classes[s as keyof typeof classes] || classes.inactive)}>
+                            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize whitespace-nowrap', classes[s as keyof typeof classes] || classes.inactive)}>
                               {s}
                             </span>
                           )
                         })()}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell">
                         <div className="text-sm font-semibold text-primary-gold">
                           {hasTime ? computeTotalHours(jobLog) : '—'}
                         </div>
