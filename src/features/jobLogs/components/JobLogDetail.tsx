@@ -417,8 +417,8 @@ const JobLogDetail = ({
                             const nameFromString = nameParts[index]?.trim()
                             // Show "Unassigned" instead of "User 1", "User 2", etc. when name is not available
                             const displayName = nameFromString || 'Unassigned'
-                            const canSeePrice =
-                              canSeePrices && (isAdminOrOwner || assignment.userId === currentUserId)
+                            // Employees can always see their own assignment pay (hourly or job), even if canSeeJobPrices is false
+                            const canSeePrice = isAdminOrOwner ? canSeePrices : (assignment.userId === currentUserId)
                             const payType = assignment.payType || 'job'
                             const price = canSeePrice ? assignment.price : undefined
                             const hourlyRate = canSeePrice ? assignment.hourlyRate : undefined

@@ -8,9 +8,10 @@ import { useAuthStore } from '@/features/auth/store/authStore'
 interface JobCardProps {
   job: Job
   showCreatedBy?: boolean
+  onClick?: (job: Job) => void
 }
 
-const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
+const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
   const { setSelectedJob } = useJobStore()
   const { user } = useAuthStore()
   
@@ -32,17 +33,23 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
   const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
   
   // Calculate display price based on user role and permissions
-  const getDisplayPrice = (): number | null => {
+  const getDisplayPrice = (): { value: number; isHourly?: boolean } | null => {
     // If job has a total price, show it for admins/owners
     if (job.price != null && isAdminOrOwner) {
-      return job.price
+      return { value: job.price }
     }
     
-    // For employees, show their assignment price if assigned (even if canSeeJobPrices is false)
+    // For employees, show their assignment pay if assigned (even if canSeeJobPrices is false)
+    // Show job price or hourly rate so they can see their pay whether by hour or job
     if (user?.role === 'employee' && currentUserId && assignments.length > 0) {
       const userAssignment = assignments.find(a => a.userId === currentUserId)
-      if (userAssignment && userAssignment.price != null && userAssignment.price !== undefined) {
-        return userAssignment.price
+      if (userAssignment) {
+        if (userAssignment.payType === 'hourly' && userAssignment.hourlyRate != null && userAssignment.hourlyRate !== undefined) {
+          return { value: userAssignment.hourlyRate, isHourly: true }
+        }
+        if (userAssignment.price != null && userAssignment.price !== undefined) {
+          return { value: userAssignment.price }
+        }
       }
     }
     
@@ -54,18 +61,19 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
         }
         return sum
       }, 0)
-      if (total > 0) return total
+      if (total > 0) return { value: total }
     }
     
     // Show job price only if user has permission
     if (canSeeJobPrices && job.price != null) {
-      return job.price
+      return { value: job.price }
     }
     
     return null
   }
   
-  const displayPrice = getDisplayPrice()
+  const displayPriceResult = getDisplayPrice()
+  const displayPrice = displayPriceResult?.value ?? null
 
   const statusColors = {
     active: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
@@ -99,7 +107,13 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
         'cursor-pointer hover:border-primary-gold transition-colors',
         isArchived && 'opacity-75'
       )}
-      onClick={() => setSelectedJob(job)}
+      onClick={() => {
+        if (onClick) {
+          onClick(job)
+        } else {
+          setSelectedJob(job)
+        }
+      }}
     >
       <div className="space-y-3">
         {/* Header */}
@@ -136,23 +150,41 @@ const JobCard = ({ job, showCreatedBy }: JobCardProps) => {
         </div>
 
         {/* Scheduled Time */}
-        <div className="text-sm text-primary-light/70">
-          {job.startTime
-            ? format(new Date(job.startTime), 'MMM d, h:mm a')
-            : 'To be scheduled'}
+        <div className="flex items-center gap-2">
+          <svg
+            className="w-4 h-4 text-primary-gold flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          <span className="text-base font-semibold text-primary-gold">
+            {job.startTime
+              ? format(new Date(job.startTime), 'MMM d, h:mm a')
+              : 'To be scheduled'}
+          </span>
         </div>
 
         {/* Total / Price */}
         <div className="pt-2 border-t border-primary-blue">
           <div className="flex justify-between items-center">
             <span className="text-sm text-primary-light/70">
-              {displayPrice != null || !canSeePrices ? 'Price' : 'Scheduled'}
+              {displayPrice != null || !canSeeJobPrices ? 'Price' : 'Scheduled'}
             </span>
             <span className={`text-xl font-bold ${displayPrice == null && !canSeeJobPrices ? 'text-primary-light/40' : 'text-primary-gold'}`}>
               {displayPrice == null && !canSeeJobPrices && job.price != null ? (
                 <span className="text-xs italic">Insufficient permissions</span>
-              ) : displayPrice != null ? (
-                formatCurrency(displayPrice)
+              ) : displayPriceResult != null ? (
+                <>
+                  {formatCurrency(displayPriceResult.value)}
+                  {displayPriceResult.isHourly && <span className="text-sm font-normal text-primary-light/80">/hr</span>}
+                </>
               ) : job.startTime ? (
                 format(new Date(job.startTime), 'h:mm a')
               ) : (

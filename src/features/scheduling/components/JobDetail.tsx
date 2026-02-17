@@ -332,18 +332,21 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                 const nameFromString = nameParts[index]?.trim()
                 // Show "Unassigned" instead of "User 1", "User 2", etc. when name is not available
                 const displayName = nameFromString || 'Unassigned'
-                // Employees can always see their own assignment price, even if canSeeJobPrices is false
+                // Employees can always see their own assignment pay (hourly or job), even if canSeeJobPrices is false
                 // Admins/owners can see all prices if canSeeJobPrices is true
                 const canSeePrice = isAdminOrOwner ? canSeeJobPrices : (assignment.userId === currentUserId)
                 const price = canSeePrice ? assignment.price : undefined
-                
-                const hasPrice = price !== null && price !== undefined
+                const hourlyRate = canSeePrice ? assignment.hourlyRate : undefined
+                const payType = assignment.payType || 'job'
+                const hasJobPrice = payType === 'job' && price !== null && price !== undefined
+                const hasHourlyRate = payType === 'hourly' && hourlyRate !== null && hourlyRate !== undefined
+                const hasPayInfo = hasJobPrice || hasHourlyRate
                 return (
                   <div
                     key={assignment.userId || index}
                     className={cn(
                       "items-center rounded-md bg-primary-dark-secondary/50 border border-primary-blue/30",
-                      hasPrice 
+                      hasPayInfo 
                         ? "flex justify-between gap-3 p-2" 
                         : "inline-flex px-2 py-1"
                     )}
@@ -354,9 +357,9 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                         <span className="text-primary-light/60 ml-2">({assignment.role})</span>
                       )}
                     </div>
-                    {hasPrice && (
+                    {hasPayInfo && (
                       <span className="text-primary-gold font-semibold flex-shrink-0">
-                        ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {hasJobPrice ? `$${price!.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/job` : `$${hourlyRate!.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/hr`}
                       </span>
                     )}
                   </div>
