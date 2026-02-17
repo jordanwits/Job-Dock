@@ -456,6 +456,10 @@ export class JobDockStack extends cdk.Stack {
         EMAIL_PROVIDER: 'resend',
         EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thejobdock.com',
         RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+        // Twilio SMS configuration
+        TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || '',
+        TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || '',
+        TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || '',
         // Stripe billing configuration
         STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
         STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
@@ -534,6 +538,10 @@ export class JobDockStack extends cdk.Stack {
         EMAIL_PROVIDER: 'resend',
         EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thejobdock.com',
         RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+        // Twilio SMS configuration
+        TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || '',
+        TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || '',
+        TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || '',
         // Stripe billing configuration
         STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
         STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',

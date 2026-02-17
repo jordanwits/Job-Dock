@@ -143,6 +143,18 @@ if (-not $SkipInfrastructure) {
         } else {
             Write-Host "[WARNING] RESEND_API_KEY not found in $envFileToRead" -ForegroundColor Yellow
         }
+        # Load Twilio vars for SMS (optional)
+        foreach ($twilioVar in @('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER')) {
+            if ($envContent -match "(?m)^\s*$twilioVar\s*=\s*([^\r\n#]+)") {
+                $val = $matches[1].Trim() -replace '^["'']|["'']$', ''
+                Set-Item -Path "Env:$twilioVar" -Value $val
+            }
+        }
+        if ($env:TWILIO_ACCOUNT_SID -and $env:TWILIO_AUTH_TOKEN -and $env:TWILIO_PHONE_NUMBER) {
+            Write-Host "[SUCCESS] Twilio SMS vars loaded from $envFileToRead" -ForegroundColor Green
+        } else {
+            Write-Host "[INFO] Twilio vars not set - SMS notifications will be skipped" -ForegroundColor Gray
+        }
     } else {
         Write-Host "[WARNING] No .env.local or .env file found" -ForegroundColor Yellow
     }

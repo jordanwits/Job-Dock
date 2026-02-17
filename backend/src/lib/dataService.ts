@@ -22,6 +22,12 @@ import {
   sendQuoteEmail,
   sendInvoiceEmail,
 } from './email'
+import {
+  sendSms,
+  buildBookingConfirmationSms,
+  buildBookingPendingSms,
+  buildBookingDeclinedSms,
+} from './sms'
 import { uploadFile, deleteFile, getFileUrl } from './fileUpload'
 import { createPhotoToken } from './photoToken'
 import {
@@ -2465,6 +2471,15 @@ export const dataServices = {
           })
           console.log('✅ Confirmation email sent successfully')
         }
+        if (job.contact?.phone) {
+          const smsBody = buildBookingConfirmationSms({
+            serviceName: (b as any)?.service?.name || 'Service',
+            startTime: b?.startTime ? new Date(b.startTime) : new Date(),
+            companyName,
+            timezoneOffset,
+          })
+          await sendSms(job.contact.phone, smsBody)
+        }
       } catch (emailError) {
         console.error('❌ Failed to send confirmation email:', emailError)
       }
@@ -2541,6 +2556,13 @@ export const dataServices = {
             replyTo: settings?.companySupportEmail || undefined,
           })
           console.log('✅ Decline email sent successfully')
+        }
+        if (job.contact?.phone) {
+          const smsBody = buildBookingDeclinedSms({
+            serviceName: (primaryBooking as any)?.service?.name || 'Service',
+            companyName,
+          })
+          await sendSms(job.contact.phone, smsBody)
         }
       } catch (emailError) {
         console.error('❌ Failed to send decline email:', emailError)
@@ -2892,13 +2914,14 @@ export const dataServices = {
             },
           })
         } else {
-          // Update existing contact if address is provided
-          if (contactData.address !== undefined) {
+          // Update existing contact if address or phone is provided
+          const updateData: { address?: string; phone?: string } = {}
+          if (contactData.address !== undefined) updateData.address = contactData.address || undefined
+          if (contactData.phone !== undefined && contactData.phone?.trim()) updateData.phone = contactData.phone.trim()
+          if (Object.keys(updateData).length > 0) {
             contact = await tx.contact.update({
               where: { id: contact.id },
-              data: {
-                address: contactData.address || undefined,
-              },
+              data: updateData,
             })
           }
         }
@@ -3121,6 +3144,17 @@ export const dataServices = {
                 replyTo: replyToEmail,
               })
               console.log('✅ Booking request email sent successfully')
+              const phoneForSms = contactData.phone?.trim() || contact.phone
+              if (phoneForSms) {
+                console.log(`📱 Sending pending SMS to ${phoneForSms}`)
+                const smsBody = buildBookingPendingSms({
+                  serviceName: service.name,
+                  startTime,
+                  companyName,
+                  timezoneOffset,
+                })
+                await sendSms(phoneForSms, smsBody)
+              }
             } else {
               console.log(`📧 Sending instant confirmation email to ${clientEmail}`)
               const emailPayload = buildClientConfirmationEmail({
@@ -3144,6 +3178,17 @@ export const dataServices = {
                 replyTo: replyToEmail,
               })
               console.log('✅ Instant confirmation email sent successfully')
+              const phoneForSms = contactData.phone?.trim() || contact.phone
+              if (phoneForSms) {
+                console.log(`📱 Sending SMS to ${phoneForSms}`)
+                const smsBody = buildBookingConfirmationSms({
+                  serviceName: service.name,
+                  startTime,
+                  companyName,
+                  timezoneOffset,
+                })
+                await sendSms(phoneForSms, smsBody)
+              }
             }
           }
 
