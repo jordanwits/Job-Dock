@@ -158,7 +158,13 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     const formData: any = {
       ...data,
       assignedTo: Array.isArray(data.assignedTo) && data.assignedTo.length > 0 
-        ? data.assignedTo.filter(a => a.userId && a.userId.trim() !== '')
+        ? data.assignedTo
+            .filter(a => a.userId && a.userId.trim() !== '')
+            .map(a => ({
+              ...a,
+              // Convert roleId: 'custom' to undefined before submission
+              roleId: a.roleId === 'custom' ? undefined : a.roleId,
+            }))
         : null,
     }
 
@@ -304,7 +310,7 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                   type="button"
                   variant="ghost"
                   onClick={() => {
-                  const newAssignments = [{ userId: '', role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
+                  const newAssignments = [{ userId: '', role: undefined, roleId: undefined, price: null, payType: 'job' as const, hourlyRate: null }]
                   setAssignments(newAssignments)
                   setValue('assignedTo', newAssignments)
                   }}
@@ -345,13 +351,17 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                             </label>
                             {jobRoles.length > 0 ? (
                               <Select
-                                value={assignment.roleId || 'custom'}
+                                value={assignment.roleId || ''}
+                                placeholder="Select role"
                                 onChange={(e) => {
                                   const newAssignments = [...assignments]
                                   const selectedRoleId = e.target.value
-                                  if (selectedRoleId === 'custom') {
-                                    // Custom role - clear roleId, keep role text
-                                    newAssignments[index] = { ...assignment, roleId: undefined, role: assignment.role || '' }
+                                  if (selectedRoleId === '') {
+                                    // No role selected - clear roleId and role
+                                    newAssignments[index] = { ...assignment, roleId: undefined, role: undefined }
+                                  } else if (selectedRoleId === 'custom') {
+                                    // Custom role - set roleId to 'custom' to track that custom was selected, set role to empty string
+                                    newAssignments[index] = { ...assignment, roleId: 'custom', role: '' }
                                   } else {
                                     // Selected role from list
                                     const selectedRole = jobRoles.find(r => r.id === selectedRoleId)
@@ -370,10 +380,10 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                                 ]}
                               />
                             ) : null}
-                            {(assignment.roleId === undefined || assignment.roleId === 'custom' || jobRoles.length === 0) && (
+                            {(jobRoles.length === 0 || assignment.roleId === 'custom') && (
                               <Input
                                 type="text"
-                                value={assignment.role}
+                                value={assignment.role || ''}
                                 onChange={(e) => {
                                   const newAssignments = [...assignments]
                                   newAssignments[index] = { ...assignment, role: e.target.value, roleId: undefined }

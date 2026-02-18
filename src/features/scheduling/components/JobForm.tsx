@@ -457,32 +457,37 @@ const JobForm = ({
         ? data.assignedTo
             .filter(a => a?.userId && a.userId.trim() !== '')
             .map(a => {
+              // Convert roleId: 'custom' to undefined before submission
+              const normalizedA = {
+                ...a,
+                roleId: a.roleId === 'custom' ? undefined : a.roleId,
+              }
               // Employees can see their own assignment pay, but not others'
               // If user doesn't have permission to see job prices, they can't edit assignment prices
               // But they can still see their own assignment pay (read-only, handled in UI)
               if (!canSeeJobPrices) {
-                if (a.userId === currentUserId) {
+                if (normalizedA.userId === currentUserId) {
                   // Keep their own assignment but don't allow price changes
                   // Preserve existing price from the job if editing, otherwise null
                   const existingAssignment = job?.assignedTo && Array.isArray(job.assignedTo) 
-                    ? (job.assignedTo as JobAssignment[]).find(existing => existing.userId === a.userId)
+                    ? (job.assignedTo as JobAssignment[]).find(existing => existing.userId === normalizedA.userId)
                     : null
                   return {
-                    ...a,
+                    ...normalizedA,
                     // Preserve existing price/hourlyRate if editing, otherwise keep what's in form (but it's disabled)
-                    price: existingAssignment?.price ?? a.price,
-                    hourlyRate: existingAssignment?.hourlyRate ?? a.hourlyRate,
+                    price: existingAssignment?.price ?? normalizedA.price,
+                    hourlyRate: existingAssignment?.hourlyRate ?? normalizedA.hourlyRate,
                   }
                 } else {
                   // Remove other people's prices if user doesn't have permission
                   return {
-                    ...a,
+                    ...normalizedA,
                     price: null,
                     hourlyRate: null,
                   }
                 }
               }
-              return a
+              return normalizedA
             })
         : null
 
@@ -937,13 +942,17 @@ const JobForm = ({
                             </label>
                             {jobRoles.length > 0 ? (
                               <Select
-                                value={assignment.roleId || 'custom'}
+                                value={assignment.roleId || ''}
+                                placeholder="Select role"
                                 onChange={e => {
                                   const newAssignments = [...assignments]
                                   const selectedRoleId = e.target.value
-                                  if (selectedRoleId === 'custom') {
-                                    // Custom role - clear roleId, keep role text
-                                    newAssignments[index] = { ...assignment, roleId: undefined, role: assignment.role || '' }
+                                  if (selectedRoleId === '') {
+                                    // No role selected - clear roleId and role
+                                    newAssignments[index] = { ...assignment, roleId: undefined, role: undefined }
+                                  } else if (selectedRoleId === 'custom') {
+                                    // Custom role - set roleId to 'custom' to track that custom was selected, set role to empty string
+                                    newAssignments[index] = { ...assignment, roleId: 'custom', role: '' }
                                   } else {
                                     // Selected role from list
                                     const selectedRole = jobRoles.find(r => r.id === selectedRoleId)
@@ -962,10 +971,10 @@ const JobForm = ({
                                 ]}
                               />
                             ) : null}
-                            {(assignment.roleId === undefined || assignment.roleId === 'custom' || jobRoles.length === 0) && (
+                            {(jobRoles.length === 0 || assignment.roleId === 'custom') && (
                               <Input
                                 type="text"
-                                value={assignment.role}
+                                value={assignment.role || ''}
                                 onChange={e => {
                                   const newAssignments = [...assignments]
                                   newAssignments[index] = { ...assignment, role: e.target.value, roleId: undefined }
@@ -1102,7 +1111,7 @@ const JobForm = ({
                   onClick={() => {
                     const newAssignments = [
                       ...assignments,
-                      { userId: '', role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null },
+                      { userId: '', role: undefined, roleId: undefined, price: null, payType: 'job' as const, hourlyRate: null },
                     ]
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)
