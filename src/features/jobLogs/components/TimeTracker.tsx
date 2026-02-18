@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { Button, ConfirmationDialog, Modal, DatePicker } from '@/components/ui'
+import { Button, ConfirmationDialog, Modal, DatePicker, Select } from '@/components/ui'
 import type { TimeEntry, JobAssignment } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
+import { services } from '@/lib/api/services'
 
 interface TimeTrackerProps {
   jobLogId: string
@@ -18,7 +19,7 @@ interface TimeTrackerProps {
     isRunning: boolean
     start: Date | null
     elapsed: number
-    onStart: () => void
+    onStart: (userId?: string) => void
     onStop: () => Promise<void>
   }
 }
@@ -197,6 +198,26 @@ const TimeTracker = ({
     return timeEntries.filter(te => te.userId === effectiveCurrentUserId)
   }, [timeEntries, effectiveIsAdmin, effectiveCurrentUserId])
 
+  // Permission helpers (backend enforces permissions, these are for UX)
+  const canEditEntry = useCallback((entry: TimeEntry): boolean => {
+    if (effectiveIsAdmin) return true
+    if (!effectiveCurrentUserId) return false
+    // Employees can edit their own entries
+    return entry.userId === effectiveCurrentUserId
+  }, [effectiveIsAdmin, effectiveCurrentUserId])
+
+  const canClockFor = useCallback((targetUserId?: string): boolean => {
+    if (effectiveIsAdmin) return true
+    if (!effectiveCurrentUserId || !targetUserId) return false
+    // Employees can clock in for themselves
+    if (targetUserId === effectiveCurrentUserId) return true
+    // For clocking in others, check if current user has a role with permissions
+    // Backend will enforce actual permissions
+    const currentUserAssignment = assignedTo?.find(a => a.userId === effectiveCurrentUserId)
+    // If user has a roleId, they might have permissions (backend will check)
+    return !!currentUserAssignment?.roleId
+  }, [effectiveIsAdmin, effectiveCurrentUserId, assignedTo])
+
   // Group entries by user for admin view
   const entriesByUser = useMemo(() => {
     if (!effectiveIsAdmin) return null
@@ -209,8 +230,26 @@ const TimeTracker = ({
       }
       grouped.get(key)!.entries.push(entry)
     })
-    return Array.from(grouped.values())
-  }, [filteredEntries, effectiveIsAdmin])
+    
+    // Sort: current user first, then leads, then others
+    return Array.from(grouped.values()).sort((a, b) => {
+      // Current user always first
+      if (a.userId === effectiveCurrentUserId) return -1
+      if (b.userId === effectiveCurrentUserId) return 1
+      
+      // Then check for leads
+      const aAssignment = assignedTo?.find(ass => ass.userId === a.userId)
+      const bAssignment = assignedTo?.find(ass => ass.userId === b.userId)
+      const aIsLead = aAssignment?.role?.toLowerCase().includes('lead') ?? false
+      const bIsLead = bAssignment?.role?.toLowerCase().includes('lead') ?? false
+      
+      if (aIsLead && !bIsLead) return -1
+      if (!aIsLead && bIsLead) return 1
+      
+      // Otherwise maintain original order (by name)
+      return a.userName.localeCompare(b.userName)
+    })
+  }, [filteredEntries, effectiveIsAdmin, effectiveCurrentUserId, assignedTo])
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [inlineEditId, setInlineEditId] = useState<string | null>(null)
   const [inlineNotes, setInlineNotes] = useState('')
@@ -231,8 +270,13 @@ const TimeTracker = ({
   const [manualEntryStart, setManualEntryStart] = useState('')
   const [manualEntryEnd, setManualEntryEnd] = useState('')
   const [manualEntryNotes, setManualEntryNotes] = useState('')
+  const [manualEntryUserId, setManualEntryUserId] = useState<string | null>(null)
   const [manualEntryError, setManualEntryError] = useState<string | null>(null)
   const [manualEntrySaving, setManualEntrySaving] = useState(false)
+  const [showUserSelector, setShowUserSelector] = useState(false)
+  const [selectedClockInUserId, setSelectedClockInUserId] = useState<string | null>(null)
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([])
+  const [teamMembersLoading, setTeamMembersLoading] = useState(true)
   const durationInputRef = useRef<HTMLInputElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const modalTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -244,6 +288,55 @@ const TimeTracker = ({
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  // Load team members for user selection
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      setTeamMembersLoading(true)
+      try {
+        const usersData = await services.users.getAll()
+        setTeamMembers(
+          (usersData || []).map((m: { id: string; name: string; email?: string }) => ({
+            id: m.id,
+            name: m.name || m.email || 'Unknown',
+          }))
+        )
+      } catch (error) {
+        console.error('Failed to load team members:', error)
+      } finally {
+        setTeamMembersLoading(false)
+      }
+    }
+    loadTeamMembers()
+  }, [])
+
+  // Get available users to clock in for based on permissions
+  const availableUsersToClockIn = useMemo(() => {
+    if (effectiveIsAdmin) {
+      // Admins can clock in for anyone
+      return teamMembers
+    }
+    if (!effectiveCurrentUserId || !assignedTo) return []
+    
+    const currentUserAssignment = assignedTo.find(a => a.userId === effectiveCurrentUserId)
+    if (!currentUserAssignment?.roleId) {
+      // No roleId - can only clock in for self
+      return teamMembers.filter(u => u.id === effectiveCurrentUserId)
+    }
+
+    // For now, we'll check permissions on the backend
+    // Frontend: show all assigned users (backend will enforce permissions)
+    const assignedUserIds = new Set(assignedTo.map(a => a.userId))
+    return teamMembers.filter(u => assignedUserIds.has(u.id))
+  }, [effectiveIsAdmin, effectiveCurrentUserId, assignedTo, teamMembers])
+
+  // Check if user can clock in for others
+  const canClockInForOthers = useMemo(() => {
+    if (effectiveIsAdmin) return true
+    if (!effectiveCurrentUserId || !assignedTo) return false
+    const currentUserAssignment = assignedTo.find(a => a.userId === effectiveCurrentUserId)
+    return !!currentUserAssignment?.roleId
+  }, [effectiveIsAdmin, effectiveCurrentUserId, assignedTo])
 
   useEffect(() => {
     if (descriptionModalEditing) {
@@ -308,24 +401,58 @@ const TimeTracker = ({
     return null
   }
 
-  const handleStartTimer = () => {
+  const handleStartTimer = (userId?: string) => {
+    const targetUserId = userId || effectiveCurrentUserId
     if (externalTimerState) {
-      externalTimerState.onStart()
+      externalTimerState.onStart(targetUserId)
       return
     }
     const start = new Date()
     setInternalTimerStart(start)
     setInternalIsTimerRunning(true)
+    setSelectedClockInUserId(targetUserId || null)
     try {
       localStorage.setItem(
         TIMER_STORAGE_KEY,
         JSON.stringify({
           jobLogId,
           startTime: start.toISOString(),
+          userId: targetUserId,
         })
       )
     } catch {
       // ignore
+    }
+  }
+
+  const handleStartTimerClick = () => {
+    // If user can clock in for others and there are multiple options, show selector
+    // (Same condition as manual entry for consistency)
+    if (canClockInForOthers) {
+      if (teamMembersLoading) {
+        // If still loading, wait a bit then check again
+        // Use a longer timeout and check teamMembers directly since availableUsersToClockIn is memoized
+        setTimeout(() => {
+          // Re-check: if admin, check teamMembers.length; otherwise check availableUsersToClockIn
+          const shouldShow = effectiveIsAdmin 
+            ? teamMembers.length > 1 
+            : availableUsersToClockIn.length > 1
+          
+          if (shouldShow) {
+            setShowUserSelector(true)
+          } else {
+            handleStartTimer()
+          }
+        }, 500)
+      } else if (availableUsersToClockIn.length > 1) {
+        setShowUserSelector(true)
+      } else {
+        // No multiple users available, just start for current user
+        handleStartTimer()
+      }
+    } else {
+      // Otherwise, just start for current user
+      handleStartTimer()
     }
   }
 
@@ -336,12 +463,15 @@ const TimeTracker = ({
     }
     // Use localStorage as source of truth for start time (survives navigation/refresh)
     let startTime: string
+    let storedUserId: string | undefined
     try {
       const stored = localStorage.getItem(TIMER_STORAGE_KEY)
       if (stored) {
-        const { jobLogId: storedId, startTime: storedStart } = JSON.parse(stored)
+        const parsed = JSON.parse(stored)
+        const { jobLogId: storedId, startTime: storedStart, userId: storedUser } = parsed
         if (storedId === jobLogId && storedStart) {
           startTime = storedStart
+          storedUserId = storedUser
         } else if (internalTimerStart) {
           startTime = internalTimerStart.toISOString()
         } else {
@@ -357,17 +487,19 @@ const TimeTracker = ({
       startTime = internalTimerStart.toISOString()
     }
     const end = new Date()
+    const targetUserId = storedUserId || selectedClockInUserId || effectiveCurrentUserId
     try {
       await createTimeEntry({
         jobLogId,
         startTime,
         endTime: end.toISOString(),
-        userId: effectiveCurrentUserId, // Pass userId for backend validation
+        userId: targetUserId, // Pass userId for backend validation
       })
     } finally {
       setInternalIsTimerRunning(false)
       setInternalTimerStart(null)
       setInternalElapsedSeconds(0)
+      setSelectedClockInUserId(null)
       try {
         localStorage.removeItem(TIMER_STORAGE_KEY)
       } catch {
@@ -384,6 +516,7 @@ const TimeTracker = ({
     setManualEntryStart(format(start, 'HH:mm'))
     setManualEntryEnd(format(now, 'HH:mm'))
     setManualEntryNotes('')
+    setManualEntryUserId(null)
     setManualEntryError(null)
     setShowManualEntryModal(true)
   }
@@ -415,6 +548,7 @@ const TimeTracker = ({
       setManualEntryError('End time must be after start time.')
       return
     }
+    const targetUserId = manualEntryUserId || effectiveCurrentUserId
     setManualEntrySaving(true)
     try {
       await createTimeEntry({
@@ -422,7 +556,7 @@ const TimeTracker = ({
         startTime: startDate.toISOString(),
         endTime: endDate.toISOString(),
         notes: manualEntryNotes.trim() || undefined,
-        userId: effectiveCurrentUserId,
+        userId: targetUserId,
       })
       closeManualEntryModal()
     } catch (e) {
@@ -601,20 +735,27 @@ const TimeTracker = ({
           <span className="font-semibold text-base text-primary-light truncate">{jobLogTitle}</span>
           <span className="text-primary-light/50 shrink-0 hidden sm:inline">–</span>
           {inlineEditId === te.id ? (
-            <input
-              type="text"
-              value={inlineNotes}
-              onChange={e => setInlineNotes(e.target.value)}
-              onBlur={() => handleInlineNotesSave(te)}
-              onKeyDown={e => e.key === 'Enter' && handleInlineNotesSave(te)}
-              placeholder="Add description"
-              className="flex-1 min-w-0 bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
-              autoFocus
-            />
+            canEditEntry(te) ? (
+              <input
+                type="text"
+                value={inlineNotes}
+                onChange={e => setInlineNotes(e.target.value)}
+                onBlur={() => handleInlineNotesSave(te)}
+                onKeyDown={e => e.key === 'Enter' && handleInlineNotesSave(te)}
+                placeholder="Add description"
+                className="flex-1 min-w-0 bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
+                autoFocus
+              />
+            ) : (
+              <span className="flex-1 min-w-0 text-sm text-primary-light/80 truncate">
+                {te.notes || ''}
+              </span>
+            )
           ) : (
             <button
               type="button"
               onClick={() => {
+                if (!canEditEntry(te)) return
                 if (isMobile) {
                   setDescriptionModalId(te.id)
                 } else {
@@ -622,7 +763,11 @@ const TimeTracker = ({
                   setInlineNotes(te.notes ?? '')
                 }
               }}
-              className="flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate"
+              disabled={!canEditEntry(te)}
+              className={cn(
+                "flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate",
+                !canEditEntry(te) && "cursor-default opacity-60"
+              )}
             >
               {te.notes || <span className="text-primary-light/40">Add description</span>}
             </button>
@@ -687,13 +832,19 @@ const TimeTracker = ({
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => beginTimeEdit(te)}
-              className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
-            >
-              {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
-            </button>
+            canEditEntry(te) ? (
+              <button
+                type="button"
+                onClick={() => beginTimeEdit(te)}
+                className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
+              >
+                {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
+              </button>
+            ) : (
+              <span className="text-sm text-primary-light/80 hidden sm:inline-block">
+                {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
+              </span>
+            )
           )}
         </div>
 
@@ -733,13 +884,19 @@ const TimeTracker = ({
               )}
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => beginDurationEdit(te)}
-              className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
-            >
-              {formatDuration(te)}
-            </button>
+            canEditEntry(te) ? (
+              <button
+                type="button"
+                onClick={() => beginDurationEdit(te)}
+                className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
+              >
+                {formatDuration(te)}
+              </button>
+            ) : (
+              <span className="text-sm font-medium text-primary-light w-full text-right">
+                {formatDuration(te)}
+              </span>
+            )
           )}
         </div>
 
@@ -793,26 +950,30 @@ const TimeTracker = ({
                       : undefined
                   }
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpenMenuId(null)
-                      beginTimeEdit(te)
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-primary-light hover:bg-primary-blue/10"
-                  >
-                    Edit times
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpenMenuId(null)
-                      handleDeleteClick(te.id)
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10"
-                  >
-                    Delete
-                  </button>
+                  {canEditEntry(te) && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenMenuId(null)
+                          beginTimeEdit(te)
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm text-primary-light hover:bg-primary-blue/10"
+                      >
+                        Edit times
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenMenuId(null)
+                          handleDeleteClick(te.id)
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10"
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </>,
               document.body
@@ -845,11 +1006,16 @@ const TimeTracker = ({
       {/* Timer */}
       <div className="flex flex-nowrap items-center gap-4">
         {!isTimerRunning ? (
-          <Button onClick={handleStartTimer} size="sm">
-            Start Timer
+          <Button onClick={handleStartTimerClick} size="sm">
+            Start Job
           </Button>
         ) : (
           <div className="flex items-center gap-4">
+            {selectedClockInUserId && selectedClockInUserId !== effectiveCurrentUserId && (
+              <span className="text-sm text-primary-light/70">
+                For: {teamMembers.find(u => u.id === selectedClockInUserId)?.name || 'Unknown'}
+              </span>
+            )}
             <span className="text-2xl font-mono text-primary-gold tabular-nums">
               {formatElapsed(elapsedSeconds)}
             </span>
@@ -915,6 +1081,63 @@ const TimeTracker = ({
         confirmVariant="danger"
       />
 
+      {/* User Selector Modal for Clocking In */}
+      <Modal
+        isOpen={showUserSelector && availableUsersToClockIn.length > 0}
+        onClose={() => {
+          setShowUserSelector(false)
+          setSelectedClockInUserId(null)
+        }}
+        title="Clock In For"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-primary-light/70">
+            Select which team member to clock in for:
+          </p>
+          {availableUsersToClockIn.length > 0 ? (
+            <Select
+              value={selectedClockInUserId || effectiveCurrentUserId || ''}
+              onChange={(e) => {
+                const userId = e.target.value
+                setSelectedClockInUserId(userId || null)
+              }}
+              options={availableUsersToClockIn.map(u => ({
+                value: u.id,
+                label: u.id === effectiveCurrentUserId ? `${u.name} (You)` : u.name,
+              }))}
+            />
+          ) : (
+            <p className="text-sm text-primary-light/50">Loading team members...</p>
+          )}
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="primary"
+              onClick={() => {
+                const userId = selectedClockInUserId || effectiveCurrentUserId
+                if (userId) {
+                  handleStartTimer(userId)
+                  setShowUserSelector(false)
+                  setSelectedClockInUserId(null)
+                }
+              }}
+              className="flex-1"
+            >
+              Start Timer
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowUserSelector(false)
+                setSelectedClockInUserId(null)
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal
         isOpen={showManualEntryModal}
         onClose={closeManualEntryModal}
@@ -941,6 +1164,20 @@ const TimeTracker = ({
             onChange={date => setManualEntryDate(date ?? '')}
             placeholder="Select date"
           />
+          {canClockInForOthers && availableUsersToClockIn.length > 1 && (
+            <Select
+              label="For"
+              value={manualEntryUserId || effectiveCurrentUserId || ''}
+              onChange={(e) => {
+                const userId = e.target.value
+                setManualEntryUserId(userId || null)
+              }}
+              options={availableUsersToClockIn.map(u => ({
+                value: u.id,
+                label: u.id === effectiveCurrentUserId ? `${u.name} (You)` : u.name,
+              }))}
+            />
+          )}
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-primary-light/60">Start time</label>

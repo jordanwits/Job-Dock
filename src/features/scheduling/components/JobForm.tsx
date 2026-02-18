@@ -65,6 +65,7 @@ const JobForm = ({
   const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
   const currentUserId = user?.id
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
+  const [jobRoles, setJobRoles] = useState<Array<{ id: string; title: string }>>([])
   const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [assignments, setAssignments] = useState<JobAssignment[]>([])
   const [startDate, setStartDate] = useState(
@@ -171,9 +172,10 @@ const JobForm = ({
     }
     const load = async () => {
       try {
-        const [usersData, billingData] = await Promise.all([
+        const [usersData, billingData, rolesData] = await Promise.all([
           apiServices.users.getAll(),
           apiServices.billing.getStatus(),
+          apiServices.jobRoles.getAll().catch(() => []), // Gracefully handle if job roles don't exist yet
         ])
         const hasTeamTier =
           !!billingData?.canInviteTeamMembers || billingData?.subscriptionTier === 'team'
@@ -186,6 +188,9 @@ const JobForm = ({
               name: m.name || m.email || 'Unknown',
             }))
           )
+        }
+        if (Array.isArray(rolesData)) {
+          setJobRoles(rolesData.map((r: { id: string; title: string }) => ({ id: r.id, title: r.title })))
         }
       } catch {
         setCanShowAssignee(false)
@@ -930,18 +935,47 @@ const JobForm = ({
                             <label className="block text-xs font-medium text-primary-light/70 mb-1">
                               Role
                             </label>
-                            <Input
-                              type="text"
-                              value={assignment.role}
-                              onChange={e => {
-                                const newAssignments = [...assignments]
-                                newAssignments[index] = { ...assignment, role: e.target.value }
-                                setAssignments(newAssignments)
-                                setValue('assignedTo', newAssignments)
-                              }}
-                              placeholder="e.g., Lead, Assistant"
-                              className="text-sm"
-                            />
+                            {jobRoles.length > 0 ? (
+                              <Select
+                                value={assignment.roleId || 'custom'}
+                                onChange={e => {
+                                  const newAssignments = [...assignments]
+                                  const selectedRoleId = e.target.value
+                                  if (selectedRoleId === 'custom') {
+                                    // Custom role - clear roleId, keep role text
+                                    newAssignments[index] = { ...assignment, roleId: undefined, role: assignment.role || '' }
+                                  } else {
+                                    // Selected role from list
+                                    const selectedRole = jobRoles.find(r => r.id === selectedRoleId)
+                                    newAssignments[index] = {
+                                      ...assignment,
+                                      roleId: selectedRoleId,
+                                      role: selectedRole?.title || assignment.role || '',
+                                    }
+                                  }
+                                  setAssignments(newAssignments)
+                                  setValue('assignedTo', newAssignments)
+                                }}
+                                options={[
+                                  { value: 'custom', label: 'Custom...' },
+                                  ...jobRoles.map(r => ({ value: r.id, label: r.title })),
+                                ]}
+                              />
+                            ) : null}
+                            {(assignment.roleId === undefined || assignment.roleId === 'custom' || jobRoles.length === 0) && (
+                              <Input
+                                type="text"
+                                value={assignment.role}
+                                onChange={e => {
+                                  const newAssignments = [...assignments]
+                                  newAssignments[index] = { ...assignment, role: e.target.value, roleId: undefined }
+                                  setAssignments(newAssignments)
+                                  setValue('assignedTo', newAssignments)
+                                }}
+                                placeholder="e.g., Lead, Assistant"
+                                className="text-sm mt-1"
+                              />
+                            )}
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-primary-light/70 mb-1">

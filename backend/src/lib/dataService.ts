@@ -62,6 +62,7 @@ function parseValidDate(value: any): Date | null {
 // JobAssignment type for structured assignments
 interface JobAssignment {
   userId: string
+  roleId?: string
   role: string
   price?: number | null
   payType?: 'job' | 'hourly'
@@ -81,6 +82,7 @@ function normalizeAssignedTo(assignedTo: any): JobAssignment[] | null {
         .filter((item: any) => item && typeof item === 'object' && item.userId && typeof item.userId === 'string')
         .map((item: any) => ({
           userId: item.userId.trim(),
+          roleId: typeof item.roleId === 'string' ? item.roleId.trim() : undefined,
           role: typeof item.role === 'string' ? item.role.trim() : 'Team Member',
           price: typeof item.price === 'number' ? item.price : (item.price === null || item.price === undefined ? null : undefined),
           payType: typeof item.payType === 'string' && (item.payType === 'job' || item.payType === 'hourly') ? item.payType : 'job',
@@ -192,7 +194,33 @@ async function validateAssignedTo(tenantId: string, assignedTo: any): Promise<vo
     throw new ApiError(`Assigned user(s) must be members of your team. Invalid IDs: ${invalidIds.join(', ')}`, 400)
   }
   
-  // Validate roles are strings
+  // Validate roles are strings and roleId exists if provided
+  const roleIds = normalized
+    .map(a => {
+      if (typeof a === 'object' && a !== null && 'roleId' in a && typeof a.roleId === 'string') {
+        return a.roleId.trim()
+      }
+      return null
+    })
+    .filter((id): id is string => id !== null && id !== '')
+
+  if (roleIds.length > 0) {
+    const jobRoles = await prisma.jobRole.findMany({
+      where: {
+        id: { in: roleIds },
+        tenantId,
+      },
+      select: { id: true },
+    })
+    
+    const foundRoleIds = new Set(jobRoles.map(r => r.id))
+    const invalidRoleIds = roleIds.filter(id => !foundRoleIds.has(id))
+    
+    if (invalidRoleIds.length > 0) {
+      throw new ApiError(`Invalid job role ID(s): ${invalidRoleIds.join(', ')}`, 400)
+    }
+  }
+
   for (const assignment of normalized) {
     if (typeof assignment === 'object' && assignment !== null) {
       if (typeof assignment.role !== 'string' || assignment.role.trim() === '') {
@@ -4205,13 +4233,44 @@ export const dataServices = {
       await ensureTenantExists(tenantId)
       const job = await prisma.job.findFirst({
         where: { id: payload.jobLogId, tenantId },
+        select: { id: true, assignedTo: true },
       })
       if (!job) throw new ApiError('Job not found', 404)
       // Determine userId: use payload.userId if provided, otherwise use currentUserId
       let userId = payload.userId ?? currentUserId ?? null
-      // For employees, enforce that they can only create entries for themselves
+      // For employees, check role-based permissions
       if (currentUserRole === 'employee' && userId !== currentUserId) {
-        throw new ApiError('Employees can only create time entries for themselves', 403)
+        // Get current user's assignment on this job
+        const assignedTo = normalizeAssignedTo(job.assignedTo)
+        const currentUserAssignment = assignedTo?.find((a: any) => a.userId === currentUserId)
+        
+        if (!currentUserAssignment || !currentUserAssignment.roleId) {
+          // No roleId (legacy): employees can only create for self
+          throw new ApiError('Employees can only create time entries for themselves', 403)
+        }
+        
+        // Load JobRole to check permissions
+        const jobRole = await prisma.jobRole.findFirst({
+          where: { id: currentUserAssignment.roleId, tenantId },
+        })
+        
+        if (!jobRole) {
+          throw new ApiError('Job role not found', 404)
+        }
+        
+        const permissions = jobRole.permissions as any
+        const canClockInFor = permissions?.canClockInFor || 'self'
+        
+        if (canClockInFor === 'self') {
+          throw new ApiError('You can only clock in for yourself', 403)
+        } else if (canClockInFor === 'assigned') {
+          // Check if target userId is in the same job's assignedTo
+          const targetUserAssigned = assignedTo?.some((a: any) => a.userId === userId)
+          if (!targetUserAssigned) {
+            throw new ApiError('You can only clock in for team members assigned to this job', 403)
+          }
+        }
+        // 'everyone' allows any userId in tenant - no additional check needed
       }
       // Validate userId exists if provided
       if (userId) {
@@ -4249,13 +4308,70 @@ export const dataServices = {
         userName: created.user?.name ?? undefined,
       }
     },
-    update: async (tenantId: string, id: string, payload: any) => {
+    update: async (tenantId: string, id: string, payload: any, currentUserId?: string, currentUserRole?: string) => {
       await ensureTenantExists(tenantId)
       const existing = await prisma.timeEntry.findFirst({
         where: { id, tenantId },
+        select: { id: true, jobId: true, userId: true },
       })
       if (!existing) {
         throw new ApiError('Time entry not found', 404)
+      }
+      
+      // For employees, check role-based permissions
+      if (currentUserRole === 'employee' && currentUserId) {
+        // Load job and assignedTo
+        const job = await prisma.job.findFirst({
+          where: { id: existing.jobId, tenantId },
+          select: { id: true, assignedTo: true },
+        })
+        
+        if (!job) {
+          throw new ApiError('Job not found', 404)
+        }
+        
+        // Get current user's assignment on this job
+        const assignedTo = normalizeAssignedTo(job.assignedTo)
+        const currentUserAssignment = assignedTo?.find((a: any) => a.userId === currentUserId)
+        
+        // Check if user can edit this entry
+        const entryUserId = existing.userId
+        if (!entryUserId) {
+          // Legacy entry without userId - only allow if user is admin/owner
+          throw new ApiError('Cannot edit time entry without user assignment', 403)
+        }
+        
+        if (!currentUserAssignment || !currentUserAssignment.roleId) {
+          // No roleId (legacy): employees can only edit their own entries
+          if (entryUserId !== currentUserId) {
+            throw new ApiError('You can only edit your own time entries', 403)
+          }
+        } else {
+          // Load JobRole to check permissions
+          const jobRole = await prisma.jobRole.findFirst({
+            where: { id: currentUserAssignment.roleId, tenantId },
+          })
+          
+          if (!jobRole) {
+            throw new ApiError('Job role not found', 404)
+          }
+          
+          const permissions = jobRole.permissions as any
+          const canEditTimeEntriesFor = permissions?.canEditTimeEntriesFor || 'self'
+          
+          if (canEditTimeEntriesFor === 'self') {
+            if (entryUserId !== currentUserId) {
+              throw new ApiError('You can only edit your own time entries', 403)
+            }
+          } else if (canEditTimeEntriesFor === 'assigned') {
+            // Check if entry userId is in the same job's assignedTo
+            const entryUserAssigned = assignedTo?.some((a: any) => a.userId === entryUserId)
+            if (!entryUserAssigned) {
+              throw new ApiError('You can only edit time entries for team members assigned to this job', 403)
+            }
+          }
+          // 'everyone' allows editing any entry - no additional check needed
+        }
       }
       const updated = await prisma.timeEntry.update({
         where: { id },
@@ -4283,15 +4399,194 @@ export const dataServices = {
         userName: updated.user?.name ?? undefined,
       }
     },
-    delete: async (tenantId: string, id: string) => {
+    delete: async (tenantId: string, id: string, currentUserId?: string, currentUserRole?: string) => {
       await ensureTenantExists(tenantId)
       const existing = await prisma.timeEntry.findFirst({
         where: { id, tenantId },
+        select: { id: true, jobId: true, userId: true },
       })
       if (!existing) {
         throw new ApiError('Time entry not found', 404)
       }
+      
+      // For employees, check role-based permissions (same logic as update)
+      if (currentUserRole === 'employee' && currentUserId) {
+        // Load job and assignedTo
+        const job = await prisma.job.findFirst({
+          where: { id: existing.jobId, tenantId },
+          select: { id: true, assignedTo: true },
+        })
+        
+        if (!job) {
+          throw new ApiError('Job not found', 404)
+        }
+        
+        // Get current user's assignment on this job
+        const assignedTo = normalizeAssignedTo(job.assignedTo)
+        const currentUserAssignment = assignedTo?.find((a: any) => a.userId === currentUserId)
+        
+        // Check if user can delete this entry
+        const entryUserId = existing.userId
+        if (!entryUserId) {
+          // Legacy entry without userId - only allow if user is admin/owner
+          throw new ApiError('Cannot delete time entry without user assignment', 403)
+        }
+        
+        if (!currentUserAssignment || !currentUserAssignment.roleId) {
+          // No roleId (legacy): employees can only delete their own entries
+          if (entryUserId !== currentUserId) {
+            throw new ApiError('You can only delete your own time entries', 403)
+          }
+        } else {
+          // Load JobRole to check permissions
+          const jobRole = await prisma.jobRole.findFirst({
+            where: { id: currentUserAssignment.roleId, tenantId },
+          })
+          
+          if (!jobRole) {
+            throw new ApiError('Job role not found', 404)
+          }
+          
+          const permissions = jobRole.permissions as any
+          const canEditTimeEntriesFor = permissions?.canEditTimeEntriesFor || 'self'
+          
+          if (canEditTimeEntriesFor === 'self') {
+            if (entryUserId !== currentUserId) {
+              throw new ApiError('You can only delete your own time entries', 403)
+            }
+          } else if (canEditTimeEntriesFor === 'assigned') {
+            // Check if entry userId is in the same job's assignedTo
+            const entryUserAssigned = assignedTo?.some((a: any) => a.userId === entryUserId)
+            if (!entryUserAssigned) {
+              throw new ApiError('You can only delete time entries for team members assigned to this job', 403)
+            }
+          }
+          // 'everyone' allows deleting any entry - no additional check needed
+        }
+      }
+      
       await prisma.timeEntry.delete({ where: { id } })
+      return { success: true }
+    },
+  },
+  'job-roles': {
+    getAll: async (tenantId: string) => {
+      await ensureTenantExists(tenantId)
+      const roles = await prisma.jobRole.findMany({
+        where: { tenantId },
+        orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }],
+      })
+      return roles.map(role => ({
+        ...role,
+        permissions: role.permissions as any,
+      }))
+    },
+    getById: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      const role = await prisma.jobRole.findFirst({
+        where: { id, tenantId },
+      })
+      if (!role) {
+        throw new ApiError('Job role not found', 404)
+      }
+      return {
+        ...role,
+        permissions: role.permissions as any,
+      }
+    },
+    create: async (tenantId: string, payload: { title: string; permissions?: any; sortOrder?: number }) => {
+      await ensureTenantExists(tenantId)
+      
+      // Check if title already exists for this tenant
+      const existing = await prisma.jobRole.findFirst({
+        where: { tenantId, title: payload.title.trim() },
+      })
+      if (existing) {
+        throw new ApiError('A job role with this title already exists', 400)
+      }
+
+      const created = await prisma.jobRole.create({
+        data: {
+          tenantId,
+          title: payload.title.trim(),
+          permissions: payload.permissions || null,
+          sortOrder: payload.sortOrder ?? 0,
+        },
+      })
+      return {
+        ...created,
+        permissions: created.permissions as any,
+      }
+    },
+    update: async (tenantId: string, id: string, payload: { title?: string; permissions?: any; sortOrder?: number }) => {
+      await ensureTenantExists(tenantId)
+      const existing = await prisma.jobRole.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existing) {
+        throw new ApiError('Job role not found', 404)
+      }
+
+      // If title is being changed, check for conflicts
+      if (payload.title && payload.title.trim() !== existing.title) {
+        const conflict = await prisma.jobRole.findFirst({
+          where: { tenantId, title: payload.title.trim(), id: { not: id } },
+        })
+        if (conflict) {
+          throw new ApiError('A job role with this title already exists', 400)
+        }
+      }
+
+      const updated = await prisma.jobRole.update({
+        where: { id },
+        data: {
+          ...(payload.title !== undefined && { title: payload.title.trim() }),
+          ...(payload.permissions !== undefined && { permissions: payload.permissions }),
+          ...(payload.sortOrder !== undefined && { sortOrder: payload.sortOrder }),
+        },
+      })
+      return {
+        ...updated,
+        permissions: updated.permissions as any,
+      }
+    },
+    delete: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      const role = await prisma.jobRole.findFirst({
+        where: { id, tenantId },
+      })
+      if (!role) {
+        throw new ApiError('Job role not found', 404)
+      }
+
+      // Check if role is used in any job's assignedTo
+      const jobs = await prisma.job.findMany({
+        where: { tenantId },
+        select: { assignedTo: true },
+      })
+      
+      const bookings = await prisma.booking.findMany({
+        where: { tenantId },
+        select: { assignedTo: true },
+      })
+
+      const allAssignments = [
+        ...jobs.map(j => j.assignedTo).filter(Boolean),
+        ...bookings.map(b => b.assignedTo).filter(Boolean),
+      ]
+
+      for (const assignedTo of allAssignments) {
+        if (!assignedTo) continue
+        const normalized = normalizeAssignedTo(assignedTo)
+        if (normalized) {
+          const hasRoleId = normalized.some((a: any) => a.roleId === id)
+          if (hasRoleId) {
+            throw new ApiError('Cannot delete job role that is assigned to jobs. Remove assignments first.', 400)
+          }
+        }
+      }
+
+      await prisma.jobRole.delete({ where: { id } })
       return { success: true }
     },
   },

@@ -20,6 +20,7 @@ export const jobAssignmentSchema = z.object({
   // Empty placeholder rows can exist transiently (e.g., "Add another team member"),
   // so validation here must not block form submission. We filter out empty rows before submit.
   userId: z.string().optional(),
+  roleId: z.string().optional(),
   role: z.string().optional(),
   price: z.number().optional().nullable(),
   payType: z.enum(['job', 'hourly']).optional(),

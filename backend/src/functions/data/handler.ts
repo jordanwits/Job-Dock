@@ -907,6 +907,7 @@ We look forward to working with you!',
       'services',
       'settings',
       'users',
+      'job-roles',
     ] as const
     const employeeAllowedResources = ['job-logs', 'time-entries'] as const
     // Employees can read these (for calendar, job form, header company name/logo) but not create/update/delete
@@ -1073,6 +1074,30 @@ We look forward to working with you!',
             return successResponse(
               await (service as typeof dataServices.jobs).permanentDelete(tenantId, id, deleteAll)
             )
+          }
+
+          // For time-entries delete: pass user context for permission checks
+          if (resource === 'time-entries') {
+            try {
+              const context = await extractContext(event)
+              const { default: prisma } = await import('../../lib/db')
+              const user = await prisma.user.findFirst({
+                where: { cognitoId: context.userId },
+                select: { id: true, role: true },
+              })
+              if (user) {
+                return successResponse(
+                  await (service as typeof dataServices['time-entries']).delete(
+                    tenantId,
+                    id,
+                    user.id,
+                    user.role
+                  )
+                )
+              }
+            } catch {
+              /* ignore */
+            }
           }
 
           // Default: soft delete (or regular delete for other resources)
@@ -1587,6 +1612,29 @@ async function handlePut(
         throw error
       }
       /* ignore other errors */
+    }
+  }
+
+  // For time-entries update: pass user context for permission checks
+  if (service === dataServices['time-entries'] && id) {
+    try {
+      const context = await extractContext(event)
+      const { default: prisma } = await import('../../lib/db')
+      const user = await prisma.user.findFirst({
+        where: { cognitoId: context.userId },
+        select: { id: true, role: true },
+      })
+      if (user) {
+        return (service as typeof dataServices['time-entries']).update(
+          tenantId,
+          id,
+          payload,
+          user.id,
+          user.role
+        )
+      }
+    } catch {
+      /* ignore */
     }
   }
 

@@ -3,6 +3,7 @@ import { Button, Input, Card, Select, Checkbox } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 import { TEAM_COLORS } from '@/lib/utils/teamColors'
+import { JobRolesSection } from './JobRolesSection'
 
 interface TeamMember {
   id: string
@@ -697,6 +698,11 @@ export const TeamMembersSection = () => {
             </Card>
           </div>
         )}
+      </div>
+
+      {/* Job Roles Section */}
+      <div className="mt-8 pt-8 border-t border-primary-blue/30">
+        <JobRolesSection />
       </div>
     </div>
   )

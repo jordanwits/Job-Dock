@@ -1,5 +1,6 @@
 export interface JobAssignment {
   userId: string
+  roleId?: string
   role: string
   price?: number | null
   payType?: 'job' | 'hourly'

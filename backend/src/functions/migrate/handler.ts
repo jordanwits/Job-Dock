@@ -777,6 +777,30 @@ WHERE "assignedTo" IS NOT NULL
     statements: [
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "color" TEXT;`,
     ],
+    description: 'Add color field to users for calendar display',
+  },
+  {
+    name: '20260218120000_add_job_roles',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "job_roles" (
+        "id" TEXT NOT NULL,
+        "tenantId" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "sortOrder" INTEGER NOT NULL DEFAULT 0,
+        "permissions" JSONB,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "job_roles_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE INDEX IF NOT EXISTS "job_roles_tenantId_idx" ON "job_roles"("tenantId")`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "job_roles_tenantId_title_key" ON "job_roles"("tenantId", "title")`,
+      `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_roles_tenantId_fkey') THEN
+          ALTER TABLE "job_roles" ADD CONSTRAINT "job_roles_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$`,
+    ],
+    description: 'Add job roles table for custom role titles and permissions',
   },
   {
     name: '20260216000001_add_can_see_job_prices',

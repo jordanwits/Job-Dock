@@ -524,6 +524,35 @@ const realUsersService = {
 
 export const usersService = realUsersService
 
+const realJobRolesService = {
+  getAll: async () => {
+    const response = await apiClient.get('/job-roles')
+    return response.data
+  },
+
+  getById: async (id: string) => {
+    const response = await apiClient.get(`/job-roles/${id}`)
+    return response.data
+  },
+
+  create: async (data: { title: string; permissions?: { canClockInFor?: string; canEditTimeEntriesFor?: string }; sortOrder?: number }) => {
+    const response = await apiClient.post('/job-roles', data)
+    return response.data
+  },
+
+  update: async (id: string, data: { title?: string; permissions?: { canClockInFor?: string; canEditTimeEntriesFor?: string }; sortOrder?: number }) => {
+    const response = await apiClient.put(`/job-roles/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete(`/job-roles/${id}`)
+    return response.data
+  },
+}
+
+export const jobRolesService = realJobRolesService
+
 // Add more services as you build them
 export const services = {
   auth: authService,
@@ -536,4 +565,5 @@ export const services = {
   timeEntries: timeEntriesService,
   billing: billingService,
   users: usersService,
+  jobRoles: jobRolesService,
 }

@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { Card, Button, StatusBadgeSelect } from '@/components/ui'
+import { Card, Button, StatusBadgeSelect, Modal, Select } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/features/auth'
+import { services } from '@/lib/api/services'
 import type { JobLog, JobAssignment } from '../types/jobLog'
 import { getRecurringTag } from '../utils/recurringPattern'
 import JobLogForm from './JobLogForm'
@@ -65,11 +66,17 @@ const JobLogDetail = ({
 }: JobLogDetailProps) => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { createTimeEntry } = useJobLogStore()
+  const { createTimeEntry, updateTimeEntry } = useJobLogStore()
   const [activeTab, setActiveTab] = useState<Tab>('notes')
   const [showMenu, setShowMenu] = useState(false)
+  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const canAccessQuotes = user?.role !== 'employee'
   const canEditJobs = user?.role === 'admin' || user?.role === 'owner' || user?.canCreateJobs || user?.canScheduleAppointments
+
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([])
+  const [teamMembersLoading, setTeamMembersLoading] = useState(false)
+  const [showClockInSelector, setShowClockInSelector] = useState(false)
+  const [selectedClockInUserId, setSelectedClockInUserId] = useState<string | null>('all') // Default to "all"
 
   // Timer state management
   const [isTimerRunning, setIsTimerRunning] = useState(() => {
@@ -114,7 +121,8 @@ const JobLogDetail = ({
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 
-  const handleStartTimer = () => {
+  const handleStartTimer = (userId?: string) => {
+    const targetUserId = userId || user?.id
     const start = new Date()
     setTimerStart(start)
     setIsTimerRunning(true)
@@ -124,6 +132,7 @@ const JobLogDetail = ({
         JSON.stringify({
           jobLogId: jobLog.id,
           startTime: start.toISOString(),
+          userId: targetUserId,
         })
       )
     } catch {
@@ -131,56 +140,32 @@ const JobLogDetail = ({
     }
   }
 
-  const handleStopTimer = async () => {
-    let startTime: string
-    try {
-      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
-      if (stored) {
-        const { jobLogId: storedId, startTime: storedStart } = JSON.parse(stored)
-        if (storedId === jobLog.id && storedStart) {
-          startTime = storedStart
-        } else if (timerStart) {
-          startTime = timerStart.toISOString()
-        } else {
-          return
-        }
-      } else if (timerStart) {
-        startTime = timerStart.toISOString()
-      } else {
-        return
-      }
-    } catch {
-      if (!timerStart) return
-      startTime = timerStart.toISOString()
-    }
-    const end = new Date()
-    try {
-      await createTimeEntry({
-        jobLogId: jobLog.id,
-        startTime,
-        endTime: end.toISOString(),
-        userId: user?.id,
-      })
-    } finally {
-      setIsTimerRunning(false)
-      setTimerStart(null)
-      setElapsedSeconds(0)
+  useEffect(() => {
+    const role = user?.role
+    // Employees generally can't list all users; don't try to load for them
+    if (!role || role === 'employee') return
+
+    const loadTeamMembers = async () => {
+      setTeamMembersLoading(true)
       try {
-        localStorage.removeItem(TIMER_STORAGE_KEY)
+        const usersData = await services.users.getAll()
+        setTeamMembers(
+          (usersData || []).map((m: { id: string; name: string; email?: string }) => ({
+            id: m.id,
+            name: m.name || m.email || 'Unknown',
+          }))
+        )
       } catch {
-        // ignore
+        // ignore (we can still start timer for self)
+      } finally {
+        setTeamMembersLoading(false)
       }
     }
-  }
 
-  const handleMarkCompleted = async () => {
-    if (onStatusChange) {
-      await onStatusChange('completed')
-    }
-  }
+    loadTeamMembers()
+  }, [user?.role])
 
-  const isCompleted = jobLog.status === 'completed' || String(jobLog.status) === 'archived'
-
+  // Parse assignments early so it can be used in other hooks
   const parsedAssignments = useMemo((): JobAssignment[] => {
     if (!jobLog.assignedTo) return []
     if (Array.isArray(jobLog.assignedTo)) {
@@ -209,6 +194,194 @@ const JobLogDetail = ({
       },
     ]
   }, [jobLog.assignedTo])
+
+  const availableUsersToClockIn = useMemo(() => {
+    if (isAdminOrOwner) return teamMembers
+    const currentUserId = user?.id
+    if (!currentUserId) return []
+    const assignedIds = new Set(parsedAssignments.map(a => a.userId))
+    // If the current user has a roleId on this job, allow selecting from assigned users (backend enforces)
+    const currentAssignment = parsedAssignments.find(a => a.userId === currentUserId)
+    if (!currentAssignment?.roleId) return []
+    return teamMembers.filter(m => assignedIds.has(m.id))
+  }, [isAdminOrOwner, teamMembers, parsedAssignments, user?.id])
+
+  const canClockInForOthers = useMemo(() => {
+    if (isAdminOrOwner) return true
+    const currentUserId = user?.id
+    if (!currentUserId) return false
+    const currentAssignment = parsedAssignments.find(a => a.userId === currentUserId)
+    return !!currentAssignment?.roleId
+  }, [isAdminOrOwner, parsedAssignments, user?.id])
+
+  const handleHeaderStartJobClick = () => {
+    // Make sure the user lands on the Clock tab where the rest of the time tools live
+    setActiveTab('clock')
+
+    if (canClockInForOthers) {
+      // If still loading, open the modal so it can show "Loading..."
+      if (teamMembersLoading) {
+        setShowClockInSelector(true)
+        setSelectedClockInUserId('all') // Reset to default
+        return
+      }
+
+      // Always show selector if user can clock in for others (even if only 1 option, they can select "all")
+      if (availableUsersToClockIn.length > 0 || parsedAssignments.length > 0) {
+        setShowClockInSelector(true)
+        setSelectedClockInUserId('all') // Reset to default
+        return
+      }
+    }
+
+    // Default: start timer for self
+    handleStartTimer()
+  }
+
+  const handleStartJobForSelected = async () => {
+    const start = new Date()
+    const startTime = start.toISOString()
+
+    if (selectedClockInUserId === 'all') {
+      // Clock in all assigned team members by creating time entries for each
+      const assignedUserIds = parsedAssignments.map(a => a.userId).filter(Boolean) as string[]
+      const currentUserId = user?.id
+      
+      if (assignedUserIds.length === 0) {
+        // No assigned members, just clock in self
+        handleStartTimer(currentUserId)
+      } else {
+        // Create time entries for ALL assigned members (including current user)
+        // All entries will have the same startTime = endTime = now (zero duration).
+        // When stopping, we'll UPDATE ALL of these same entries to the same endTime.
+        try {
+          const createdEntries = await Promise.all(
+            assignedUserIds.map(userId =>
+              createTimeEntry({
+                jobLogId: jobLog.id,
+                startTime,
+                endTime: startTime, // Same as startTime - entry is "active" and will be updated when stopped
+                userId,
+              })
+            )
+          )
+
+          const createdEntryIds = createdEntries.map(e => e.id).filter(Boolean)
+
+          // Start timer (we'll UPDATE these same entries when we stop)
+          if (currentUserId && createdEntryIds.length > 0) {
+            setTimerStart(start)
+            setIsTimerRunning(true)
+            try {
+              localStorage.setItem(
+                TIMER_STORAGE_KEY,
+                JSON.stringify({
+                  jobLogId: jobLog.id,
+                  startTime,
+                  userId: currentUserId,
+                  timeEntryIds: createdEntryIds, // Store all entry IDs so we can update them together
+                  clockedInAll: true, // Flag to indicate all were clocked in
+                })
+              )
+            } catch {
+              // ignore
+            }
+          }
+          // Refresh job log to show the new time entries
+          // The TimeTracker component will pick them up automatically when jobLog updates
+        } catch (error) {
+          console.error('Failed to clock in all team members:', error)
+          // Fallback: just clock in current user
+          handleStartTimer(currentUserId)
+        }
+      }
+    } else {
+      // Clock in selected single user
+      const targetUserId = selectedClockInUserId || user?.id
+      if (targetUserId) {
+        handleStartTimer(targetUserId)
+      }
+    }
+
+    setShowClockInSelector(false)
+    setSelectedClockInUserId('all') // Reset to default for next time
+  }
+
+  const handleStopTimer = async () => {
+    let startTime: string
+    let storedUserId: string | undefined
+    let timeEntryIds: string[] | undefined
+    let clockedInAll: boolean | undefined
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        const { jobLogId: storedId, startTime: storedStart, userId: storedUser, timeEntryIds: storedEntryIds, clockedInAll: storedClockedInAll } = parsed
+        if (storedId === jobLog.id && storedStart) {
+          startTime = storedStart
+          storedUserId = storedUser
+          timeEntryIds = Array.isArray(storedEntryIds) ? storedEntryIds : undefined
+          clockedInAll = storedClockedInAll
+        } else if (timerStart) {
+          startTime = timerStart.toISOString()
+        } else {
+          return
+        }
+      } else if (timerStart) {
+        startTime = timerStart.toISOString()
+      } else {
+        return
+      }
+    } catch {
+      if (!timerStart) return
+      startTime = timerStart.toISOString()
+    }
+    const end = new Date()
+    const targetUserId = storedUserId || user?.id
+    
+    try {
+      // If we clocked in all members and have timeEntryIds, UPDATE all existing entries instead of creating new ones
+      if (clockedInAll && timeEntryIds && timeEntryIds.length > 0) {
+        const endIso = end.toISOString()
+        await Promise.all(
+          timeEntryIds.map((id) =>
+            updateTimeEntry(
+              id,
+              {
+                endTime: endIso,
+              },
+              jobLog.id
+            )
+          )
+        )
+      } else {
+        // Normal flow: create a new time entry
+        await createTimeEntry({
+          jobLogId: jobLog.id,
+          startTime,
+          endTime: end.toISOString(),
+          userId: targetUserId,
+        })
+      }
+    } finally {
+      setIsTimerRunning(false)
+      setTimerStart(null)
+      setElapsedSeconds(0)
+      try {
+        localStorage.removeItem(TIMER_STORAGE_KEY)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const handleMarkCompleted = async () => {
+    if (onStatusChange) {
+      await onStatusChange('completed')
+    }
+  }
+
+  const isCompleted = jobLog.status === 'completed' || String(jobLog.status) === 'archived'
 
   const handleCreateQuote = () => {
     setShowMenu(false)
@@ -252,7 +425,6 @@ const JobLogDetail = ({
   }
 
   const hasOverview = jobLog.location || jobLog.contact
-  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const canSeePrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
   const primaryPrice = canSeePrices ? (
     jobLog.price ??
@@ -399,7 +571,6 @@ const JobLogDetail = ({
                   }
 
                   const assignments = parsedAssignments
-                  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
                   const currentUserId = user?.id
                   const canSeePrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
 
@@ -530,7 +701,7 @@ const JobLogDetail = ({
           {!isTimerRunning ? (
             <>
               <Button
-                onClick={handleStartTimer}
+                onClick={handleHeaderStartJobClick}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5"
                 size="sm"
               >
@@ -553,7 +724,7 @@ const JobLogDetail = ({
                     d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Start Timer
+                Start Job
               </Button>
               {!isCompleted && onStatusChange && (
                 <Button
@@ -648,7 +819,7 @@ const JobLogDetail = ({
             {!isTimerRunning ? (
               <>
                 <Button
-                  onClick={handleStartTimer}
+                  onClick={handleHeaderStartJobClick}
                   className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5"
                   size="sm"
                 >
@@ -671,7 +842,7 @@ const JobLogDetail = ({
                       d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Start Timer
+                  Start Job
                 </Button>
                 {!isCompleted && onStatusChange && (
                   <Button
@@ -955,6 +1126,62 @@ const JobLogDetail = ({
           <JobLogNotes jobLogId={jobLog.id} initialNotes={jobLog.notes ?? ''} />
         )}
       </div>
+
+      <Modal
+        isOpen={showClockInSelector}
+        onClose={() => {
+          setShowClockInSelector(false)
+          setSelectedClockInUserId('all') // Reset to default
+        }}
+        title="Clock In For"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-primary-light/70">Select which team member(s) to clock in:</p>
+          {teamMembersLoading ? (
+            <p className="text-sm text-primary-light/50">Loading team members...</p>
+          ) : (
+            <Select
+              value={selectedClockInUserId || 'all'}
+              onChange={(e) => setSelectedClockInUserId(e.target.value || 'all')}
+              options={[
+                {
+                  value: 'all',
+                  label: `All Team Members (${parsedAssignments.length} ${parsedAssignments.length === 1 ? 'person' : 'people'})`,
+                },
+                ...(isAdminOrOwner ? teamMembers : availableUsersToClockIn).map(m => {
+                  const assignment = parsedAssignments.find(a => a.userId === m.id)
+                  const roleTitle = assignment?.role || 'not assigned'
+                  const isYou = m.id === user?.id
+                  return {
+                    value: m.id,
+                    label: isYou ? `${m.name} (You) - ${roleTitle}` : `${m.name} - ${roleTitle}`,
+                  }
+                }),
+              ]}
+            />
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              className="flex-1"
+              onClick={handleStartJobForSelected}
+              disabled={teamMembersLoading || (availableUsersToClockIn.length === 0 && parsedAssignments.length === 0)}
+            >
+              Start Job
+            </Button>
+            <Button
+              className="flex-1"
+              variant="outline"
+              onClick={() => {
+                setShowClockInSelector(false)
+                setSelectedClockInUserId('all') // Reset to default
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
