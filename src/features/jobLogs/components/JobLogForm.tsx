@@ -147,6 +147,49 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     },
   })
 
+  // Match existing roles to job roles when jobRoles are loaded
+  useEffect(() => {
+    if (jobRoles.length > 0 && assignments.length > 0 && jobLog) {
+      const updatedAssignments = assignments.map(assignment => {
+        // If roleId is already set and valid, keep it
+        if (assignment.roleId && assignment.roleId !== 'custom' && jobRoles.some(r => r.id === assignment.roleId)) {
+          return assignment
+        }
+        
+        // If role exists but no roleId or invalid roleId, try to match it to a job role
+        if (assignment.role) {
+          const matchingRole = jobRoles.find(r => r.title === assignment.role)
+          if (matchingRole) {
+            // Found a match - set the roleId
+            return {
+              ...assignment,
+              roleId: matchingRole.id,
+            }
+          } else {
+            // No match found - this is a custom role, set roleId to 'custom'
+            return {
+              ...assignment,
+              roleId: 'custom',
+            }
+          }
+        }
+        
+        // No role set - keep as is
+        return assignment
+      })
+      
+      // Only update if something changed to avoid infinite loops
+      const hasChanges = updatedAssignments.some((updated, index) => 
+        updated.roleId !== assignments[index]?.roleId
+      )
+      
+      if (hasChanges) {
+        setAssignments(updatedAssignments)
+        setValue('assignedTo', updatedAssignments)
+      }
+    }
+  }, [jobRoles, jobLog?.id, assignments, setValue])
+
   // Sync assignments with form when they change
   useEffect(() => {
     setValue('assignedTo', assignments.length > 0 ? assignments : undefined)
@@ -160,11 +203,21 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
       assignedTo: Array.isArray(data.assignedTo) && data.assignedTo.length > 0 
         ? data.assignedTo
             .filter(a => a.userId && a.userId.trim() !== '')
-            .map(a => ({
-              ...a,
-              // Convert roleId: 'custom' to undefined before submission
-              roleId: a.roleId === 'custom' ? undefined : a.roleId,
-            }))
+            .map(a => {
+              const normalizedA = {
+                ...a,
+                // Convert roleId: 'custom' to undefined before submission
+                roleId: a.roleId === 'custom' ? undefined : a.roleId,
+              }
+              // If roleId is missing but role title matches an existing JobRole, attach roleId.
+              if (!normalizedA.roleId && normalizedA.role && jobRoles.length > 0) {
+                const match = jobRoles.find(r => r.title === normalizedA.role)
+                if (match) {
+                  normalizedA.roleId = match.id
+                }
+              }
+              return normalizedA
+            })
         : null,
     }
 
@@ -386,7 +439,8 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                                 value={assignment.role || ''}
                                 onChange={(e) => {
                                   const newAssignments = [...assignments]
-                                  newAssignments[index] = { ...assignment, role: e.target.value, roleId: undefined }
+                                  // Keep roleId as 'custom' when typing to prevent input from unmounting
+                                  newAssignments[index] = { ...assignment, role: e.target.value, roleId: 'custom' }
                                   setAssignments(newAssignments)
                                   setValue('assignedTo', newAssignments)
                                 }}

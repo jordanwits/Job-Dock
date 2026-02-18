@@ -15,6 +15,8 @@ interface TimeTrackerProps {
   isAdmin?: boolean
   currentUserId?: string
   assignedTo?: JobAssignment[]
+  assignedToUsers?: Array<{ id: string; name: string }>
+  clockInFor?: 'self' | 'assigned' | 'everyone'
   externalTimerState?: {
     isRunning: boolean
     start: Date | null
@@ -152,12 +154,15 @@ const TimeTracker = ({
   isAdmin,
   currentUserId,
   assignedTo,
+  assignedToUsers,
+  clockInFor,
   externalTimerState,
 }: TimeTrackerProps) => {
   const { createTimeEntry, updateTimeEntry, deleteTimeEntry } = useJobLogStore()
   const { user } = useAuthStore()
   const effectiveIsAdmin = isAdmin ?? (user?.role === 'admin' || user?.role === 'owner')
   const effectiveCurrentUserId = currentUserId ?? user?.id
+  const effectiveClockInFor = clockInFor ?? 'self'
   
   // Internal timer state (only used if externalTimerState is not provided)
   const [internalIsTimerRunning, setInternalIsTimerRunning] = useState(() => {
@@ -189,14 +194,34 @@ const TimeTracker = ({
   const timerStart = externalTimerState ? externalTimerState.start : internalTimerStart
   const elapsedSeconds = externalTimerState ? externalTimerState.elapsed : internalElapsedSeconds
 
-  // Filter entries for employees, show all for admins
+  // Filter entries based on permissions
   const filteredEntries = useMemo(() => {
     if (effectiveIsAdmin) {
+      // Admins see all entries
       return timeEntries
     }
-    // Employee view: only show their own entries
+    if (!effectiveCurrentUserId || !assignedTo) {
+      // Fallback: only own entries
+      return timeEntries.filter(te => te.userId === effectiveCurrentUserId)
+    }
+    
+    // If user has clock-in permissions, they can see assigned users' entries
+    if (effectiveClockInFor === 'everyone') {
+      // Can see all entries (though backend may restrict)
+      return timeEntries
+    }
+    if (effectiveClockInFor === 'assigned') {
+      // Can see entries for assigned users only
+      const assignedUserIds = new Set(assignedTo.map(a => a.userId))
+      return timeEntries.filter(te => {
+        if (!te.userId) return false
+        return assignedUserIds.has(te.userId)
+      })
+    }
+    
+    // Self-only: only show their own entries
     return timeEntries.filter(te => te.userId === effectiveCurrentUserId)
-  }, [timeEntries, effectiveIsAdmin, effectiveCurrentUserId])
+  }, [timeEntries, effectiveIsAdmin, effectiveCurrentUserId, assignedTo, effectiveClockInFor])
 
   // Permission helpers (backend enforces permissions, these are for UX)
   const canEditEntry = useCallback((entry: TimeEntry): boolean => {
@@ -207,20 +232,20 @@ const TimeTracker = ({
   }, [effectiveIsAdmin, effectiveCurrentUserId])
 
   const canClockFor = useCallback((targetUserId?: string): boolean => {
-    if (effectiveIsAdmin) return true
     if (!effectiveCurrentUserId || !targetUserId) return false
     // Employees can clock in for themselves
     if (targetUserId === effectiveCurrentUserId) return true
-    // For clocking in others, check if current user has a role with permissions
-    // Backend will enforce actual permissions
-    const currentUserAssignment = assignedTo?.find(a => a.userId === effectiveCurrentUserId)
-    // If user has a roleId, they might have permissions (backend will check)
-    return !!currentUserAssignment?.roleId
-  }, [effectiveIsAdmin, effectiveCurrentUserId, assignedTo])
+    if (effectiveClockInFor === 'self') return false
+    if (effectiveClockInFor === 'everyone') return true
+    // assigned
+    return !!assignedTo?.some(a => a.userId === targetUserId)
+  }, [effectiveCurrentUserId, assignedTo, effectiveClockInFor])
 
-  // Group entries by user for admin view
+  // Group entries by user for admin view and employees with team permissions
   const entriesByUser = useMemo(() => {
-    if (!effectiveIsAdmin) return null
+    // Group for admins or employees who can see team entries
+    const shouldGroup = effectiveIsAdmin || effectiveClockInFor !== 'self'
+    if (!shouldGroup) return null
     const grouped = new Map<string, { userId: string; userName: string; entries: TimeEntry[] }>()
     filteredEntries.forEach(entry => {
       const key = entry.userId || 'unknown'
@@ -249,7 +274,7 @@ const TimeTracker = ({
       // Otherwise maintain original order (by name)
       return a.userName.localeCompare(b.userName)
     })
-  }, [filteredEntries, effectiveIsAdmin, effectiveCurrentUserId, assignedTo])
+  }, [filteredEntries, effectiveIsAdmin, effectiveClockInFor, effectiveCurrentUserId, assignedTo])
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [inlineEditId, setInlineEditId] = useState<string | null>(null)
   const [inlineNotes, setInlineNotes] = useState('')
@@ -276,7 +301,7 @@ const TimeTracker = ({
   const [showUserSelector, setShowUserSelector] = useState(false)
   const [selectedClockInUserId, setSelectedClockInUserId] = useState<string | null>(null)
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([])
-  const [teamMembersLoading, setTeamMembersLoading] = useState(true)
+  const [teamMembersLoading, setTeamMembersLoading] = useState<boolean>(effectiveIsAdmin)
   const durationInputRef = useRef<HTMLInputElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const modalTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -291,6 +316,13 @@ const TimeTracker = ({
 
   // Load team members for user selection
   useEffect(() => {
+    // Admins can always load all team members (for manual entry and clock-in)
+    // Employees cannot list all users; rely on `assignedToUsers` passed from job-log payload instead.
+    if (!effectiveIsAdmin) {
+      setTeamMembersLoading(false)
+      return
+    }
+    // For admins, always load team members (regardless of clockInFor permission)
     const loadTeamMembers = async () => {
       setTeamMembersLoading(true)
       try {
@@ -308,35 +340,62 @@ const TimeTracker = ({
       }
     }
     loadTeamMembers()
-  }, [])
+  }, [effectiveIsAdmin])
 
   // Get available users to clock in for based on permissions
   const availableUsersToClockIn = useMemo(() => {
-    if (effectiveIsAdmin) {
-      // Admins can clock in for anyone
-      return teamMembers
-    }
-    if (!effectiveCurrentUserId || !assignedTo) return []
+    if (!effectiveCurrentUserId) return []
     
-    const currentUserAssignment = assignedTo.find(a => a.userId === effectiveCurrentUserId)
-    if (!currentUserAssignment?.roleId) {
-      // No roleId - can only clock in for self
-      return teamMembers.filter(u => u.id === effectiveCurrentUserId)
+    // Admins can always see all team members (for manual entry and clock-in)
+    if (effectiveIsAdmin) {
+      // If team members are loaded, use them; otherwise use assigned users as fallback
+      if (teamMembers.length > 0) {
+        return teamMembers.map(u => ({ id: u.id, name: u.name || u.id }))
+      }
+      // Fallback: use assigned users if team members not loaded yet
+      if (assignedTo && assignedToUsers) {
+        const assignedUserIds = new Set(assignedTo.map(a => a.userId))
+        const assignedUsers = assignedToUsers.filter(u => assignedUserIds.has(u.id))
+        return assignedUsers.map(u => ({ id: u.id, name: u.name || u.id }))
+      }
+      // Last resort: just current user
+      return [{ id: effectiveCurrentUserId, name: user?.name || 'You' }]
+    }
+    
+    // Non-admins: use role-based permissions
+    if (!assignedTo) return []
+    
+    const assignedUserIds = new Set(assignedTo.map(a => a.userId))
+    const assignedUsers = (assignedToUsers || []).filter(u => assignedUserIds.has(u.id))
+
+    if (effectiveClockInFor === 'self') {
+      const self =
+        assignedUsers.find(u => u.id === effectiveCurrentUserId) ||
+        teamMembers.find(u => u.id === effectiveCurrentUserId) ||
+        { id: effectiveCurrentUserId, name: user?.name || 'You' }
+      return [self]
     }
 
-    // For now, we'll check permissions on the backend
-    // Frontend: show all assigned users (backend will enforce permissions)
-    const assignedUserIds = new Set(assignedTo.map(a => a.userId))
-    return teamMembers.filter(u => assignedUserIds.has(u.id))
-  }, [effectiveIsAdmin, effectiveCurrentUserId, assignedTo, teamMembers])
+    if (effectiveClockInFor === 'everyone') {
+      // Even with 'everyone' permission, only show assigned team members
+      if (assignedUsers.length > 0) {
+        return assignedUsers.map(u => ({ id: u.id, name: u.name || u.id }))
+      }
+      // Fallback: filter teamMembers to only assigned users
+      return teamMembers.filter(m => assignedUserIds.has(m.id))
+    }
+
+    // assigned
+    return assignedUsers.map(u => ({ id: u.id, name: u.name || u.id }))
+  }, [effectiveCurrentUserId, assignedTo, assignedToUsers, teamMembers, user?.name, effectiveClockInFor, effectiveIsAdmin])
 
   // Check if user can clock in for others
   const canClockInForOthers = useMemo(() => {
+    // Admins can always clock in for others
     if (effectiveIsAdmin) return true
     if (!effectiveCurrentUserId || !assignedTo) return false
-    const currentUserAssignment = assignedTo.find(a => a.userId === effectiveCurrentUserId)
-    return !!currentUserAssignment?.roleId
-  }, [effectiveIsAdmin, effectiveCurrentUserId, assignedTo])
+    return effectiveClockInFor !== 'self'
+  }, [effectiveCurrentUserId, assignedTo, effectiveClockInFor, effectiveIsAdmin])
 
   useEffect(() => {
     if (descriptionModalEditing) {
@@ -724,7 +783,7 @@ const TimeTracker = ({
           {index + 1}
         </div>
         <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
-          {effectiveIsAdmin && te.userName && (
+          {(effectiveIsAdmin || effectiveClockInFor !== 'self') && te.userName && (
             <>
               <span className="text-sm font-medium text-primary-light/70 shrink-0">
                 {te.userName}
@@ -988,7 +1047,7 @@ const TimeTracker = ({
       {/* Header: Today | Total */}
       <div className="flex items-center justify-between border-b border-primary-blue/50 pb-3">
         <span className="text-sm font-medium text-primary-light/80">
-          {effectiveIsAdmin ? 'All Time Entries' : 'My Time Entries'}
+          {effectiveIsAdmin ? 'All Time Entries' : effectiveClockInFor === 'self' ? 'My Time Entries' : 'Team Time Entries'}
         </span>
         <div className="flex items-center gap-2">
           {filteredEntries.length > 0 && (
@@ -1027,8 +1086,8 @@ const TimeTracker = ({
       </div>
 
       {/* Time entries list */}
-      {effectiveIsAdmin && entriesByUser && entriesByUser.length > 0 ? (
-        // Admin view: grouped by team member
+      {entriesByUser && entriesByUser.length > 0 ? (
+        // Grouped view: by team member (for admins and employees with team permissions)
         <div className="space-y-4">
           {entriesByUser.map((group, groupIndex) => {
             const memberTotalSeconds = calculateTotalSeconds(group.entries)
@@ -1065,7 +1124,7 @@ const TimeTracker = ({
           })}
         </div>
       ) : filteredEntries.length > 0 ? (
-        // Employee view: simple list
+        // Fallback: simple list (for self-only employees)
         <div className="space-y-1">
           {filteredEntries.map((te, index) => renderTimeEntryRow(te, index))}
         </div>
@@ -1164,7 +1223,7 @@ const TimeTracker = ({
             onChange={date => setManualEntryDate(date ?? '')}
             placeholder="Select date"
           />
-          {canClockInForOthers && availableUsersToClockIn.length > 1 && (
+          {canClockInForOthers && (effectiveIsAdmin || availableUsersToClockIn.length > 1) && (
             <Select
               label="For"
               value={manualEntryUserId || effectiveCurrentUserId || ''}

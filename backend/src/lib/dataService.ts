@@ -159,6 +159,22 @@ async function getAssignedToName(tenantId: string, assignedTo: any): Promise<str
   return names.length > 0 ? names.join(', ') : undefined
 }
 
+// Fetch assigned users with id and name (for clock-in selector when employee can't list all users)
+async function getAssignedToUsers(tenantId: string, assignedTo: any): Promise<Array<{ id: string; name: string }>> {
+  if (!assignedTo) return []
+  
+  const userIds = extractUserIds(assignedTo)
+  
+  if (userIds.length === 0) return []
+  
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds }, tenantId },
+    select: { id: true, name: true },
+  })
+  
+  return users.map(u => ({ id: u.id, name: u.name || u.id }))
+}
+
 // Validate assignedTo structure and that all user IDs belong to tenant (throws if invalid)
 async function validateAssignedTo(tenantId: string, assignedTo: any): Promise<void> {
   if (!assignedTo) return
@@ -253,12 +269,13 @@ function getAssignedToWithPrivacy(
   if (currentUserRole === 'employee' && currentUserId) {
     return normalized.map(assignment => {
       if (assignment.userId === currentUserId) {
-        // Show their own assignment with price
+        // Show their own assignment with price and roleId (needed for clock-in permission check)
         return assignment
       } else {
-        // Hide price for other assignments
+        // Hide price for other assignments, but keep roleId for permission checks
         return {
           userId: assignment.userId,
+          roleId: assignment.roleId,
           role: assignment.role,
           price: undefined, // Explicitly hide price
         }
@@ -266,9 +283,10 @@ function getAssignedToWithPrivacy(
     })
   }
   
-  // Not assigned or unknown role: hide all prices
+  // Not assigned or unknown role: hide all prices, but keep roleId for permission checks
   return normalized.map(assignment => ({
     userId: assignment.userId,
+    roleId: assignment.roleId,
     role: assignment.role,
     price: undefined, // Hide price
   }))
@@ -285,14 +303,19 @@ async function sendAssignmentNotification(params: {
   location: string | null | undefined
   contactName?: string
   viewPath?: string // e.g. '/app/scheduling' for jobs, '/app/job-logs' for job logs
+  userIdsToNotify?: string[] // Optional: only notify these specific user IDs (for newly added members)
 }): Promise<void> {
-  const { tenantId, assignedTo, assignerUserId, jobTitle, startTime, endTime, location, contactName, viewPath } = params
+  const { tenantId, assignedTo, assignerUserId, jobTitle, startTime, endTime, location, contactName, viewPath, userIdsToNotify } = params
 
-  const userIds = extractUserIds(assignedTo)
+  const allUserIds = extractUserIds(assignedTo)
+  
+  // If userIdsToNotify is provided, only notify those users (for newly added members)
+  // Otherwise, notify all assigned users (for new job creation)
+  const userIds = userIdsToNotify && userIdsToNotify.length > 0 ? userIdsToNotify : allUserIds
   
   if (userIds.length === 0) return
 
-  // Get all assignees
+  // Get assignees to notify
   const assignees = await prisma.user.findMany({
     where: { 
       id: { in: userIds },
@@ -2308,16 +2331,24 @@ export const dataServices = {
       const b = updated!.bookings[0]
       const assignedToName = await getAssignedToName(tenantId, updated!.assignedTo)
       if (jobUpdateData.assignedTo && JSON.stringify(jobUpdateData.assignedTo) !== JSON.stringify(existingJob.assignedTo)) {
-        sendAssignmentNotification({
-          tenantId,
-          assignedTo: jobUpdateData.assignedTo,
-          assignerUserId: payload._actingUserId,
-          jobTitle: updated!.title,
-          startTime: b?.startTime ?? null,
-          endTime: b?.endTime ?? null,
-          location: updated!.location,
-          contactName: updated!.contact ? `${updated!.contact.firstName ?? ''} ${updated!.contact.lastName ?? ''}`.trim() || undefined : undefined,
-        }).catch((e) => console.error('Failed to send assignment notification:', e))
+        // Only notify newly added members
+        const oldUserIds = new Set(extractUserIds(existingJob.assignedTo))
+        const newUserIds = extractUserIds(jobUpdateData.assignedTo)
+        const newlyAddedUserIds = newUserIds.filter(id => !oldUserIds.has(id))
+        
+        if (newlyAddedUserIds.length > 0) {
+          sendAssignmentNotification({
+            tenantId,
+            assignedTo: jobUpdateData.assignedTo,
+            assignerUserId: payload._actingUserId,
+            jobTitle: updated!.title,
+            startTime: b?.startTime ?? null,
+            endTime: b?.endTime ?? null,
+            location: updated!.location,
+            contactName: updated!.contact ? `${updated!.contact.firstName ?? ''} ${updated!.contact.lastName ?? ''}`.trim() || undefined : undefined,
+            userIdsToNotify: newlyAddedUserIds,
+          }).catch((e) => console.error('Failed to send assignment notification:', e))
+        }
       }
       return {
         ...updated,
@@ -3661,11 +3692,13 @@ export const dataServices = {
                 }))
               )
           const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+          const assignedToUsers = await getAssignedToUsers(tenantId, job.assignedTo)
           const assignedToWithPrivacy = getAssignedToWithPrivacy(job.assignedTo, currentUserId, currentUserRole)
           const primaryBooking = job.bookings[0]
           return {
             ...job,
             assignedToName,
+            assignedToUsers,
             assignedTo: assignedToWithPrivacy || job.assignedTo,
             // Flatten primary booking fields for Jobs page parity with calendar jobs
             startTime: primaryBooking?.startTime?.toISOString() ?? null,
@@ -3725,6 +3758,7 @@ export const dataServices = {
       })
       if (!job) throw new ApiError('Job not found', 404)
       const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+      const assignedToUsers = await getAssignedToUsers(tenantId, job.assignedTo)
       const assignedToWithPrivacy = getAssignedToWithPrivacy(job.assignedTo, currentUserId, currentUserRole)
       const documents = await prisma.document.findMany({
         where: { tenantId, entityType: 'job', entityId: id },
@@ -3755,6 +3789,7 @@ export const dataServices = {
       return {
         ...job,
         assignedToName,
+        assignedToUsers,
         assignedTo: assignedToWithPrivacy || job.assignedTo,
         // Flatten primary booking fields for Jobs page parity with calendar jobs
         startTime: primaryBooking?.startTime?.toISOString() ?? null,
@@ -3972,18 +4007,26 @@ export const dataServices = {
       })
       const newAssignedTo = normalizedAssignedTo !== undefined ? normalizedAssignedTo : (existing.assignedTo as string[] | null)
       if (newAssignedTo && JSON.stringify(newAssignedTo) !== JSON.stringify(existing.assignedTo)) {
-        const b = (updated as { bookings: Array<{ startTime?: Date; endTime?: Date }> }).bookings[0]
-        sendAssignmentNotification({
-          tenantId,
-          assignedTo: newAssignedTo,
-          assignerUserId: payload._actingUserId,
-          jobTitle: updated.title,
-          startTime: b?.startTime ?? null,
-          endTime: b?.endTime ?? null,
-          location: updated.location ?? undefined,
-          contactName: (() => { const c = (updated as { contact?: { firstName?: string; lastName?: string } }).contact; return c ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || undefined : undefined })(),
-          viewPath: '/app/job-logs',
-        }).catch((e) => console.error('Failed to send job assignment notification:', e))
+        // Only notify newly added members
+        const oldUserIds = new Set(extractUserIds(existing.assignedTo))
+        const newUserIds = extractUserIds(newAssignedTo)
+        const newlyAddedUserIds = newUserIds.filter(id => !oldUserIds.has(id))
+        
+        if (newlyAddedUserIds.length > 0) {
+          const b = (updated as { bookings: Array<{ startTime?: Date; endTime?: Date }> }).bookings[0]
+          sendAssignmentNotification({
+            tenantId,
+            assignedTo: newAssignedTo,
+            assignerUserId: payload._actingUserId,
+            jobTitle: updated.title,
+            startTime: b?.startTime ?? null,
+            endTime: b?.endTime ?? null,
+            location: updated.location ?? undefined,
+            contactName: (() => { const c = (updated as { contact?: { firstName?: string; lastName?: string } }).contact; return c ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || undefined : undefined })(),
+            viewPath: '/app/job-logs',
+            userIdsToNotify: newlyAddedUserIds,
+          }).catch((e) => console.error('Failed to send job assignment notification:', e))
+        }
       }
       const assignedUserIds = extractUserIds(updated.assignedTo)
       const assignedUsers = assignedUserIds.length > 0
@@ -4176,10 +4219,76 @@ export const dataServices = {
       if (jobId) {
         where.jobId = jobId
       }
-      // Filter by userId for employees
-      if (currentUserRole === 'employee' && currentUserId) {
+      
+      // Check role-based permissions for employees (and all users with roles)
+      // Admins/owners always have full access regardless of role assignment
+      if (currentUserId && jobId) {
+        const isAdminOrOwner = currentUserRole === 'admin' || currentUserRole === 'owner'
+        
+        // Admins/owners always see all entries - skip role checks
+        if (!isAdminOrOwner) {
+          const job = await prisma.job.findFirst({
+            where: { id: jobId, tenantId },
+            select: { assignedTo: true },
+          })
+          
+          if (job) {
+            const assignedTo = normalizeAssignedTo(job.assignedTo)
+            const currentUserAssignment = assignedTo?.find((a: any) => a.userId === currentUserId)
+            
+            // Resolve role permissions for this job. Prefer roleId; fall back to matching by role title.
+            const resolvedRole =
+              currentUserAssignment?.roleId
+                ? await prisma.jobRole.findFirst({
+                    where: { id: currentUserAssignment.roleId, tenantId },
+                  })
+                : currentUserAssignment?.role
+                  ? await prisma.jobRole.findFirst({
+                      where: {
+                        tenantId,
+                        title: {
+                          equals: currentUserAssignment.role.trim(),
+                          mode: 'insensitive',
+                        },
+                      },
+                    })
+                  : null
+              
+            if (resolvedRole) {
+              const permissions = resolvedRole.permissions as any
+              const canClockInFor = permissions?.canClockInFor || 'self'
+
+              if (canClockInFor === 'self') {
+                // Self-only: filter to own entries
+                where.userId = currentUserId
+              } else if (canClockInFor === 'assigned') {
+                // Assigned: filter to assigned users' entries
+                const assignedUserIds = assignedTo?.map((a: any) => a.userId).filter(Boolean) || []
+                if (assignedUserIds.length > 0) {
+                  where.userId = { in: assignedUserIds }
+                } else {
+                  // No assigned users, fall back to self
+                  where.userId = currentUserId
+                }
+              }
+              // 'everyone' allows all entries - no filter needed
+            } else {
+              // No resolvable role: employees fall back to self-only
+              if (currentUserRole === 'employee') {
+                where.userId = currentUserId
+              }
+            }
+          } else if (currentUserRole === 'employee') {
+            // Job not found and employee - fall back to self-only
+            where.userId = currentUserId
+          }
+        }
+        // Admins/owners see all entries - no filter needed
+      } else if (currentUserRole === 'employee' && currentUserId) {
+        // No jobId provided and employee - self-only
         where.userId = currentUserId
       }
+      
       const entries = await prisma.timeEntry.findMany({
         where,
         include: {
@@ -4238,29 +4347,51 @@ export const dataServices = {
       if (!job) throw new ApiError('Job not found', 404)
       // Determine userId: use payload.userId if provided, otherwise use currentUserId
       let userId = payload.userId ?? currentUserId ?? null
-      // For employees, check role-based permissions
-      if (currentUserRole === 'employee' && userId !== currentUserId) {
+      // Role-based clock-in permissions (admins/owners always have full access)
+      const isAdminOrOwner = currentUserRole === 'admin' || currentUserRole === 'owner'
+      
+      // Debug logging to help diagnose permission issues
+      console.log('[time-entries.create] Permission check:', {
+        userId,
+        currentUserId,
+        currentUserRole,
+        isAdminOrOwner,
+        willCheckRolePermissions: userId !== currentUserId && !isAdminOrOwner,
+      })
+      
+      // IMPORTANT: Check admin/owner status FIRST before doing any role-based permission checks
+      // Admins/owners can clock in for anyone, regardless of their assignment or role on the job
+      if (userId !== currentUserId && !isAdminOrOwner) {
         // Get current user's assignment on this job
         const assignedTo = normalizeAssignedTo(job.assignedTo)
         const currentUserAssignment = assignedTo?.find((a: any) => a.userId === currentUserId)
-        
-        if (!currentUserAssignment || !currentUserAssignment.roleId) {
-          // No roleId (legacy): employees can only create for self
-          throw new ApiError('Employees can only create time entries for themselves', 403)
+
+        // Resolve role permissions for this job. Prefer roleId; fall back to matching by role title.
+        const resolvedRole =
+          currentUserAssignment?.roleId
+            ? await prisma.jobRole.findFirst({
+                where: { id: currentUserAssignment.roleId, tenantId },
+              })
+            : currentUserAssignment?.role
+              ? await prisma.jobRole.findFirst({
+                  where: {
+                    tenantId,
+                    title: {
+                      equals: currentUserAssignment.role.trim(),
+                      mode: 'insensitive',
+                    },
+                  },
+                })
+              : null
+
+        if (!resolvedRole) {
+          // No resolvable role: can only create for self
+          throw new ApiError('You can only clock in for yourself', 403)
         }
-        
-        // Load JobRole to check permissions
-        const jobRole = await prisma.jobRole.findFirst({
-          where: { id: currentUserAssignment.roleId, tenantId },
-        })
-        
-        if (!jobRole) {
-          throw new ApiError('Job role not found', 404)
-        }
-        
-        const permissions = jobRole.permissions as any
+
+        const permissions = resolvedRole.permissions as any
         const canClockInFor = permissions?.canClockInFor || 'self'
-        
+
         if (canClockInFor === 'self') {
           throw new ApiError('You can only clock in for yourself', 403)
         } else if (canClockInFor === 'assigned') {
@@ -4272,6 +4403,7 @@ export const dataServices = {
         }
         // 'everyone' allows any userId in tenant - no additional check needed
       }
+      // Admins/owners can clock in for anyone - no permission check needed (handled by the condition above)
       // Validate userId exists if provided
       if (userId) {
         const user = await prisma.user.findFirst({

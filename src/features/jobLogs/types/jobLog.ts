@@ -79,6 +79,7 @@ export interface JobLog {
   price?: number | null
   assignedTo?: JobAssignment[] | string | string[] // Support old format for backward compatibility
   assignedToName?: string
+  assignedToUsers?: Array<{ id: string; name: string }> // For clock-in selector when employee can't list all users
   status: 'active' | 'completed' | 'inactive'
   createdAt: string
   updatedAt: string

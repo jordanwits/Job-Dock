@@ -918,6 +918,7 @@ We look forward to working with you!',
       'quotes',
       'invoices',
       'settings',
+      'job-roles', // For clock-in permission check (canClockInFor)
     ] as const
     // Employees have full access to jobs (create, read) but edit/delete restricted to own jobs
     const employeeJobAccessResources = ['jobs'] as const
@@ -1558,14 +1559,22 @@ async function handlePost(
           select: { id: true, role: true },
         })
         if (user) {
+          console.log('[handler] time-entries.create - user context:', {
+            userId: user.id,
+            role: user.role,
+            payloadUserId: payload?.userId,
+          })
           return (service as typeof dataServices['time-entries']).create(
             tenantId,
             payload,
             user.id,
             user.role
           )
+        } else {
+          console.warn('[handler] time-entries.create - user not found for cognitoId:', context.userId)
         }
-      } catch {
+      } catch (error) {
+        console.error('[handler] time-entries.create - error fetching user:', error)
         /* ignore */
       }
     }

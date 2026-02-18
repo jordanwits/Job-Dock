@@ -75,6 +75,7 @@ const JobLogDetail = ({
 
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([])
   const [teamMembersLoading, setTeamMembersLoading] = useState(false)
+  const [jobRoles, setJobRoles] = useState<Array<{ id: string; title: string; permissions?: { canClockInFor?: string } }>>([])
   const [showClockInSelector, setShowClockInSelector] = useState(false)
   const [selectedClockInUserId, setSelectedClockInUserId] = useState<string | null>('all') // Default to "all"
 
@@ -122,6 +123,10 @@ const JobLogDetail = ({
   }
 
   const handleStartTimer = (userId?: string) => {
+    // Don't overwrite if timer is already running - preserve the existing userId
+    if (isTimerRunning) {
+      return
+    }
     const targetUserId = userId || user?.id
     const start = new Date()
     setTimerStart(start)
@@ -165,6 +170,19 @@ const JobLogDetail = ({
     loadTeamMembers()
   }, [user?.role])
 
+  // Load job roles for permission check (employees need this to know if they can clock in for others)
+  useEffect(() => {
+    const loadJobRoles = async () => {
+      try {
+        const roles = await services.jobRoles.getAll()
+        setJobRoles(roles || [])
+      } catch {
+        // ignore
+      }
+    }
+    loadJobRoles()
+  }, [])
+
   // Parse assignments early so it can be used in other hooks
   const parsedAssignments = useMemo((): JobAssignment[] => {
     if (!jobLog.assignedTo) return []
@@ -195,24 +213,65 @@ const JobLogDetail = ({
     ]
   }, [jobLog.assignedTo])
 
+  const currentUserClockInFor = useMemo((): 'self' | 'assigned' | 'everyone' => {
+    const currentUserId = user?.id
+    if (!currentUserId) return 'self'
+    
+    // Admins/owners always have full clock-in permissions regardless of role assignment
+    if (isAdminOrOwner) return 'everyone'
+    
+    const currentAssignment = parsedAssignments.find(a => a.userId === currentUserId)
+    if (!currentAssignment) return 'self'
+
+    // Prefer matching by roleId; fall back to matching by role title for legacy jobs.
+    const normalizeRoleTitle = (s: string) => s.trim().toLowerCase()
+    const matchedRole =
+      (currentAssignment.roleId && jobRoles.find(r => r.id === currentAssignment.roleId)) ||
+      (currentAssignment.role &&
+        jobRoles.find(r => normalizeRoleTitle(r.title) === normalizeRoleTitle(currentAssignment.role))) ||
+      null
+
+    // If roles haven't loaded yet but the user has a non-default role title, allow UI; backend enforces real permissions.
+    if (!matchedRole) {
+      return currentAssignment.role && currentAssignment.role !== 'Team Member' ? 'assigned' : 'self'
+    }
+
+    const canClockInFor = matchedRole.permissions?.canClockInFor || 'self'
+    return canClockInFor === 'everyone' ? 'everyone' : canClockInFor === 'assigned' ? 'assigned' : 'self'
+  }, [parsedAssignments, user?.id, jobRoles, isAdminOrOwner])
+
+  const canClockInForOthers = currentUserClockInFor !== 'self'
+
   const availableUsersToClockIn = useMemo(() => {
-    if (isAdminOrOwner) return teamMembers
     const currentUserId = user?.id
     if (!currentUserId) return []
     const assignedIds = new Set(parsedAssignments.map(a => a.userId))
-    // If the current user has a roleId on this job, allow selecting from assigned users (backend enforces)
-    const currentAssignment = parsedAssignments.find(a => a.userId === currentUserId)
-    if (!currentAssignment?.roleId) return []
-    return teamMembers.filter(m => assignedIds.has(m.id))
-  }, [isAdminOrOwner, teamMembers, parsedAssignments, user?.id])
+    const assignedUsers = jobLog.assignedToUsers || []
 
-  const canClockInForOthers = useMemo(() => {
-    if (isAdminOrOwner) return true
-    const currentUserId = user?.id
-    if (!currentUserId) return false
-    const currentAssignment = parsedAssignments.find(a => a.userId === currentUserId)
-    return !!currentAssignment?.roleId
-  }, [isAdminOrOwner, parsedAssignments, user?.id])
+    // Self-only: only allow self
+    if (currentUserClockInFor === 'self') {
+      const self =
+        assignedUsers.find(u => u.id === currentUserId) ||
+        teamMembers.find(u => u.id === currentUserId) ||
+        { id: currentUserId, name: user?.name || 'You' }
+      return [self]
+    }
+
+    // Everyone: even with 'everyone' permission, only show assigned team members
+    if (currentUserClockInFor === 'everyone') {
+      if (assignedUsers.length > 0) {
+        return assignedUsers.filter(u => assignedIds.has(u.id))
+      }
+      // Fallback: filter teamMembers to only assigned users
+      return teamMembers.filter(m => assignedIds.has(m.id))
+    }
+
+    // Assigned: show assigned users only
+    if (assignedUsers.length > 0) {
+      return assignedUsers.filter(u => assignedIds.has(u.id))
+    }
+    return teamMembers.filter(m => assignedIds.has(m.id))
+  }, [teamMembers, parsedAssignments, user?.id, user?.name, jobLog.assignedToUsers, currentUserClockInFor])
 
   const handleHeaderStartJobClick = () => {
     // Make sure the user lands on the Clock tab where the rest of the time tools live
@@ -241,17 +300,23 @@ const JobLogDetail = ({
   const handleStartJobForSelected = async () => {
     const start = new Date()
     const startTime = start.toISOString()
+    
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('handleStartJobForSelected - selectedClockInUserId:', selectedClockInUserId)
+    }
 
     if (selectedClockInUserId === 'all') {
       // Clock in all assigned team members by creating time entries for each
       const assignedUserIds = parsedAssignments.map(a => a.userId).filter(Boolean) as string[]
       const currentUserId = user?.id
+      const isCurrentUserAssigned = assignedUserIds.includes(currentUserId || '')
       
       if (assignedUserIds.length === 0) {
         // No assigned members, just clock in self
         handleStartTimer(currentUserId)
       } else {
-        // Create time entries for ALL assigned members (including current user)
+        // Create time entries for ALL assigned members (NOT including current user if they're not assigned)
         // All entries will have the same startTime = endTime = now (zero duration).
         // When stopping, we'll UPDATE ALL of these same entries to the same endTime.
         try {
@@ -269,7 +334,9 @@ const JobLogDetail = ({
           const createdEntryIds = createdEntries.map(e => e.id).filter(Boolean)
 
           // Start timer (we'll UPDATE these same entries when we stop)
-          if (currentUserId && createdEntryIds.length > 0) {
+          // Only store userId in localStorage if current user is actually assigned
+          // Otherwise, set userId to null so handleStopTimer knows not to create a new entry
+          if (createdEntryIds.length > 0) {
             setTimerStart(start)
             setIsTimerRunning(true)
             try {
@@ -278,7 +345,7 @@ const JobLogDetail = ({
                 JSON.stringify({
                   jobLogId: jobLog.id,
                   startTime,
-                  userId: currentUserId,
+                  userId: isCurrentUserAssigned ? currentUserId : null, // Only store userId if user is assigned
                   timeEntryIds: createdEntryIds, // Store all entry IDs so we can update them together
                   clockedInAll: true, // Flag to indicate all were clocked in
                 })
@@ -291,20 +358,43 @@ const JobLogDetail = ({
           // The TimeTracker component will pick them up automatically when jobLog updates
         } catch (error) {
           console.error('Failed to clock in all team members:', error)
-          // Fallback: just clock in current user
-          handleStartTimer(currentUserId)
+          // Fallback: just clock in current user (only if they're assigned)
+          if (isCurrentUserAssigned && currentUserId) {
+            handleStartTimer(currentUserId)
+          }
         }
       }
     } else {
       // Clock in selected single user
-      const targetUserId = selectedClockInUserId || user?.id
+      // Ensure we have a valid userId (not 'all', not null, not empty)
+      const targetUserId = selectedClockInUserId && selectedClockInUserId !== 'all' && selectedClockInUserId !== null ? selectedClockInUserId : null
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('handleStartJobForSelected - single user selected:', {
+          selectedClockInUserId,
+          targetUserId,
+          currentUserId: user?.id,
+        })
+      }
+      
       if (targetUserId) {
+        // Start timer for the selected user (could be admin or another user)
         handleStartTimer(targetUserId)
+        // Store the selected userId so it persists even after modal closes
+        // This ensures handleStopTimer can use the correct userId
+        setSelectedClockInUserId(targetUserId)
+      } else {
+        // No valid selection, fallback to clock in self
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('handleStartJobForSelected - no valid userId selected, falling back to self')
+        }
+        handleStartTimer(user?.id)
+        setSelectedClockInUserId(user?.id || null)
       }
     }
 
     setShowClockInSelector(false)
-    setSelectedClockInUserId('all') // Reset to default for next time
+    // Don't reset selectedClockInUserId here - keep it until timer stops
   }
 
   const handleStopTimer = async () => {
@@ -337,7 +427,19 @@ const JobLogDetail = ({
       startTime = timerStart.toISOString()
     }
     const end = new Date()
-    const targetUserId = storedUserId || user?.id
+    // Use stored userId from localStorage, fallback to selectedClockInUserId, then current user
+    // Priority: storedUserId (from localStorage) > selectedClockInUserId (if not 'all') > current user
+    const targetUserId = storedUserId || (selectedClockInUserId && selectedClockInUserId !== 'all' ? selectedClockInUserId : undefined) || user?.id
+    
+    // Debug logging (remove in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('handleStopTimer - userId resolution:', {
+        storedUserId,
+        selectedClockInUserId,
+        currentUserId: user?.id,
+        targetUserId,
+      })
+    }
     
     try {
       // If we clocked in all members and have timeEntryIds, UPDATE all existing entries instead of creating new ones
@@ -354,19 +456,27 @@ const JobLogDetail = ({
             )
           )
         )
-      } else {
-        // Normal flow: create a new time entry
+        // IMPORTANT: Don't create a new entry when clockedInAll is true - we only update existing ones
+        return
+      }
+      
+      // Normal flow: create a new time entry (only if clockedInAll is false or timeEntryIds is missing)
+      // Only create entry if we have a valid targetUserId
+      if (targetUserId) {
         await createTimeEntry({
           jobLogId: jobLog.id,
           startTime,
           endTime: end.toISOString(),
           userId: targetUserId,
         })
+      } else {
+        console.warn('handleStopTimer - No valid userId to create time entry for')
       }
     } finally {
       setIsTimerRunning(false)
       setTimerStart(null)
       setElapsedSeconds(0)
+      setSelectedClockInUserId('all') // Reset to default after timer stops
       try {
         localStorage.removeItem(TIMER_STORAGE_KEY)
       } catch {
@@ -583,11 +693,14 @@ const JobLogDetail = ({
                         </span>
                         <div className="grid grid-cols-1 gap-2 w-max max-w-md">
                           {assignments.map((assignment, index) => {
-                            // Find name from assignedToName by index (approximate match)
-                            const nameParts = jobLog.assignedToName?.split(',') || []
-                            const nameFromString = nameParts[index]?.trim()
-                            // Show "Unassigned" instead of "User 1", "User 2", etc. when name is not available
-                            const displayName = nameFromString || 'Unassigned'
+                            // Find name by matching userId (more reliable than index-based matching)
+                            const assignedUser = jobLog.assignedToUsers?.find(u => u.id === assignment.userId)
+                            const displayName = assignedUser?.name || 
+                              (() => {
+                                // Fallback to index-based matching if assignedToUsers not available
+                                const nameParts = jobLog.assignedToName?.split(',') || []
+                                return nameParts[index]?.trim() || 'Unassigned'
+                              })()
                             // Employees can always see their own assignment pay (hourly or job), even if canSeeJobPrices is false
                             const canSeePrice = isAdminOrOwner ? canSeePrices : (assignment.userId === currentUserId)
                             const payType = assignment.payType || 'job'
@@ -1108,6 +1221,8 @@ const JobLogDetail = ({
             isAdmin={user?.role === 'admin' || user?.role === 'owner'}
             currentUserId={user?.id}
             assignedTo={parsedAssignments}
+            assignedToUsers={jobLog.assignedToUsers}
+            clockInFor={currentUserClockInFor}
             externalTimerState={{
               isRunning: isTimerRunning,
               start: timerStart,
@@ -1131,7 +1246,11 @@ const JobLogDetail = ({
         isOpen={showClockInSelector}
         onClose={() => {
           setShowClockInSelector(false)
-          setSelectedClockInUserId('all') // Reset to default
+          // Don't reset selectedClockInUserId here - let handleStartJobForSelected handle it
+          // Only reset if timer is not running
+          if (!isTimerRunning) {
+            setSelectedClockInUserId('all') // Reset to default only if timer not running
+          }
         }}
         title="Clock In For"
       >
@@ -1148,7 +1267,7 @@ const JobLogDetail = ({
                   value: 'all',
                   label: `All Team Members (${parsedAssignments.length} ${parsedAssignments.length === 1 ? 'person' : 'people'})`,
                 },
-                ...(isAdminOrOwner ? teamMembers : availableUsersToClockIn).map(m => {
+                ...availableUsersToClockIn.map(m => {
                   const assignment = parsedAssignments.find(a => a.userId === m.id)
                   const roleTitle = assignment?.role || 'not assigned'
                   const isYou = m.id === user?.id

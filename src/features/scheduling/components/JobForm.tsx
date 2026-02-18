@@ -372,6 +372,49 @@ const JobForm = ({
     }
   }, [job])
 
+  // Match existing roles to job roles when jobRoles are loaded
+  useEffect(() => {
+    if (jobRoles.length > 0 && assignments.length > 0 && job) {
+      const updatedAssignments = assignments.map(assignment => {
+        // If roleId is already set and valid, keep it
+        if (assignment.roleId && assignment.roleId !== 'custom' && jobRoles.some(r => r.id === assignment.roleId)) {
+          return assignment
+        }
+        
+        // If role exists but no roleId or invalid roleId, try to match it to a job role
+        if (assignment.role) {
+          const matchingRole = jobRoles.find(r => r.title === assignment.role)
+          if (matchingRole) {
+            // Found a match - set the roleId
+            return {
+              ...assignment,
+              roleId: matchingRole.id,
+            }
+          } else {
+            // No match found - this is a custom role, set roleId to 'custom'
+            return {
+              ...assignment,
+              roleId: 'custom',
+            }
+          }
+        }
+        
+        // No role set - keep as is
+        return assignment
+      })
+      
+      // Only update if something changed to avoid infinite loops
+      const hasChanges = updatedAssignments.some((updated, index) => 
+        updated.roleId !== assignments[index]?.roleId
+      )
+      
+      if (hasChanges) {
+        setAssignments(updatedAssignments)
+        setValue('assignedTo', updatedAssignments)
+      }
+    }
+  }, [jobRoles, job?.id, assignments, setValue]) // Include assignments and setValue to avoid stale closures
+
   useEffect(() => {
     if (job) {
       reset({
@@ -461,6 +504,14 @@ const JobForm = ({
               const normalizedA = {
                 ...a,
                 roleId: a.roleId === 'custom' ? undefined : a.roleId,
+              }
+              // If roleId is missing but role title matches an existing JobRole, attach roleId.
+              // This prevents "legacy/self-only" behavior when someone typed a role name.
+              if (!normalizedA.roleId && normalizedA.role && jobRoles.length > 0) {
+                const match = jobRoles.find(r => r.title === normalizedA.role)
+                if (match) {
+                  normalizedA.roleId = match.id
+                }
               }
               // Employees can see their own assignment pay, but not others'
               // If user doesn't have permission to see job prices, they can't edit assignment prices
@@ -977,7 +1028,8 @@ const JobForm = ({
                                 value={assignment.role || ''}
                                 onChange={e => {
                                   const newAssignments = [...assignments]
-                                  newAssignments[index] = { ...assignment, role: e.target.value, roleId: undefined }
+                                  // Keep roleId as 'custom' when typing to prevent input from unmounting
+                                  newAssignments[index] = { ...assignment, role: e.target.value, roleId: 'custom' }
                                   setAssignments(newAssignments)
                                   setValue('assignedTo', newAssignments)
                                 }}
