@@ -1201,7 +1201,7 @@ const TimeTracker = ({
         isOpen={showManualEntryModal}
         onClose={closeManualEntryModal}
         title="Add Manual Entry"
-        size="md"
+        size="sm"
         footer={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={closeManualEntryModal} disabled={manualEntrySaving}>

@@ -127,8 +127,12 @@ const Modal = ({
         className={cn(
           'relative w-full rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl flex flex-col',
           mobilePosition === 'bottom'
-            ? 'h-[calc(100svh-1rem)] sm:h-auto sm:max-h-[90vh] sm:my-auto'
-            : 'my-auto h-[calc(100svh-1rem)] sm:h-auto sm:max-h-[90vh]',
+            ? size === 'sm'
+              ? 'max-h-[60vh] sm:h-auto sm:max-h-[90vh] sm:my-auto'
+              : 'h-[calc(100svh-1rem)] sm:h-auto sm:max-h-[90vh] sm:my-auto'
+            : size === 'sm'
+              ? 'my-auto max-h-[60vh] sm:h-auto sm:max-h-[90vh]'
+              : 'my-auto h-[calc(100svh-1rem)] sm:h-auto sm:max-h-[90vh]',
           sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}

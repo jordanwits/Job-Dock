@@ -1253,6 +1253,7 @@ const JobLogDetail = ({
           }
         }}
         title="Clock In For"
+        size="sm"
       >
         <div className="space-y-4">
           <p className="text-sm text-primary-light/70">Select which team member(s) to clock in:</p>
