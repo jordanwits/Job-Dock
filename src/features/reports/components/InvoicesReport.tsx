@@ -132,29 +132,29 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
         <div className="space-y-6">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Invoices</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">{formatNumber(totals.count)}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.total)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">{formatNumber(totals.count)}</p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.total)}</p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">{formatNumber(totals.paidCount)}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.paid)}</p>
+              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">{formatNumber(totals.paidCount)}</p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.paid)}</p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Outstanding</p>
-              <p className="text-2xl font-bold text-primary-blue mt-1">
+              <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">
                 ${formatCurrency(totals.outstanding)}
               </p>
-              <p className="text-sm text-primary-light/60 mt-1">
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
                 {formatNumber(totals.pendingCount + totals.partialCount)} invoices
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Overdue</p>
-              <p className="text-2xl font-bold text-red-400 mt-1">{formatNumber(totals.overdueCount)}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.overdue)}</p>
+              <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">{formatNumber(totals.overdueCount)}</p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.overdue)}</p>
             </div>
           </div>
 
@@ -187,17 +187,17 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
                 return (
                   <div
                     key={status}
-                    className="flex items-center justify-between p-3 bg-primary-dark/30 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-primary-dark/30 rounded-lg gap-2 min-w-0"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${statusColors[status]}`}
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-sm text-primary-light">{formatNumber(group.length)} invoices</span>
+                      <span className="text-xs md:text-sm text-primary-light truncate">{formatNumber(group.length)} invoices</span>
                     </div>
-                    <span className="text-sm font-semibold text-primary-gold">
+                    <span className="text-xs md:text-sm font-semibold text-primary-gold shrink-0 break-words text-right">
                       ${formatCurrency(total)}
                     </span>
                   </div>

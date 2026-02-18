@@ -207,52 +207,47 @@ export const JobsReport = ({
         <div className="space-y-6">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Jobs</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">{formatNumber(totals.total)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">{formatNumber(totals.total)}</p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Active</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">{formatNumber(totals.active)}</p>
+              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">{formatNumber(totals.active)}</p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Completed</p>
-              <p className="text-2xl font-bold text-primary-blue mt-1">{formatNumber(totals.completed)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">{formatNumber(totals.completed)}</p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Inactive</p>
-              <p className="text-2xl font-bold text-primary-light/70 mt-1">{formatNumber(totals.inactive)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-light/70 mt-1 break-words">{formatNumber(totals.inactive)}</p>
             </div>
           </div>
 
           {/* Revenue & Cost */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Revenue</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                 ${formatCurrency(totals.revenue)}
               </p>
-              {totals.outstandingRevenue > 0 && (
-                <p className="text-xs text-primary-light/60 mt-1">
-                  ${formatCurrency(totals.outstandingRevenue)} outstanding
-                </p>
-              )}
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">
+              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
                 ${formatCurrency(totals.paidRevenue)}
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Cost</p>
-              <p className="text-2xl font-bold text-red-400 mt-1">
+              <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">
                 ${formatCurrency(totals.cost)}
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Profit</p>
-              <p className={`text-2xl font-bold mt-1 ${
+              <p className={`text-xl md:text-2xl font-bold mt-1 break-words ${
                 totals.profit >= 0 ? 'text-green-400' : 'text-red-400'
               }`}>
                 ${formatCurrency(totals.profit)}
@@ -285,15 +280,15 @@ export const JobsReport = ({
                 return (
                   <div
                     key={status}
-                    className="flex items-center justify-between p-3 bg-primary-dark/30 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-primary-dark/30 rounded-lg gap-2 min-w-0"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${statusColors[status]}`}
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-sm text-primary-light">{formatNumber(group.length)} jobs</span>
+                      <span className="text-xs md:text-sm text-primary-light truncate">{formatNumber(group.length)} jobs</span>
                     </div>
                   </div>
                 )

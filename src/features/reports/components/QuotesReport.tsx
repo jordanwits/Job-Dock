@@ -103,25 +103,25 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
         <div className="space-y-6">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Quotes</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">{formatNumber(totals.count)}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.total)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">{formatNumber(totals.count)}</p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.total)}</p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Accepted</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">{formatNumber(totals.acceptedCount)}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.accepted)}</p>
+              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">{formatNumber(totals.acceptedCount)}</p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.accepted)}</p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Sent</p>
-              <p className="text-2xl font-bold text-primary-blue mt-1">{formatNumber(totals.sentCount)}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.sent)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">{formatNumber(totals.sentCount)}</p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.sent)}</p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg">
+            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Draft</p>
-              <p className="text-2xl font-bold text-primary-light/70 mt-1">{formatNumber(totals.draftCount)}</p>
-              <p className="text-sm text-primary-light/60 mt-1">${formatCurrency(totals.draft)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-light/70 mt-1 break-words">{formatNumber(totals.draftCount)}</p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.draft)}</p>
             </div>
           </div>
 
@@ -156,17 +156,17 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
                 return (
                   <div
                     key={status}
-                    className="flex items-center justify-between p-3 bg-primary-dark/30 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-primary-dark/30 rounded-lg gap-2 min-w-0"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${statusColors[status]}`}
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-sm text-primary-light">{formatNumber(group.length)} quotes</span>
+                      <span className="text-xs md:text-sm text-primary-light truncate">{formatNumber(group.length)} quotes</span>
                     </div>
-                    <span className="text-sm font-semibold text-primary-gold">
+                    <span className="text-xs md:text-sm font-semibold text-primary-gold shrink-0 break-words text-right">
                       ${formatCurrency(total)}
                     </span>
                   </div>

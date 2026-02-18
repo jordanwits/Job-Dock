@@ -330,15 +330,15 @@ export const EmployeeHoursReport = ({
         <div className="space-y-4">
           {/* Summary */}
           <div className="grid grid-cols-2 gap-4 p-4 bg-primary-dark/50 rounded-lg">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Hours</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                 {totalHours.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Pay</p>
-              <p className="text-2xl font-bold text-primary-gold mt-1">
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                 ${formatCurrency(totalPay)}
               </p>
             </div>
@@ -352,27 +352,27 @@ export const EmployeeHoursReport = ({
             return (
               <div
                 key={emp.userId}
-                className={`border border-white/5 rounded-lg p-4 ${
+                className={`border border-white/5 rounded-lg p-4 min-w-0 ${
                   hasNoEntries ? 'opacity-60' : ''
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-primary-light">{emp.userName}</p>
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-primary-light break-words">{emp.userName}</p>
                     {emp.userEmail && (
-                      <p className="text-sm text-primary-light/60">{emp.userEmail}</p>
+                      <p className="text-xs md:text-sm text-primary-light/60 break-words">{emp.userEmail}</p>
                     )}
                   </div>
-                  <div className="text-right">
+                  <div className="text-right min-w-0 flex-shrink-0">
                     {hasNoEntries ? (
-                      <p className="text-sm text-primary-light/60">No entries</p>
+                      <p className="text-xs md:text-sm text-primary-light/60">No entries</p>
                     ) : (
                       <>
-                        <p className="text-lg font-semibold text-primary-gold">
+                        <p className="text-base md:text-lg font-semibold text-primary-gold break-words">
                           {hours}h {minutes}m
                         </p>
                         {emp.totalPay > 0 && (
-                          <p className="text-sm text-primary-light/60">
+                          <p className="text-xs md:text-sm text-primary-light/60 break-words">
                             ${formatCurrency(emp.totalPay)}
                           </p>
                         )}
@@ -404,10 +404,10 @@ export const EmployeeHoursReport = ({
                               className="p-2 bg-primary-dark/30 rounded text-sm"
                             >
                               <p className="text-primary-light font-medium">{job.jobTitle}</p>
-                              <div className="flex justify-between mt-1 text-primary-light/60">
-                                <span>{job.hours.toFixed(2)}h</span>
+                              <div className="flex justify-between mt-1 text-primary-light/60 gap-2 min-w-0">
+                                <span className="break-words">{job.hours.toFixed(2)}h</span>
                                 {job.pay > 0 && (
-                                  <span>${formatCurrency(job.pay)} ({job.payType})</span>
+                                  <span className="break-words text-right">${formatCurrency(job.pay)} ({job.payType})</span>
                                 )}
                               </div>
                             </div>
