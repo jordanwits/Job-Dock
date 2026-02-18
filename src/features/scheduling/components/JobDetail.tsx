@@ -116,6 +116,15 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                 Schedule Follow-up
               </Button>
             )}
+            <Button 
+              onClick={() => {
+                onClose()
+                navigate(`/app/job-logs/${job.id}`)
+              }}
+              className="bg-primary-blue hover:bg-primary-blue/90 text-white w-full sm:w-auto justify-center"
+            >
+              Details
+            </Button>
           </div>
           
           {/* Secondary actions - shown on bottom on mobile */}
