@@ -2,7 +2,7 @@
   "name": "The Job Dock",
   "short_name": "JobDock",
   "description": "Stop juggling tools. The Job Dock brings quotes, invoices, scheduling, and client info together in one simple system built for service businesses.",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#0a0e27",
   "theme_color": "#d4af37",
