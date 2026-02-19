@@ -129,8 +129,8 @@ export const HelpSection = () => {
             <li>
               Tap the <strong className="text-primary-light">Share</strong> button{' '}
               <svg className="inline-block w-4 h-4 align-middle" fill="currentColor" viewBox="0 0 24 24">
-                <rect x="6" y="10" width="12" height="12" rx="1"/>
-                <path d="M12 4v6M9 7l3-3 3 3"/>
+                <rect x="5" y="9" width="14" height="14" rx="1"/>
+                <path d="M12 3v6m-3-3l3-3 3 3"/>
               </svg>{' '}
               at the bottom of your screen
             </li>
