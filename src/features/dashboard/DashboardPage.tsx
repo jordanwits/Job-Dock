@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
@@ -23,9 +23,8 @@ const DashboardPage = () => {
 
   const isEmployee = user?.role === 'employee'
 
-  // Fetch all data on mount - force refresh to get updated overdue statuses
-  // All users get appointments and job logs; admins also get quotes and invoices
-  useEffect(() => {
+  // Fetch all data function - memoized to avoid recreating on every render
+  const fetchAllData = useCallback(() => {
     const now = new Date()
     const startDate = startOfMonth(now)
     const endDate = endOfMonth(addDays(now, 30)) // Fetch current and next month
@@ -36,6 +35,27 @@ const DashboardPage = () => {
       fetchInvoices()
     }
   }, [fetchJobs, fetchJobLogs, fetchQuotes, fetchInvoices, isEmployee])
+
+  // Fetch all data on mount - force refresh to get updated overdue statuses
+  // All users get appointments and job logs; admins also get quotes and invoices
+  useEffect(() => {
+    fetchAllData()
+  }, [fetchAllData])
+
+  // Refetch data when page becomes visible again (handles mobile app idle time)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Page became visible again, refetch data to ensure it's fresh
+        fetchAllData()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [fetchAllData])
 
   // Get upcoming appointments (next 7 days) - limit for compact display
   const upcomingJobsLimit = 5
