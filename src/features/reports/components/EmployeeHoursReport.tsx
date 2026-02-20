@@ -327,15 +327,15 @@ export const EmployeeHoursReport = ({
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
             <h3 className="text-lg font-semibold text-primary-light">
               {isTeamAccount ? 'Employee Hours & Pay' : 'Your Hours'}
             </h3>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium"
+              className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium self-start sm:self-center"
               aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
             >
               <span>Details</span>
@@ -353,7 +353,7 @@ export const EmployeeHoursReport = ({
             {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={handleExport}>
+        <Button variant="secondary" size="sm" onClick={handleExport} className="self-start sm:self-auto">
           Export CSV
         </Button>
       </div>
