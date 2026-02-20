@@ -1,13 +1,25 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from 'react-router-dom'
-import { loginSchema, newPasswordSchema, type LoginFormData, type NewPasswordFormData } from '../schemas/authSchemas'
+import {
+  loginSchema,
+  newPasswordSchema,
+  type LoginFormData,
+  type NewPasswordFormData,
+} from '../schemas/authSchemas'
 import { useAuthStore } from '../store/authStore'
 import { Input, PasswordInput, Button } from '@/components/ui'
 
 const LoginForm = () => {
-  const { login, completeNewPasswordChallenge, clearPendingChallenge, pendingChallenge, isLoading, error, clearError } =
-    useAuthStore()
+  const {
+    login,
+    completeNewPasswordChallenge,
+    clearPendingChallenge,
+    pendingChallenge,
+    isLoading,
+    error,
+    clearError,
+  } = useAuthStore()
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),

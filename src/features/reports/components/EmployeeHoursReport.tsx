@@ -74,14 +74,24 @@ export const EmployeeHoursReport = ({
   // Aggregate hours and pay by employee
   const employeeData = useMemo(() => {
     console.log('EmployeeHoursReport - isTeamAccount:', isTeamAccount)
-    console.log('EmployeeHoursReport - users count:', users.length, 'users:', users.map(u => ({ id: u.id, name: u.name })))
+    console.log(
+      'EmployeeHoursReport - users count:',
+      users.length,
+      'users:',
+      users.map(u => ({ id: u.id, name: u.name }))
+    )
     console.log('EmployeeHoursReport - filteredEntries:', filteredEntries.length)
     if (filteredEntries.length > 0) {
       console.log('EmployeeHoursReport - sample entry:', filteredEntries[0])
-      console.log('EmployeeHoursReport - entries with userId:', filteredEntries.filter(e => e.userId).length)
-      console.log('EmployeeHoursReport - unique userIds:', [...new Set(filteredEntries.filter(e => e.userId).map(e => e.userId))])
+      console.log(
+        'EmployeeHoursReport - entries with userId:',
+        filteredEntries.filter(e => e.userId).length
+      )
+      console.log('EmployeeHoursReport - unique userIds:', [
+        ...new Set(filteredEntries.filter(e => e.userId).map(e => e.userId)),
+      ])
     }
-    
+
     const dataMap = new Map<string, EmployeeHoursData>()
 
     // Initialize data for all users (if team) or just current user (if single)
@@ -117,10 +127,10 @@ export const EmployeeHoursReport = ({
     let processedCount = 0
     let skippedNoUserId = 0
     let skippedSingleTier = 0
-    
+
     filteredEntries.forEach(entry => {
       let userId = entry.userId
-      
+
       // If userId is missing, try to infer from job assignment
       if (!userId) {
         const jobId = (entry as any).jobId || (entry as any).jobLogId
@@ -139,7 +149,7 @@ export const EmployeeHoursReport = ({
           }
         }
       }
-      
+
       // Skip entries without userId
       if (!userId) {
         skippedNoUserId++
@@ -151,7 +161,7 @@ export const EmployeeHoursReport = ({
         skippedSingleTier++
         return
       }
-      
+
       processedCount++
 
       // Get or create user data entry
@@ -246,10 +256,20 @@ export const EmployeeHoursReport = ({
       }
     })
 
-    console.log('Processed entries:', processedCount, 'Skipped (no userId):', skippedNoUserId, 'Skipped (single tier):', skippedSingleTier)
+    console.log(
+      'Processed entries:',
+      processedCount,
+      'Skipped (no userId):',
+      skippedNoUserId,
+      'Skipped (single tier):',
+      skippedSingleTier
+    )
     console.log('DataMap size:', dataMap.size)
-    console.log('DataMap entries:', Array.from(dataMap.values()).map(d => ({ name: d.userName, entries: d.entryCount })))
-    
+    console.log(
+      'DataMap entries:',
+      Array.from(dataMap.values()).map(d => ({ name: d.userName, entries: d.entryCount }))
+    )
+
     // Convert to array and sort by total hours (descending)
     // For team accounts, show all members (even with 0 hours)
     // For single accounts, only show if they have entries
@@ -270,25 +290,27 @@ export const EmployeeHoursReport = ({
   const handleExport = () => {
     const exportData = employeeData.flatMap(emp => {
       if (emp.jobs.length === 0) {
-        return [{
-          'Employee Name': emp.userName,
-          'Email': emp.userEmail,
-          'Total Hours': emp.totalHours.toFixed(2),
-          'Total Pay': formatCurrency(emp.totalPay),
-          'Entry Count': formatNumber(emp.entryCount),
-          'Job': 'N/A',
-          'Job Hours': '',
-          'Job Pay': '',
-          'Pay Type': '',
-        }]
+        return [
+          {
+            'Employee Name': emp.userName,
+            Email: emp.userEmail,
+            'Total Hours': emp.totalHours.toFixed(2),
+            'Total Pay': formatCurrency(emp.totalPay),
+            'Entry Count': formatNumber(emp.entryCount),
+            Job: 'N/A',
+            'Job Hours': '',
+            'Job Pay': '',
+            'Pay Type': '',
+          },
+        ]
       }
       return emp.jobs.map(job => ({
         'Employee Name': emp.userName,
-        'Email': emp.userEmail,
+        Email: emp.userEmail,
         'Total Hours': emp.totalHours.toFixed(2),
         'Total Pay': emp.totalPay.toFixed(2),
         'Entry Count': emp.entryCount,
-        'Job': job.jobTitle,
+        Job: job.jobTitle,
         'Job Hours': job.hours.toFixed(2),
         'Job Pay': formatCurrency(job.pay),
         'Pay Type': job.payType,
@@ -321,9 +343,7 @@ export const EmployeeHoursReport = ({
       {employeeData.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-primary-light/60">
-            {isTeamAccount
-              ? 'No team members found'
-              : 'No time entries found for this period'}
+            {isTeamAccount ? 'No team members found' : 'No time entries found for this period'}
           </p>
         </div>
       ) : (
@@ -333,7 +353,11 @@ export const EmployeeHoursReport = ({
             <div className="min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Hours</p>
               <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
-                {totalHours.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h
+                {totalHours.toLocaleString('en-US', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}
+                h
               </p>
             </div>
             <div className="min-w-0">
@@ -360,7 +384,9 @@ export const EmployeeHoursReport = ({
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-primary-light break-words">{emp.userName}</p>
                     {emp.userEmail && (
-                      <p className="text-xs md:text-sm text-primary-light/60 break-words">{emp.userEmail}</p>
+                      <p className="text-xs md:text-sm text-primary-light/60 break-words">
+                        {emp.userEmail}
+                      </p>
                     )}
                   </div>
                   <div className="text-right min-w-0 flex-shrink-0">
@@ -387,35 +413,37 @@ export const EmployeeHoursReport = ({
                       <span className="text-primary-light">{formatNumber(emp.entryCount)}</span>
                     </div>
                     {emp.jobs.length > 0 && (
-                    <div className="mt-2">
-                      <button
-                        onClick={() =>
-                          setExpandedUserId(expandedUserId === emp.userId ? null : emp.userId)
-                        }
-                        className="text-sm text-primary-gold hover:text-primary-gold/80 transition-colors"
-                      >
-                        {expandedUserId === emp.userId ? 'Hide' : 'Show'} job details
-                      </button>
-                      {expandedUserId === emp.userId && (
-                        <div className="mt-2 space-y-2">
-                          {emp.jobs.map(job => (
-                            <div
-                              key={job.jobId}
-                              className="p-2 bg-primary-dark/30 rounded text-sm"
-                            >
-                              <p className="text-primary-light font-medium">{job.jobTitle}</p>
-                              <div className="flex justify-between mt-1 text-primary-light/60 gap-2 min-w-0">
-                                <span className="break-words">{job.hours.toFixed(2)}h</span>
-                                {job.pay > 0 && (
-                                  <span className="break-words text-right">${formatCurrency(job.pay)} ({job.payType})</span>
-                                )}
+                      <div className="mt-2">
+                        <button
+                          onClick={() =>
+                            setExpandedUserId(expandedUserId === emp.userId ? null : emp.userId)
+                          }
+                          className="text-sm text-primary-gold hover:text-primary-gold/80 transition-colors"
+                        >
+                          {expandedUserId === emp.userId ? 'Hide' : 'Show'} job details
+                        </button>
+                        {expandedUserId === emp.userId && (
+                          <div className="mt-2 space-y-2">
+                            {emp.jobs.map(job => (
+                              <div
+                                key={job.jobId}
+                                className="p-2 bg-primary-dark/30 rounded text-sm"
+                              >
+                                <p className="text-primary-light font-medium">{job.jobTitle}</p>
+                                <div className="flex justify-between mt-1 text-primary-light/60 gap-2 min-w-0">
+                                  <span className="break-words">{job.hours.toFixed(2)}h</span>
+                                  {job.pay > 0 && (
+                                    <span className="break-words text-right">
+                                      ${formatCurrency(job.pay)} ({job.payType})
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

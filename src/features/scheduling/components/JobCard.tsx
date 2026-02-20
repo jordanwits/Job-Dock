@@ -14,37 +14,49 @@ interface JobCardProps {
 const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
   const { setSelectedJob } = useJobStore()
   const { user } = useAuthStore()
-  
+
   // Parse assignments from job (handle both old and new formats)
   const getAssignments = (): JobAssignment[] => {
     if (!job.assignedTo) return []
     if (Array.isArray(job.assignedTo)) {
-      if (job.assignedTo.length > 0 && typeof job.assignedTo[0] === 'object' && 'userId' in job.assignedTo[0]) {
+      if (
+        job.assignedTo.length > 0 &&
+        typeof job.assignedTo[0] === 'object' &&
+        'userId' in job.assignedTo[0]
+      ) {
         return job.assignedTo as JobAssignment[]
       }
-      return (job.assignedTo as string[]).map(id => ({ userId: id, role: 'Team Member', price: null }))
+      return (job.assignedTo as string[]).map(id => ({
+        userId: id,
+        role: 'Team Member',
+        price: null,
+      }))
     }
     return [{ userId: job.assignedTo as string, role: 'Team Member', price: null }]
   }
-  
+
   const assignments = getAssignments()
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const currentUserId = user?.id
   const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
-  
+
   // Calculate display price based on user role and permissions
   const getDisplayPrice = (): { value: number; isHourly?: boolean } | null => {
     // If job has a total price, show it for admins/owners
     if (job.price != null && isAdminOrOwner) {
       return { value: job.price }
     }
-    
+
     // For employees, show their assignment pay if assigned (even if canSeeJobPrices is false)
     // Show job price or hourly rate so they can see their pay whether by hour or job
     if (user?.role === 'employee' && currentUserId && assignments.length > 0) {
       const userAssignment = assignments.find(a => a.userId === currentUserId)
       if (userAssignment) {
-        if (userAssignment.payType === 'hourly' && userAssignment.hourlyRate != null && userAssignment.hourlyRate !== undefined) {
+        if (
+          userAssignment.payType === 'hourly' &&
+          userAssignment.hourlyRate != null &&
+          userAssignment.hourlyRate !== undefined
+        ) {
           return { value: userAssignment.hourlyRate, isHourly: true }
         }
         if (userAssignment.price != null && userAssignment.price !== undefined) {
@@ -52,7 +64,7 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
         }
       }
     }
-    
+
     // For admins/owners with assignments, show total of all assignment prices
     if (isAdminOrOwner && assignments.length > 0) {
       const total = assignments.reduce((sum, a) => {
@@ -63,15 +75,15 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
       }, 0)
       if (total > 0) return { value: total }
     }
-    
+
     // Show job price only if user has permission
     if (canSeeJobPrices && job.price != null) {
       return { value: job.price }
     }
-    
+
     return null
   }
-  
+
   const displayPriceResult = getDisplayPrice()
   const displayPrice = displayPriceResult?.value ?? null
 
@@ -121,13 +133,9 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
           <div className="flex-1 min-w-0 pr-2">
             <h3 className="text-lg font-semibold text-primary-light">
               {job.title}
-              {isArchived && (
-                <span className="text-primary-light/60 ml-2">• Archived</span>
-              )}
+              {isArchived && <span className="text-primary-light/60 ml-2">• Archived</span>}
             </h3>
-            {subtitle && (
-              <p className="text-xs text-primary-light/50 mt-1">{subtitle}</p>
-            )}
+            {subtitle && <p className="text-xs text-primary-light/50 mt-1">{subtitle}</p>}
             {hasAssignee && (
               <span className="text-xs text-primary-light/60 mt-1 block">
                 Assigned to {job.assignedToName}
@@ -165,9 +173,7 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
             />
           </svg>
           <span className="text-base font-semibold text-primary-gold">
-            {job.startTime
-              ? format(new Date(job.startTime), 'MMM d, h:mm a')
-              : 'To be scheduled'}
+            {job.startTime ? format(new Date(job.startTime), 'MMM d, h:mm a') : 'To be scheduled'}
           </span>
         </div>
 
@@ -177,13 +183,17 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
             <span className="text-sm text-primary-light/70">
               {displayPrice != null || !canSeeJobPrices ? 'Price' : 'Scheduled'}
             </span>
-            <span className={`text-xl font-bold ${displayPrice == null && !canSeeJobPrices ? 'text-primary-light/40' : 'text-primary-gold'}`}>
+            <span
+              className={`text-xl font-bold ${displayPrice == null && !canSeeJobPrices ? 'text-primary-light/40' : 'text-primary-gold'}`}
+            >
               {displayPrice == null && !canSeeJobPrices && job.price != null ? (
                 <span className="text-xs italic">Insufficient permissions</span>
               ) : displayPriceResult != null ? (
                 <>
                   {formatCurrency(displayPriceResult.value)}
-                  {displayPriceResult.isHourly && <span className="text-sm font-normal text-primary-light/80">/hr</span>}
+                  {displayPriceResult.isHourly && (
+                    <span className="text-sm font-normal text-primary-light/80">/hr</span>
+                  )}
                 </>
               ) : job.startTime ? (
                 format(new Date(job.startTime), 'h:mm a')
@@ -195,11 +205,7 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
         </div>
 
         {/* Service */}
-        {job.serviceName && (
-          <div className="text-xs text-primary-light/50">
-            {job.serviceName}
-          </div>
-        )}
+        {job.serviceName && <div className="text-xs text-primary-light/50">{job.serviceName}</div>}
       </div>
     </Card>
   )

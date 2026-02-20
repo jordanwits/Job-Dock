@@ -19,15 +19,15 @@ const LoginPage = () => {
     // Check for session timeout message
     const sessionExpired = searchParams.get('session')
     const message = searchParams.get('message')
-    
+
     if (sessionExpired === 'expired' && message) {
       setSessionMessage(decodeURIComponent(message))
-      
+
       // Auto-clear message after 10 seconds
       const timeout = setTimeout(() => {
         setSessionMessage(null)
       }, 10000)
-      
+
       return () => clearTimeout(timeout)
     }
   }, [searchParams])
@@ -62,7 +62,12 @@ const LoginPage = () => {
                 className="text-amber-400 hover:text-amber-300 ml-3 transition-colors"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -78,4 +83,3 @@ const LoginPage = () => {
 }
 
 export default LoginPage
-

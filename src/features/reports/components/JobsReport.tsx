@@ -55,7 +55,7 @@ export const JobsReport = ({
     }
 
     filteredJobs.forEach(job => {
-      const status = job.status === 'archived' ? 'inactive' : (job.status || 'active')
+      const status = job.status === 'archived' ? 'inactive' : job.status || 'active'
       if (groups[status]) {
         groups[status].push(job)
       } else {
@@ -76,7 +76,7 @@ export const JobsReport = ({
       const jobPrice = job.price || 0
       if (jobPrice > 0) {
         totalRevenue += jobPrice
-        
+
         // If job has linked invoice, use paid amount from invoice
         // Otherwise, assume unpaid if price exists
         const invoiceId = (job as any).invoiceId
@@ -125,7 +125,12 @@ export const JobsReport = ({
               : []
 
           const assignment = assignments.find((a: any) => a.userId === entry.userId)
-          if (assignment && assignment.payType === 'hourly' && assignment.hourlyRate && entry.userId) {
+          if (
+            assignment &&
+            assignment.payType === 'hourly' &&
+            assignment.hourlyRate &&
+            entry.userId
+          ) {
             const start = new Date(entry.startTime).getTime()
             const end = new Date(entry.endTime).getTime()
             const breakMinutes = entry.breakMinutes || 0
@@ -165,19 +170,19 @@ export const JobsReport = ({
     const exportData = filteredJobs.map(job => {
       const invoiceId = (job as any).invoiceId
       const invoice = invoiceId ? invoiceMap.get(invoiceId) : null
-      const status = job.status === 'archived' ? 'inactive' : (job.status || 'active')
+      const status = job.status === 'archived' ? 'inactive' : job.status || 'active'
 
       return {
         'Job Title': job.title,
-        'Status': status,
-        'Contact': job.contact?.name || '',
-        'Location': job.location || '',
-        'Price': job.price != null ? formatCurrency(job.price) : '',
+        Status: status,
+        Contact: job.contact?.name || '',
+        Location: job.location || '',
+        Price: job.price != null ? formatCurrency(job.price) : '',
         'Linked Invoice': invoice ? invoice.invoiceNumber : '',
         'Invoice Total': invoice ? formatCurrency(invoice.total) : '',
         'Invoice Paid': invoice ? formatCurrency(invoice.paidAmount) : '',
-        'Created': format(new Date(job.createdAt), 'yyyy-MM-dd'),
-        'Updated': format(new Date(job.updatedAt), 'yyyy-MM-dd'),
+        Created: format(new Date(job.createdAt), 'yyyy-MM-dd'),
+        Updated: format(new Date(job.updatedAt), 'yyyy-MM-dd'),
       }
     })
 
@@ -209,19 +214,27 @@ export const JobsReport = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Jobs</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">{formatNumber(totals.total)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
+                {formatNumber(totals.total)}
+              </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Active</p>
-              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">{formatNumber(totals.active)}</p>
+              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
+                {formatNumber(totals.active)}
+              </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Completed</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">{formatNumber(totals.completed)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">
+                {formatNumber(totals.completed)}
+              </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Inactive</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-light/70 mt-1 break-words">{formatNumber(totals.inactive)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-light/70 mt-1 break-words">
+                {formatNumber(totals.inactive)}
+              </p>
             </div>
           </div>
 
@@ -247,9 +260,11 @@ export const JobsReport = ({
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Profit</p>
-              <p className={`text-xl md:text-2xl font-bold mt-1 break-words ${
-                totals.profit >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}>
+              <p
+                className={`text-xl md:text-2xl font-bold mt-1 break-words ${
+                  totals.profit >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
                 ${formatCurrency(totals.profit)}
               </p>
             </div>
@@ -288,7 +303,9 @@ export const JobsReport = ({
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-xs md:text-sm text-primary-light truncate">{formatNumber(group.length)} jobs</span>
+                      <span className="text-xs md:text-sm text-primary-light truncate">
+                        {formatNumber(group.length)} jobs
+                      </span>
                     </div>
                   </div>
                 )

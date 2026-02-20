@@ -5,16 +5,13 @@ const DataSourceIndicator = () => {
   const isLive = appEnv.isLive
   const switchLabel = isLive ? 'Use mock data' : 'Use live AWS data'
   const handleSwitch = () => dataModeController.set(isLive ? 'mock' : 'live')
-  const showApiWarning =
-    isLive && (!appEnv.apiUrl || appEnv.apiUrl.includes('localhost'))
+  const showApiWarning = isLive && (!appEnv.apiUrl || appEnv.apiUrl.includes('localhost'))
 
   return (
     <div className="mb-6 rounded-2xl border border-primary-blue/30 bg-primary-blue/10 p-4 text-primary-light shadow-lg shadow-primary-dark/30">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wide text-primary-light/60">
-            Data Source
-          </p>
+          <p className="text-xs uppercase tracking-wide text-primary-light/60">Data Source</p>
           <p className="text-lg font-semibold text-primary-light">
             {isLive ? 'Live · AWS' : 'Mock · Local'}
           </p>
@@ -49,4 +46,3 @@ const DataSourceIndicator = () => {
 }
 
 export default DataSourceIndicator
-

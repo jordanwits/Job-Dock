@@ -15,7 +15,13 @@ interface ContactDetailProps {
   onJobCreateFailed?: (error: string) => void
 }
 
-const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFailed }: ContactDetailProps) => {
+const ContactDetail = ({
+  contact,
+  isOpen,
+  onClose,
+  onJobCreated,
+  onJobCreateFailed,
+}: ContactDetailProps) => {
   const { updateContact, deleteContact, isLoading } = useContactStore()
   const { createQuote, sendQuote, isLoading: quoteLoading } = useQuoteStore()
   const [isEditing, setIsEditing] = useState(false)
@@ -151,7 +157,9 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
               >
                 Schedule Job
               </Button>
-              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">Edit</Button>
+              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
+                Edit
+              </Button>
             </div>
           </div>
         }
@@ -163,9 +171,7 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
               <h2 className="text-2xl font-bold text-primary-light">
                 {contact.firstName} {contact.lastName}
               </h2>
-              {contact.company && (
-                <p className="text-primary-light/70 mt-1">{contact.company}</p>
-              )}
+              {contact.company && <p className="text-primary-light/70 mt-1">{contact.company}</p>}
             </div>
             <StatusBadgeSelect
               value={contact.status}
@@ -212,10 +218,7 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
                 {contact.phone && (
                   <div>
                     <span className="text-primary-light/70">Phone: </span>
-                    <a
-                      href={`tel:${contact.phone}`}
-                      className="text-primary-light"
-                    >
+                    <a href={`tel:${contact.phone}`} className="text-primary-light">
                       {contact.phone}
                     </a>
                   </div>
@@ -247,9 +250,7 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
           {/* Address */}
           {(contact.address || contact.city || contact.state) && (
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-3">
-                Address
-              </h3>
+              <h3 className="text-sm font-medium text-primary-light/70 mb-3">Address</h3>
               <div className="text-sm text-primary-light">
                 {contact.address && <div>{contact.address}</div>}
                 {(contact.city || contact.state || contact.zipCode) && (
@@ -267,12 +268,8 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
           {/* Notes */}
           {contact.notes && (
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-3">
-                Notes
-              </h3>
-              <p className="text-sm text-primary-light whitespace-pre-wrap">
-                {contact.notes}
-              </p>
+              <h3 className="text-sm font-medium text-primary-light/70 mb-3">Notes</h3>
+              <p className="text-sm text-primary-light whitespace-pre-wrap">{contact.notes}</p>
             </div>
           )}
 
@@ -290,7 +287,7 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
               <p className="text-sm text-green-500">✓ Job has been created</p>
             </div>
           )}
-          
+
           {showContactConfirmation && (
             <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
               <p className="text-sm text-green-500">✓ {contactConfirmationMessage}</p>
@@ -326,12 +323,12 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
             <strong>
               {contact.firstName} {contact.lastName}
             </strong>{' '}
-            will also permanently remove every quote, invoice, and scheduled job
-            linked to this contact. This cannot be undone.
+            will also permanently remove every quote, invoice, and scheduled job linked to this
+            contact. This cannot be undone.
           </p>
           <p>
-            Please confirm you want to proceed and that you have exported any
-            information you might need later.
+            Please confirm you want to proceed and that you have exported any information you might
+            need later.
           </p>
         </div>
       </Modal>
@@ -372,4 +369,3 @@ const ContactDetail = ({ contact, isOpen, onClose, onJobCreated, onJobCreateFail
 }
 
 export default ContactDetail
-

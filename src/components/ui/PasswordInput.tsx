@@ -15,9 +15,7 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-primary-light mb-2">
-            {label}
-          </label>
+          <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
         )}
         <div className="relative">
           <input
@@ -38,7 +36,7 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-primary-gold hover:text-primary-gold/80 active:text-primary-gold transition-colors outline-none focus:outline-none border-none focus:border-none rounded p-1.5 -mr-1.5"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={e => e.preventDefault()}
           >
             {showPassword ? (
               <svg
@@ -79,12 +77,8 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             )}
           </button>
         </div>
-        {error && (
-          <p className="mt-1 text-sm text-red-500">{error}</p>
-        )}
-        {helperText && !error && (
-          <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>
-        )}
+        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
       </div>
     )
   }
@@ -93,4 +87,3 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
 PasswordInput.displayName = 'PasswordInput'
 
 export default PasswordInput
-

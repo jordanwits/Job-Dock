@@ -24,8 +24,12 @@ export const JobRolesSection = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editingRole, setEditingRole] = useState<JobRole | null>(null)
   const [formTitle, setFormTitle] = useState('')
-  const [formCanClockInFor, setFormCanClockInFor] = useState<'self' | 'assigned' | 'everyone'>('self')
-  const [formCanEditTimeEntriesFor, setFormCanEditTimeEntriesFor] = useState<'self' | 'assigned' | 'everyone'>('self')
+  const [formCanClockInFor, setFormCanClockInFor] = useState<'self' | 'assigned' | 'everyone'>(
+    'self'
+  )
+  const [formCanEditTimeEntriesFor, setFormCanEditTimeEntriesFor] = useState<
+    'self' | 'assigned' | 'everyone'
+  >('self')
   const [saving, setSaving] = useState(false)
 
   const loadRoles = async () => {
@@ -147,10 +151,15 @@ export const JobRolesSection = () => {
         <div>
           <h2 className="text-xl font-semibold text-primary-light">Job Roles</h2>
           <p className="text-sm text-primary-light/70 mt-1">
-            Create custom roles for team members assigned to jobs. Set permissions for clocking in and editing time entries.
+            Create custom roles for team members assigned to jobs. Set permissions for clocking in
+            and editing time entries.
           </p>
         </div>
-        <Button variant="primary" onClick={handleOpenCreate} className="w-full sm:w-auto flex-shrink-0">
+        <Button
+          variant="primary"
+          onClick={handleOpenCreate}
+          className="w-full sm:w-auto flex-shrink-0"
+        >
           Create Role
         </Button>
       </div>
@@ -170,7 +179,7 @@ export const JobRolesSection = () => {
         </Card>
       ) : (
         <div className="space-y-3">
-          {roles.map((role) => (
+          {roles.map(role => (
             <Card key={role.id} className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -224,7 +233,7 @@ export const JobRolesSection = () => {
           <Input
             label="Role Title"
             value={formTitle}
-            onChange={(e) => setFormTitle(e.target.value)}
+            onChange={e => setFormTitle(e.target.value)}
             placeholder="e.g., Lead, Assistant, Foreman"
             autoFocus
           />
@@ -235,7 +244,9 @@ export const JobRolesSection = () => {
             </label>
             <Select
               value={formCanClockInFor}
-              onChange={(e) => setFormCanClockInFor(e.target.value as 'self' | 'assigned' | 'everyone')}
+              onChange={e =>
+                setFormCanClockInFor(e.target.value as 'self' | 'assigned' | 'everyone')
+              }
               options={[
                 { value: 'self', label: 'Self only' },
                 { value: 'assigned', label: 'Assigned to same job' },
@@ -253,7 +264,9 @@ export const JobRolesSection = () => {
             </label>
             <Select
               value={formCanEditTimeEntriesFor}
-              onChange={(e) => setFormCanEditTimeEntriesFor(e.target.value as 'self' | 'assigned' | 'everyone')}
+              onChange={e =>
+                setFormCanEditTimeEntriesFor(e.target.value as 'self' | 'assigned' | 'everyone')
+              }
               options={[
                 { value: 'self', label: 'Self only' },
                 { value: 'assigned', label: 'Assigned to same job' },
@@ -269,7 +282,12 @@ export const JobRolesSection = () => {
             <Button variant="primary" onClick={handleSave} disabled={saving} className="flex-1">
               {saving ? 'Saving...' : editingRole ? 'Update' : 'Create'}
             </Button>
-            <Button variant="secondary" onClick={handleCloseModal} disabled={saving} className="flex-1">
+            <Button
+              variant="secondary"
+              onClick={handleCloseModal}
+              disabled={saving}
+              className="flex-1"
+            >
               Cancel
             </Button>
           </div>

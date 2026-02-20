@@ -40,7 +40,9 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
   const [selectedContactId, setSelectedContactId] = useState<string>(jobLog?.contactId ?? '')
   const [selectedStatus, setSelectedStatus] = useState<string>(
     jobLog?.status && ['active', 'completed', 'inactive', 'archived'].includes(jobLog.status)
-      ? jobLog.status === 'archived' ? 'inactive' : jobLog.status
+      ? jobLog.status === 'archived'
+        ? 'inactive'
+        : jobLog.status
       : 'active'
   )
 
@@ -62,7 +64,8 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
           services.billing.getStatus(),
           services.jobRoles.getAll().catch(() => []), // Gracefully handle if job roles don't exist yet
         ])
-        const hasTeamTier = !!billingData?.canInviteTeamMembers || billingData?.subscriptionTier === 'team'
+        const hasTeamTier =
+          !!billingData?.canInviteTeamMembers || billingData?.subscriptionTier === 'team'
         const hasTeamMembers = Array.isArray(usersData) && usersData.length > 0
         setCanShowAssignee(hasTeamTier || hasTeamMembers)
         if (hasTeamTier || hasTeamMembers) {
@@ -74,7 +77,9 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
           )
         }
         if (Array.isArray(rolesData)) {
-          setJobRoles(rolesData.map((r: { id: string; title: string }) => ({ id: r.id, title: r.title })))
+          setJobRoles(
+            rolesData.map((r: { id: string; title: string }) => ({ id: r.id, title: r.title }))
+          )
         }
       } catch {
         setCanShowAssignee(false)
@@ -88,21 +93,43 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     if (jobLog?.assignedTo) {
       if (Array.isArray(jobLog.assignedTo)) {
         // Check if it's the new format (JobAssignment[]) or old format (string[])
-        if (jobLog.assignedTo.length > 0 && typeof jobLog.assignedTo[0] === 'object' && 'userId' in jobLog.assignedTo[0]) {
+        if (
+          jobLog.assignedTo.length > 0 &&
+          typeof jobLog.assignedTo[0] === 'object' &&
+          'userId' in jobLog.assignedTo[0]
+        ) {
           // Ensure payType and hourlyRate are set for all assignments
-          setAssignments((jobLog.assignedTo as JobAssignment[]).map(assignment => ({
-            ...assignment,
-            payType: assignment.payType || 'job',
-            hourlyRate: assignment.hourlyRate ?? null,
-            price: assignment.price ?? null,
-          })))
+          setAssignments(
+            (jobLog.assignedTo as JobAssignment[]).map(assignment => ({
+              ...assignment,
+              payType: assignment.payType || 'job',
+              hourlyRate: assignment.hourlyRate ?? null,
+              price: assignment.price ?? null,
+            }))
+          )
         } else {
           // Old format: string[]
-          setAssignments((jobLog.assignedTo as string[]).map(id => ({ userId: id, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null })))
+          setAssignments(
+            (jobLog.assignedTo as string[]).map(id => ({
+              userId: id,
+              role: 'Team Member',
+              price: null,
+              payType: 'job' as const,
+              hourlyRate: null,
+            }))
+          )
         }
       } else {
         // Old format: single string
-        setAssignments([{ userId: jobLog.assignedTo as string, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }])
+        setAssignments([
+          {
+            userId: jobLog.assignedTo as string,
+            role: 'Team Member',
+            price: null,
+            payType: 'job' as const,
+            hourlyRate: null,
+          },
+        ])
       }
     } else {
       setAssignments([])
@@ -129,7 +156,11 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
         // Handle both old format (string/string[]) and new format (JobAssignment[])
         if (!jobLog?.assignedTo) return []
         if (Array.isArray(jobLog.assignedTo)) {
-          if (jobLog.assignedTo.length > 0 && typeof jobLog.assignedTo[0] === 'object' && 'userId' in jobLog.assignedTo[0]) {
+          if (
+            jobLog.assignedTo.length > 0 &&
+            typeof jobLog.assignedTo[0] === 'object' &&
+            'userId' in jobLog.assignedTo[0]
+          ) {
             // Ensure payType and hourlyRate are set for all assignments
             return (jobLog.assignedTo as JobAssignment[]).map(assignment => ({
               ...assignment,
@@ -138,10 +169,24 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
               price: assignment.price ?? null,
             }))
           }
-          return (jobLog.assignedTo as string[]).map(id => ({ userId: id, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }))
+          return (jobLog.assignedTo as string[]).map(id => ({
+            userId: id,
+            role: 'Team Member',
+            price: null,
+            payType: 'job' as const,
+            hourlyRate: null,
+          }))
         }
         // Old format: single string
-        return [{ userId: jobLog.assignedTo as string, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
+        return [
+          {
+            userId: jobLog.assignedTo as string,
+            role: 'Team Member',
+            price: null,
+            payType: 'job' as const,
+            hourlyRate: null,
+          },
+        ]
       })(),
       status: (jobLog?.status === 'archived' ? 'inactive' : jobLog?.status) ?? 'active',
     },
@@ -152,10 +197,14 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     if (jobRoles.length > 0 && assignments.length > 0 && jobLog) {
       const updatedAssignments = assignments.map(assignment => {
         // If roleId is already set and valid, keep it
-        if (assignment.roleId && assignment.roleId !== 'custom' && jobRoles.some(r => r.id === assignment.roleId)) {
+        if (
+          assignment.roleId &&
+          assignment.roleId !== 'custom' &&
+          jobRoles.some(r => r.id === assignment.roleId)
+        ) {
           return assignment
         }
-        
+
         // If role exists but no roleId or invalid roleId, try to match it to a job role
         if (assignment.role) {
           const matchingRole = jobRoles.find(r => r.title === assignment.role)
@@ -173,16 +222,16 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
             }
           }
         }
-        
+
         // No role set - keep as is
         return assignment
       })
-      
+
       // Only update if something changed to avoid infinite loops
-      const hasChanges = updatedAssignments.some((updated, index) => 
-        updated.roleId !== assignments[index]?.roleId
+      const hasChanges = updatedAssignments.some(
+        (updated, index) => updated.roleId !== assignments[index]?.roleId
       )
-      
+
       if (hasChanges) {
         setAssignments(updatedAssignments)
         setValue('assignedTo', updatedAssignments)
@@ -200,25 +249,26 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     // Ensure price is explicitly included and properly normalized
     const formData: any = {
       ...data,
-      assignedTo: Array.isArray(data.assignedTo) && data.assignedTo.length > 0 
-        ? data.assignedTo
-            .filter(a => a.userId && a.userId.trim() !== '')
-            .map(a => {
-              const normalizedA = {
-                ...a,
-                // Convert roleId: 'custom' to undefined before submission
-                roleId: a.roleId === 'custom' ? undefined : a.roleId,
-              }
-              // If roleId is missing but role title matches an existing JobRole, attach roleId.
-              if (!normalizedA.roleId && normalizedA.role && jobRoles.length > 0) {
-                const match = jobRoles.find(r => r.title === normalizedA.role)
-                if (match) {
-                  normalizedA.roleId = match.id
+      assignedTo:
+        Array.isArray(data.assignedTo) && data.assignedTo.length > 0
+          ? data.assignedTo
+              .filter(a => a.userId && a.userId.trim() !== '')
+              .map(a => {
+                const normalizedA = {
+                  ...a,
+                  // Convert roleId: 'custom' to undefined before submission
+                  roleId: a.roleId === 'custom' ? undefined : a.roleId,
                 }
-              }
-              return normalizedA
-            })
-        : null,
+                // If roleId is missing but role title matches an existing JobRole, attach roleId.
+                if (!normalizedA.roleId && normalizedA.role && jobRoles.length > 0) {
+                  const match = jobRoles.find(r => r.title === normalizedA.role)
+                  if (match) {
+                    normalizedA.roleId = match.id
+                  }
+                }
+                return normalizedA
+              })
+          : null,
     }
 
     // Only include job price if user has permission.
@@ -260,7 +310,9 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
       <div>
         <label className="block text-sm font-medium text-primary-light mb-2">Price</label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">$</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+            $
+          </span>
           <Controller
             name="price"
             control={control}
@@ -278,7 +330,7 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                       ? ''
                       : field.value
                 }
-                onChange={(e) => {
+                onChange={e => {
                   if (!canSeeJobPrices) return
                   const value = e.target.value
                   if (value === '' || value === null || value === undefined) {
@@ -314,17 +366,15 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
         rows={3}
       />
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">
-          Status
-        </label>
+        <label className="block text-sm font-medium text-primary-light mb-2">Status</label>
         <Select
           value={selectedStatus}
-          onChange={(e) => {
+          onChange={e => {
             const v = e.target.value
             setSelectedStatus(v)
             setValue('status', v as 'active' | 'completed' | 'inactive')
           }}
-          options={statusOptions.map((o) => ({ value: o.value, label: o.label }))}
+          options={statusOptions.map(o => ({ value: o.value, label: o.label }))}
         />
       </div>
       <div>
@@ -333,14 +383,14 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
         </label>
         <Select
           value={selectedContactId}
-          onChange={(e) => {
+          onChange={e => {
             const v = e.target.value
             setSelectedContactId(v)
             setValue('contactId', v)
           }}
           options={[
             { value: '', label: 'None' },
-            ...contacts.map((c) => ({
+            ...contacts.map(c => ({
               value: c.id,
               label: `${c.firstName} ${c.lastName}`,
             })),
@@ -353,7 +403,8 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
             Assign to Team Members (with Roles & Pricing)
           </label>
           <p className="text-xs text-primary-light/50 mb-4">
-            Assign team members to this job and set their role and individual pricing. Team members can only see their own pricing.
+            Assign team members to this job and set their role and individual pricing. Team members
+            can only see their own pricing.
           </p>
           <div className="space-y-3">
             {assignments.length === 0 ? (
@@ -363,9 +414,18 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                   type="button"
                   variant="ghost"
                   onClick={() => {
-                  const newAssignments = [{ userId: '', role: undefined, roleId: undefined, price: null, payType: 'job' as const, hourlyRate: null }]
-                  setAssignments(newAssignments)
-                  setValue('assignedTo', newAssignments)
+                    const newAssignments = [
+                      {
+                        userId: '',
+                        role: undefined,
+                        roleId: undefined,
+                        price: null,
+                        payType: 'job' as const,
+                        hourlyRate: null,
+                      },
+                    ]
+                    setAssignments(newAssignments)
+                    setValue('assignedTo', newAssignments)
                   }}
                   className="text-sm"
                 >
@@ -377,7 +437,10 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                 {assignments.map((assignment, index) => {
                   const member = teamMembers.find(m => m.id === assignment.userId)
                   return (
-                    <div key={index} className="border border-primary-blue rounded-lg p-3 bg-primary-dark-secondary/50 space-y-3">
+                    <div
+                      key={index}
+                      className="border border-primary-blue rounded-lg p-3 bg-primary-dark-secondary/50 space-y-3"
+                    >
                       <div className="flex flex-col sm:flex-row items-start gap-3">
                         <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                           <div>
@@ -386,7 +449,7 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                             </label>
                             <Select
                               value={assignment.userId}
-                              onChange={(e) => {
+                              onChange={e => {
                                 const newAssignments = [...assignments]
                                 newAssignments[index] = { ...assignment, userId: e.target.value }
                                 setAssignments(newAssignments)
@@ -394,7 +457,7 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                               }}
                               options={[
                                 { value: '', label: 'Select member' },
-                                ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
+                                ...teamMembers.map(m => ({ value: m.id, label: m.name })),
                               ]}
                             />
                           </div>
@@ -406,15 +469,23 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                               <Select
                                 value={assignment.roleId || ''}
                                 placeholder="Select role"
-                                onChange={(e) => {
+                                onChange={e => {
                                   const newAssignments = [...assignments]
                                   const selectedRoleId = e.target.value
                                   if (selectedRoleId === '') {
                                     // No role selected - clear roleId and role
-                                    newAssignments[index] = { ...assignment, roleId: undefined, role: undefined }
+                                    newAssignments[index] = {
+                                      ...assignment,
+                                      roleId: undefined,
+                                      role: undefined,
+                                    }
                                   } else if (selectedRoleId === 'custom') {
                                     // Custom role - set roleId to 'custom' to track that custom was selected, set role to empty string
-                                    newAssignments[index] = { ...assignment, roleId: 'custom', role: '' }
+                                    newAssignments[index] = {
+                                      ...assignment,
+                                      roleId: 'custom',
+                                      role: '',
+                                    }
                                   } else {
                                     // Selected role from list
                                     const selectedRole = jobRoles.find(r => r.id === selectedRoleId)
@@ -437,10 +508,14 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                               <Input
                                 type="text"
                                 value={assignment.role || ''}
-                                onChange={(e) => {
+                                onChange={e => {
                                   const newAssignments = [...assignments]
                                   // Keep roleId as 'custom' when typing to prevent input from unmounting
-                                  newAssignments[index] = { ...assignment, role: e.target.value, roleId: 'custom' }
+                                  newAssignments[index] = {
+                                    ...assignment,
+                                    role: e.target.value,
+                                    roleId: 'custom',
+                                  }
                                   setAssignments(newAssignments)
                                   setValue('assignedTo', newAssignments)
                                 }}
@@ -455,7 +530,7 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                             </label>
                             <Select
                               value={assignment.payType || 'job'}
-                              onChange={(e) => {
+                              onChange={e => {
                                 const newAssignments = [...assignments]
                                 const payType = e.target.value as 'job' | 'hourly'
                                 newAssignments[index] = {
@@ -480,18 +555,23 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                                 Hourly Rate
                               </label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">$</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+                                  $
+                                </span>
                                 <Input
                                   type="number"
                                   step="0.01"
                                   min="0"
                                   value={assignment.hourlyRate ?? ''}
-                                  onChange={(e) => {
+                                  onChange={e => {
                                     const newAssignments = [...assignments]
-                                    const hourlyRateValue = e.target.value === '' ? null : parseFloat(e.target.value)
+                                    const hourlyRateValue =
+                                      e.target.value === '' ? null : parseFloat(e.target.value)
                                     newAssignments[index] = {
                                       ...assignment,
-                                      hourlyRate: isNaN(hourlyRateValue as number) ? null : hourlyRateValue,
+                                      hourlyRate: isNaN(hourlyRateValue as number)
+                                        ? null
+                                        : hourlyRateValue,
                                     }
                                     setAssignments(newAssignments)
                                     setValue('assignedTo', newAssignments)
@@ -507,16 +587,22 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                                 Price
                               </label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">$</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+                                  $
+                                </span>
                                 <Input
                                   type="number"
                                   step="0.01"
                                   min="0"
                                   value={assignment.price ?? ''}
-                                  onChange={(e) => {
+                                  onChange={e => {
                                     const newAssignments = [...assignments]
-                                    const priceValue = e.target.value === '' ? null : parseFloat(e.target.value)
-                                    newAssignments[index] = { ...assignment, price: isNaN(priceValue as number) ? null : priceValue }
+                                    const priceValue =
+                                      e.target.value === '' ? null : parseFloat(e.target.value)
+                                    newAssignments[index] = {
+                                      ...assignment,
+                                      price: isNaN(priceValue as number) ? null : priceValue,
+                                    }
                                     setAssignments(newAssignments)
                                     setValue('assignedTo', newAssignments)
                                   }}
@@ -551,7 +637,16 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
                   type="button"
                   variant="ghost"
                   onClick={() => {
-                    const newAssignments = [...assignments, { userId: '', role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
+                    const newAssignments = [
+                      ...assignments,
+                      {
+                        userId: '',
+                        role: 'Team Member',
+                        price: null,
+                        payType: 'job' as const,
+                        hourlyRate: null,
+                      },
+                    ]
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)
                   }}

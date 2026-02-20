@@ -23,7 +23,7 @@ const StatusBadgeSelect = ({
   onChange,
   disabled = false,
   isLoading = false,
-  size = 'md'
+  size = 'md',
 }: StatusBadgeSelectProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -51,12 +51,12 @@ const StatusBadgeSelect = ({
     setIsOpen(false)
   }
 
-  const selectedOption = options.find((opt) => opt.value === value)
+  const selectedOption = options.find(opt => opt.value === value)
   const displayValue = selectedOption ? selectedOption.label : value
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs',
-    md: 'px-3 py-1 text-sm'
+    md: 'px-3 py-1 text-sm',
   }
 
   const isDisabled = disabled || isLoading
@@ -103,10 +103,7 @@ const StatusBadgeSelect = ({
           <span className="capitalize">{displayValue}</span>
           {!isDisabled && (
             <svg
-              className={cn(
-                'h-3 w-3 flex-shrink-0 transition-transform',
-                isOpen && 'rotate-180'
-              )}
+              className={cn('h-3 w-3 flex-shrink-0 transition-transform', isOpen && 'rotate-180')}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -125,7 +122,7 @@ const StatusBadgeSelect = ({
       {isOpen && !isDisabled && (
         <div className="absolute z-50 mt-2 min-w-[140px] rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl">
           <div className="p-2">
-            {options.map((option) => {
+            {options.map(option => {
               const isSelected = value === option.value
 
               return (

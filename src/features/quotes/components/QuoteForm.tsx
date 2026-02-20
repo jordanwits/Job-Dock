@@ -18,7 +18,16 @@ interface QuoteFormProps {
   defaultNotes?: string
 }
 
-const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaultContactId, defaultTitle, defaultNotes }: QuoteFormProps) => {
+const QuoteForm = ({
+  quote,
+  onSubmit,
+  onSaveAndSend,
+  onCancel,
+  isLoading,
+  defaultContactId,
+  defaultTitle,
+  defaultNotes,
+}: QuoteFormProps) => {
   const { contacts, fetchContacts, createContact } = useContactStore()
   const [showCreateContact, setShowCreateContact] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
@@ -42,7 +51,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
     defaultValues: {
       contactId: quote?.contactId || defaultContactId || '',
       title: quote?.title || defaultTitle || '',
-      lineItems: quote?.lineItems.map((item) => ({
+      lineItems: quote?.lineItems.map(item => ({
         description: item.description,
         quantity: item.quantity > 0 ? item.quantity : '',
         unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
@@ -51,9 +60,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
       discount: quote?.discount && quote.discount > 0 ? quote.discount : '',
       discountReason: quote?.discountReason || '',
       notes: quote?.notes || defaultNotes || '',
-      validUntil: quote?.validUntil
-        ? new Date(quote.validUntil).toISOString().split('T')[0]
-        : '',
+      validUntil: quote?.validUntil ? new Date(quote.validUntil).toISOString().split('T')[0] : '',
       status: quote?.status || 'draft',
     },
   })
@@ -83,7 +90,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
       reset({
         contactId: quote.contactId,
         title: quote.title || '',
-        lineItems: quote.lineItems.map((item) => ({
+        lineItems: quote.lineItems.map(item => ({
           description: item.description,
           quantity: item.quantity > 0 ? item.quantity : '',
           unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
@@ -92,9 +99,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
         discount: quote.discount > 0 ? quote.discount : '',
         discountReason: quote.discountReason || '',
         notes: quote.notes || '',
-        validUntil: quote.validUntil
-          ? new Date(quote.validUntil).toISOString().split('T')[0]
-          : '',
+        validUntil: quote.validUntil ? new Date(quote.validUntil).toISOString().split('T')[0] : '',
         status: quote.status,
       })
     }
@@ -109,7 +114,7 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
 
   const handleFormSubmit = async (data: QuoteFormData, shouldSend: boolean = false) => {
     const { dateStringToISO } = await import('@/lib/utils/dateUtils')
-    
+
     // Convert tax rate from percentage to decimal, auto-zero if empty
     const cleanedData = {
       ...data,
@@ -118,13 +123,13 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
       discountReason: data.discountReason || undefined,
       notes: data.notes || undefined,
       validUntil: dateStringToISO(data.validUntil),
-      lineItems: data.lineItems.map((item) => ({
+      lineItems: data.lineItems.map(item => ({
         ...item,
         quantity: Number(item.quantity) || 0,
         unitPrice: Number(item.unitPrice) || 0,
       })),
     }
-    
+
     if (shouldSend && onSaveAndSend) {
       await onSaveAndSend(cleanedData)
     } else {
@@ -134,12 +139,12 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    await handleSubmit((data) => handleFormSubmit(data, false))()
+    await handleSubmit(data => handleFormSubmit(data, false))()
   }
 
   const handleSaveAndSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    await handleSubmit((data) => handleFormSubmit(data, true))()
+    await handleSubmit(data => handleFormSubmit(data, true))()
   }
 
   const handleCreateContact = async (data: any) => {
@@ -160,249 +165,241 @@ const QuoteForm = ({ quote, onSubmit, onSaveAndSend, onCancel, isLoading, defaul
 
   return (
     <>
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-      {/* Contact Selection */}
-      <div>
+      <form onSubmit={e => e.preventDefault()} className="space-y-6">
+        {/* Contact Selection */}
+        <div>
+          <Select
+            label="Contact *"
+            {...register('contactId')}
+            value={contactIdValue}
+            error={errors.contactId?.message}
+            onChange={e => {
+              if (e.target.value === '__create_new__') {
+                setShowCreateContact(true)
+              } else {
+                setValue('contactId', e.target.value)
+              }
+            }}
+            options={[
+              { value: '', label: 'Select a contact' },
+              { value: '__create_new__', label: '+ Create New Contact' },
+              ...contacts.map(contact => ({
+                value: contact.id,
+                label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
+              })),
+            ]}
+          />
+        </div>
+
+        {/* Project Title */}
+        <Input
+          label="Project Title"
+          placeholder="e.g., Kitchen Remodel, Office Renovation"
+          error={errors.title?.message}
+          {...register('title')}
+          helperText="Optional: Add a descriptive title for this quote"
+        />
+
+        {/* Line Items */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <label className="block text-sm font-medium text-primary-light">Line Items *</label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
+            >
+              + Add Item
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {fields.map((field, index) => (
+              <div
+                key={field.id}
+                className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary space-y-3"
+              >
+                <div className="flex justify-between items-start">
+                  <span className="text-sm font-medium text-primary-light">Item {index + 1}</span>
+                  {fields.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => remove(index)}
+                      className="text-red-500 hover:text-red-600"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                <Input
+                  label="Description"
+                  placeholder="Item description"
+                  error={errors.lineItems?.[index]?.description?.message}
+                  {...register(`lineItems.${index}.description`)}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Quantity"
+                    type="number"
+                    step="0.01"
+                    placeholder="1"
+                    error={errors.lineItems?.[index]?.quantity?.message}
+                    {...register(`lineItems.${index}.quantity`, {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <Input
+                    label="Unit Price"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    error={errors.lineItems?.[index]?.unitPrice?.message}
+                    {...register(`lineItems.${index}.unitPrice`, {
+                      valueAsNumber: true,
+                    })}
+                  />
+                </div>
+
+                <div className="text-right text-sm text-primary-light/70">
+                  Total:{' '}
+                  {formatCurrency(
+                    (Number(watchedLineItems[index]?.quantity) || 0) *
+                      (Number(watchedLineItems[index]?.unitPrice) || 0)
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {errors.lineItems && (
+            <p className="mt-1 text-sm text-red-500">{errors.lineItems.message}</p>
+          )}
+        </div>
+
+        {/* Tax and Discount */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Tax Rate (%)"
+            type="number"
+            step="0.01"
+            placeholder="0"
+            error={errors.taxRate?.message}
+            {...register('taxRate', { valueAsNumber: true })}
+            helperText="Enter as percentage (e.g., 8 for 8%)"
+          />
+          <Input
+            label="Discount ($)"
+            type="number"
+            step="0.01"
+            placeholder="0.00"
+            error={errors.discount?.message}
+            {...register('discount', { valueAsNumber: true })}
+          />
+        </div>
+
+        {/* Discount Reason - Only show if discount is applied */}
+        {watchedDiscount > 0 && (
+          <Input
+            label="Discount Reason (Optional)"
+            placeholder="e.g., Repeat customer discount, Seasonal promotion"
+            error={errors.discountReason?.message}
+            {...register('discountReason')}
+            helperText="Provide a reason for this discount (will appear on quote)"
+          />
+        )}
+
+        {/* Totals Summary */}
+        <div className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-primary-light/70">Subtotal</span>
+              <span className="text-primary-light">{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-primary-light/70">Tax ({watchedTaxRatePercent}%)</span>
+              <span className="text-primary-light">{formatCurrency(taxAmount)}</span>
+            </div>
+            {watchedDiscount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-primary-light/70">Discount</span>
+                <span className="text-primary-light">-{formatCurrency(watchedDiscount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between pt-2 border-t border-primary-blue">
+              <span className="text-lg font-semibold text-primary-light">Total</span>
+              <span className="text-lg font-bold text-primary-gold">{formatCurrency(total)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Notes and Valid Until */}
+        <DatePicker
+          label="Valid Until"
+          value={watch('validUntil') || ''}
+          onChange={date => setValue('validUntil', date)}
+          error={errors.validUntil?.message}
+          placeholder="Select expiration date"
+          minDate={new Date().toISOString().split('T')[0]}
+        />
+
+        <div>
+          <label className="block text-sm font-medium text-primary-light mb-2">Notes</label>
+          <textarea
+            className="flex min-h-[100px] w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="Add notes about this quote..."
+            {...register('notes')}
+          />
+        </div>
+
+        {/* Status */}
         <Select
-          label="Contact *"
-          {...register('contactId')}
-          value={contactIdValue}
-          error={errors.contactId?.message}
-          onChange={(e) => {
-            if (e.target.value === '__create_new__') {
-              setShowCreateContact(true)
-            } else {
-              setValue('contactId', e.target.value)
-            }
-          }}
+          label="Status"
+          {...register('status')}
+          value={statusValue}
+          error={errors.status?.message}
           options={[
-            { value: '', label: 'Select a contact' },
-            { value: '__create_new__', label: '+ Create New Contact' },
-            ...contacts.map((contact) => ({
-              value: contact.id,
-              label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
-            })),
+            { value: 'draft', label: 'Draft' },
+            { value: 'sent', label: 'Sent' },
+            { value: 'accepted', label: 'Accepted' },
+            { value: 'rejected', label: 'Rejected' },
+            { value: 'expired', label: 'Expired' },
           ]}
         />
-      </div>
 
-      {/* Project Title */}
-      <Input
-        label="Project Title"
-        placeholder="e.g., Kitchen Remodel, Office Renovation"
-        error={errors.title?.message}
-        {...register('title')}
-        helperText="Optional: Add a descriptive title for this quote"
-      />
-
-      {/* Line Items */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <label className="block text-sm font-medium text-primary-light">
-            Line Items *
-          </label>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
-          >
-            + Add Item
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
+            Cancel
           </Button>
-        </div>
-
-        <div className="space-y-3">
-          {fields.map((field, index) => (
-            <div
-              key={field.id}
-              className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary space-y-3"
-            >
-              <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-primary-light">
-                  Item {index + 1}
-                </span>
-                {fields.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => remove(index)}
-                    className="text-red-500 hover:text-red-600"
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-
-              <Input
-                label="Description"
-                placeholder="Item description"
-                error={errors.lineItems?.[index]?.description?.message}
-                {...register(`lineItems.${index}.description`)}
-              />
-
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="Quantity"
-                  type="number"
-                  step="0.01"
-                  placeholder="1"
-                  error={errors.lineItems?.[index]?.quantity?.message}
-                  {...register(`lineItems.${index}.quantity`, {
-                    valueAsNumber: true,
-                  })}
-                />
-                <Input
-                  label="Unit Price"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  error={errors.lineItems?.[index]?.unitPrice?.message}
-                  {...register(`lineItems.${index}.unitPrice`, {
-                    valueAsNumber: true,
-                  })}
-                />
-              </div>
-
-              <div className="text-right text-sm text-primary-light/70">
-                Total: {formatCurrency(
-                  (Number(watchedLineItems[index]?.quantity) || 0) *
-                    (Number(watchedLineItems[index]?.unitPrice) || 0)
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        {errors.lineItems && (
-          <p className="mt-1 text-sm text-red-500">{errors.lineItems.message}</p>
-        )}
-      </div>
-
-      {/* Tax and Discount */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Tax Rate (%)"
-          type="number"
-          step="0.01"
-          placeholder="0"
-          error={errors.taxRate?.message}
-          {...register('taxRate', { valueAsNumber: true })}
-          helperText="Enter as percentage (e.g., 8 for 8%)"
-        />
-        <Input
-          label="Discount ($)"
-          type="number"
-          step="0.01"
-          placeholder="0.00"
-          error={errors.discount?.message}
-          {...register('discount', { valueAsNumber: true })}
-        />
-      </div>
-
-      {/* Discount Reason - Only show if discount is applied */}
-      {watchedDiscount > 0 && (
-        <Input
-          label="Discount Reason (Optional)"
-          placeholder="e.g., Repeat customer discount, Seasonal promotion"
-          error={errors.discountReason?.message}
-          {...register('discountReason')}
-          helperText="Provide a reason for this discount (will appear on quote)"
-        />
-      )}
-
-      {/* Totals Summary */}
-      <div className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-primary-light/70">Subtotal</span>
-            <span className="text-primary-light">{formatCurrency(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-primary-light/70">Tax ({watchedTaxRatePercent}%)</span>
-            <span className="text-primary-light">{formatCurrency(taxAmount)}</span>
-          </div>
-          {watchedDiscount > 0 && (
-            <div className="flex justify-between">
-              <span className="text-primary-light/70">Discount</span>
-              <span className="text-primary-light">-{formatCurrency(watchedDiscount)}</span>
-            </div>
+          <Button type="button" onClick={handleSave} disabled={isLoading}>
+            {isLoading ? 'Saving...' : 'Save'}
+          </Button>
+          {onSaveAndSend && (
+            <Button type="button" onClick={handleSaveAndSend} disabled={isLoading}>
+              {isLoading ? 'Saving...' : 'Save and Send'}
+            </Button>
           )}
-          <div className="flex justify-between pt-2 border-t border-primary-blue">
-            <span className="text-lg font-semibold text-primary-light">Total</span>
-            <span className="text-lg font-bold text-primary-gold">
-              {formatCurrency(total)}
-            </span>
-          </div>
         </div>
-      </div>
+      </form>
 
-      {/* Notes and Valid Until */}
-      <DatePicker
-        label="Valid Until"
-        value={watch('validUntil') || ''}
-        onChange={(date) => setValue('validUntil', date)}
-        error={errors.validUntil?.message}
-        placeholder="Select expiration date"
-        minDate={new Date().toISOString().split('T')[0]}
-      />
-
-      <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">
-          Notes
-        </label>
-        <textarea
-          className="flex min-h-[100px] w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="Add notes about this quote..."
-          {...register('notes')}
+      {/* Create Contact Modal */}
+      <Modal
+        isOpen={showCreateContact}
+        onClose={() => setShowCreateContact(false)}
+        title="Create New Contact"
+        size="lg"
+      >
+        <ContactForm
+          onSubmit={handleCreateContact}
+          onCancel={() => setShowCreateContact(false)}
+          isLoading={isCreatingContact}
         />
-      </div>
-
-      {/* Status */}
-      <Select
-        label="Status"
-        {...register('status')}
-        value={statusValue}
-        error={errors.status?.message}
-        options={[
-          { value: 'draft', label: 'Draft' },
-          { value: 'sent', label: 'Sent' },
-          { value: 'accepted', label: 'Accepted' },
-          { value: 'rejected', label: 'Rejected' },
-          { value: 'expired', label: 'Expired' },
-        ]}
-      />
-
-      <div className="flex justify-end gap-3 pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
-          Cancel
-        </Button>
-        <Button type="button" onClick={handleSave} disabled={isLoading}>
-          {isLoading ? 'Saving...' : 'Save'}
-        </Button>
-        {onSaveAndSend && (
-          <Button type="button" onClick={handleSaveAndSend} disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Save and Send'}
-          </Button>
-        )}
-      </div>
-    </form>
-
-    {/* Create Contact Modal */}
-    <Modal
-      isOpen={showCreateContact}
-      onClose={() => setShowCreateContact(false)}
-      title="Create New Contact"
-      size="lg"
-    >
-      <ContactForm
-        onSubmit={handleCreateContact}
-        onCancel={() => setShowCreateContact(false)}
-        isLoading={isCreatingContact}
-      />
-    </Modal>
+      </Modal>
     </>
   )
 }
 
 export default QuoteForm
-

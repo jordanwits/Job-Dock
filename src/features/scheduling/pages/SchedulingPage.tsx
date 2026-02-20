@@ -107,9 +107,9 @@ const SchedulingPage = () => {
     tabParam === 'services' || tabParam === 'calendar' || tabParam === 'upcoming-bookings'
       ? tabParam
       : 'calendar'
-  const [activeTab, setActiveTab] = useState<'calendar' | 'upcoming-bookings' | 'services' | 'archived'>(
-    (initialTab as 'calendar' | 'upcoming-bookings' | 'services' | 'archived') || 'calendar'
-  )
+  const [activeTab, setActiveTab] = useState<
+    'calendar' | 'upcoming-bookings' | 'services' | 'archived'
+  >((initialTab as 'calendar' | 'upcoming-bookings' | 'services' | 'archived') || 'calendar')
 
   const [linkCopied, setLinkCopied] = useState(false)
   const [buttonLinkCopied, setButtonLinkCopied] = useState(false)
@@ -1080,7 +1080,7 @@ const SchedulingPage = () => {
       <div className="flex-1 min-w-0 overflow-hidden">
         {activeTab === 'upcoming-bookings' && (
           <div className="h-full overflow-y-auto p-6">
-            <JobList 
+            <JobList
               showCreatedBy={isTeamAccount}
               onJobClick={job => {
                 setSelectedJob(job)
@@ -1234,7 +1234,9 @@ const SchedulingPage = () => {
                                   externalDragRef.current = true
 
                                   // Initialize drag ghost
-                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                  const rect = (
+                                    e.currentTarget as HTMLElement
+                                  ).getBoundingClientRect()
                                   setExternalDragGhost({
                                     isVisible: false,
                                     x: rect.left,
@@ -1274,7 +1276,9 @@ const SchedulingPage = () => {
                                 <span className="font-medium truncate max-w-[220px]">
                                   {job.title}
                                 </span>
-                                <span className="text-xs text-amber-400/60">({job.contactName})</span>
+                                <span className="text-xs text-amber-400/60">
+                                  ({job.contactName})
+                                </span>
                               </div>
                             )
                           })}

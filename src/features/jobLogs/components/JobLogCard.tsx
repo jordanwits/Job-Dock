@@ -12,7 +12,13 @@ interface JobLogCardProps {
   showCreatedBy?: boolean
 }
 
-const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy }: JobLogCardProps) => {
+const JobLogCard = ({
+  jobLog,
+  onClick,
+  isSelected,
+  onToggleSelect,
+  showCreatedBy,
+}: JobLogCardProps) => {
   const totalMinutes =
     jobLog.timeEntries?.reduce((sum, te) => {
       const start = new Date(te.startTime).getTime()
@@ -47,7 +53,7 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
         {onToggleSelect && (
           <div
             className="absolute top-3 left-3 z-10"
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation()
               onToggleSelect(jobLog.id, e)
             }}
@@ -60,9 +66,7 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
                   : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
               )}
             >
-              {isSelected && (
-                <div className="w-2.5 h-2.5 rounded-full bg-primary-dark" />
-              )}
+              {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary-dark" />}
             </div>
           </div>
         )}
@@ -70,9 +74,7 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
         {/* Header */}
         <div className={cn(onToggleSelect && 'pl-8', 'min-w-0')}>
           <div className="flex items-start gap-2 flex-wrap">
-            <h3 className="text-lg font-semibold text-primary-light break-words">
-              {jobLog.title}
-            </h3>
+            <h3 className="text-lg font-semibold text-primary-light break-words">{jobLog.title}</h3>
             {recurringTag && (
               <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
                 {recurringTag}
@@ -80,7 +82,12 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
             )}
           </div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0', statusColors[statusLabel] || statusColors.inactive)}>
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0',
+                statusColors[statusLabel] || statusColors.inactive
+              )}
+            >
               {statusLabel}
             </span>
             {subtitle && (
@@ -89,7 +96,12 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect, showCreatedBy
           </div>
           {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
             <p className="text-xs text-primary-light/60 mt-1 break-words">
-              {[jobLog.assignedToName && `Assigned to ${jobLog.assignedToName}`, showCreatedBy && jobLog.job?.createdByName && `Created by ${jobLog.job.createdByName}`]
+              {[
+                jobLog.assignedToName && `Assigned to ${jobLog.assignedToName}`,
+                showCreatedBy &&
+                  jobLog.job?.createdByName &&
+                  `Created by ${jobLog.job.createdByName}`,
+              ]
                 .filter(Boolean)
                 .join(' • ')}
             </p>

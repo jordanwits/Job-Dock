@@ -15,7 +15,6 @@ import { useJobLogStore } from '../store/jobLogStore'
 
 const TIMER_STORAGE_KEY = 'joblog-active-timer'
 
-
 interface JobLogDetailProps {
   jobLog: JobLog
   showCreatedBy?: boolean
@@ -71,11 +70,17 @@ const JobLogDetail = ({
   const [showMenu, setShowMenu] = useState(false)
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const canAccessQuotes = user?.role !== 'employee'
-  const canEditJobs = user?.role === 'admin' || user?.role === 'owner' || user?.canCreateJobs || user?.canScheduleAppointments
+  const canEditJobs =
+    user?.role === 'admin' ||
+    user?.role === 'owner' ||
+    user?.canCreateJobs ||
+    user?.canScheduleAppointments
 
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([])
   const [teamMembersLoading, setTeamMembersLoading] = useState(false)
-  const [jobRoles, setJobRoles] = useState<Array<{ id: string; title: string; permissions?: { canClockInFor?: string } }>>([])
+  const [jobRoles, setJobRoles] = useState<
+    Array<{ id: string; title: string; permissions?: { canClockInFor?: string } }>
+  >([])
   const [showClockInSelector, setShowClockInSelector] = useState(false)
   const [selectedClockInUserId, setSelectedClockInUserId] = useState<string | null>('all') // Default to "all"
 
@@ -216,10 +221,10 @@ const JobLogDetail = ({
   const currentUserClockInFor = useMemo((): 'self' | 'assigned' | 'everyone' => {
     const currentUserId = user?.id
     if (!currentUserId) return 'self'
-    
+
     // Admins/owners always have full clock-in permissions regardless of role assignment
     if (isAdminOrOwner) return 'everyone'
-    
+
     const currentAssignment = parsedAssignments.find(a => a.userId === currentUserId)
     if (!currentAssignment) return 'self'
 
@@ -228,16 +233,24 @@ const JobLogDetail = ({
     const matchedRole =
       (currentAssignment.roleId && jobRoles.find(r => r.id === currentAssignment.roleId)) ||
       (currentAssignment.role &&
-        jobRoles.find(r => normalizeRoleTitle(r.title) === normalizeRoleTitle(currentAssignment.role))) ||
+        jobRoles.find(
+          r => normalizeRoleTitle(r.title) === normalizeRoleTitle(currentAssignment.role)
+        )) ||
       null
 
     // If roles haven't loaded yet but the user has a non-default role title, allow UI; backend enforces real permissions.
     if (!matchedRole) {
-      return currentAssignment.role && currentAssignment.role !== 'Team Member' ? 'assigned' : 'self'
+      return currentAssignment.role && currentAssignment.role !== 'Team Member'
+        ? 'assigned'
+        : 'self'
     }
 
     const canClockInFor = matchedRole.permissions?.canClockInFor || 'self'
-    return canClockInFor === 'everyone' ? 'everyone' : canClockInFor === 'assigned' ? 'assigned' : 'self'
+    return canClockInFor === 'everyone'
+      ? 'everyone'
+      : canClockInFor === 'assigned'
+        ? 'assigned'
+        : 'self'
   }, [parsedAssignments, user?.id, jobRoles, isAdminOrOwner])
 
   const canClockInForOthers = currentUserClockInFor !== 'self'
@@ -250,10 +263,11 @@ const JobLogDetail = ({
 
     // Self-only: only allow self
     if (currentUserClockInFor === 'self') {
-      const self =
-        assignedUsers.find(u => u.id === currentUserId) ||
-        teamMembers.find(u => u.id === currentUserId) ||
-        { id: currentUserId, name: user?.name || 'You' }
+      const self = assignedUsers.find(u => u.id === currentUserId) ||
+        teamMembers.find(u => u.id === currentUserId) || {
+          id: currentUserId,
+          name: user?.name || 'You',
+        }
       return [self]
     }
 
@@ -271,7 +285,14 @@ const JobLogDetail = ({
       return assignedUsers.filter(u => assignedIds.has(u.id))
     }
     return teamMembers.filter(m => assignedIds.has(m.id))
-  }, [teamMembers, parsedAssignments, user?.id, user?.name, jobLog.assignedToUsers, currentUserClockInFor])
+  }, [
+    teamMembers,
+    parsedAssignments,
+    user?.id,
+    user?.name,
+    jobLog.assignedToUsers,
+    currentUserClockInFor,
+  ])
 
   const handleHeaderStartJobClick = () => {
     // Make sure the user lands on the Clock tab where the rest of the time tools live
@@ -300,7 +321,7 @@ const JobLogDetail = ({
   const handleStartJobForSelected = async () => {
     const start = new Date()
     const startTime = start.toISOString()
-    
+
     // Debug logging
     if (process.env.NODE_ENV === 'development') {
       console.log('handleStartJobForSelected - selectedClockInUserId:', selectedClockInUserId)
@@ -311,7 +332,7 @@ const JobLogDetail = ({
       const assignedUserIds = parsedAssignments.map(a => a.userId).filter(Boolean) as string[]
       const currentUserId = user?.id
       const isCurrentUserAssigned = assignedUserIds.includes(currentUserId || '')
-      
+
       if (assignedUserIds.length === 0) {
         // No assigned members, just clock in self
         handleStartTimer(currentUserId)
@@ -367,8 +388,11 @@ const JobLogDetail = ({
     } else {
       // Clock in selected single user
       // Ensure we have a valid userId (not 'all', not null, not empty)
-      const targetUserId = selectedClockInUserId && selectedClockInUserId !== 'all' && selectedClockInUserId !== null ? selectedClockInUserId : null
-      
+      const targetUserId =
+        selectedClockInUserId && selectedClockInUserId !== 'all' && selectedClockInUserId !== null
+          ? selectedClockInUserId
+          : null
+
       if (process.env.NODE_ENV === 'development') {
         console.log('handleStartJobForSelected - single user selected:', {
           selectedClockInUserId,
@@ -376,7 +400,7 @@ const JobLogDetail = ({
           currentUserId: user?.id,
         })
       }
-      
+
       if (targetUserId) {
         // Start timer for the selected user (could be admin or another user)
         handleStartTimer(targetUserId)
@@ -406,7 +430,13 @@ const JobLogDetail = ({
       const stored = localStorage.getItem(TIMER_STORAGE_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
-        const { jobLogId: storedId, startTime: storedStart, userId: storedUser, timeEntryIds: storedEntryIds, clockedInAll: storedClockedInAll } = parsed
+        const {
+          jobLogId: storedId,
+          startTime: storedStart,
+          userId: storedUser,
+          timeEntryIds: storedEntryIds,
+          clockedInAll: storedClockedInAll,
+        } = parsed
         if (storedId === jobLog.id && storedStart) {
           startTime = storedStart
           storedUserId = storedUser
@@ -429,8 +459,13 @@ const JobLogDetail = ({
     const end = new Date()
     // Use stored userId from localStorage, fallback to selectedClockInUserId, then current user
     // Priority: storedUserId (from localStorage) > selectedClockInUserId (if not 'all') > current user
-    const targetUserId = storedUserId || (selectedClockInUserId && selectedClockInUserId !== 'all' ? selectedClockInUserId : undefined) || user?.id
-    
+    const targetUserId =
+      storedUserId ||
+      (selectedClockInUserId && selectedClockInUserId !== 'all'
+        ? selectedClockInUserId
+        : undefined) ||
+      user?.id
+
     // Debug logging (remove in production)
     if (process.env.NODE_ENV === 'development') {
       console.log('handleStopTimer - userId resolution:', {
@@ -440,13 +475,13 @@ const JobLogDetail = ({
         targetUserId,
       })
     }
-    
+
     try {
       // If we clocked in all members and have timeEntryIds, UPDATE all existing entries instead of creating new ones
       if (clockedInAll && timeEntryIds && timeEntryIds.length > 0) {
         const endIso = end.toISOString()
         await Promise.all(
-          timeEntryIds.map((id) =>
+          timeEntryIds.map(id =>
             updateTimeEntry(
               id,
               {
@@ -459,7 +494,7 @@ const JobLogDetail = ({
         // IMPORTANT: Don't create a new entry when clockedInAll is true - we only update existing ones
         return
       }
-      
+
       // Normal flow: create a new time entry (only if clockedInAll is false or timeEntryIds is missing)
       // Only create entry if we have a valid targetUserId
       if (targetUserId) {
@@ -536,12 +571,12 @@ const JobLogDetail = ({
 
   const hasOverview = jobLog.location || jobLog.contact
   const canSeePrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
-  const primaryPrice = canSeePrices ? (
-    jobLog.price ??
-    jobLog.job?.price ??
-    (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.price : null) ??
-    null
-  ) : null
+  const primaryPrice = canSeePrices
+    ? (jobLog.price ??
+      jobLog.job?.price ??
+      (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.price : null) ??
+      null)
+    : null
   const primaryServiceName =
     jobLog.serviceName ??
     jobLog.job?.serviceName ??
@@ -694,15 +729,20 @@ const JobLogDetail = ({
                         <div className="grid grid-cols-1 gap-2 w-max max-w-md">
                           {assignments.map((assignment, index) => {
                             // Find name by matching userId (more reliable than index-based matching)
-                            const assignedUser = jobLog.assignedToUsers?.find(u => u.id === assignment.userId)
-                            const displayName = assignedUser?.name || 
+                            const assignedUser = jobLog.assignedToUsers?.find(
+                              u => u.id === assignment.userId
+                            )
+                            const displayName =
+                              assignedUser?.name ||
                               (() => {
                                 // Fallback to index-based matching if assignedToUsers not available
                                 const nameParts = jobLog.assignedToName?.split(',') || []
                                 return nameParts[index]?.trim() || 'Unassigned'
                               })()
                             // Employees can always see their own assignment pay (hourly or job), even if canSeeJobPrices is false
-                            const canSeePrice = isAdminOrOwner ? canSeePrices : (assignment.userId === currentUserId)
+                            const canSeePrice = isAdminOrOwner
+                              ? canSeePrices
+                              : assignment.userId === currentUserId
                             const payType = assignment.payType || 'job'
                             const price = canSeePrice ? assignment.price : undefined
                             const hourlyRate = canSeePrice ? assignment.hourlyRate : undefined
@@ -1022,73 +1062,80 @@ const JobLogDetail = ({
       </div>
 
       {/* Upcoming Bookings */}
-      {jobLog.bookings && jobLog.bookings.length > 0 && (() => {
-        const sortedBookings = jobLog.bookings
-          .filter(b => b.status !== 'cancelled')
-          .sort((a, b) => {
-            const aTime = a.startTime ? new Date(a.startTime).getTime() : 0
-            const bTime = b.startTime ? new Date(b.startTime).getTime() : 0
-            return aTime - bTime
-          })
+      {jobLog.bookings &&
+        jobLog.bookings.length > 0 &&
+        (() => {
+          const sortedBookings = jobLog.bookings
+            .filter(b => b.status !== 'cancelled')
+            .sort((a, b) => {
+              const aTime = a.startTime ? new Date(a.startTime).getTime() : 0
+              const bTime = b.startTime ? new Date(b.startTime).getTime() : 0
+              return aTime - bTime
+            })
 
-        // Get the next upcoming booking
-        const nextBooking = sortedBookings.find(b => {
-          if (b.toBeScheduled) return false
-          if (!b.startTime) return false
-          const bookingDate = new Date(b.startTime)
-          return bookingDate >= new Date()
-        }) || sortedBookings[0]
+          // Get the next upcoming booking
+          const nextBooking =
+            sortedBookings.find(b => {
+              if (b.toBeScheduled) return false
+              if (!b.startTime) return false
+              const bookingDate = new Date(b.startTime)
+              return bookingDate >= new Date()
+            }) || sortedBookings[0]
 
-        if (!nextBooking) return null
+          if (!nextBooking) return null
 
-        // Check if bookings follow a recurring pattern
-        const recurringTag = getRecurringTag(sortedBookings)
+          // Check if bookings follow a recurring pattern
+          const recurringTag = getRecurringTag(sortedBookings)
 
-        return (
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-primary-light/70 uppercase tracking-wider">
-              Upcoming Bookings
-            </h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary-dark/50 border border-primary-blue/20">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {nextBooking.toBeScheduled ? (
-                      <span className="text-primary-light/70 text-sm">To be scheduled</span>
-                    ) : nextBooking.startTime && nextBooking.endTime ? (
-                      <span className="text-primary-light text-sm">
-                        {format(new Date(nextBooking.startTime), 'MMM d, yyyy • h:mm a')} –{' '}
-                        {format(new Date(nextBooking.endTime), 'h:mm a')}
-                      </span>
-                    ) : (
-                      <span className="text-primary-light/70 text-sm">No time set</span>
-                    )}
-                    {recurringTag && (
-                      <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
-                        {recurringTag}
-                      </span>
+          return (
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-primary-light/70 uppercase tracking-wider">
+                Upcoming Bookings
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary-dark/50 border border-primary-blue/20">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {nextBooking.toBeScheduled ? (
+                        <span className="text-primary-light/70 text-sm">To be scheduled</span>
+                      ) : nextBooking.startTime && nextBooking.endTime ? (
+                        <span className="text-primary-light text-sm">
+                          {format(new Date(nextBooking.startTime), 'MMM d, yyyy • h:mm a')} –{' '}
+                          {format(new Date(nextBooking.endTime), 'h:mm a')}
+                        </span>
+                      ) : (
+                        <span className="text-primary-light/70 text-sm">No time set</span>
+                      )}
+                      {recurringTag && (
+                        <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
+                          {recurringTag}
+                        </span>
+                      )}
+                    </div>
+                    {nextBooking.service?.name && (
+                      <p className="text-xs text-primary-light/50 mt-0.5">
+                        {nextBooking.service.name}
+                      </p>
                     )}
                   </div>
-                  {nextBooking.service?.name && (
-                    <p className="text-xs text-primary-light/50 mt-0.5">{nextBooking.service.name}</p>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  {canSeePrices && nextBooking.price != null && nextBooking.price !== undefined && (
-                    <span className="text-sm font-semibold text-primary-gold">
-                      $
-                      {nextBooking.price.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  )}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    {canSeePrices &&
+                      nextBooking.price != null &&
+                      nextBooking.price !== undefined && (
+                        <span className="text-sm font-semibold text-primary-gold">
+                          $
+                          {nextBooking.price.toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )
-      })()}
+          )
+        })()}
 
       {/* Overview: contact, location, and price */}
       {(hasOverview ||
@@ -1262,7 +1309,7 @@ const JobLogDetail = ({
           ) : (
             <Select
               value={selectedClockInUserId || 'all'}
-              onChange={(e) => setSelectedClockInUserId(e.target.value || 'all')}
+              onChange={e => setSelectedClockInUserId(e.target.value || 'all')}
               options={[
                 {
                   value: 'all',
@@ -1285,7 +1332,10 @@ const JobLogDetail = ({
             <Button
               className="flex-1"
               onClick={handleStartJobForSelected}
-              disabled={teamMembersLoading || (availableUsersToClockIn.length === 0 && parsedAssignments.length === 0)}
+              disabled={
+                teamMembersLoading ||
+                (availableUsersToClockIn.length === 0 && parsedAssignments.length === 0)
+              }
             >
               Start Job
             </Button>

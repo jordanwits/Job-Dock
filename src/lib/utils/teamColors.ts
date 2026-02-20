@@ -4,7 +4,12 @@
  */
 
 // Blue is reserved for unassigned appointments
-const UNASSIGNED_COLOR = { bg: 'bg-blue-500/20', border: 'border-blue-500', text: 'text-blue-300', value: 'blue-500' }
+const UNASSIGNED_COLOR = {
+  bg: 'bg-blue-500/20',
+  border: 'border-blue-500',
+  text: 'text-blue-300',
+  value: 'blue-500',
+}
 
 // Predefined color palette for team members
 // Using maximally distinct colors that work well on dark backgrounds
@@ -12,13 +17,38 @@ const UNASSIGNED_COLOR = { bg: 'bg-blue-500/20', border: 'border-blue-500', text
 // Note: blue-500, cyan-500, indigo-500, teal-500, and rose-500 are reserved/removed to avoid confusion
 export const TEAM_COLORS = [
   { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-300', value: 'red-500' },
-  { bg: 'bg-orange-500/20', border: 'border-orange-500', text: 'text-orange-300', value: 'orange-500' },
-  { bg: 'bg-yellow-500/20', border: 'border-yellow-500', text: 'text-yellow-300', value: 'yellow-500' },
+  {
+    bg: 'bg-orange-500/20',
+    border: 'border-orange-500',
+    text: 'text-orange-300',
+    value: 'orange-500',
+  },
+  {
+    bg: 'bg-yellow-500/20',
+    border: 'border-yellow-500',
+    text: 'text-yellow-300',
+    value: 'yellow-500',
+  },
   { bg: 'bg-lime-500/20', border: 'border-lime-500', text: 'text-lime-300', value: 'lime-500' },
   { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-300', value: 'green-500' },
-  { bg: 'bg-violet-500/20', border: 'border-violet-500', text: 'text-violet-300', value: 'violet-500' },
-  { bg: 'bg-purple-500/20', border: 'border-purple-500', text: 'text-purple-300', value: 'purple-500' },
-  { bg: 'bg-fuchsia-500/20', border: 'border-fuchsia-500', text: 'text-fuchsia-300', value: 'fuchsia-500' },
+  {
+    bg: 'bg-violet-500/20',
+    border: 'border-violet-500',
+    text: 'text-violet-300',
+    value: 'violet-500',
+  },
+  {
+    bg: 'bg-purple-500/20',
+    border: 'border-purple-500',
+    text: 'text-purple-300',
+    value: 'purple-500',
+  },
+  {
+    bg: 'bg-fuchsia-500/20',
+    border: 'border-fuchsia-500',
+    text: 'text-fuchsia-300',
+    value: 'fuchsia-500',
+  },
   { bg: 'bg-pink-500/20', border: 'border-pink-500', text: 'text-pink-300', value: 'pink-500' },
 ]
 
@@ -32,7 +62,7 @@ const colorCache = new Map<string, number>()
 function getColorIndex(name: string): number {
   // Normalize name: lowercase and trim for consistent hashing
   const normalizedName = name.toLowerCase().trim()
-  
+
   if (colorCache.has(normalizedName)) {
     return colorCache.get(normalizedName)!
   }
@@ -40,7 +70,7 @@ function getColorIndex(name: string): number {
   // Improved hash function (djb2 variant) for better distribution
   let hash = 5381
   for (let i = 0; i < normalizedName.length; i++) {
-    hash = ((hash << 5) + hash) + normalizedName.charCodeAt(i)
+    hash = (hash << 5) + hash + normalizedName.charCodeAt(i)
   }
 
   // Use TEAM_COLORS.length to avoid blue (blue is reserved for unassigned)
@@ -70,23 +100,26 @@ export function getTeamMemberColors(
 } {
   if (!assignedToName || assignedToName.trim() === '') {
     // Use blue color for unassigned jobs
-    return { 
+    return {
       ...UNASSIGNED_COLOR,
       isMultiAssignment: false,
-      memberCount: 0
+      memberCount: 0,
     }
   }
 
   // Split and count team members
-  const members = assignedToName.split(',').map(m => m.trim()).filter(m => m.length > 0)
+  const members = assignedToName
+    .split(',')
+    .map(m => m.trim())
+    .filter(m => m.length > 0)
   const memberCount = members.length
   const isMultiAssignment = memberCount > 1
 
   if (memberCount === 0) {
-    return { 
+    return {
       ...UNASSIGNED_COLOR,
       isMultiAssignment: false,
-      memberCount: 0
+      memberCount: 0,
     }
   }
 
@@ -95,20 +128,21 @@ export function getTeamMemberColors(
     const firstMember = members[0]
     const firstMemberLower = firstMember?.toLowerCase()
     if (!firstMemberLower) {
-      return { 
+      return {
         ...UNASSIGNED_COLOR,
         isMultiAssignment: false,
-        memberCount: 0
+        memberCount: 0,
       }
     }
-    
+
     // Check if user has a stored color
     let colors
     if (userColorMap) {
-      const colorValue = userColorMap instanceof Map 
-        ? userColorMap.get(firstMember) || userColorMap.get(firstMemberLower)
-        : userColorMap[firstMember] || userColorMap[firstMemberLower]
-      
+      const colorValue =
+        userColorMap instanceof Map
+          ? userColorMap.get(firstMember) || userColorMap.get(firstMemberLower)
+          : userColorMap[firstMember] || userColorMap[firstMemberLower]
+
       if (colorValue) {
         // Check if it's a hex color
         if (colorValue.startsWith('#')) {
@@ -135,7 +169,7 @@ export function getTeamMemberColors(
       const colorIndex = getColorIndex(firstMemberLower)
       colors = TEAM_COLORS[colorIndex]
     }
-    
+
     // If it's a hex color, we need to use inline styles
     if (colors.hex) {
       const hex = colors.hex
@@ -143,7 +177,7 @@ export function getTeamMemberColors(
       const r = parseInt(hexColor.substring(0, 2), 16)
       const g = parseInt(hexColor.substring(2, 4), 16)
       const b = parseInt(hexColor.substring(4, 6), 16)
-      
+
       return {
         bg: '', // Will use inline style instead
         border: '', // Will use inline style instead
@@ -158,14 +192,14 @@ export function getTeamMemberColors(
           borderBottomColor: `rgb(${r}, ${g}, ${b})`,
           borderColor: `rgb(${r}, ${g}, ${b})`,
           color: `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`,
-        }
+        },
       }
     }
-    
+
     return {
       ...colors,
       isMultiAssignment: false,
-      memberCount: 1
+      memberCount: 1,
     }
   }
 
@@ -173,14 +207,15 @@ export function getTeamMemberColors(
   // Get colors for each member
   const memberColors = members.map(member => {
     const normalized = member.toLowerCase()
-    
+
     // Check if user has a stored color
     let colorIndex
     if (userColorMap) {
-      const colorValue = userColorMap instanceof Map 
-        ? userColorMap.get(member) || userColorMap.get(normalized)
-        : userColorMap[member] || userColorMap[normalized]
-      
+      const colorValue =
+        userColorMap instanceof Map
+          ? userColorMap.get(member) || userColorMap.get(normalized)
+          : userColorMap[member] || userColorMap[normalized]
+
       if (colorValue) {
         // Check if it's a hex color
         if (colorValue.startsWith('#')) {
@@ -206,34 +241,36 @@ export function getTeamMemberColors(
       // No color map provided, use hash-based
       colorIndex = getColorIndex(normalized)
     }
-    
+
     return TEAM_COLORS[colorIndex]
   })
 
   // Create gradient stops - divide evenly
   const percentagePerMember = 100 / memberCount
-  const gradientStops = memberColors.map((color, index) => {
-    const start = index * percentagePerMember
-    const end = (index + 1) * percentagePerMember
-    
-    // Handle hex colors
-    if (color.hex) {
-      const hexColor = color.hex.replace('#', '')
-      const r = parseInt(hexColor.substring(0, 2), 16)
-      const g = parseInt(hexColor.substring(2, 4), 16)
-      const b = parseInt(hexColor.substring(4, 6), 16)
-      const bgColor = `rgba(${r}, ${g}, ${b}, 0.2)`
+  const gradientStops = memberColors
+    .map((color, index) => {
+      const start = index * percentagePerMember
+      const end = (index + 1) * percentagePerMember
+
+      // Handle hex colors
+      if (color.hex) {
+        const hexColor = color.hex.replace('#', '')
+        const r = parseInt(hexColor.substring(0, 2), 16)
+        const g = parseInt(hexColor.substring(2, 4), 16)
+        const b = parseInt(hexColor.substring(4, 6), 16)
+        const bgColor = `rgba(${r}, ${g}, ${b}, 0.2)`
+        return `${bgColor} ${start}%, ${bgColor} ${end}%`
+      }
+
+      // Extract color from Tailwind class (e.g., 'bg-blue-500/20' -> 'rgba(59, 130, 246, 0.2)')
+      const bgColor = getColorValue(color.bg)
       return `${bgColor} ${start}%, ${bgColor} ${end}%`
-    }
-    
-    // Extract color from Tailwind class (e.g., 'bg-blue-500/20' -> 'rgba(59, 130, 246, 0.2)')
-    const bgColor = getColorValue(color.bg)
-    return `${bgColor} ${start}%, ${bgColor} ${end}%`
-  }).join(', ')
+    })
+    .join(', ')
 
   // Use first member's border and text color for consistency
   const firstColor = memberColors[0]
-  
+
   // Handle hex color for border
   let borderStyle: string | undefined
   let textStyle: string | undefined
@@ -245,7 +282,7 @@ export function getTeamMemberColors(
     borderStyle = `rgb(${r}, ${g}, ${b})`
     textStyle = `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`
   }
-  
+
   return {
     bg: '', // Will use gradient instead
     border: firstColor.border || '', // Empty for hex colors
@@ -256,7 +293,7 @@ export function getTeamMemberColors(
       background: `linear-gradient(to right, ${gradientStops})`,
       ...(borderStyle && { borderColor: borderStyle }),
       ...(textStyle && { color: textStyle }),
-    }
+    },
   }
 }
 
@@ -272,17 +309,17 @@ function hexToColorClasses(hex: string): {
 } {
   // Remove # if present
   const hexColor = hex.replace('#', '')
-  
+
   // Convert hex to RGB
   const r = parseInt(hexColor.substring(0, 2), 16)
   const g = parseInt(hexColor.substring(2, 4), 16)
   const b = parseInt(hexColor.substring(4, 6), 16)
-  
+
   // Create rgba strings for background (20% opacity) and border (100% opacity)
   const bgRgba = `rgba(${r}, ${g}, ${b}, 0.2)`
   const borderRgb = `rgb(${r}, ${g}, ${b})`
   const textRgb = `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`
-  
+
   return {
     bg: '', // Will use inline style
     border: '', // Will use inline style

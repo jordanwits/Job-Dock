@@ -36,14 +36,19 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
     accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
     declined: 'bg-red-500/20 text-red-400 border-red-500/30',
   }
-  
+
   // Only show status badge if it's not redundant with paymentStatus
   // Show status for: draft, overdue, cancelled
   // Hide status for: sent (since paymentStatus already shows pending/partial/paid)
-  const shouldShowStatus = invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
+  const shouldShowStatus =
+    invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
 
   // Show approval status for sent invoices only if trackResponse is enabled
-  const shouldShowApproval = invoice.trackResponse !== false && invoice.status === 'sent' && invoice.approvalStatus && invoice.approvalStatus !== 'none'
+  const shouldShowApproval =
+    invoice.trackResponse !== false &&
+    invoice.status === 'sent' &&
+    invoice.approvalStatus &&
+    invoice.approvalStatus !== 'none'
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -54,54 +59,58 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
 
   // Invoice is overdue if due date is more than 1 day in the past
   // (not on the due date itself, but the day after)
-  const isOverdue = invoice.dueDate && invoice.paymentStatus !== 'paid' && (() => {
-    const dueDate = new Date(invoice.dueDate)
-    const oneDayAgo = new Date()
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-    oneDayAgo.setHours(23, 59, 59, 999)
-    return dueDate < oneDayAgo
-  })()
+  const isOverdue =
+    invoice.dueDate &&
+    invoice.paymentStatus !== 'paid' &&
+    (() => {
+      const dueDate = new Date(invoice.dueDate)
+      const oneDayAgo = new Date()
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+      oneDayAgo.setHours(23, 59, 59, 999)
+      return dueDate < oneDayAgo
+    })()
 
   return (
     <Card
       className={cn(
-        "cursor-pointer hover:border-primary-gold transition-colors relative",
-        isSelected && "ring-2 ring-primary-gold"
+        'cursor-pointer hover:border-primary-gold transition-colors relative',
+        isSelected && 'ring-2 ring-primary-gold'
       )}
       onClick={() => setSelectedInvoice(invoice)}
     >
       <div className="space-y-3">
         {/* Selection Bullet Point */}
         {onToggleSelect && (
-          <div 
+          <div
             className="absolute top-3 left-3 z-10"
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation()
               onToggleSelect(invoice.id, e)
             }}
           >
             <div
               className={cn(
-                "w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center",
-                isSelected 
-                  ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                  : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                'w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center',
+                isSelected
+                  ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
+                  : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
               )}
             >
-              {isSelected && (
-                <div className="w-2.5 h-2.5 rounded-full bg-primary-dark" />
-              )}
+              {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary-dark" />}
             </div>
           </div>
         )}
-        
+
         {/* Header */}
-        <div className={cn("flex items-start justify-between", onToggleSelect && "pl-8")}>
+        <div className={cn('flex items-start justify-between', onToggleSelect && 'pl-8')}>
           <div className="flex-1 min-w-0 pr-2">
             <h3 className="text-lg font-semibold text-primary-light">
               {invoice.invoiceNumber}
               {invoice.contactName && invoice.title && (
-                <span className="text-primary-light/90"> — {invoice.contactName} {invoice.title}</span>
+                <span className="text-primary-light/90">
+                  {' '}
+                  — {invoice.contactName} {invoice.title}
+                </span>
               )}
             </h3>
             {invoice.contactCompany && (
@@ -166,10 +175,12 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
 
         {/* Due Date */}
         {invoice.dueDate && (
-          <div className={cn(
-            "text-xs",
-            isOverdue ? "text-red-400 font-medium" : "text-primary-light/50"
-          )}>
+          <div
+            className={cn(
+              'text-xs',
+              isOverdue ? 'text-red-400 font-medium' : 'text-primary-light/50'
+            )}
+          >
             {isOverdue ? '⚠️ ' : ''}Due: {new Date(invoice.dueDate).toLocaleDateString()}
           </div>
         )}
@@ -179,4 +190,3 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
 }
 
 export default InvoiceCard
-

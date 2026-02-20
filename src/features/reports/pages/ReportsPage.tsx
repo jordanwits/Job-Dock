@@ -32,9 +32,7 @@ export const ReportsPage = () => {
   const [customStartDate, setCustomStartDate] = useState<string>(
     format(startOfMonth(now), 'yyyy-MM-dd')
   )
-  const [customEndDate, setCustomEndDate] = useState<string>(
-    format(endOfMonth(now), 'yyyy-MM-dd')
-  )
+  const [customEndDate, setCustomEndDate] = useState<string>(format(endOfMonth(now), 'yyyy-MM-dd'))
   const [isTeamAccount, setIsTeamAccount] = useState(false)
   const [users, setUsers] = useState<Array<{ id: string; name: string; email: string }>>([])
   const [timeEntries, setTimeEntries] = useState<any[]>([])
@@ -92,13 +90,22 @@ export const ReportsPage = () => {
         const billingStatus = await services.billing.getStatus()
         // Check both subscriptionTier and canInviteTeamMembers for team accounts
         // Also check if we have more than 1 user (fallback for team detection)
-        const isTeam = 
-          billingStatus.subscriptionTier === 'team' || 
+        const isTeam =
+          billingStatus.subscriptionTier === 'team' ||
           billingStatus.canInviteTeamMembers === true ||
           usersData.length > 1
         setIsTeamAccount(isTeam)
         console.log('Billing status:', billingStatus)
-        console.log('Is team account:', isTeam, 'subscriptionTier:', billingStatus.subscriptionTier, 'canInviteTeamMembers:', billingStatus.canInviteTeamMembers, 'userCount:', usersData.length)
+        console.log(
+          'Is team account:',
+          isTeam,
+          'subscriptionTier:',
+          billingStatus.subscriptionTier,
+          'canInviteTeamMembers:',
+          billingStatus.canInviteTeamMembers,
+          'userCount:',
+          usersData.length
+        )
 
         // Fetch job logs (includes time entries)
         await fetchJobLogs()
@@ -112,7 +119,9 @@ export const ReportsPage = () => {
         console.log('Fetched time entries:', entries.length)
         console.log('Time entries sample:', entries.slice(0, 3))
         console.log('Time entries with userId:', entries.filter(e => e.userId).length)
-        console.log('Time entries userIds:', [...new Set(entries.filter(e => e.userId).map(e => e.userId))])
+        console.log('Time entries userIds:', [
+          ...new Set(entries.filter(e => e.userId).map(e => e.userId)),
+        ])
         setTimeEntries(entries)
       } catch (error) {
         console.error('Failed to load reports data:', error)
@@ -142,12 +151,10 @@ export const ReportsPage = () => {
       <Card className="p-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-primary-light mb-2">
-              Date Range
-            </label>
+            <label className="block text-sm font-medium text-primary-light mb-2">Date Range</label>
             <Select
               value={dateRangePreset}
-              onChange={(e) => setDateRangePreset(e.target.value as DateRangePreset)}
+              onChange={e => setDateRangePreset(e.target.value as DateRangePreset)}
               options={[
                 { value: 'this-month', label: 'This Month' },
                 { value: 'last-month', label: 'Last Month' },
@@ -166,7 +173,7 @@ export const ReportsPage = () => {
                 <input
                   type="date"
                   value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  onChange={e => setCustomStartDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-primary-blue/30 bg-primary-dark-secondary text-primary-light focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold"
                 />
               </div>
@@ -177,7 +184,7 @@ export const ReportsPage = () => {
                 <input
                   type="date"
                   value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  onChange={e => setCustomEndDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-primary-blue/30 bg-primary-dark-secondary text-primary-light focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold"
                 />
               </div>
@@ -214,18 +221,10 @@ export const ReportsPage = () => {
           />
 
           {/* Quotes Report */}
-          <QuotesReport
-            startDate={dateRange.start}
-            endDate={dateRange.end}
-            quotes={quotes}
-          />
+          <QuotesReport startDate={dateRange.start} endDate={dateRange.end} quotes={quotes} />
 
           {/* Invoices Report */}
-          <InvoicesReport
-            startDate={dateRange.start}
-            endDate={dateRange.end}
-            invoices={invoices}
-          />
+          <InvoicesReport startDate={dateRange.start} endDate={dateRange.end} invoices={invoices} />
 
           {/* Jobs Report */}
           <JobsReport

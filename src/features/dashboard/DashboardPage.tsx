@@ -15,7 +15,6 @@ const DashboardPage = () => {
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
   const { invoices, fetchInvoices, isLoading: invoicesLoading } = useInvoiceStore()
   const { jobLogs, fetchJobLogs, isLoading: jobLogsLoading } = useJobLogStore()
-  
 
   // Scroll to top on mount
   useEffect(() => {
@@ -45,7 +44,7 @@ const DashboardPage = () => {
     const nextWeek = addDays(today, 7)
 
     return jobs
-      .filter((job) => {
+      .filter(job => {
         const jobDate = new Date(job.startTime)
         return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled'
       })
@@ -55,14 +54,14 @@ const DashboardPage = () => {
 
   // Quote metrics
   const quoteMetrics = useMemo(() => {
-    const pending = quotes.filter((q) => q.status === 'sent').length
-    const accepted = quotes.filter((q) => q.status === 'accepted').length
-    const rejected = quotes.filter((q) => q.status === 'rejected').length
-    const draft = quotes.filter((q) => q.status === 'draft').length
+    const pending = quotes.filter(q => q.status === 'sent').length
+    const accepted = quotes.filter(q => q.status === 'accepted').length
+    const rejected = quotes.filter(q => q.status === 'rejected').length
+    const draft = quotes.filter(q => q.status === 'draft').length
 
     // Recent quotes activity (last 3)
     const recentQuotes = quotes
-      .filter((q) => q.status === 'sent' || q.status === 'accepted' || q.status === 'rejected')
+      .filter(q => q.status === 'sent' || q.status === 'accepted' || q.status === 'rejected')
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 3)
 
@@ -72,8 +71,8 @@ const DashboardPage = () => {
   // Job (job log) metrics - for all users
   const jobMetrics = useMemo(() => {
     const norm = (s: string | undefined) => (s === 'archived' ? 'inactive' : s || 'active')
-    const active = jobLogs.filter((j) => norm(j.status) === 'active')
-    const completed = jobLogs.filter((j) => norm(j.status) === 'completed')
+    const active = jobLogs.filter(j => norm(j.status) === 'active')
+    const completed = jobLogs.filter(j => norm(j.status) === 'completed')
     const recentJobs = [...jobLogs]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5)
@@ -82,22 +81,22 @@ const DashboardPage = () => {
 
   // Invoice metrics
   const invoiceMetrics = useMemo(() => {
-    const sent = invoices.filter((i) => i.status === 'sent').length
-    const overdue = invoices.filter((i) => i.status === 'overdue').length
-    const draft = invoices.filter((i) => i.status === 'draft').length
-    const clientApproved = invoices.filter((i) => i.approvalStatus === 'accepted').length
+    const sent = invoices.filter(i => i.status === 'sent').length
+    const overdue = invoices.filter(i => i.status === 'overdue').length
+    const draft = invoices.filter(i => i.status === 'draft').length
+    const clientApproved = invoices.filter(i => i.approvalStatus === 'accepted').length
     const awaitingApproval = invoices.filter(
-      (i) => i.status === 'sent' && i.approvalStatus === 'none'
+      i => i.status === 'sent' && i.approvalStatus === 'none'
     ).length
 
     // Calculate total outstanding
     const outstanding = invoices
-      .filter((i) => i.paymentStatus !== 'paid' && i.status !== 'cancelled' && i.status !== 'draft')
+      .filter(i => i.paymentStatus !== 'paid' && i.status !== 'cancelled' && i.status !== 'draft')
       .reduce((sum, i) => sum + (i.total - i.paidAmount), 0)
 
     // Recent sent/overdue invoices (last 3)
     const recentInvoices = invoices
-      .filter((i) => i.status === 'sent' || i.status === 'overdue')
+      .filter(i => i.status === 'sent' || i.status === 'overdue')
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 3)
 
@@ -128,7 +127,7 @@ const DashboardPage = () => {
           <div className="lg:row-span-2 rounded-xl border border-white/5 bg-primary-dark-secondary/50 p-6 shadow-sm shadow-black/20">
             <div className="h-6 w-48 bg-primary-dark rounded animate-pulse mb-6"></div>
             <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
+              {[1, 2, 3].map(i => (
                 <div key={i} className="h-20 bg-primary-dark rounded-lg animate-pulse"></div>
               ))}
             </div>
@@ -177,14 +176,15 @@ const DashboardPage = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                {upcomingJobs.map((job) => {
+                {upcomingJobs.map(job => {
                   const statusColors = {
                     active: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
                     scheduled: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
                     'in-progress': 'bg-yellow-500/10 text-yellow-400 ring-1 ring-yellow-500/20',
                     completed: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20',
                     cancelled: 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
-                    'pending-confirmation': 'bg-orange-500/10 text-orange-400 ring-1 ring-orange-500/20',
+                    'pending-confirmation':
+                      'bg-orange-500/10 text-orange-400 ring-1 ring-orange-500/20',
                   }
 
                   return (
@@ -233,21 +233,29 @@ const DashboardPage = () => {
             {/* Job Stats */}
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">Active</p>
+                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">
+                  Active
+                </p>
                 <p className="text-2xl font-bold text-green-400 mt-2">{jobMetrics.activeCount}</p>
               </div>
               <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">Completed</p>
-                <p className="text-2xl font-bold text-primary-blue mt-2">{jobMetrics.completedCount}</p>
+                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">
+                  Completed
+                </p>
+                <p className="text-2xl font-bold text-primary-blue mt-2">
+                  {jobMetrics.completedCount}
+                </p>
               </div>
             </div>
 
             {/* Recent Jobs */}
             {jobMetrics.recentJobs.length > 0 ? (
               <div>
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide mb-3">Recent Jobs</p>
+                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide mb-3">
+                  Recent Jobs
+                </p>
                 <div className="space-y-2">
-                  {jobMetrics.recentJobs.map((jobLog) => {
+                  {jobMetrics.recentJobs.map(jobLog => {
                     const totalMinutes =
                       jobLog.timeEntries?.reduce((sum, te) => {
                         const start = new Date(te.startTime).getTime()
@@ -257,11 +265,13 @@ const DashboardPage = () => {
                       }, 0) ?? 0
                     const hours = Math.floor(totalMinutes / 60)
                     const mins = Math.round(totalMinutes % 60)
-                    const statusLabel = (jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active'
+                    const statusLabel =
+                      (jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active'
                     const statusColors: Record<string, string> = {
                       active: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20',
                       completed: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
-                      inactive: 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20',
+                      inactive:
+                        'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20',
                     }
                     return (
                       <Link
@@ -270,7 +280,9 @@ const DashboardPage = () => {
                         className="block text-sm p-3 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-primary-light font-medium truncate">{jobLog.title}</span>
+                          <span className="text-primary-light font-medium truncate">
+                            {jobLog.title}
+                          </span>
                           <span
                             className={cn(
                               'text-xs px-2.5 py-1 rounded-full font-medium capitalize whitespace-nowrap',
@@ -304,129 +316,160 @@ const DashboardPage = () => {
 
           {/* Quotes - admin/owner only */}
           {!isEmployee && (
-          <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
-            <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
-              <h2 className="text-lg font-semibold text-primary-light tracking-tight">Quotes</h2>
-              <Link to="/app/quotes">
-                <Button variant="ghost" size="sm">
-                  View All
-                </Button>
-              </Link>
-            </div>
-
-            {/* Quote Stats */}
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">Pending</p>
-                <p className="text-2xl font-bold text-primary-blue mt-2">{quoteMetrics.pending}</p>
+            <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
+              <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
+                <h2 className="text-lg font-semibold text-primary-light tracking-tight">Quotes</h2>
+                <Link to="/app/quotes">
+                  <Button variant="ghost" size="sm">
+                    View All
+                  </Button>
+                </Link>
               </div>
-              <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">Accepted</p>
-                <p className="text-2xl font-bold text-green-400 mt-2">{quoteMetrics.accepted}</p>
-              </div>
-            </div>
 
-            {/* Recent Quotes */}
-            {quoteMetrics.recentQuotes.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide mb-3">Recent Activity</p>
-                <div className="space-y-2">
-                  {quoteMetrics.recentQuotes.map((quote) => (
-                    <div
-                      key={quote.id}
-                      className="text-sm p-3 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-primary-light font-medium truncate">{quote.quoteNumber}</span>
-                        <span
-                          className={cn(
-                            'text-xs px-2.5 py-1 rounded-full font-medium',
-                            quote.status === 'accepted' && 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20',
-                            quote.status === 'rejected' && 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
-                            quote.status === 'sent' && 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-                          )}
-                        >
-                          {quote.status}
-                        </span>
-                      </div>
-                      <p className="text-primary-light/50 text-xs mt-1.5">${quote.total.toFixed(2)}</p>
-                    </div>
-                  ))}
+              {/* Quote Stats */}
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
+                  <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">
+                    Pending
+                  </p>
+                  <p className="text-2xl font-bold text-primary-blue mt-2">
+                    {quoteMetrics.pending}
+                  </p>
+                </div>
+                <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
+                  <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">
+                    Accepted
+                  </p>
+                  <p className="text-2xl font-bold text-green-400 mt-2">{quoteMetrics.accepted}</p>
                 </div>
               </div>
-            )}
-          </Card>
+
+              {/* Recent Quotes */}
+              {quoteMetrics.recentQuotes.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide mb-3">
+                    Recent Activity
+                  </p>
+                  <div className="space-y-2">
+                    {quoteMetrics.recentQuotes.map(quote => (
+                      <div
+                        key={quote.id}
+                        className="text-sm p-3 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-primary-light font-medium truncate">
+                            {quote.quoteNumber}
+                          </span>
+                          <span
+                            className={cn(
+                              'text-xs px-2.5 py-1 rounded-full font-medium',
+                              quote.status === 'accepted' &&
+                                'bg-green-500/10 text-green-400 ring-1 ring-green-500/20',
+                              quote.status === 'rejected' &&
+                                'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
+                              quote.status === 'sent' &&
+                                'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
+                            )}
+                          >
+                            {quote.status}
+                          </span>
+                        </div>
+                        <p className="text-primary-light/50 text-xs mt-1.5">
+                          ${quote.total.toFixed(2)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
           )}
 
           {/* Invoices Card - admin/owner only */}
           {!isEmployee && (
-          <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
-            <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
-              <h2 className="text-lg font-semibold text-primary-light tracking-tight">Invoices</h2>
-              <Link to="/app/invoices">
-                <Button variant="ghost" size="sm">
-                  View All
-                </Button>
-              </Link>
-            </div>
+            <Card className="rounded-xl border-white/10 shadow-sm shadow-black/20 p-6">
+              <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/5">
+                <h2 className="text-lg font-semibold text-primary-light tracking-tight">
+                  Invoices
+                </h2>
+                <Link to="/app/invoices">
+                  <Button variant="ghost" size="sm">
+                    View All
+                  </Button>
+                </Link>
+              </div>
 
-            {/* Invoice Stats */}
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">Outstanding</p>
-                <p className="text-2xl font-bold text-primary-gold mt-2">
-                  ${invoiceMetrics.outstanding.toFixed(0)}
-                </p>
-              </div>
-              <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">Overdue</p>
-                <p className="text-2xl font-bold text-red-400 mt-2">{invoiceMetrics.overdue}</p>
-              </div>
-            </div>
-
-            {/* Client Approval Status */}
-            <div className="bg-primary-dark/50 rounded-lg p-4 mb-5 ring-1 ring-white/5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-primary-light/50">Client Approved</span>
-                <span className="text-primary-light font-semibold">{invoiceMetrics.clientApproved}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm mt-3">
-                <span className="text-primary-light/50">Awaiting Approval</span>
-                <span className="text-primary-light font-semibold">{invoiceMetrics.awaitingApproval}</span>
-              </div>
-            </div>
-
-            {/* Recent Invoices */}
-            {invoiceMetrics.recentInvoices.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide mb-3">Recent Activity</p>
-                <div className="space-y-2">
-                  {invoiceMetrics.recentInvoices.map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="text-sm p-3 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-primary-light font-medium truncate">{invoice.invoiceNumber}</span>
-                        <span
-                          className={cn(
-                            'text-xs px-2.5 py-1 rounded-full font-medium',
-                            invoice.status === 'overdue' && 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
-                            invoice.status === 'sent' && 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-                          )}
-                        >
-                          {invoice.status}
-                        </span>
-                      </div>
-                      <p className="text-primary-light/50 text-xs mt-1.5">
-                        ${(invoice.total - invoice.paidAmount).toFixed(2)} due
-                      </p>
-                    </div>
-                  ))}
+              {/* Invoice Stats */}
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
+                  <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">
+                    Outstanding
+                  </p>
+                  <p className="text-2xl font-bold text-primary-gold mt-2">
+                    ${invoiceMetrics.outstanding.toFixed(0)}
+                  </p>
+                </div>
+                <div className="bg-primary-dark/50 rounded-lg p-4 ring-1 ring-white/5">
+                  <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide">
+                    Overdue
+                  </p>
+                  <p className="text-2xl font-bold text-red-400 mt-2">{invoiceMetrics.overdue}</p>
                 </div>
               </div>
-            )}
-          </Card>
+
+              {/* Client Approval Status */}
+              <div className="bg-primary-dark/50 rounded-lg p-4 mb-5 ring-1 ring-white/5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-primary-light/50">Client Approved</span>
+                  <span className="text-primary-light font-semibold">
+                    {invoiceMetrics.clientApproved}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-3">
+                  <span className="text-primary-light/50">Awaiting Approval</span>
+                  <span className="text-primary-light font-semibold">
+                    {invoiceMetrics.awaitingApproval}
+                  </span>
+                </div>
+              </div>
+
+              {/* Recent Invoices */}
+              {invoiceMetrics.recentInvoices.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-primary-light/50 uppercase tracking-wide mb-3">
+                    Recent Activity
+                  </p>
+                  <div className="space-y-2">
+                    {invoiceMetrics.recentInvoices.map(invoice => (
+                      <div
+                        key={invoice.id}
+                        className="text-sm p-3 rounded-lg bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-primary-light font-medium truncate">
+                            {invoice.invoiceNumber}
+                          </span>
+                          <span
+                            className={cn(
+                              'text-xs px-2.5 py-1 rounded-full font-medium',
+                              invoice.status === 'overdue' &&
+                                'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
+                              invoice.status === 'sent' &&
+                                'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
+                            )}
+                          >
+                            {invoice.status}
+                          </span>
+                        </div>
+                        <p className="text-primary-light/50 text-xs mt-1.5">
+                          ${(invoice.total - invoice.paidAmount).toFixed(2)} due
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
           )}
         </div>
       )}

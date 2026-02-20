@@ -19,12 +19,7 @@ const Sidebar = ({ items, isOpen = true, onClose }: SidebarProps) => {
   return (
     <>
       {/* Mobile overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={onClose}
-        />
-      )}
+      {isOpen && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onClose} />}
 
       {/* Sidebar */}
       <aside
@@ -41,7 +36,7 @@ const Sidebar = ({ items, isOpen = true, onClose }: SidebarProps) => {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 p-4">
-            {items.map((item) => {
+            {items.map(item => {
               const isActive = location.pathname === item.href
               return (
                 <Link
@@ -68,4 +63,3 @@ const Sidebar = ({ items, isOpen = true, onClose }: SidebarProps) => {
 }
 
 export default Sidebar
-

@@ -19,9 +19,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-primary-light mb-2">
-            {label}
-          </label>
+          <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
         )}
         <input
           className={cn(
@@ -38,12 +36,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           onWheel={handleWheel}
           {...props}
         />
-        {error && (
-          <p className="mt-1 text-sm text-red-500">{error}</p>
-        )}
-        {helperText && !error && (
-          <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>
-        )}
+        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
       </div>
     )
   }
@@ -52,4 +46,3 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = 'Input'
 
 export default Input
-

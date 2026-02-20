@@ -89,8 +89,12 @@ const QuotesPage = () => {
     if (openCreateQuote) {
       setCreateQuoteDefaults({
         contactId: searchParams.get('contactId') || undefined,
-        title: searchParams.get('title') ? decodeURIComponent(searchParams.get('title')) : undefined,
-        notes: searchParams.get('notes') ? decodeURIComponent(searchParams.get('notes')) : undefined,
+        title: searchParams.get('title')
+          ? decodeURIComponent(searchParams.get('title'))
+          : undefined,
+        notes: searchParams.get('notes')
+          ? decodeURIComponent(searchParams.get('notes'))
+          : undefined,
       })
       setShowCreateForm(true)
       const params = new URLSearchParams(searchParams)
@@ -141,8 +145,8 @@ const QuotesPage = () => {
             Create and manage quotes for your projects
           </p>
         </div>
-        <Button 
-          onClick={() => setShowCreateForm(true)} 
+        <Button
+          onClick={() => setShowCreateForm(true)}
           className="w-full sm:w-auto"
           title="Keyboard shortcut: Ctrl+N or ⌘N"
         >
@@ -212,7 +216,7 @@ const QuotesPage = () => {
             setShowConfirmation(true)
             setTimeout(() => setShowConfirmation(false), 3000)
           }}
-          onJobCreateFailed={(error) => {
+          onJobCreateFailed={error => {
             // Error is already displayed by the job store
           }}
         />
@@ -222,4 +226,3 @@ const QuotesPage = () => {
 }
 
 export default QuotesPage
-

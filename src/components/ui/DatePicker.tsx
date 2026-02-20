@@ -1,6 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns'
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  isToday,
+  addMonths,
+  subMonths,
+  startOfWeek,
+  endOfWeek,
+} from 'date-fns'
 
 export interface DatePickerProps {
   value?: string
@@ -34,7 +46,9 @@ const DatePicker = ({
   className,
 }: DatePickerProps) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState(value ? parseDateStringAsLocal(value) : new Date())
+  const [currentMonth, setCurrentMonth] = useState(
+    value ? parseDateStringAsLocal(value) : new Date()
+  )
   const containerRef = useRef<HTMLDivElement>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
 
@@ -47,7 +61,7 @@ const DatePicker = ({
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside)
-      
+
       // Scroll the date picker calendar into view when it opens
       setTimeout(() => {
         if (calendarRef.current) {
@@ -113,9 +127,7 @@ const DatePicker = ({
   return (
     <div className={cn('w-full', className)} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium text-primary-light mb-2">
-          {label}
-        </label>
+        <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
       )}
       <div className="relative">
         <button
@@ -128,9 +140,7 @@ const DatePicker = ({
             'placeholder:text-primary-light/50',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            error
-              ? 'border-red-500 focus-visible:ring-red-500'
-              : 'border-primary-blue',
+            error ? 'border-red-500 focus-visible:ring-red-500' : 'border-primary-blue',
             className
           )}
         >
@@ -153,7 +163,7 @@ const DatePicker = ({
         </button>
 
         {isOpen && (
-          <div 
+          <div
             ref={calendarRef}
             className="absolute z-50 mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl p-4"
           >
@@ -196,7 +206,7 @@ const DatePicker = ({
 
             {/* Week Days */}
             <div className="grid grid-cols-7 gap-1 mb-2">
-              {weekDays.map((day) => (
+              {weekDays.map(day => (
                 <div
                   key={day}
                   className="text-center text-xs font-medium text-primary-light/70 py-1"
@@ -223,8 +233,13 @@ const DatePicker = ({
                     className={cn(
                       'h-9 w-9 rounded text-sm transition-colors',
                       !isCurrentMonth && 'text-primary-light/20',
-                      isCurrentMonth && !isSelected && !isTodayDate && 'text-primary-light hover:bg-primary-dark',
-                      isTodayDate && !isSelected && 'bg-primary-blue/20 text-primary-light font-semibold',
+                      isCurrentMonth &&
+                        !isSelected &&
+                        !isTodayDate &&
+                        'text-primary-light hover:bg-primary-dark',
+                      isTodayDate &&
+                        !isSelected &&
+                        'bg-primary-blue/20 text-primary-light font-semibold',
                       isSelected && 'bg-primary-gold text-primary-dark font-semibold',
                       isDisabled && 'opacity-30 cursor-not-allowed',
                       !isDisabled && isCurrentMonth && 'hover:bg-primary-dark'
@@ -250,12 +265,9 @@ const DatePicker = ({
         )}
       </div>
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-      {helperText && !error && (
-        <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>
-      )}
+      {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
     </div>
   )
 }
 
 export default DatePicker
-

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { cn } from '@/lib/utils'
 
-export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'options'> {
+export interface SelectProps
+  extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'options'> {
   label?: string
   error?: string
   helperText?: string
@@ -11,7 +12,23 @@ export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectE
 }
 
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, helperText, options, value, onChange, onBlur, name, disabled, placeholder = 'Select an option', ...props }, ref) => {
+  (
+    {
+      className,
+      label,
+      error,
+      helperText,
+      options,
+      value,
+      onChange,
+      onBlur,
+      name,
+      disabled,
+      placeholder = 'Select an option',
+      ...props
+    },
+    ref
+  ) => {
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
@@ -47,20 +64,20 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           dropdownRef.current?.scrollIntoView({
             behavior: 'smooth',
             block: 'nearest',
-            inline: 'nearest'
+            inline: 'nearest',
           })
         }, 10)
       }
     }, [isOpen])
 
-    const selectedOption = options.find((opt) => opt.value === value)
+    const selectedOption = options.find(opt => opt.value === value)
     const displayValue = selectedOption ? selectedOption.label : placeholder
 
     const handleSelect = (optionValue: string) => {
       if (selectRef.current) {
         // Update the hidden select element's value first
         selectRef.current.value = optionValue
-        
+
         if (onChange) {
           // Create a synthetic event for react-hook-form with the actual select element
           const syntheticEvent = {
@@ -68,7 +85,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             currentTarget: selectRef.current,
             type: 'change',
           } as React.ChangeEvent<HTMLSelectElement>
-          
+
           onChange(syntheticEvent)
         }
       }
@@ -78,11 +95,9 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className={cn('w-full', className)}>
         {label && (
-          <label className="block text-sm font-medium text-primary-light mb-2">
-            {label}
-          </label>
+          <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
         )}
-        
+
         {/* Hidden select for react-hook-form */}
         <select
           ref={selectRef}
@@ -94,7 +109,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           className="hidden"
           {...props}
         >
-          {options.map((option) => (
+          {options.map(option => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -142,7 +157,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
               className="absolute z-50 mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl max-h-64 overflow-y-auto"
             >
               <div className="p-2">
-                {options.map((option) => {
+                {options.map(option => {
                   const isSelected = value === option.value
 
                   return (
@@ -166,12 +181,8 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           )}
         </div>
 
-        {error && (
-          <p className="mt-1 text-sm text-red-500">{error}</p>
-        )}
-        {helperText && !error && (
-          <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>
-        )}
+        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
       </div>
     )
   }

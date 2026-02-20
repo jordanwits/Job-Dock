@@ -9,8 +9,9 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
 const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, label, error, ...props }, ref) => {
     // SVG checkmark as data URL - black checkmark (thicker stroke-based)
-    const checkmarkSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8 L6 11 L13 4' stroke='%23000000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E"
-    
+    const checkmarkSvg =
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8 L6 11 L13 4' stroke='%23000000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E"
+
     return (
       <div className="w-full">
         <style>{`
@@ -50,9 +51,7 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             </label>
           )}
         </div>
-        {error && (
-          <p className="mt-1 text-sm text-red-500">{error}</p>
-        )}
+        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
       </div>
     )
   }
@@ -61,4 +60,3 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
 Checkbox.displayName = 'Checkbox'
 
 export default Checkbox
-

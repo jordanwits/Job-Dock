@@ -30,43 +30,44 @@ const QuoteCard = ({ quote, isSelected, onToggleSelect }: QuoteCardProps) => {
   return (
     <Card
       className={cn(
-        "cursor-pointer hover:border-primary-gold transition-colors relative",
-        isSelected && "ring-2 ring-primary-gold"
+        'cursor-pointer hover:border-primary-gold transition-colors relative',
+        isSelected && 'ring-2 ring-primary-gold'
       )}
       onClick={() => setSelectedQuote(quote)}
     >
       <div className="space-y-3">
         {/* Selection Bullet Point */}
         {onToggleSelect && (
-          <div 
+          <div
             className="absolute top-3 left-3 z-10"
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation()
               onToggleSelect(quote.id, e)
             }}
           >
             <div
               className={cn(
-                "w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center",
-                isSelected 
-                  ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                  : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                'w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center',
+                isSelected
+                  ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
+                  : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
               )}
             >
-              {isSelected && (
-                <div className="w-2.5 h-2.5 rounded-full bg-primary-dark" />
-              )}
+              {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary-dark" />}
             </div>
           </div>
         )}
-        
+
         {/* Header */}
-        <div className={cn("flex items-start justify-between", onToggleSelect && "pl-8")}>
+        <div className={cn('flex items-start justify-between', onToggleSelect && 'pl-8')}>
           <div className="flex-1 min-w-0 pr-2">
             <h3 className="text-lg font-semibold text-primary-light">
               {quote.quoteNumber}
               {quote.contactName && quote.title && (
-                <span className="text-primary-light/90"> — {quote.contactName} {quote.title}</span>
+                <span className="text-primary-light/90">
+                  {' '}
+                  — {quote.contactName} {quote.title}
+                </span>
               )}
             </h3>
             {quote.contactCompany && (
@@ -110,4 +111,3 @@ const QuoteCard = ({ quote, isSelected, onToggleSelect }: QuoteCardProps) => {
 }
 
 export default QuoteCard
-

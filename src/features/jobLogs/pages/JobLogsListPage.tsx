@@ -62,7 +62,12 @@ const JobLogsListPage = () => {
         showCreatedBy={isTeamAccount}
       />
 
-      <Modal isOpen={showCreateForm} onClose={() => setShowCreateForm(false)} title="New Job" size="2xl">
+      <Modal
+        isOpen={showCreateForm}
+        onClose={() => setShowCreateForm(false)}
+        title="New Job"
+        size="2xl"
+      >
         <JobLogForm
           onSubmit={handleCreate}
           onCancel={() => setShowCreateForm(false)}

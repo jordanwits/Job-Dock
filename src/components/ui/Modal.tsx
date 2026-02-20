@@ -31,7 +31,7 @@ const Modal = ({
   const scrollYRef = useRef(0)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const onCloseRef = useRef(onClose)
-  
+
   // Keep onClose ref up to date
   useEffect(() => {
     onCloseRef.current = onClose
@@ -93,7 +93,7 @@ const Modal = ({
     // Use capture phase to ensure we get the event first
     button.addEventListener('click', handleClose, { capture: true })
     button.addEventListener('touchend', handleClose, { capture: true, passive: false })
-    
+
     return () => {
       button.removeEventListener('click', handleClose, { capture: true })
       button.removeEventListener('touchend', handleClose, { capture: true })
@@ -121,7 +121,13 @@ const Modal = ({
           ? 'items-end sm:items-center justify-center'
           : 'items-center justify-center sm:overflow-y-auto'
       )}
-      onMouseDown={closeOnOverlayClick ? (e) => { if (e.target === e.currentTarget) onClose() } : undefined}
+      onMouseDown={
+        closeOnOverlayClick
+          ? e => {
+              if (e.target === e.currentTarget) onClose()
+            }
+          : undefined
+      }
     >
       <div
         className={cn(
@@ -142,7 +148,9 @@ const Modal = ({
           <div className="flex items-center justify-between gap-2 p-4 sm:p-6 border-b border-primary-blue flex-shrink-0 relative z-20 pointer-events-auto">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {title && (
-                <h2 className="text-lg sm:text-xl font-semibold text-primary-light shrink-0">{title}</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-primary-light shrink-0">
+                  {title}
+                </h2>
               )}
               {headerRight && (
                 <span className="text-sm text-primary-light/70 shrink-0">{headerRight}</span>
@@ -152,7 +160,11 @@ const Modal = ({
               <button
                 ref={closeButtonRef}
                 className="text-primary-light hover:text-primary-gold transition-colors flex-shrink-0 touch-manipulation relative z-10"
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', cursor: 'pointer' }}
+                style={{
+                  touchAction: 'manipulation',
+                  WebkitTapHighlightColor: 'transparent',
+                  cursor: 'pointer',
+                }}
                 aria-label="Close modal"
                 type="button"
               >

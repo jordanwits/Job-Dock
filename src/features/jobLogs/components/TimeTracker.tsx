@@ -124,7 +124,11 @@ function TimeNumberInput({
         <input
           type="text"
           inputMode="numeric"
-          value={minStr && !isNaN(parseInt(minStr, 10)) ? String(parseInt(minStr, 10)).padStart(2, '0') : minStr}
+          value={
+            minStr && !isNaN(parseInt(minStr, 10))
+              ? String(parseInt(minStr, 10)).padStart(2, '0')
+              : minStr
+          }
           onChange={handleMinuteChange}
           className={cn(base, inputSize)}
           placeholder="min"
@@ -163,7 +167,7 @@ const TimeTracker = ({
   const effectiveIsAdmin = isAdmin ?? (user?.role === 'admin' || user?.role === 'owner')
   const effectiveCurrentUserId = currentUserId ?? user?.id
   const effectiveClockInFor = clockInFor ?? 'self'
-  
+
   // Internal timer state (only used if externalTimerState is not provided)
   const [internalIsTimerRunning, setInternalIsTimerRunning] = useState(() => {
     if (externalTimerState) return false
@@ -204,7 +208,7 @@ const TimeTracker = ({
       // Fallback: only own entries
       return timeEntries.filter(te => te.userId === effectiveCurrentUserId)
     }
-    
+
     // If user has clock-in permissions, they can see assigned users' entries
     if (effectiveClockInFor === 'everyone') {
       // Can see all entries (though backend may restrict)
@@ -218,28 +222,34 @@ const TimeTracker = ({
         return assignedUserIds.has(te.userId)
       })
     }
-    
+
     // Self-only: only show their own entries
     return timeEntries.filter(te => te.userId === effectiveCurrentUserId)
   }, [timeEntries, effectiveIsAdmin, effectiveCurrentUserId, assignedTo, effectiveClockInFor])
 
   // Permission helpers (backend enforces permissions, these are for UX)
-  const canEditEntry = useCallback((entry: TimeEntry): boolean => {
-    if (effectiveIsAdmin) return true
-    if (!effectiveCurrentUserId) return false
-    // Employees can edit their own entries
-    return entry.userId === effectiveCurrentUserId
-  }, [effectiveIsAdmin, effectiveCurrentUserId])
+  const canEditEntry = useCallback(
+    (entry: TimeEntry): boolean => {
+      if (effectiveIsAdmin) return true
+      if (!effectiveCurrentUserId) return false
+      // Employees can edit their own entries
+      return entry.userId === effectiveCurrentUserId
+    },
+    [effectiveIsAdmin, effectiveCurrentUserId]
+  )
 
-  const canClockFor = useCallback((targetUserId?: string): boolean => {
-    if (!effectiveCurrentUserId || !targetUserId) return false
-    // Employees can clock in for themselves
-    if (targetUserId === effectiveCurrentUserId) return true
-    if (effectiveClockInFor === 'self') return false
-    if (effectiveClockInFor === 'everyone') return true
-    // assigned
-    return !!assignedTo?.some(a => a.userId === targetUserId)
-  }, [effectiveCurrentUserId, assignedTo, effectiveClockInFor])
+  const canClockFor = useCallback(
+    (targetUserId?: string): boolean => {
+      if (!effectiveCurrentUserId || !targetUserId) return false
+      // Employees can clock in for themselves
+      if (targetUserId === effectiveCurrentUserId) return true
+      if (effectiveClockInFor === 'self') return false
+      if (effectiveClockInFor === 'everyone') return true
+      // assigned
+      return !!assignedTo?.some(a => a.userId === targetUserId)
+    },
+    [effectiveCurrentUserId, assignedTo, effectiveClockInFor]
+  )
 
   // Group entries by user for admin view and employees with team permissions
   const entriesByUser = useMemo(() => {
@@ -255,22 +265,22 @@ const TimeTracker = ({
       }
       grouped.get(key)!.entries.push(entry)
     })
-    
+
     // Sort: current user first, then leads, then others
     return Array.from(grouped.values()).sort((a, b) => {
       // Current user always first
       if (a.userId === effectiveCurrentUserId) return -1
       if (b.userId === effectiveCurrentUserId) return 1
-      
+
       // Then check for leads
       const aAssignment = assignedTo?.find(ass => ass.userId === a.userId)
       const bAssignment = assignedTo?.find(ass => ass.userId === b.userId)
       const aIsLead = aAssignment?.role?.toLowerCase().includes('lead') ?? false
       const bIsLead = bAssignment?.role?.toLowerCase().includes('lead') ?? false
-      
+
       if (aIsLead && !bIsLead) return -1
       if (!aIsLead && bIsLead) return 1
-      
+
       // Otherwise maintain original order (by name)
       return a.userName.localeCompare(b.userName)
     })
@@ -345,7 +355,7 @@ const TimeTracker = ({
   // Get available users to clock in for based on permissions
   const availableUsersToClockIn = useMemo(() => {
     if (!effectiveCurrentUserId) return []
-    
+
     // Admins can always see all team members (for manual entry and clock-in)
     if (effectiveIsAdmin) {
       // If team members are loaded, use them; otherwise use assigned users as fallback
@@ -361,18 +371,19 @@ const TimeTracker = ({
       // Last resort: just current user
       return [{ id: effectiveCurrentUserId, name: user?.name || 'You' }]
     }
-    
+
     // Non-admins: use role-based permissions
     if (!assignedTo) return []
-    
+
     const assignedUserIds = new Set(assignedTo.map(a => a.userId))
     const assignedUsers = (assignedToUsers || []).filter(u => assignedUserIds.has(u.id))
 
     if (effectiveClockInFor === 'self') {
-      const self =
-        assignedUsers.find(u => u.id === effectiveCurrentUserId) ||
-        teamMembers.find(u => u.id === effectiveCurrentUserId) ||
-        { id: effectiveCurrentUserId, name: user?.name || 'You' }
+      const self = assignedUsers.find(u => u.id === effectiveCurrentUserId) ||
+        teamMembers.find(u => u.id === effectiveCurrentUserId) || {
+          id: effectiveCurrentUserId,
+          name: user?.name || 'You',
+        }
       return [self]
     }
 
@@ -387,7 +398,15 @@ const TimeTracker = ({
 
     // assigned
     return assignedUsers.map(u => ({ id: u.id, name: u.name || u.id }))
-  }, [effectiveCurrentUserId, assignedTo, assignedToUsers, teamMembers, user?.name, effectiveClockInFor, effectiveIsAdmin])
+  }, [
+    effectiveCurrentUserId,
+    assignedTo,
+    assignedToUsers,
+    teamMembers,
+    user?.name,
+    effectiveClockInFor,
+    effectiveIsAdmin,
+  ])
 
   // Check if user can clock in for others
   const canClockInForOthers = useMemo(() => {
@@ -493,10 +512,10 @@ const TimeTracker = ({
         // Use a longer timeout and check teamMembers directly since availableUsersToClockIn is memoized
         setTimeout(() => {
           // Re-check: if admin, check teamMembers.length; otherwise check availableUsersToClockIn
-          const shouldShow = effectiveIsAdmin 
-            ? teamMembers.length > 1 
+          const shouldShow = effectiveIsAdmin
+            ? teamMembers.length > 1
             : availableUsersToClockIn.length > 1
-          
+
           if (shouldShow) {
             setShowUserSelector(true)
           } else {
@@ -824,8 +843,8 @@ const TimeTracker = ({
               }}
               disabled={!canEditEntry(te)}
               className={cn(
-                "flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate",
-                !canEditEntry(te) && "cursor-default opacity-60"
+                'flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate',
+                !canEditEntry(te) && 'cursor-default opacity-60'
               )}
             >
               {te.notes || <span className="text-primary-light/40">Add description</span>}
@@ -890,20 +909,20 @@ const TimeTracker = ({
                 </button>
               </div>
             </div>
+          ) : canEditEntry(te) ? (
+            <button
+              type="button"
+              onClick={() => beginTimeEdit(te)}
+              className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
+            >
+              {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')}{' '}
+              – {format(new Date(te.endTime), 'h:mma')}
+            </button>
           ) : (
-            canEditEntry(te) ? (
-              <button
-                type="button"
-                onClick={() => beginTimeEdit(te)}
-                className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
-              >
-                {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
-              </button>
-            ) : (
-              <span className="text-sm text-primary-light/80 hidden sm:inline-block">
-                {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')} – {format(new Date(te.endTime), 'h:mma')}
-              </span>
-            )
+            <span className="text-sm text-primary-light/80 hidden sm:inline-block">
+              {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')}{' '}
+              – {format(new Date(te.endTime), 'h:mma')}
+            </span>
           )}
         </div>
 
@@ -942,20 +961,18 @@ const TimeTracker = ({
                 <p className="text-xs text-red-400 text-right max-w-[140px]">{durationError}</p>
               )}
             </>
+          ) : canEditEntry(te) ? (
+            <button
+              type="button"
+              onClick={() => beginDurationEdit(te)}
+              className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
+            >
+              {formatDuration(te)}
+            </button>
           ) : (
-            canEditEntry(te) ? (
-              <button
-                type="button"
-                onClick={() => beginDurationEdit(te)}
-                className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
-              >
-                {formatDuration(te)}
-              </button>
-            ) : (
-              <span className="text-sm font-medium text-primary-light w-full text-right">
-                {formatDuration(te)}
-              </span>
-            )
+            <span className="text-sm font-medium text-primary-light w-full text-right">
+              {formatDuration(te)}
+            </span>
           )}
         </div>
 
@@ -991,7 +1008,7 @@ const TimeTracker = ({
                           const menuHeight = 90
                           const spaceBelow = window.innerHeight - rect.bottom
                           const spaceAbove = rect.top
-                          
+
                           // If not enough space below but more space above, position above
                           if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
                             return {
@@ -999,7 +1016,7 @@ const TimeTracker = ({
                               right: window.innerWidth - rect.right,
                             }
                           }
-                          
+
                           // Otherwise position below
                           return {
                             top: rect.bottom + 4,
@@ -1047,7 +1064,11 @@ const TimeTracker = ({
       {/* Header: Today | Total */}
       <div className="flex items-center justify-between border-b border-primary-blue/50 pb-3">
         <span className="text-sm font-medium text-primary-light/80">
-          {effectiveIsAdmin ? 'All Time Entries' : effectiveClockInFor === 'self' ? 'My Time Entries' : 'Team Time Entries'}
+          {effectiveIsAdmin
+            ? 'All Time Entries'
+            : effectiveClockInFor === 'self'
+              ? 'My Time Entries'
+              : 'Team Time Entries'}
         </span>
         <div className="flex items-center gap-2">
           {filteredEntries.length > 0 && (
@@ -1097,9 +1118,10 @@ const TimeTracker = ({
             const payType = assignment?.payType || 'job'
             const hourlyRate = assignment?.hourlyRate
             const totalHours = memberTotalSeconds / 3600
-            const earned = payType === 'hourly' && hourlyRate != null && !isNaN(hourlyRate)
-              ? totalHours * hourlyRate
-              : null
+            const earned =
+              payType === 'hourly' && hourlyRate != null && !isNaN(hourlyRate)
+                ? totalHours * hourlyRate
+                : null
             return (
               <div key={groupIndex} className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-primary-blue/30 pb-2">
@@ -1111,7 +1133,11 @@ const TimeTracker = ({
                     </span>
                     {earned != null && (
                       <span className="text-xs text-primary-gold/90">
-                        Earned: ${earned.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        Earned: $
+                        {earned.toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                     )}
                   </div>
@@ -1150,13 +1176,11 @@ const TimeTracker = ({
         title="Clock In For"
       >
         <div className="space-y-4">
-          <p className="text-sm text-primary-light/70">
-            Select which team member to clock in for:
-          </p>
+          <p className="text-sm text-primary-light/70">Select which team member to clock in for:</p>
           {availableUsersToClockIn.length > 0 ? (
             <Select
               value={selectedClockInUserId || effectiveCurrentUserId || ''}
-              onChange={(e) => {
+              onChange={e => {
                 const userId = e.target.value
                 setSelectedClockInUserId(userId || null)
               }}
@@ -1204,7 +1228,12 @@ const TimeTracker = ({
         size="sm"
         footer={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={closeManualEntryModal} disabled={manualEntrySaving}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={closeManualEntryModal}
+              disabled={manualEntrySaving}
+            >
               Cancel
             </Button>
             <Button size="sm" onClick={handleManualEntrySubmit} disabled={manualEntrySaving}>
@@ -1215,7 +1244,9 @@ const TimeTracker = ({
       >
         <div className="space-y-4">
           {manualEntryError && (
-            <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{manualEntryError}</p>
+            <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">
+              {manualEntryError}
+            </p>
           )}
           <DatePicker
             label="Date"
@@ -1227,7 +1258,7 @@ const TimeTracker = ({
             <Select
               label="For"
               value={manualEntryUserId || effectiveCurrentUserId || ''}
-              onChange={(e) => {
+              onChange={e => {
                 const userId = e.target.value
                 setManualEntryUserId(userId || null)
               }}

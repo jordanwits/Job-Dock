@@ -64,17 +64,17 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
   const handleExport = () => {
     const exportData = filteredQuotes.map(quote => ({
       'Quote Number': quote.quoteNumber,
-      'Title': quote.title || '',
-      'Contact': quote.contactName || '',
-      'Company': quote.contactCompany || '',
-      'Status': quote.status,
-      'Subtotal': formatCurrency(quote.subtotal),
-      'Tax': formatCurrency(quote.taxAmount),
-      'Discount': formatCurrency(quote.discount),
-      'Total': formatCurrency(quote.total),
+      Title: quote.title || '',
+      Contact: quote.contactName || '',
+      Company: quote.contactCompany || '',
+      Status: quote.status,
+      Subtotal: formatCurrency(quote.subtotal),
+      Tax: formatCurrency(quote.taxAmount),
+      Discount: formatCurrency(quote.discount),
+      Total: formatCurrency(quote.total),
       'Valid Until': quote.validUntil ? format(new Date(quote.validUntil), 'yyyy-MM-dd') : '',
-      'Created': format(new Date(quote.createdAt), 'yyyy-MM-dd'),
-      'Updated': format(new Date(quote.updatedAt), 'yyyy-MM-dd'),
+      Created: format(new Date(quote.createdAt), 'yyyy-MM-dd'),
+      Updated: format(new Date(quote.updatedAt), 'yyyy-MM-dd'),
     }))
 
     const dateRange = `${format(startDate, 'yyyy-MM-dd')}_to_${format(endDate, 'yyyy-MM-dd')}`
@@ -105,23 +105,39 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Quotes</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">{formatNumber(totals.count)}</p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.total)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
+                {formatNumber(totals.count)}
+              </p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+                ${formatCurrency(totals.total)}
+              </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Accepted</p>
-              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">{formatNumber(totals.acceptedCount)}</p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.accepted)}</p>
+              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
+                {formatNumber(totals.acceptedCount)}
+              </p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+                ${formatCurrency(totals.accepted)}
+              </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Sent</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">{formatNumber(totals.sentCount)}</p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.sent)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">
+                {formatNumber(totals.sentCount)}
+              </p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+                ${formatCurrency(totals.sent)}
+              </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Draft</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-light/70 mt-1 break-words">{formatNumber(totals.draftCount)}</p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.draft)}</p>
+              <p className="text-xl md:text-2xl font-bold text-primary-light/70 mt-1 break-words">
+                {formatNumber(totals.draftCount)}
+              </p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+                ${formatCurrency(totals.draft)}
+              </p>
             </div>
           </div>
 
@@ -164,7 +180,9 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-xs md:text-sm text-primary-light truncate">{formatNumber(group.length)} quotes</span>
+                      <span className="text-xs md:text-sm text-primary-light truncate">
+                        {formatNumber(group.length)} quotes
+                      </span>
                     </div>
                     <span className="text-xs md:text-sm font-semibold text-primary-gold shrink-0 break-words text-right">
                       ${formatCurrency(total)}

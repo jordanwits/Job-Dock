@@ -89,8 +89,8 @@ const InvoicesPage = () => {
             Create and manage invoices for your clients
           </p>
         </div>
-        <Button 
-          onClick={() => setShowCreateForm(true)} 
+        <Button
+          onClick={() => setShowCreateForm(true)}
           className="w-full sm:w-auto"
           title="Keyboard shortcut: Ctrl+N or ⌘N"
         >
@@ -157,7 +157,7 @@ const InvoicesPage = () => {
             setShowConfirmation(true)
             setTimeout(() => setShowConfirmation(false), 3000)
           }}
-          onJobCreateFailed={(error) => {
+          onJobCreateFailed={error => {
             // Error is already displayed by the job store
           }}
         />
@@ -167,4 +167,3 @@ const InvoicesPage = () => {
 }
 
 export default InvoicesPage
-

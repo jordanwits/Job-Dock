@@ -13,8 +13,12 @@ import { settingsApi } from '@/lib/api/settings'
 const PublicBookingPage = () => {
   const { serviceId } = useParams<{ serviceId?: string }>()
   const [showConfirmation, setShowConfirmation] = useState(false)
-  const [branding, setBranding] = useState<{ companyDisplayName?: string; tenantName?: string; logoSignedUrl?: string | null } | null>(null)
-  
+  const [branding, setBranding] = useState<{
+    companyDisplayName?: string
+    tenantName?: string
+    logoSignedUrl?: string | null
+  } | null>(null)
+
   // Extract tenantId from query params if present (for tenant-level booking links)
   const searchParams = new URLSearchParams(window.location.search)
   const tenantId = searchParams.get('tenant')
@@ -37,17 +41,18 @@ const PublicBookingPage = () => {
 
   useEffect(() => {
     console.log('PublicBookingPage mounted', { serviceId, tenantId })
-    
+
     // Load branding if tenantId is in URL
     if (tenantId) {
-      settingsApi.getPublicSettings(tenantId)
+      settingsApi
+        .getPublicSettings(tenantId)
         .then(setBranding)
         .catch(error => {
           console.error('Failed to load tenant branding:', error)
           // Don't show error - branding is optional
         })
     }
-    
+
     // Determine what to load:
     // - If serviceId in URL path: load that specific service
     // - If tenantId in query param: load all services for that tenant
@@ -72,7 +77,8 @@ const PublicBookingPage = () => {
     if (serviceId && services.length > 0 && !tenantId && !branding) {
       const service = services.find(s => s.id === serviceId) || services[0]
       if (service?.tenantId) {
-        settingsApi.getPublicSettings(service.tenantId)
+        settingsApi
+          .getPublicSettings(service.tenantId)
           .then(setBranding)
           .catch(error => {
             console.error('Failed to load tenant branding:', error)
@@ -91,7 +97,7 @@ const PublicBookingPage = () => {
   }
 
   const handleBookingSubmit = async (
-    formData: BookingFormValues, 
+    formData: BookingFormValues,
     recurrence?: { frequency: 'weekly' | 'monthly'; interval: number; count: number }
   ) => {
     if (!selectedSlot) return
@@ -126,7 +132,7 @@ const PublicBookingPage = () => {
   if (showConfirmation && bookingConfirmation) {
     const requiresConfirmation = selectedService?.bookingSettings?.requireConfirmation ?? false
     const companyName = branding?.companyDisplayName || branding?.tenantName || null
-    
+
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
@@ -141,24 +147,44 @@ const PublicBookingPage = () => {
                 />
               )}
               {companyName && (
-                <h2 className="text-lg font-semibold text-primary-light">
-                  {companyName}
-                </h2>
+                <h2 className="text-lg font-semibold text-primary-light">{companyName}</h2>
               )}
             </div>
           )}
           <div className="mb-6">
-            <div className={cn(
-              "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4",
-              requiresConfirmation ? "bg-orange-500/20" : "bg-green-500/20"
-            )}>
+            <div
+              className={cn(
+                'w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4',
+                requiresConfirmation ? 'bg-orange-500/20' : 'bg-green-500/20'
+              )}
+            >
               {requiresConfirmation ? (
-                <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-8 h-8 text-orange-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               ) : (
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className="w-8 h-8 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               )}
             </div>
@@ -166,9 +192,9 @@ const PublicBookingPage = () => {
               {requiresConfirmation ? 'Booking Request Received!' : 'Booking Confirmed!'}
             </h1>
             <p className="text-primary-light/70">
-              {requiresConfirmation 
-                ? "Your booking request has been received and is pending confirmation"
-                : "Your appointment has been successfully booked"}
+              {requiresConfirmation
+                ? 'Your booking request has been received and is pending confirmation'
+                : 'Your appointment has been successfully booked'}
             </p>
           </div>
 
@@ -181,7 +207,9 @@ const PublicBookingPage = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-primary-light/70">
-                {bookingConfirmation.occurrenceCount && bookingConfirmation.occurrenceCount > 1 ? 'First Visit:' : 'Date:'}
+                {bookingConfirmation.occurrenceCount && bookingConfirmation.occurrenceCount > 1
+                  ? 'First Visit:'
+                  : 'Date:'}
               </span>
               <span className="text-primary-light font-medium">
                 {format(new Date(bookingConfirmation.startTime), 'EEEE, MMMM d, yyyy')}
@@ -190,7 +218,8 @@ const PublicBookingPage = () => {
             <div className="flex justify-between">
               <span className="text-primary-light/70">Time:</span>
               <span className="text-primary-light font-medium">
-                {format(new Date(bookingConfirmation.startTime), 'h:mm a')} - {format(new Date(bookingConfirmation.endTime), 'h:mm a')}
+                {format(new Date(bookingConfirmation.startTime), 'h:mm a')} -{' '}
+                {format(new Date(bookingConfirmation.endTime), 'h:mm a')}
               </span>
             </div>
             {bookingConfirmation.occurrenceCount && bookingConfirmation.occurrenceCount > 1 && (
@@ -213,8 +242,8 @@ const PublicBookingPage = () => {
             {requiresConfirmation
               ? "You'll receive an email once the contractor confirms your request. This typically happens within 24 hours."
               : bookingConfirmation.occurrenceCount && bookingConfirmation.occurrenceCount > 1
-              ? `You'll receive a confirmation email shortly with details for all ${bookingConfirmation.occurrenceCount} scheduled visits.`
-              : "You'll receive a confirmation email shortly with all the details."}
+                ? `You'll receive a confirmation email shortly with details for all ${bookingConfirmation.occurrenceCount} scheduled visits.`
+                : "You'll receive a confirmation email shortly with all the details."}
           </p>
 
           <Button onClick={handleBookAnother} className="w-full">
@@ -250,9 +279,7 @@ const PublicBookingPage = () => {
               )}
             </div>
           )}
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-gold">
-            Book an Appointment
-          </h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-primary-gold">Book an Appointment</h1>
           <p className="text-primary-light/70 mt-1">
             Select a service and choose your preferred time
           </p>
@@ -285,8 +312,18 @@ const PublicBookingPage = () => {
           <Card className="max-w-2xl mx-auto">
             <div className="text-center py-12 px-6">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary-blue/10 flex items-center justify-center">
-                <svg className="w-10 h-10 text-primary-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-10 h-10 text-primary-blue"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
               <h2 className="text-xl font-semibold text-primary-light mb-3">
@@ -326,12 +363,20 @@ const PublicBookingPage = () => {
               ) : (
                 <Card>
                   <div className="text-center py-12">
-                    <svg className="w-12 h-12 mx-auto text-primary-light/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg
+                      className="w-12 h-12 mx-auto text-primary-light/30 mb-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
-                    <p className="text-primary-light/70">
-                      Select a service to view availability
-                    </p>
+                    <p className="text-primary-light/70">Select a service to view availability</p>
                   </div>
                 </Card>
               )}
@@ -354,4 +399,3 @@ const PublicBookingPage = () => {
 }
 
 export default PublicBookingPage
-

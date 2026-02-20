@@ -90,20 +90,20 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
   const handleExport = () => {
     const exportData = filteredInvoices.map(invoice => ({
       'Invoice Number': invoice.invoiceNumber,
-      'Title': invoice.title || '',
-      'Contact': invoice.contactName || '',
-      'Company': invoice.contactCompany || '',
-      'Status': invoice.status,
+      Title: invoice.title || '',
+      Contact: invoice.contactName || '',
+      Company: invoice.contactCompany || '',
+      Status: invoice.status,
       'Payment Status': invoice.paymentStatus,
-      'Subtotal': formatCurrency(invoice.subtotal),
-      'Tax': formatCurrency(invoice.taxAmount),
-      'Discount': formatCurrency(invoice.discount),
-      'Total': formatCurrency(invoice.total),
-      'Paid': formatCurrency(invoice.paidAmount),
-      'Outstanding': formatCurrency(invoice.total - invoice.paidAmount),
+      Subtotal: formatCurrency(invoice.subtotal),
+      Tax: formatCurrency(invoice.taxAmount),
+      Discount: formatCurrency(invoice.discount),
+      Total: formatCurrency(invoice.total),
+      Paid: formatCurrency(invoice.paidAmount),
+      Outstanding: formatCurrency(invoice.total - invoice.paidAmount),
       'Due Date': invoice.dueDate ? format(new Date(invoice.dueDate), 'yyyy-MM-dd') : '',
-      'Created': format(new Date(invoice.createdAt), 'yyyy-MM-dd'),
-      'Updated': format(new Date(invoice.updatedAt), 'yyyy-MM-dd'),
+      Created: format(new Date(invoice.createdAt), 'yyyy-MM-dd'),
+      Updated: format(new Date(invoice.updatedAt), 'yyyy-MM-dd'),
     }))
 
     const dateRange = `${format(startDate, 'yyyy-MM-dd')}_to_${format(endDate, 'yyyy-MM-dd')}`
@@ -133,14 +133,24 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Invoices</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">{formatNumber(totals.count)}</p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.total)}</p>
+              <p className="text-xs text-primary-light/50 uppercase tracking-wide">
+                Total Invoices
+              </p>
+              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
+                {formatNumber(totals.count)}
+              </p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+                ${formatCurrency(totals.total)}
+              </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
-              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">{formatNumber(totals.paidCount)}</p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.paid)}</p>
+              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
+                {formatNumber(totals.paidCount)}
+              </p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+                ${formatCurrency(totals.paid)}
+              </p>
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Outstanding</p>
@@ -153,8 +163,12 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
             </div>
             <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
               <p className="text-xs text-primary-light/50 uppercase tracking-wide">Overdue</p>
-              <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">{formatNumber(totals.overdueCount)}</p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">${formatCurrency(totals.overdue)}</p>
+              <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">
+                {formatNumber(totals.overdueCount)}
+              </p>
+              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+                ${formatCurrency(totals.overdue)}
+              </p>
             </div>
           </div>
 
@@ -195,7 +209,9 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-xs md:text-sm text-primary-light truncate">{formatNumber(group.length)} invoices</span>
+                      <span className="text-xs md:text-sm text-primary-light truncate">
+                        {formatNumber(group.length)} invoices
+                      </span>
                     </div>
                     <span className="text-xs md:text-sm font-semibold text-primary-gold shrink-0 break-words text-right">
                       ${formatCurrency(total)}

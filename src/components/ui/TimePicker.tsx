@@ -59,7 +59,7 @@ const TimePicker = ({
           const indexToScrollTo = hourToScrollTo * slotsPerHour
           const pixelsPerSlot = 40 // approximate height of each time slot button
           const scrollPosition = indexToScrollTo * pixelsPerSlot
-          
+
           dropdownRef.current.scrollTop = scrollPosition
         }
       }, 0)
@@ -105,9 +105,7 @@ const TimePicker = ({
   return (
     <div className={cn('w-full', className)} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium text-primary-light mb-2">
-          {label}
-        </label>
+        <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
       )}
       <div className="relative">
         <button
@@ -120,9 +118,7 @@ const TimePicker = ({
             'placeholder:text-primary-light/50',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            error
-              ? 'border-red-500 focus-visible:ring-red-500'
-              : 'border-primary-blue',
+            error ? 'border-red-500 focus-visible:ring-red-500' : 'border-primary-blue',
             className
           )}
         >
@@ -150,7 +146,7 @@ const TimePicker = ({
             className="absolute z-50 mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl max-h-64 overflow-y-auto"
           >
             <div className="p-2">
-              {timeSlots.map((time) => {
+              {timeSlots.map(time => {
                 const parsed = parseTime(time)
                 if (!parsed) return null
                 const date = setHours(setMinutes(new Date(), parsed.minute), parsed.hour)
@@ -177,12 +173,9 @@ const TimePicker = ({
         )}
       </div>
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-      {helperText && !error && (
-        <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>
-      )}
+      {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
     </div>
   )
 }
 
 export default TimePicker
-
