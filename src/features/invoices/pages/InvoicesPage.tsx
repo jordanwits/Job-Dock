@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useInvoiceStore } from '../store/invoiceStore'
 import InvoiceList from '../components/InvoiceList'
 import InvoiceForm from '../components/InvoiceForm'
@@ -8,7 +8,15 @@ import { Button, Modal, Card } from '@/components/ui'
 
 const InvoicesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const returnTo = searchParams.get('returnTo')
   const openInvoiceId = searchParams.get('open')
+  const openCreateInvoice = searchParams.get('openCreateInvoice') === '1'
+  const [createInvoiceDefaults, setCreateInvoiceDefaults] = useState<{
+    contactId?: string
+    title?: string
+    notes?: string
+  }>({})
   const {
     selectedInvoice,
     createInvoice,
@@ -23,13 +31,23 @@ const InvoicesPage = () => {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
 
+  const safeNavigateBack = () => {
+    if (returnTo && returnTo.startsWith('/app')) {
+      navigate(returnTo)
+    }
+  }
+
   const handleCreate = async (data: any) => {
     try {
       await createInvoice(data)
       setShowCreateForm(false)
-      setConfirmationMessage('Invoice Saved')
-      setShowConfirmation(true)
-      setTimeout(() => setShowConfirmation(false), 3000)
+      if (returnTo) {
+        safeNavigateBack()
+      } else {
+        setConfirmationMessage('Invoice Saved')
+        setShowConfirmation(true)
+        setTimeout(() => setShowConfirmation(false), 3000)
+      }
     } catch (error) {
       // Error handled by store
     }
@@ -44,9 +62,13 @@ const InvoicesPage = () => {
         await sendInvoice(newInvoice.id)
       }
       setShowCreateForm(false)
-      setConfirmationMessage('Invoice Sent')
-      setShowConfirmation(true)
-      setTimeout(() => setShowConfirmation(false), 3000)
+      if (returnTo) {
+        safeNavigateBack()
+      } else {
+        setConfirmationMessage('Invoice Sent')
+        setShowConfirmation(true)
+        setTimeout(() => setShowConfirmation(false), 3000)
+      }
     } catch (error) {
       // Error handled by store
     }
@@ -61,6 +83,28 @@ const InvoicesPage = () => {
       setSearchParams(params, { replace: true })
     }
   }, [openInvoiceId])
+
+  // Open create form when arriving with openCreateInvoice=1 (e.g. from job detail)
+  useEffect(() => {
+    if (openCreateInvoice) {
+      setCreateInvoiceDefaults({
+        contactId: searchParams.get('contactId') || undefined,
+        title: searchParams.get('title')
+          ? decodeURIComponent(searchParams.get('title')!)
+          : undefined,
+        notes: searchParams.get('notes')
+          ? decodeURIComponent(searchParams.get('notes')!)
+          : undefined,
+      })
+      setShowCreateForm(true)
+      const params = new URLSearchParams(searchParams)
+      params.delete('openCreateInvoice')
+      params.delete('contactId')
+      params.delete('title')
+      params.delete('notes')
+      setSearchParams(params, { replace: true })
+    }
+  }, [openCreateInvoice, searchParams, setSearchParams])
 
   // Keyboard shortcut: CMD+N / CTRL+N to create new invoice
   useEffect(() => {
@@ -140,9 +184,13 @@ const InvoicesPage = () => {
           onSaveAndSend={handleCreateAndSend}
           onCancel={() => {
             setShowCreateForm(false)
+            setCreateInvoiceDefaults({}) // Clear defaults when canceling
             clearError()
           }}
           isLoading={isLoading}
+          defaultContactId={createInvoiceDefaults.contactId}
+          defaultTitle={createInvoiceDefaults.title}
+          defaultNotes={createInvoiceDefaults.notes}
         />
       </Modal>
 

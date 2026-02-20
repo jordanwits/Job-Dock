@@ -126,21 +126,9 @@ const QuotesPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            {returnTo && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={safeNavigateBack}
-                className="text-primary-light/70 hover:text-primary-light -ml-2"
-              >
-                ← Back to Jobs
-              </Button>
-            )}
-            <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
-              <span className="text-primary-gold">Quotes</span>
-            </h1>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+            <span className="text-primary-gold">Quotes</span>
+          </h1>
           <p className="text-sm md:text-base text-primary-light/60">
             Create and manage quotes for your projects
           </p>

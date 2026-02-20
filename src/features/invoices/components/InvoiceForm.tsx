@@ -14,6 +14,8 @@ interface InvoiceFormProps {
   onCancel: () => void
   isLoading?: boolean
   defaultContactId?: string
+  defaultTitle?: string
+  defaultNotes?: string
 }
 
 const InvoiceForm = ({
@@ -23,6 +25,8 @@ const InvoiceForm = ({
   onCancel,
   isLoading,
   defaultContactId,
+  defaultTitle,
+  defaultNotes,
 }: InvoiceFormProps) => {
   const { contacts, fetchContacts, createContact } = useContactStore()
   const [showCreateContact, setShowCreateContact] = useState(false)
@@ -46,7 +50,7 @@ const InvoiceForm = ({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       contactId: invoice?.contactId || defaultContactId || '',
-      title: invoice?.title || '',
+      title: invoice?.title || defaultTitle || '',
       lineItems: invoice?.lineItems.map(item => ({
         description: item.description,
         quantity: item.quantity > 0 ? item.quantity : '',
@@ -55,7 +59,7 @@ const InvoiceForm = ({
       taxRate: invoice ? (invoice.taxRate > 0 ? invoice.taxRate * 100 : '') : '',
       discount: invoice?.discount && invoice.discount > 0 ? invoice.discount : '',
       discountReason: invoice?.discountReason || '',
-      notes: invoice?.notes || '',
+      notes: invoice?.notes || defaultNotes || '',
       dueDate: invoice?.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '',
       paymentTerms: invoice?.paymentTerms || 'Net 30',
       status: invoice?.status || 'draft',

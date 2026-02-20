@@ -24,6 +24,14 @@ interface JobFormProps {
   defaultServiceId?: string
   defaultDescription?: string
   defaultPrice?: number
+  defaultAssignedTo?: Array<{
+    userId: string
+    roleId?: string
+    role: string
+    price?: number | null
+    payType?: 'job' | 'hourly'
+    hourlyRate?: number | null
+  }>
   initialQuoteId?: string
   initialInvoiceId?: string
   error?: string | null
@@ -47,6 +55,7 @@ const JobForm = ({
   defaultServiceId,
   defaultDescription,
   defaultPrice,
+  defaultAssignedTo,
   initialQuoteId,
   initialInvoiceId,
   error,
@@ -144,8 +153,7 @@ const JobForm = ({
     id: initialQuoteId || initialInvoiceId || job?.quoteId || job?.invoiceId,
   })
 
-  // Custom title entry state
-  const [isCustomTitle, setIsCustomTitle] = useState(false)
+  // Title is always a text field - no dropdown
 
   // Location state
   const [locationMode, setLocationMode] = useState<'contact' | 'custom'>('contact')
@@ -223,18 +231,19 @@ const JobForm = ({
       price: job?.price != null ? job.price.toString() : (defaultPrice != null ? defaultPrice.toString() : ''),
       notes: job?.notes || defaultNotes || '',
       assignedTo: (() => {
-        // Handle both old format (string/string[]) and new format (JobAssignment[])
-        if (!job?.assignedTo) return []
-        if (Array.isArray(job.assignedTo)) {
-          // Check if it's new format (objects with userId)
-          if (
-            job.assignedTo.length > 0 &&
-            typeof job.assignedTo[0] === 'object' &&
-            'userId' in job.assignedTo[0]
-          ) {
-            return job.assignedTo as JobAssignment[]
-          }
-          // Old format: array of strings
+        // If editing a job, use job's assignedTo
+        if (job?.assignedTo) {
+          // Handle both old format (string/string[]) and new format (JobAssignment[])
+          if (Array.isArray(job.assignedTo)) {
+            // Check if it's new format (objects with userId)
+            if (
+              job.assignedTo.length > 0 &&
+              typeof job.assignedTo[0] === 'object' &&
+              'userId' in job.assignedTo[0]
+            ) {
+              return job.assignedTo as JobAssignment[]
+            }
+            // Old format: array of strings
             return (job.assignedTo as string[]).map(id => ({
               userId: id,
               role: 'Team Member',
@@ -242,15 +251,44 @@ const JobForm = ({
               payType: 'job' as const,
               hourlyRate: null,
             }))
+          }
+          // Old format: single string
+          return [{ userId: job.assignedTo as string, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
         }
-        // Old format: single string
-        return [{ userId: job.assignedTo as string, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
+        // Use defaultAssignedTo if provided
+        return defaultAssignedTo || []
       })(),
     },
   })
 
   const selectedServiceId = watch('serviceId')
   const selectedContactId = watch('contactId')
+
+  // Reset form when defaults change (e.g., when opening from job log detail)
+  useEffect(() => {
+    if (!job && (defaultTitle || defaultContactId || defaultPrice != null || defaultServiceId || defaultDescription || defaultLocation || defaultNotes || defaultAssignedTo)) {
+      // Set assignments state if defaultAssignedTo is provided
+      if (defaultAssignedTo && defaultAssignedTo.length > 0) {
+        setAssignments(defaultAssignedTo)
+      }
+      
+      reset({
+        title: defaultTitle || '',
+        description: defaultDescription || '',
+        contactId: defaultContactId || '',
+        serviceId: defaultServiceId || '',
+        quoteId: initialQuoteId || '',
+        invoiceId: initialInvoiceId || '',
+        startTime: '',
+        endTime: '',
+        status: 'active',
+        location: defaultLocation || '',
+        price: defaultPrice != null ? defaultPrice.toString() : '',
+        notes: defaultNotes || '',
+        assignedTo: defaultAssignedTo || [],
+      })
+    }
+  }, [defaultTitle, defaultContactId, defaultPrice, defaultServiceId, defaultDescription, defaultLocation, defaultNotes, defaultAssignedTo, initialQuoteId, initialInvoiceId, job, reset])
 
   // Set price from quote/invoice when initialQuoteId/initialInvoiceId is provided and quote/invoice loads
   // Only set if price is empty or matches defaultPrice (user hasn't manually changed it)
@@ -308,7 +346,7 @@ const JobForm = ({
       setValue('quoteId', '')
       setValue('invoiceId', '')
       // Reset to defaults if switching back to custom job
-      if (!job && !isCustomTitle) {
+      if (!job) {
         setValue('contactId', defaultContactId || '')
         setValue('notes', defaultNotes || '')
         setValue('price', defaultPrice != null ? defaultPrice.toString() : '')
@@ -324,7 +362,6 @@ const JobForm = ({
     defaultNotes,
     defaultPrice,
     job,
-    isCustomTitle,
   ])
 
   useEffect(() => {
@@ -367,10 +404,13 @@ const JobForm = ({
       } else {
         setAssignments([{ userId: job.assignedTo as string, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }])
       }
+    } else if (defaultAssignedTo && defaultAssignedTo.length > 0) {
+      // Use defaultAssignedTo if no job is being edited
+      setAssignments(defaultAssignedTo)
     } else {
       setAssignments([])
     }
-  }, [job])
+  }, [job, defaultAssignedTo])
 
   // Match existing roles to job roles when jobRoles are loaded
   useEffect(() => {
@@ -762,89 +802,7 @@ const JobForm = ({
   )
   const activeServices = services.filter(s => s.isActive)
 
-  const jobTitleOptions = [
-    // Add services as job title options
-    ...activeServices.map(s => ({
-      value: `service:${s.id}`,
-      label: `${s.name} (Service)`,
-      title: s.name,
-    })),
-    // Add quotes
-    ...approvedQuotes.map(q => {
-      const title = q.title || `Job for quote ${q.quoteNumber}`
-      const lastName = getLastName(q.contactName)
-      const label = lastName ? `${lastName}-${title}` : title
-      return {
-        value: `quote:${q.id}`,
-        label: label,
-        title: lastName ? `${lastName}-${title}` : title,
-      }
-    }),
-    // Add invoices
-    ...approvedInvoices.map(i => {
-      const title = i.title || `Job for invoice ${i.invoiceNumber}`
-      const lastName = getLastName(i.contactName)
-      const label = lastName ? `${lastName}-${title}` : title
-      return {
-        value: `invoice:${i.id}`,
-        label: label,
-        title: lastName ? `${lastName}-${title}` : title,
-      }
-    }),
-    { value: 'custom', label: 'Enter Custom Job Title', title: '' },
-  ]
-
-  const handleTitleChange = (value: string) => {
-    if (value === 'custom') {
-      setIsCustomTitle(true)
-      setSelectedSource({ type: 'none' })
-      setValue('title', defaultTitle || '')
-      setValue('serviceId', '') // Clear service when custom
-    } else if (value.startsWith('service:')) {
-      const id = value.replace('service:', '')
-      setIsCustomTitle(false)
-      setSelectedSource({ type: 'none' })
-      const service = services.find(s => s.id === id)
-      if (service) {
-        setValue('title', service.name)
-        setValue('serviceId', service.id) // Auto-populate service
-      }
-    } else if (value.startsWith('quote:')) {
-      const id = value.replace('quote:', '')
-      setIsCustomTitle(false)
-      setSelectedSource({ type: 'quote', id })
-      const quote = quotes.find(q => q.id === id)
-      if (quote) {
-        const title = quote.title || `Job for quote ${quote.quoteNumber}`
-        const lastName = getLastName(quote.contactName)
-        const formattedTitle = lastName ? `${lastName}-${title}` : title
-        setValue('title', formattedTitle)
-        setValue('price', quote.total.toString())
-      }
-    } else if (value.startsWith('invoice:')) {
-      const id = value.replace('invoice:', '')
-      setIsCustomTitle(false)
-      setSelectedSource({ type: 'invoice', id })
-      const invoice = invoices.find(i => i.id === id)
-      if (invoice) {
-        const title = invoice.title || `Job for invoice ${invoice.invoiceNumber}`
-        const lastName = getLastName(invoice.contactName)
-        const formattedTitle = lastName ? `${lastName}-${title}` : title
-        setValue('title', formattedTitle)
-        setValue('price', invoice.total.toString())
-      }
-    }
-  }
-
-  const titleValue = isCustomTitle
-    ? 'custom'
-    : selectedServiceId && !selectedSource.id
-      ? `service:${selectedServiceId}`
-      : selectedSource.type === 'quote'
-        ? `quote:${selectedSource.id}`
-        : selectedSource.type === 'invoice'
-          ? `invoice:${selectedSource.id}`
-          : 'custom'
+  // Title is always a text field - dropdown removed
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} className="space-y-5 sm:space-y-4">
@@ -864,42 +822,14 @@ const JobForm = ({
         </div>
       )}
 
-      {/* Job Title Selector */}
+      {/* Job Title - Always a text field */}
       <div>
         <label className="block text-sm font-medium text-primary-light mb-2">Job Title *</label>
-        {!isCustomTitle ? (
-          <Select
-            value={titleValue}
-            onChange={e => handleTitleChange(e.target.value)}
-            options={jobTitleOptions.map(opt => ({
-              value: opt.value,
-              label: opt.label,
-            }))}
-          />
-        ) : (
-          <div className="space-y-2">
-            <Input
-              {...register('title')}
-              error={errors.title?.message}
-              placeholder="e.g., Kitchen Renovation Consultation"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                setIsCustomTitle(false)
-                if (jobTitleOptions.length > 0) {
-                  handleTitleChange(jobTitleOptions[0].value)
-                }
-              }}
-              className="text-xs text-primary-gold hover:text-primary-gold/80"
-            >
-              ← Select from quote/invoice
-            </button>
-          </div>
-        )}
-        <p className="text-xs text-primary-light/50 mt-1">
-          Select a service, quote, invoice, or enter a custom job title
-        </p>
+        <Input
+          {...register('title')}
+          error={errors.title?.message}
+          placeholder="e.g., Kitchen Renovation Consultation"
+        />
       </div>
 
       <div>

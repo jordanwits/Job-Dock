@@ -539,6 +539,17 @@ const JobLogDetail = ({
     navigate('/app/quotes?' + params.toString())
   }
 
+  const handleCreateInvoice = () => {
+    setShowMenu(false)
+    const params = new URLSearchParams()
+    params.set('returnTo', '/app/job-logs/' + jobLog.id)
+    params.set('openCreateInvoice', '1')
+    if (jobLog.contactId) params.set('contactId', jobLog.contactId)
+    if (jobLog.title) params.set('title', encodeURIComponent(jobLog.title))
+    if (jobLog.notes) params.set('notes', encodeURIComponent(jobLog.notes))
+    navigate('/app/invoices?' + params.toString())
+  }
+
   const handleScheduleAppointment = () => {
     setShowMenu(false)
     const params = new URLSearchParams()
@@ -546,10 +557,37 @@ const JobLogDetail = ({
     params.set('returnTo', '/app/job-logs/' + jobLog.id)
     params.set('openCreateJob', '1')
     if (jobLog.contactId) params.set('contactId', jobLog.contactId)
-    if (jobLog.title) params.set('title', jobLog.title)
-    if (jobLog.notes) params.set('notes', jobLog.notes)
-    if (jobLog.location) params.set('location', jobLog.location)
-    if (jobLog.description) params.set('description', jobLog.description)
+    if (jobLog.title) params.set('title', encodeURIComponent(jobLog.title))
+    if (jobLog.notes) params.set('notes', encodeURIComponent(jobLog.notes))
+    if (jobLog.location) params.set('location', encodeURIComponent(jobLog.location))
+    if (jobLog.description) params.set('description', encodeURIComponent(jobLog.description))
+    if (jobLog.price != null) params.set('price', jobLog.price.toString())
+    if (jobLog.serviceId) params.set('serviceId', jobLog.serviceId)
+    // Pass assignedTo as JSON
+    if (jobLog.assignedTo) {
+      const assignedToArray = Array.isArray(jobLog.assignedTo)
+        ? jobLog.assignedTo
+        : typeof jobLog.assignedTo === 'string'
+          ? [{ userId: jobLog.assignedTo, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
+          : []
+      // Normalize to ensure it's in the correct format
+      const normalized = assignedToArray.map((item: any) => {
+        if (typeof item === 'object' && item !== null && 'userId' in item) {
+          return {
+            userId: item.userId,
+            roleId: item.roleId || undefined,
+            role: item.role || 'Team Member',
+            price: item.price != null ? item.price : null,
+            payType: item.payType || 'job',
+            hourlyRate: item.hourlyRate != null ? item.hourlyRate : null,
+          }
+        }
+        return { userId: item, role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }
+      })
+      if (normalized.length > 0) {
+        params.set('assignedTo', encodeURIComponent(JSON.stringify(normalized)))
+      }
+    }
     navigate('/app/scheduling?' + params.toString())
   }
 
@@ -619,12 +657,20 @@ const JobLogDetail = ({
               <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
               <div className="absolute right-0 top-full mt-1 py-1 w-56 bg-primary-dark-secondary border border-primary-blue rounded-lg shadow-xl z-50">
                 {canAccessQuotes && (
-                  <button
-                    onClick={handleCreateQuote}
-                    className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
-                  >
-                    Create Quote
-                  </button>
+                  <>
+                    <button
+                      onClick={handleCreateQuote}
+                      className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                    >
+                      Create Quote
+                    </button>
+                    <button
+                      onClick={handleCreateInvoice}
+                      className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                    >
+                      Create Invoice
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={handleScheduleAppointment}
@@ -945,9 +991,14 @@ const JobLogDetail = ({
         <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">
           <div className="flex flex-wrap gap-2">
             {canAccessQuotes && (
-              <Button variant="outline" size="sm" onClick={handleCreateQuote}>
-                Create Quote
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={handleCreateQuote}>
+                  Create Quote
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCreateInvoice}>
+                  Create Invoice
+                </Button>
+              </>
             )}
             <Button variant="outline" size="sm" onClick={handleScheduleAppointment}>
               Schedule Appointment

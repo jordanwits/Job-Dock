@@ -44,6 +44,16 @@ const SchedulingPage = () => {
     notes?: string
     location?: string
     description?: string
+    price?: number
+    serviceId?: string
+    assignedTo?: Array<{
+      userId: string
+      roleId?: string
+      role: string
+      price?: number | null
+      payType?: 'job' | 'hourly'
+      hourlyRate?: number | null
+    }>
   }>({})
 
   const {
@@ -364,20 +374,43 @@ const SchedulingPage = () => {
   // Open create job modal when arriving with openCreateJob=1 (e.g. from job detail)
   useEffect(() => {
     if (openCreateJob) {
+      // Parse assignedTo from JSON if present
+      let assignedTo: Array<{
+        userId: string
+        roleId?: string
+        role: string
+        price?: number | null
+        payType?: 'job' | 'hourly'
+        hourlyRate?: number | null
+      }> | undefined
+      const assignedToParam = searchParams.get('assignedTo')
+      if (assignedToParam) {
+        try {
+          assignedTo = JSON.parse(decodeURIComponent(assignedToParam))
+        } catch (e) {
+          console.error('Failed to parse assignedTo:', e)
+        }
+      }
+
       setCreateJobDefaults({
         contactId: searchParams.get('contactId') || undefined,
         title: searchParams.get('title')
-          ? decodeURIComponent(searchParams.get('title'))
+          ? decodeURIComponent(searchParams.get('title')!)
           : undefined,
         notes: searchParams.get('notes')
-          ? decodeURIComponent(searchParams.get('notes'))
+          ? decodeURIComponent(searchParams.get('notes')!)
           : undefined,
         location: searchParams.get('location')
-          ? decodeURIComponent(searchParams.get('location'))
+          ? decodeURIComponent(searchParams.get('location')!)
           : undefined,
         description: searchParams.get('description')
-          ? decodeURIComponent(searchParams.get('description'))
+          ? decodeURIComponent(searchParams.get('description')!)
           : undefined,
+        price: searchParams.get('price')
+          ? parseFloat(searchParams.get('price')!)
+          : undefined,
+        serviceId: searchParams.get('serviceId') || undefined,
+        assignedTo,
       })
       setActiveTab('calendar')
       setShowJobForm(true)
@@ -389,6 +422,9 @@ const SchedulingPage = () => {
       params.delete('notes')
       params.delete('location')
       params.delete('description')
+      params.delete('price')
+      params.delete('serviceId')
+      params.delete('assignedTo')
       setSearchParams(params, { replace: true })
     }
   }, [openCreateJob, searchParams, setSearchParams])
@@ -846,21 +882,9 @@ const SchedulingPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
         <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            {returnTo && returnTo.startsWith('/app') && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(returnTo)}
-                className="text-primary-light/70 hover:text-primary-light -ml-2"
-              >
-                ← Back to Jobs
-              </Button>
-            )}
-            <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
-              <span className="text-primary-gold">Scheduling</span>
-            </h1>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+            <span className="text-primary-gold">Scheduling</span>
+          </h1>
           <p className="text-sm md:text-base text-primary-light/60">
             Manage your calendar, jobs, and services
           </p>
@@ -1349,6 +1373,7 @@ const SchedulingPage = () => {
         onClose={() => {
           setShowJobForm(false)
           setEditingJob(null)
+          setCreateJobDefaults({}) // Clear defaults when closing
           clearJobsError()
         }}
         title={
@@ -1357,11 +1382,13 @@ const SchedulingPage = () => {
         size="2xl"
       >
         <JobForm
+          key={editingJob?.id || `new-${createJobDefaults.contactId || 'default'}`} // Force remount when switching between edit/new or when defaults change
           job={editingJob || undefined}
           onSubmit={editingJob ? handleUpdateJob : handleCreateJob}
           onCancel={() => {
             setShowJobForm(false)
             setEditingJob(null)
+            setCreateJobDefaults({}) // Clear defaults when canceling
             clearJobsError()
           }}
           isLoading={jobsLoading}
@@ -1372,6 +1399,9 @@ const SchedulingPage = () => {
           defaultNotes={!editingJob ? createJobDefaults.notes : undefined}
           defaultLocation={!editingJob ? createJobDefaults.location : undefined}
           defaultDescription={!editingJob ? createJobDefaults.description : undefined}
+          defaultPrice={!editingJob ? createJobDefaults.price : undefined}
+          defaultServiceId={!editingJob ? createJobDefaults.serviceId : undefined}
+          defaultAssignedTo={!editingJob ? createJobDefaults.assignedTo : undefined}
         />
       </Modal>
 
