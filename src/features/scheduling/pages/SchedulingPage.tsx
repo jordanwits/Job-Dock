@@ -39,6 +39,7 @@ const SchedulingPage = () => {
   const returnTo = searchParams.get('returnTo')
   const openCreateJob = searchParams.get('openCreateJob') === '1'
   const jobIdParam = searchParams.get('jobId')
+  const linkJobId = searchParams.get('linkJobId') // Job ID to link to when scheduling appointment
   const [createJobDefaults, setCreateJobDefaults] = useState<{
     contactId?: string
     title?: string
@@ -105,6 +106,7 @@ const SchedulingPage = () => {
 
   const [showJobForm, setShowJobForm] = useState(false)
   const [editingJob, setEditingJob] = useState<typeof selectedJob>(null)
+  const [linkExistingJobId, setLinkExistingJobId] = useState<string | undefined>(undefined)
   const [showServiceForm, setShowServiceForm] = useState(false)
   const [showServiceDetail, setShowServiceDetail] = useState(false)
   const [bookingLink, setBookingLink] = useState<string>('')
@@ -428,6 +430,8 @@ const SchedulingPage = () => {
         serviceId: searchParams.get('serviceId') || undefined,
         assignedTo,
       })
+      // Persist linkJobId before URL params are cleared
+      setLinkExistingJobId(linkJobId || undefined)
       setActiveTab('calendar')
       setShowJobForm(true)
       // Clear params from URL so refresh doesn't re-open modal (keep returnTo)
@@ -441,9 +445,10 @@ const SchedulingPage = () => {
       params.delete('price')
       params.delete('serviceId')
       params.delete('assignedTo')
+      params.delete('linkJobId')
       setSearchParams(params, { replace: true })
     }
-  }, [openCreateJob, searchParams, setSearchParams])
+  }, [openCreateJob, searchParams, setSearchParams, linkJobId])
 
   // Clear deleted job IDs when switching away from archived tab
   useEffect(() => {
@@ -1390,6 +1395,7 @@ const SchedulingPage = () => {
           setShowJobForm(false)
           setEditingJob(null)
           setCreateJobDefaults({}) // Clear defaults when closing
+          setLinkExistingJobId(undefined)
           clearJobsError()
         }}
         title={
@@ -1398,13 +1404,34 @@ const SchedulingPage = () => {
         size="2xl"
       >
         <JobForm
-          key={editingJob?.id || `new-${createJobDefaults.contactId || 'default'}`} // Force remount when switching between edit/new or when defaults change
+          key={
+            editingJob?.id ||
+            `new-${createJobDefaults.contactId || 'default'}-${linkExistingJobId || 'none'}`
+          } // Force remount when switching between edit/new or when defaults change
           job={editingJob || undefined}
-          onSubmit={editingJob ? handleUpdateJob : handleCreateJob}
+          onSubmit={editingJob ? handleUpdateJob : async (data, existingJobId) => {
+            if (existingJobId) {
+              // Update existing job instead of creating new one
+              try {
+                await updateJob({ id: existingJobId, ...data })
+                setShowJobForm(false)
+                clearJobsError()
+                setJobConfirmationMessage('Job scheduled successfully')
+                setShowJobConfirmation(true)
+                setTimeout(() => setShowJobConfirmation(false), 3000)
+              } catch (error: any) {
+                // Error will be displayed in the modal via jobsError
+                // Keep the modal open so user can fix the issue
+              }
+            } else {
+              await handleCreateJob(data)
+            }
+          }}
           onCancel={() => {
             setShowJobForm(false)
             setEditingJob(null)
             setCreateJobDefaults({}) // Clear defaults when canceling
+            setLinkExistingJobId(undefined)
             clearJobsError()
           }}
           isLoading={jobsLoading}
@@ -1418,6 +1445,8 @@ const SchedulingPage = () => {
           defaultPrice={!editingJob ? createJobDefaults.price : undefined}
           defaultServiceId={!editingJob ? createJobDefaults.serviceId : undefined}
           defaultAssignedTo={!editingJob ? createJobDefaults.assignedTo : undefined}
+          allowLinkExistingJob={!editingJob && activeTab === 'calendar'} // Allow linking when creating new job from calendar
+          existingJobId={!editingJob ? linkExistingJobId : undefined} // Pre-select job when scheduling from job detail
           // Don't use simplified form for Schedule Job button - show all fields
         />
       </Modal>
@@ -1474,6 +1503,8 @@ const SchedulingPage = () => {
         defaultDescription={followupDefaults.description}
         defaultPrice={followupDefaults.price}
         sourceContext="job-followup"
+        allowLinkExistingJob={true} // Allow linking to existing jobs for follow-ups
+        existingJobId={selectedJob?.id} // Auto-select the current job when scheduling from it
         onSuccess={() => {
           setSelectedJob(null)
           setShowJobDetail(false)

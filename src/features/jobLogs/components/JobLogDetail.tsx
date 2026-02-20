@@ -556,6 +556,9 @@ const JobLogDetail = ({
     params.set('tab', 'calendar')
     params.set('returnTo', '/app/job-logs/' + jobLog.id)
     params.set('openCreateJob', '1')
+    // Pass the job ID so it can be pre-selected when linking to existing job
+    const linkableJobId = jobLog.jobId || jobLog.job?.id || jobLog.id
+    if (linkableJobId) params.set('linkJobId', linkableJobId)
     if (jobLog.contactId) params.set('contactId', jobLog.contactId)
     if (jobLog.title) params.set('title', encodeURIComponent(jobLog.title))
     if (jobLog.notes) params.set('notes', encodeURIComponent(jobLog.notes))

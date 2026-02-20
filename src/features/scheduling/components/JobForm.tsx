@@ -1,20 +1,22 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { jobSchema, type JobFormData } from '../schemas/jobSchemas'
 import { Job, RecurrenceFrequency, JobBreak, JobAssignment } from '../types/job'
 import { Input, Button, Select, DatePicker, TimePicker } from '@/components/ui'
+import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useAuthStore } from '@/features/auth/store/authStore'
+import { useJobStore } from '../store/jobStore'
 import { services as apiServices } from '@/lib/api/services'
 import { format, addWeeks, addMonths } from 'date-fns'
 
 interface JobFormProps {
   job?: Job
-  onSubmit: (data: JobFormData) => Promise<void>
+  onSubmit: (data: JobFormData, existingJobId?: string) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
   defaultContactId?: string
@@ -37,6 +39,8 @@ interface JobFormProps {
   error?: string | null
   schedulingUnscheduledJob?: boolean
   isSimpleCreate?: boolean // When true and not editing, show only title, description, location, contact
+  allowLinkExistingJob?: boolean // When true, show option to link to existing job
+  existingJobId?: string // Pre-selected existing job ID
 }
 
 interface TeamMemberOption {
@@ -62,15 +66,19 @@ const JobForm = ({
   error,
   schedulingUnscheduledJob,
   isSimpleCreate = false,
+  allowLinkExistingJob = false,
+  existingJobId: propExistingJobId,
 }: JobFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { services, fetchServices } = useServiceStore()
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
   const { user } = useAuthStore()
+  const { jobs: allJobs, fetchJobs } = useJobStore()
   const canSchedule = user?.canScheduleAppointments !== false
   const canCreateJobs = user?.canCreateJobs !== false
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
+  const canSeeOtherJobs = isAdminOrOwner || (user?.canSeeOtherJobs ?? true)
   // Employees can see job prices only if permission is enabled
   // But they can always see their own assignment pay
   const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
@@ -79,6 +87,13 @@ const JobForm = ({
   const [jobRoles, setJobRoles] = useState<Array<{ id: string; title: string }>>([])
   const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [assignments, setAssignments] = useState<JobAssignment[]>([])
+  const [jobSelectionMode, setJobSelectionMode] = useState<'new' | 'existing'>(
+    propExistingJobId ? 'existing' : 'new'
+  )
+  const [selectedExistingJobId, setSelectedExistingJobId] = useState<string | undefined>(
+    propExistingJobId
+  )
+  const [availableJobs, setAvailableJobs] = useState<Job[]>([])
   const [startDate, setStartDate] = useState(
     job && job.startTime ? format(new Date(job.startTime), 'yyyy-MM-dd') : ''
   )
@@ -174,6 +189,43 @@ const JobForm = ({
       fetchInvoices()
     }
   }, [fetchContacts, fetchServices, fetchQuotes, fetchInvoices, quotes.length, invoices.length])
+
+  // Update selection mode when existingJobId prop changes
+  useEffect(() => {
+    if (propExistingJobId) {
+      setJobSelectionMode('existing')
+      setSelectedExistingJobId(propExistingJobId)
+    }
+  }, [propExistingJobId])
+
+  // Fetch jobs for selector when allowLinkExistingJob is true
+  useEffect(() => {
+    if (allowLinkExistingJob && canSeeOtherJobs && !schedulingUnscheduledJob && !job) {
+      // Fetch jobs from a wide date range to get all available jobs
+      const startDate = new Date()
+      startDate.setMonth(startDate.getMonth() - 6) // 6 months back
+      const endDate = new Date()
+      endDate.setMonth(endDate.getMonth() + 12) // 12 months forward
+      fetchJobs(startDate, endDate, false, false)
+    }
+  }, [allowLinkExistingJob, canSeeOtherJobs, schedulingUnscheduledJob, job, fetchJobs])
+
+  // Filter available jobs based on contact
+  const filteredJobs = useMemo(() => {
+    if (!allowLinkExistingJob || !canSeeOtherJobs) return []
+    
+    const filtered = allJobs.filter(j => {
+      // Exclude archived/deleted jobs
+      if (j.archivedAt || j.deletedAt) return false
+      // Exclude the current job if editing
+      if (job && j.id === job.id) return false
+      // Filter by contact if defaultContactId is set
+      if (defaultContactId && j.contactId !== defaultContactId) return false
+      return true
+    })
+
+    return filtered.slice(0, 100) // Limit to 100 results (SearchableSelect will handle search filtering)
+  }, [allJobs, defaultContactId, allowLinkExistingJob, canSeeOtherJobs, job])
 
   useEffect(() => {
     const role = user?.role
@@ -522,6 +574,37 @@ const JobForm = ({
     }
   }, [job, reset, schedulingUnscheduledJob])
 
+  // Update form when existing job is selected (must be after useForm hook)
+  useEffect(() => {
+    if (selectedExistingJobId && jobSelectionMode === 'existing' && !job) {
+      const selectedJob = filteredJobs.find(j => j.id === selectedExistingJobId)
+      if (selectedJob) {
+        // Pre-fill form with selected job's data
+        reset({
+          title: selectedJob.title,
+          description: selectedJob.description,
+          contactId: selectedJob.contactId,
+          serviceId: selectedJob.serviceId || '', // Convert null to empty string for form
+          quoteId: selectedJob.quoteId || '',
+          invoiceId: selectedJob.invoiceId || '',
+          location: selectedJob.location || '',
+          price: selectedJob.price?.toString() || '',
+          notes: selectedJob.notes || '',
+          assignedTo: Array.isArray(selectedJob.assignedTo) 
+            ? selectedJob.assignedTo.filter((a: any) => a?.userId)
+            : [],
+        })
+        if (selectedJob.startTime && selectedJob.endTime) {
+          setStartDate(format(new Date(selectedJob.startTime), 'yyyy-MM-dd'))
+          setStartTime(format(new Date(selectedJob.startTime), 'HH:mm'))
+          const inferred = inferDurationUnit(selectedJob.startTime, selectedJob.endTime)
+          setDurationUnit(inferred.unit)
+          setDurationValue(inferred.value)
+        }
+      }
+    }
+  }, [selectedExistingJobId, jobSelectionMode, filteredJobs, reset, job])
+
   const handleFormSubmit = async (data: JobFormData) => {
     // Clear any previous submit-level error (invalid form, etc.)
     if (submitError) setSubmitError(null)
@@ -594,15 +677,17 @@ const JobForm = ({
         toBeScheduled: true,
         breaks: undefined,
         // Convert empty strings to undefined for foreign keys
-        quoteId: dataWithoutTimes.quoteId || undefined,
-        invoiceId: dataWithoutTimes.invoiceId || undefined,
-        serviceId: dataWithoutTimes.serviceId || undefined,
+        quoteId: (dataWithoutTimes.quoteId && dataWithoutTimes.quoteId !== '') ? dataWithoutTimes.quoteId : undefined,
+        invoiceId: (dataWithoutTimes.invoiceId && dataWithoutTimes.invoiceId !== '') ? dataWithoutTimes.invoiceId : undefined,
+        serviceId: (dataWithoutTimes.serviceId && dataWithoutTimes.serviceId !== '') ? dataWithoutTimes.serviceId : undefined,
         assignedTo: normalizedAssignments,
         // Convert price string to number, or undefined if empty
         // Don't include job price if user doesn't have permission
         price: shouldIncludeJobPrice ? convertPrice(dataWithoutTimes.price) : undefined,
       }
-      await onSubmit(formData)
+      // Pass existingJobId if linking to existing job
+      const existingJobId = jobSelectionMode === 'existing' ? selectedExistingJobId : undefined
+      await onSubmit(formData, existingJobId)
       return
     }
 
@@ -650,10 +735,10 @@ const JobForm = ({
       endTime: endDateTime.toISOString(),
       toBeScheduled: false,
       breaks: breaks.length > 0 ? breaks : undefined,
-      // Convert empty strings to undefined for foreign keys
-      quoteId: data.quoteId || undefined,
-      invoiceId: data.invoiceId || undefined,
-      serviceId: data.serviceId || undefined,
+      // Convert empty strings and null to undefined for foreign keys
+      quoteId: (data.quoteId && data.quoteId !== '') ? data.quoteId : undefined,
+      invoiceId: (data.invoiceId && data.invoiceId !== '') ? data.invoiceId : undefined,
+      serviceId: (data.serviceId && data.serviceId !== '') ? data.serviceId : undefined,
       assignedTo: normalizedAssignments,
       // Convert price string to number, or undefined if empty
       // Don't include job price if user doesn't have permission
@@ -734,7 +819,9 @@ const JobForm = ({
       recurrence: formData.recurrence ? 'yes' : 'no',
       recurrenceDetails: formData.recurrence,
     })
-    await onSubmit(formData)
+    // Pass existingJobId if linking to existing job
+    const existingJobId = jobSelectionMode === 'existing' ? selectedExistingJobId : undefined
+    await onSubmit(formData, existingJobId)
   }
 
   const handleInvalidSubmit = (invalid: any) => {
@@ -826,6 +913,54 @@ const JobForm = ({
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Job Selection Mode - Show when allowLinkExistingJob is true and not editing */}
+      {allowLinkExistingJob && !job && !schedulingUnscheduledJob && canSeeOtherJobs && (
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="jobSelectionMode"
+                checked={jobSelectionMode === 'new'}
+                onChange={() => {
+                  setJobSelectionMode('new')
+                  setSelectedExistingJobId(undefined)
+                }}
+                className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
+              />
+              <span className="text-sm text-primary-light">Create New Job</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="jobSelectionMode"
+                checked={jobSelectionMode === 'existing'}
+                onChange={() => setJobSelectionMode('existing')}
+                className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
+              />
+              <span className="text-sm text-primary-light">Link to Existing Job</span>
+            </label>
+          </div>
+
+          {jobSelectionMode === 'existing' && (
+            <SearchableSelect
+              label="Select Job"
+              value={selectedExistingJobId || ''}
+              onChange={value => setSelectedExistingJobId(value || undefined)}
+              placeholder="Search and select a job..."
+              searchPlaceholder="Search by title, contact, or service..."
+              options={[
+                { value: '', label: 'Select a job...' },
+                ...filteredJobs.map(j => ({
+                  value: j.id,
+                  label: `${j.title}${j.contactName ? ` - ${j.contactName}` : ''}${j.serviceName ? ` (${j.serviceName})` : ''}`,
+                })),
+              ]}
+            />
+          )}
         </div>
       )}
 
