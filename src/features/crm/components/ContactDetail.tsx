@@ -1,11 +1,17 @@
 import type { Contact, ContactStatus, CreateContactData } from '../types/contact'
 import { useContactStore } from '../store/contactStore'
 import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import ContactForm from './ContactForm'
 import { ScheduleJobModal } from '@/features/scheduling'
 import QuoteForm from '@/features/quotes/components/QuoteForm'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
+import { useJobStore } from '@/features/scheduling/store/jobStore'
+import JobForm from '@/features/scheduling/components/JobForm'
+import { CreateJobData } from '@/features/scheduling/types/job'
+import InvoiceForm from '@/features/invoices/components/InvoiceForm'
+import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
+import { cn } from '@/lib/utils'
 
 interface ContactDetailProps {
   contact: Contact
@@ -24,13 +30,19 @@ const ContactDetail = ({
 }: ContactDetailProps) => {
   const { updateContact, deleteContact, isLoading } = useContactStore()
   const { createQuote, sendQuote, isLoading: quoteLoading } = useQuoteStore()
+  const { createJob, isLoading: jobLoading, error: jobError, clearError: clearJobError } = useJobStore()
+  const { createInvoice, sendInvoice, isLoading: invoiceLoading } = useInvoiceStore()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showScheduleJob, setShowScheduleJob] = useState(false)
   const [showCreateQuote, setShowCreateQuote] = useState(false)
+  const [showCreateJob, setShowCreateJob] = useState(false)
+  const [showCreateInvoice, setShowCreateInvoice] = useState(false)
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [showContactConfirmation, setShowContactConfirmation] = useState(false)
   const [contactConfirmationMessage, setContactConfirmationMessage] = useState('')
+  const [showDropdown, setShowDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const handleUpdate = async (data: Partial<CreateContactData>) => {
     try {
@@ -107,6 +119,72 @@ const ContactDetail = ({
     }
   }
 
+  const handleCreateJob = async (data: CreateJobData) => {
+    try {
+      const jobData = {
+        ...data,
+        toBeScheduled: true, // Create as unscheduled job
+      }
+      await createJob(jobData)
+      clearJobError()
+      setShowCreateJob(false)
+      setContactConfirmationMessage('Job Created Successfully')
+      setShowContactConfirmation(true)
+      setTimeout(() => setShowContactConfirmation(false), 3000)
+      if (onJobCreated) {
+        onJobCreated()
+      }
+    } catch (error: any) {
+      // Error will be displayed in the modal via error prop
+    }
+  }
+
+  const handleCreateInvoice = async (data: any) => {
+    try {
+      await createInvoice(data)
+      setShowCreateInvoice(false)
+      setContactConfirmationMessage('Invoice Created Successfully')
+      setShowContactConfirmation(true)
+      setTimeout(() => setShowContactConfirmation(false), 3000)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  const handleCreateAndSendInvoice = async (data: any) => {
+    try {
+      // Create the invoice first
+      const newInvoice = await createInvoice(data)
+      // Send the invoice
+      if (newInvoice) {
+        await sendInvoice(newInvoice.id)
+      }
+      setShowCreateInvoice(false)
+      setContactConfirmationMessage('Invoice Sent Successfully')
+      setShowContactConfirmation(true)
+      setTimeout(() => setShowContactConfirmation(false), 3000)
+    } catch (error) {
+      // Error handled by store
+    }
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDropdown])
+
   if (isEditing) {
     return (
       <Modal
@@ -136,28 +214,90 @@ const ContactDetail = ({
         title="Contact Details"
         size="lg"
         footer={
-          <div className="flex flex-col sm:flex-row justify-between w-full gap-3">
+          <div className="flex flex-col sm:flex-row justify-between w-full gap-3 overflow-visible">
             <Button
               variant="ghost"
               onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-500 hover:text-red-600 order-3 sm:order-1"
+              className="text-red-500 hover:text-red-600 order-3 sm:order-1 relative z-10"
             >
               Delete
             </Button>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
-              <Button
-                onClick={() => setShowCreateQuote(true)}
-                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto"
-              >
-                Create Quote
-              </Button>
-              <Button
-                onClick={() => setShowScheduleJob(true)}
-                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto"
-              >
-                Schedule Job
-              </Button>
-              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto items-center overflow-visible">
+              <div className="relative w-full sm:w-auto overflow-visible" ref={dropdownRef}>
+                <Button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0] w-full sm:w-10 h-10 p-0 text-2xl sm:text-xl font-semibold"
+                >
+                  +
+                </Button>
+                {showDropdown && (
+                  <>
+                    <div className="absolute z-40 mt-2 w-full sm:min-w-[160px] sm:w-auto left-0 right-0 sm:left-auto sm:right-auto rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl">
+                      <div className="p-2 space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCreateQuote(true)
+                            setShowDropdown(false)
+                          }}
+                          className={cn(
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors',
+                            'text-center sm:text-left',
+                            'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                          )}
+                        >
+                          Create Quote
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCreateInvoice(true)
+                            setShowDropdown(false)
+                          }}
+                          className={cn(
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors',
+                            'text-center sm:text-left',
+                            'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                          )}
+                        >
+                          Create Invoice
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCreateJob(true)
+                            setShowDropdown(false)
+                          }}
+                          className={cn(
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors',
+                            'text-center sm:text-left',
+                            'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                          )}
+                        >
+                          Create Job
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowScheduleJob(true)
+                            setShowDropdown(false)
+                          }}
+                          className={cn(
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors',
+                            'text-center sm:text-left',
+                            'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                          )}
+                        >
+                          Schedule Job
+                        </button>
+                      </div>
+                    </div>
+                    {/* Spacer to push buttons down on mobile */}
+                    <div className="h-40 sm:hidden" />
+                  </>
+                )}
+              </div>
+              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto relative z-10">
                 Edit
               </Button>
             </div>
@@ -361,6 +501,45 @@ const ContactDetail = ({
           onSaveAndSend={handleCreateAndSendQuote}
           onCancel={() => setShowCreateQuote(false)}
           isLoading={quoteLoading}
+          defaultContactId={contact.id}
+        />
+      </Modal>
+
+      {/* Create Job Modal */}
+      <Modal
+        isOpen={showCreateJob}
+        onClose={() => {
+          setShowCreateJob(false)
+          clearJobError()
+        }}
+        title="Create Job"
+        size="xl"
+      >
+        <JobForm
+          onSubmit={handleCreateJob}
+          onCancel={() => {
+            setShowCreateJob(false)
+            clearJobError()
+          }}
+          isLoading={jobLoading}
+          error={jobError}
+          defaultContactId={contact.id}
+          defaultTitle={`${contact.firstName} ${contact.lastName}`}
+        />
+      </Modal>
+
+      {/* Create Invoice Modal */}
+      <Modal
+        isOpen={showCreateInvoice}
+        onClose={() => setShowCreateInvoice(false)}
+        title="Create Invoice"
+        size="xl"
+      >
+        <InvoiceForm
+          onSubmit={handleCreateInvoice}
+          onSaveAndSend={handleCreateAndSendInvoice}
+          onCancel={() => setShowCreateInvoice(false)}
+          isLoading={invoiceLoading}
           defaultContactId={contact.id}
         />
       </Modal>
