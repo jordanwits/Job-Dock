@@ -36,6 +36,7 @@ interface JobFormProps {
   initialInvoiceId?: string
   error?: string | null
   schedulingUnscheduledJob?: boolean
+  isSimpleCreate?: boolean // When true and not editing, show only title, description, location, contact
 }
 
 interface TeamMemberOption {
@@ -60,6 +61,7 @@ const JobForm = ({
   initialInvoiceId,
   error,
   schedulingUnscheduledJob,
+  isSimpleCreate = false,
 }: JobFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { services, fetchServices } = useServiceStore()
@@ -89,6 +91,8 @@ const JobForm = ({
   const [toBeScheduled, setToBeScheduled] = useState(() => {
     // If user can't schedule, always default to toBeScheduled = true
     if (!canSchedule) return true
+    // If in simplified create mode, default to toBeScheduled = true
+    if (isSimpleCreate && !job) return true
     return job?.toBeScheduled || false
   })
   const [repeatPattern, setRepeatPattern] = useState<string>('none')
@@ -804,6 +808,9 @@ const JobForm = ({
 
   // Title is always a text field - dropdown removed
 
+  // Determine if we should show simplified form (simple create mode and not editing)
+  const showSimplifiedForm = isSimpleCreate && !job
+
   return (
     <form onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} className="space-y-5 sm:space-y-4">
       {/* Error Display */}
@@ -862,6 +869,21 @@ const JobForm = ({
         )}
       />
 
+      {/* Location field - shown in both simplified and full forms */}
+      {showSimplifiedForm ? (
+        <div>
+          <label className="block text-sm font-medium text-primary-light mb-2">Location</label>
+          <Input
+            {...register('location')}
+            error={errors.location?.message}
+            placeholder="e.g., 123 Main St, New York, NY"
+          />
+        </div>
+      ) : null}
+
+      {/* All other fields - only show when NOT in simplified create mode */}
+      {!showSimplifiedForm && (
+        <>
       {canShowAssignee && (
         <div className="pt-2">
           <label className="block text-sm font-medium text-primary-light mb-2">
@@ -1639,6 +1661,8 @@ const JobForm = ({
           placeholder="Add notes..."
         />
       </div>
+        </>
+      )}
 
       <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
         {submitError && (

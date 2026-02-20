@@ -395,11 +395,14 @@ const QuoteDetail = ({
         sourceContext="quote"
         quoteId={quote.id}
         initialQuoteId={quote.id}
-        onSuccess={() => {
+        onSuccess={(createdJob) => {
           setShowScheduleJob(false)
           onClose()
           if (onJobCreated) {
             onJobCreated()
+          }
+          if (createdJob?.id) {
+            navigate(`/app/scheduling?tab=calendar&jobId=${encodeURIComponent(createdJob.id)}`)
           }
         }}
       />

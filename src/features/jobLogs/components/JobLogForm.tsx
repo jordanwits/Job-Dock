@@ -18,6 +18,7 @@ interface JobLogFormProps {
   onSubmit: (data: JobLogFormData) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
+  isSimpleCreate?: boolean // When true and not editing, show only title, description, location, contact
 }
 
 const statusOptions = [
@@ -26,7 +27,7 @@ const statusOptions = [
   { value: 'inactive', label: 'Inactive' },
 ] as const
 
-const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) => {
+const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = false }: JobLogFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { user } = useAuthStore()
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
@@ -286,6 +287,9 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
     await onSubmit(formData)
   }
 
+  // Determine if we should show simplified form (simple create mode and not editing)
+  const showSimplifiedForm = isSimpleCreate && !jobLog
+
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5 sm:space-y-4">
       <Input
@@ -307,6 +311,34 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
         error={errors.location?.message}
         placeholder="Address or job site location"
       />
+      
+      {/* Contact field - shown in both simplified and full forms */}
+      {showSimplifiedForm ? (
+        <div>
+          <label className="block text-sm font-medium text-primary-light mb-2">
+            Contact *
+          </label>
+          <Select
+            value={selectedContactId}
+            onChange={e => {
+              const v = e.target.value
+              setSelectedContactId(v)
+              setValue('contactId', v)
+            }}
+            options={[
+              { value: '', label: 'Select a contact' },
+              ...contacts.map(c => ({
+                value: c.id,
+                label: `${c.firstName} ${c.lastName}`,
+              })),
+            ]}
+          />
+        </div>
+      ) : null}
+
+      {/* All other fields - only show when NOT in simplified create mode */}
+      {!showSimplifiedForm && (
+        <>
       <div>
         <label className="block text-sm font-medium text-primary-light mb-2">Price</label>
         <div className="relative">
@@ -397,7 +429,9 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading }: JobLogFormProps) 
           ]}
         />
       </div>
-      {canShowAssignee && (
+        </>
+      )}
+      {!showSimplifiedForm && canShowAssignee && (
         <div className="pt-2">
           <label className="block text-sm font-medium text-primary-light mb-2">
             Assign to Team Members (with Roles & Pricing)

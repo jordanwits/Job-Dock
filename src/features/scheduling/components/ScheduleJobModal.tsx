@@ -1,7 +1,7 @@
 import { Modal } from '@/components/ui'
 import { useJobStore } from '../store/jobStore'
 import JobForm from './JobForm'
-import { CreateJobData } from '../types/job'
+import { CreateJobData, Job } from '../types/job'
 
 interface ScheduleJobModalProps {
   isOpen: boolean
@@ -18,7 +18,7 @@ interface ScheduleJobModalProps {
   invoiceId?: string
   initialQuoteId?: string
   initialInvoiceId?: string
-  onSuccess?: () => void
+  onSuccess?: (createdJob?: Job) => void
 }
 
 const ScheduleJobModal = ({
@@ -48,12 +48,12 @@ const ScheduleJobModal = ({
         ...(quoteId && { quoteId }),
         ...(invoiceId && { invoiceId }),
       }
-      await createJob(jobData)
+      const created = await createJob(jobData)
       clearError()
       onClose()
       // Call onSuccess which should show confirmation in parent component
       if (onSuccess) {
-        onSuccess()
+        onSuccess(created)
       }
     } catch (error: any) {
       // Error will be displayed in the modal via error prop

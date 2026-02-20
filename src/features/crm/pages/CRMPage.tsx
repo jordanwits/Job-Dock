@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useContactStore } from '../store/contactStore'
 import ContactList from '../components/ContactList'
 import ContactForm from '../components/ContactForm'
@@ -8,6 +9,7 @@ import { ScheduleJobModal } from '@/features/scheduling'
 import { Button, Modal, Card } from '@/components/ui'
 
 const CRMPage = () => {
+  const navigate = useNavigate()
   const {
     selectedContact,
     createContact,
@@ -173,13 +175,16 @@ const CRMPage = () => {
         defaultContactId={newContactId || undefined}
         defaultTitle={newContactName || undefined}
         sourceContext="contact"
-        onSuccess={() => {
+        onSuccess={(createdJob) => {
           setShowScheduleJob(false)
           setNewContactId(null)
           setNewContactName('')
           setConfirmationMessage('Contact created and job scheduled successfully')
           setShowConfirmation(true)
           setTimeout(() => setShowConfirmation(false), 3000)
+          if (createdJob?.id) {
+            navigate(`/app/scheduling?tab=calendar&jobId=${encodeURIComponent(createdJob.id)}`)
+          }
         }}
       />
 

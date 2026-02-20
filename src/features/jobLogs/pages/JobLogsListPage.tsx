@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogList from '../components/JobLogList'
 import JobLogForm from '../components/JobLogForm'
@@ -11,6 +11,7 @@ import { useAuthStore } from '@/features/auth'
 const JobLogsListPage = () => {
   const { user } = useAuthStore()
   const [isTeamAccount, setIsTeamAccount] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => {
     const checkTeam = async () => {
@@ -26,6 +27,19 @@ const JobLogsListPage = () => {
   const navigate = useNavigate()
   const { createJobLog, isLoading } = useJobLogStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
+
+  // If we arrive with ?openJobId=..., auto-open that job and then clear the param.
+  useEffect(() => {
+    const openJobId = searchParams.get('openJobId')
+    if (!openJobId) return
+
+    // Clear param first (so refresh doesn't keep re-opening)
+    const next = new URLSearchParams(searchParams)
+    next.delete('openJobId')
+    setSearchParams(next, { replace: true })
+
+    navigate(`/app/job-logs/${openJobId}`)
+  }, [navigate, searchParams, setSearchParams])
 
   const handleSelectJobLog = (id: string) => {
     navigate(`/app/job-logs/${id}`)
@@ -72,6 +86,7 @@ const JobLogsListPage = () => {
           onSubmit={handleCreate}
           onCancel={() => setShowCreateForm(false)}
           isLoading={isLoading}
+          isSimpleCreate={true}
         />
       </Modal>
     </div>

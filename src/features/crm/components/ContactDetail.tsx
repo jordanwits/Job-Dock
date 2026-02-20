@@ -2,6 +2,7 @@ import type { Contact, ContactStatus, CreateContactData } from '../types/contact
 import { useContactStore } from '../store/contactStore'
 import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import ContactForm from './ContactForm'
 import { ScheduleJobModal } from '@/features/scheduling'
 import QuoteForm from '@/features/quotes/components/QuoteForm'
@@ -11,6 +12,7 @@ import JobForm from '@/features/scheduling/components/JobForm'
 import { CreateJobData } from '@/features/scheduling/types/job'
 import InvoiceForm from '@/features/invoices/components/InvoiceForm'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
+import { services } from '@/lib/api/services'
 import { cn } from '@/lib/utils'
 
 interface ContactDetailProps {
@@ -28,6 +30,7 @@ const ContactDetail = ({
   onJobCreated,
   onJobCreateFailed,
 }: ContactDetailProps) => {
+  const navigate = useNavigate()
   const { updateContact, deleteContact, isLoading } = useContactStore()
   const { createQuote, sendQuote, isLoading: quoteLoading } = useQuoteStore()
   const { createJob, isLoading: jobLoading, error: jobError, clearError: clearJobError } = useJobStore()
@@ -92,11 +95,74 @@ const ContactDetail = ({
 
   const handleCreateQuote = async (data: any) => {
     try {
-      await createQuote(data)
+      const newQuote = await createQuote(data)
       setShowCreateQuote(false)
-      setContactConfirmationMessage('Quote Created Successfully')
-      setShowContactConfirmation(true)
-      setTimeout(() => setShowContactConfirmation(false), 3000)
+      onClose()
+      
+      // Resolve the correct quote ID by polling the quotes list API
+      // (similar to jobs - the create response ID may not match the detail page ID)
+      const expected = {
+        contactId: contact.id,
+        title: (newQuote as any)?.title ?? data.title,
+        quoteNumber: (newQuote as any)?.quoteNumber,
+        createdAt: (newQuote as any)?.createdAt as string | undefined,
+      }
+
+      const resolveFromList = async (): Promise<string | undefined> => {
+        const maxAttempts = 8
+        const baseDelayMs = 350
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const list = await services.quotes.getAll()
+            const candidates = Array.isArray(list) ? list : []
+
+            // 1) Direct id match
+            const directId = candidates.find((q: any) => q?.id === (newQuote as any)?.id)?.id
+            if (directId) return directId
+
+            // 2) Match by contactId + quoteNumber (most reliable)
+            if (expected.quoteNumber) {
+              const byQuoteNumber = candidates.find(
+                (q: any) => q?.contactId === expected.contactId && q?.quoteNumber === expected.quoteNumber
+              )
+              if (byQuoteNumber?.id) return byQuoteNumber.id
+            }
+
+            // 3) Match by contactId + title + createdAt
+            const createdAtMs = expected.createdAt ? new Date(expected.createdAt).getTime() : NaN
+            const strongMatches = candidates.filter((q: any) => {
+              if (!q?.id) return false
+              const sameContact = q.contactId === expected.contactId
+              const sameTitle = (q.title ?? '').trim() === (expected.title ?? '').trim()
+              if (!sameContact || !sameTitle) return false
+              if (!Number.isFinite(createdAtMs)) return true
+              const qCreated = q.createdAt ? new Date(q.createdAt).getTime() : NaN
+              if (!Number.isFinite(qCreated)) return true
+              return Math.abs(qCreated - createdAtMs) < 2 * 60 * 1000 // within 2 minutes
+            })
+            if (strongMatches.length > 0) {
+              strongMatches.sort(
+                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )
+              return strongMatches[0].id
+            }
+          } catch {
+            // ignore and retry
+          }
+
+          // backoff
+          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+        }
+        return undefined
+      }
+
+      const idToOpen = await resolveFromList()
+      if (!idToOpen) {
+        navigate('/app/quotes')
+        return
+      }
+      // Quotes open via QuotesPage query param (there is no /app/quotes/:id route)
+      navigate(`/app/quotes?open=${encodeURIComponent(idToOpen)}`, { replace: true })
     } catch (error) {
       // Error handled by store
     }
@@ -111,9 +177,71 @@ const ContactDetail = ({
         await sendQuote(newQuote.id)
       }
       setShowCreateQuote(false)
-      setContactConfirmationMessage('Quote Sent Successfully')
-      setShowContactConfirmation(true)
-      setTimeout(() => setShowContactConfirmation(false), 3000)
+      onClose()
+      
+      // Resolve the correct quote ID by polling the quotes list API
+      const expected = {
+        contactId: contact.id,
+        title: (newQuote as any)?.title ?? data.title,
+        quoteNumber: (newQuote as any)?.quoteNumber,
+        createdAt: (newQuote as any)?.createdAt as string | undefined,
+      }
+
+      const resolveFromList = async (): Promise<string | undefined> => {
+        const maxAttempts = 8
+        const baseDelayMs = 350
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const list = await services.quotes.getAll()
+            const candidates = Array.isArray(list) ? list : []
+
+            // 1) Direct id match
+            const directId = candidates.find((q: any) => q?.id === (newQuote as any)?.id)?.id
+            if (directId) return directId
+
+            // 2) Match by contactId + quoteNumber (most reliable)
+            if (expected.quoteNumber) {
+              const byQuoteNumber = candidates.find(
+                (q: any) => q?.contactId === expected.contactId && q?.quoteNumber === expected.quoteNumber
+              )
+              if (byQuoteNumber?.id) return byQuoteNumber.id
+            }
+
+            // 3) Match by contactId + title + createdAt
+            const createdAtMs = expected.createdAt ? new Date(expected.createdAt).getTime() : NaN
+            const strongMatches = candidates.filter((q: any) => {
+              if (!q?.id) return false
+              const sameContact = q.contactId === expected.contactId
+              const sameTitle = (q.title ?? '').trim() === (expected.title ?? '').trim()
+              if (!sameContact || !sameTitle) return false
+              if (!Number.isFinite(createdAtMs)) return true
+              const qCreated = q.createdAt ? new Date(q.createdAt).getTime() : NaN
+              if (!Number.isFinite(qCreated)) return true
+              return Math.abs(qCreated - createdAtMs) < 2 * 60 * 1000 // within 2 minutes
+            })
+            if (strongMatches.length > 0) {
+              strongMatches.sort(
+                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )
+              return strongMatches[0].id
+            }
+          } catch {
+            // ignore and retry
+          }
+
+          // backoff
+          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+        }
+        return undefined
+      }
+
+      const idToOpen = await resolveFromList()
+      if (!idToOpen) {
+        navigate('/app/quotes')
+        return
+      }
+      // Quotes open via QuotesPage query param (there is no /app/quotes/:id route)
+      navigate(`/app/quotes?open=${encodeURIComponent(idToOpen)}`, { replace: true })
     } catch (error) {
       // Error handled by store
     }
@@ -125,27 +253,161 @@ const ContactDetail = ({
         ...data,
         toBeScheduled: true, // Create as unscheduled job
       }
-      await createJob(jobData)
+      const newJob = await createJob(jobData)
       clearJobError()
       setShowCreateJob(false)
-      setContactConfirmationMessage('Job Created Successfully')
-      setShowContactConfirmation(true)
-      setTimeout(() => setShowContactConfirmation(false), 3000)
+      onClose()
       if (onJobCreated) {
         onJobCreated()
       }
+
+      // Navigate to Jobs list and auto-open the created job.
+      // The POST `/jobs` response id has proven unreliable for `/job-logs/:id`,
+      // so we resolve the *real* Jobs-list id by polling `/job-logs` until it appears.
+      const expected = {
+        contactId: contact.id,
+        title: (newJob as any)?.title ?? data.title,
+        description: (newJob as any)?.description ?? data.description,
+        createdAt: (newJob as any)?.createdAt as string | undefined,
+      }
+
+      const resolveFromList = async (): Promise<string | undefined> => {
+        const maxAttempts = 8
+        const baseDelayMs = 350
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const list = await services.jobLogs.getAll()
+            const candidates = Array.isArray(list) ? list : []
+
+            // 1) Direct id match (in case the ids do line up)
+            const directId =
+              candidates.find((j: any) => j?.id && j.id === (newJob as any)?.id)?.id ??
+              candidates.find((j: any) => j?.id && j.id === (newJob as any)?.jobId)?.id ??
+              candidates.find((j: any) => j?.id && j.id === (newJob as any)?.job?.id)?.id
+            if (directId) return directId
+
+            // 2) Strong match: same contactId + title (+ createdAt close if available)
+            const createdAtMs = expected.createdAt ? new Date(expected.createdAt).getTime() : NaN
+            const strongMatches = candidates.filter((j: any) => {
+              if (!j?.id) return false
+              const sameContact = j.contactId === expected.contactId
+              const sameTitle = (j.title ?? '').trim() === (expected.title ?? '').trim()
+              if (!sameContact || !sameTitle) return false
+              if (!Number.isFinite(createdAtMs)) return true
+              const jCreated = j.createdAt ? new Date(j.createdAt).getTime() : NaN
+              if (!Number.isFinite(jCreated)) return true
+              return Math.abs(jCreated - createdAtMs) < 2 * 60 * 1000 // within 2 minutes
+            })
+            if (strongMatches.length > 0) {
+              strongMatches.sort(
+                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )
+              return strongMatches[0].id
+            }
+
+            // 3) Fallback: same contactId + title + description
+            const fallback = candidates
+              .filter((j: any) => {
+                const sameContact = j.contactId === expected.contactId
+                const sameTitle = (j.title ?? '').trim() === (expected.title ?? '').trim()
+                const sameDesc = (j.description ?? '').trim() === (expected.description ?? '').trim()
+                return j?.id && sameContact && sameTitle && sameDesc
+              })
+              .sort(
+                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )[0]
+            if (fallback?.id) return fallback.id
+          } catch {
+            // ignore and retry
+          }
+
+          // backoff
+          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+        }
+        return undefined
+      }
+
+      const idToOpen = await resolveFromList()
+      if (!idToOpen) {
+        navigate('/app/job-logs')
+        return
+      }
+      navigate(`/app/job-logs?openJobId=${encodeURIComponent(idToOpen)}`)
     } catch (error: any) {
       // Error will be displayed in the modal via error prop
+      console.error('Error creating job:', error)
     }
   }
 
   const handleCreateInvoice = async (data: any) => {
     try {
-      await createInvoice(data)
+      const newInvoice = await createInvoice(data)
       setShowCreateInvoice(false)
-      setContactConfirmationMessage('Invoice Created Successfully')
-      setShowContactConfirmation(true)
-      setTimeout(() => setShowContactConfirmation(false), 3000)
+      onClose()
+      
+      // Resolve the correct invoice ID by polling the invoices list API
+      const expected = {
+        contactId: contact.id,
+        title: (newInvoice as any)?.title ?? data.title,
+        invoiceNumber: (newInvoice as any)?.invoiceNumber,
+        createdAt: (newInvoice as any)?.createdAt as string | undefined,
+      }
+
+      const resolveFromList = async (): Promise<string | undefined> => {
+        const maxAttempts = 8
+        const baseDelayMs = 350
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const list = await services.invoices.getAll()
+            const candidates = Array.isArray(list) ? list : []
+
+            // 1) Direct id match
+            const directId = candidates.find((i: any) => i?.id === (newInvoice as any)?.id)?.id
+            if (directId) return directId
+
+            // 2) Match by contactId + invoiceNumber (most reliable)
+            if (expected.invoiceNumber) {
+              const byInvoiceNumber = candidates.find(
+                (i: any) => i?.contactId === expected.contactId && i?.invoiceNumber === expected.invoiceNumber
+              )
+              if (byInvoiceNumber?.id) return byInvoiceNumber.id
+            }
+
+            // 3) Match by contactId + title + createdAt
+            const createdAtMs = expected.createdAt ? new Date(expected.createdAt).getTime() : NaN
+            const strongMatches = candidates.filter((i: any) => {
+              if (!i?.id) return false
+              const sameContact = i.contactId === expected.contactId
+              const sameTitle = (i.title ?? '').trim() === (expected.title ?? '').trim()
+              if (!sameContact || !sameTitle) return false
+              if (!Number.isFinite(createdAtMs)) return true
+              const iCreated = i.createdAt ? new Date(i.createdAt).getTime() : NaN
+              if (!Number.isFinite(iCreated)) return true
+              return Math.abs(iCreated - createdAtMs) < 2 * 60 * 1000 // within 2 minutes
+            })
+            if (strongMatches.length > 0) {
+              strongMatches.sort(
+                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )
+              return strongMatches[0].id
+            }
+          } catch {
+            // ignore and retry
+          }
+
+          // backoff
+          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+        }
+        return undefined
+      }
+
+      const idToOpen = await resolveFromList()
+      if (!idToOpen) {
+        navigate('/app/invoices')
+        return
+      }
+      // Invoices open via InvoicesPage query param (there is no /app/invoices/:id route)
+      navigate(`/app/invoices?open=${encodeURIComponent(idToOpen)}`, { replace: true })
     } catch (error) {
       // Error handled by store
     }
@@ -160,9 +422,71 @@ const ContactDetail = ({
         await sendInvoice(newInvoice.id)
       }
       setShowCreateInvoice(false)
-      setContactConfirmationMessage('Invoice Sent Successfully')
-      setShowContactConfirmation(true)
-      setTimeout(() => setShowContactConfirmation(false), 3000)
+      onClose()
+      
+      // Resolve the correct invoice ID by polling the invoices list API
+      const expected = {
+        contactId: contact.id,
+        title: (newInvoice as any)?.title ?? data.title,
+        invoiceNumber: (newInvoice as any)?.invoiceNumber,
+        createdAt: (newInvoice as any)?.createdAt as string | undefined,
+      }
+
+      const resolveFromList = async (): Promise<string | undefined> => {
+        const maxAttempts = 8
+        const baseDelayMs = 350
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const list = await services.invoices.getAll()
+            const candidates = Array.isArray(list) ? list : []
+
+            // 1) Direct id match
+            const directId = candidates.find((i: any) => i?.id === (newInvoice as any)?.id)?.id
+            if (directId) return directId
+
+            // 2) Match by contactId + invoiceNumber (most reliable)
+            if (expected.invoiceNumber) {
+              const byInvoiceNumber = candidates.find(
+                (i: any) => i?.contactId === expected.contactId && i?.invoiceNumber === expected.invoiceNumber
+              )
+              if (byInvoiceNumber?.id) return byInvoiceNumber.id
+            }
+
+            // 3) Match by contactId + title + createdAt
+            const createdAtMs = expected.createdAt ? new Date(expected.createdAt).getTime() : NaN
+            const strongMatches = candidates.filter((i: any) => {
+              if (!i?.id) return false
+              const sameContact = i.contactId === expected.contactId
+              const sameTitle = (i.title ?? '').trim() === (expected.title ?? '').trim()
+              if (!sameContact || !sameTitle) return false
+              if (!Number.isFinite(createdAtMs)) return true
+              const iCreated = i.createdAt ? new Date(i.createdAt).getTime() : NaN
+              if (!Number.isFinite(iCreated)) return true
+              return Math.abs(iCreated - createdAtMs) < 2 * 60 * 1000 // within 2 minutes
+            })
+            if (strongMatches.length > 0) {
+              strongMatches.sort(
+                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )
+              return strongMatches[0].id
+            }
+          } catch {
+            // ignore and retry
+          }
+
+          // backoff
+          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+        }
+        return undefined
+      }
+
+      const idToOpen = await resolveFromList()
+      if (!idToOpen) {
+        navigate('/app/invoices')
+        return
+      }
+      // Invoices open via InvoicesPage query param (there is no /app/invoices/:id route)
+      navigate(`/app/invoices?open=${encodeURIComponent(idToOpen)}`, { replace: true })
     } catch (error) {
       // Error handled by store
     }
@@ -480,11 +804,15 @@ const ContactDetail = ({
         defaultContactId={contact.id}
         defaultTitle={`${contact.firstName} ${contact.lastName}`}
         sourceContext="contact"
-        onSuccess={() => {
+        onSuccess={(createdJob) => {
           setShowScheduleJob(false)
           onClose()
           if (onJobCreated) {
             onJobCreated()
+          }
+          // Open the newly scheduled appointment on the calendar.
+          if (createdJob?.id) {
+            navigate(`/app/scheduling?tab=calendar&jobId=${encodeURIComponent(createdJob.id)}`)
           }
         }}
       />
@@ -524,7 +852,7 @@ const ContactDetail = ({
           isLoading={jobLoading}
           error={jobError}
           defaultContactId={contact.id}
-          defaultTitle={`${contact.firstName} ${contact.lastName}`}
+          isSimpleCreate={true}
         />
       </Modal>
 

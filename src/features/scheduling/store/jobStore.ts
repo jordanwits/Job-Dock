@@ -61,7 +61,7 @@ interface JobState {
   // Actions
   fetchJobs: (startDate?: Date, endDate?: Date, includeArchived?: boolean, showDeleted?: boolean) => Promise<void>
   getJobById: (id: string) => Promise<void>
-  createJob: (data: CreateJobData) => Promise<void>
+  createJob: (data: CreateJobData) => Promise<Job>
   updateJob: (data: UpdateJobData) => Promise<void>
   deleteJob: (id: string, deleteAll?: boolean) => Promise<void>
   permanentDeleteJob: (id: string, deleteAll?: boolean) => Promise<void>
@@ -126,6 +126,9 @@ export const useJobStore = create<JobState>((set, get) => ({
         const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
         const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0)
         await get().fetchJobs(startDate, endDate)
+        // Return the first job from the recurring series
+        const newJob = normalizeJob(apiJob)
+        return newJob
       } else {
         // Single job - just add it to the state
         const newJob = normalizeJob(apiJob)
@@ -133,8 +136,8 @@ export const useJobStore = create<JobState>((set, get) => ({
           jobs: [...state.jobs, newJob],
           isLoading: false,
         }))
+        return newJob
       }
-      return Promise.resolve()
     } catch (error: any) {
       // Extract error data from axios response
       const errorData = error.response?.data?.error || error

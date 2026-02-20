@@ -38,6 +38,7 @@ const SchedulingPage = () => {
   const navigate = useNavigate()
   const returnTo = searchParams.get('returnTo')
   const openCreateJob = searchParams.get('openCreateJob') === '1'
+  const jobIdParam = searchParams.get('jobId')
   const [createJobDefaults, setCreateJobDefaults] = useState<{
     contactId?: string
     title?: string
@@ -370,6 +371,21 @@ const SchedulingPage = () => {
       setActiveTab(tabParam as 'calendar' | 'upcoming-bookings' | 'services' | 'archived')
     }
   }, [searchParams])
+
+  // Open job detail when arriving with jobId query parameter
+  useEffect(() => {
+    if (jobIdParam && jobs.length > 0 && !selectedJob) {
+      const job = jobs.find(j => j.id === jobIdParam)
+      if (job) {
+        setSelectedJob(job)
+        setShowJobDetail(true)
+        // Clear the jobId param from URL
+        const params = new URLSearchParams(searchParams)
+        params.delete('jobId')
+        setSearchParams(params, { replace: true })
+      }
+    }
+  }, [jobIdParam, jobs, selectedJob, searchParams, setSearchParams, setSelectedJob])
 
   // Open create job modal when arriving with openCreateJob=1 (e.g. from job detail)
   useEffect(() => {
@@ -1402,6 +1418,7 @@ const SchedulingPage = () => {
           defaultPrice={!editingJob ? createJobDefaults.price : undefined}
           defaultServiceId={!editingJob ? createJobDefaults.serviceId : undefined}
           defaultAssignedTo={!editingJob ? createJobDefaults.assignedTo : undefined}
+          // Don't use simplified form for Schedule Job button - show all fields
         />
       </Modal>
 

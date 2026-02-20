@@ -2,6 +2,7 @@ import { Invoice, InvoiceStatus, PaymentStatus, ApprovalStatus } from '../types/
 import { useInvoiceStore } from '../store/invoiceStore'
 import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import InvoiceForm from './InvoiceForm'
 import { cn } from '@/lib/utils'
 import { ScheduleJobModal } from '@/features/scheduling'
@@ -22,6 +23,7 @@ const InvoiceDetail = ({
   onJobCreateFailed,
 }: InvoiceDetailProps) => {
   const { updateInvoice, deleteInvoice, sendInvoice, isLoading } = useInvoiceStore()
+  const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showScheduleJob, setShowScheduleJob] = useState(false)
@@ -494,11 +496,14 @@ const InvoiceDetail = ({
         sourceContext="invoice"
         invoiceId={invoice.id}
         initialInvoiceId={invoice.id}
-        onSuccess={() => {
+        onSuccess={(createdJob) => {
           setShowScheduleJob(false)
           onClose()
           if (onJobCreated) {
             onJobCreated()
+          }
+          if (createdJob?.id) {
+            navigate(`/app/scheduling?tab=calendar&jobId=${encodeURIComponent(createdJob.id)}`)
           }
         }}
       />
