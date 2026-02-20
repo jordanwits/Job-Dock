@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, Button } from '@/components/ui'
 import { downloadCsv } from '../utils/exportCsv'
 import { formatCurrency, formatNumber } from '@/lib/utils'
@@ -29,6 +29,7 @@ export const JobsReport = ({
   invoices,
   timeEntries,
 }: JobsReportProps) => {
+  const [isExpanded, setIsExpanded] = useState(false)
   // Filter jobs by date range (createdAt)
   const filteredJobs = useMemo(() => {
     return jobLogs.filter(job => {
@@ -193,8 +194,25 @@ export const JobsReport = ({
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-primary-light">Jobs Summary</h3>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-primary-light">Jobs Summary</h3>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium"
+              aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+            >
+              <span>Details</span>
+              <svg
+                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
           <p className="text-sm text-primary-light/60 mt-1">
             {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
           </p>
@@ -238,45 +256,47 @@ export const JobsReport = ({
             </div>
           </div>
 
-          {/* Revenue & Cost */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Revenue</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
-                ${formatCurrency(totals.revenue)}
-              </p>
-            </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
-              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
-                ${formatCurrency(totals.paidRevenue)}
-              </p>
-            </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Cost</p>
-              <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">
-                ${formatCurrency(totals.cost)}
-              </p>
-            </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Profit</p>
-              <p
-                className={`text-xl md:text-2xl font-bold mt-1 break-words ${
-                  totals.profit >= 0 ? 'text-green-400' : 'text-red-400'
-                }`}
-              >
-                ${formatCurrency(totals.profit)}
-              </p>
-            </div>
-          </div>
+          {/* Revenue & Cost - Collapsible */}
+          {isExpanded && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
+                  <p className="text-xs text-primary-light/50 uppercase tracking-wide">Revenue</p>
+                  <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
+                    ${formatCurrency(totals.revenue)}
+                  </p>
+                </div>
+                <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
+                  <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
+                  <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
+                    ${formatCurrency(totals.paidRevenue)}
+                  </p>
+                </div>
+                <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
+                  <p className="text-xs text-primary-light/50 uppercase tracking-wide">Cost</p>
+                  <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">
+                    ${formatCurrency(totals.cost)}
+                  </p>
+                </div>
+                <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
+                  <p className="text-xs text-primary-light/50 uppercase tracking-wide">Profit</p>
+                  <p
+                    className={`text-xl md:text-2xl font-bold mt-1 break-words ${
+                      totals.profit >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}
+                  >
+                    ${formatCurrency(totals.profit)}
+                  </p>
+                </div>
+              </div>
 
-          {/* Status Breakdown */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-primary-light uppercase tracking-wide">
-              By Status
-            </h4>
-            <div className="space-y-2">
-              {(['active', 'completed', 'inactive'] as const).map(status => {
+              {/* Status Breakdown */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-primary-light uppercase tracking-wide">
+                  By Status
+                </h4>
+                <div className="space-y-2">
+                  {(['active', 'completed', 'inactive'] as const).map(status => {
                 const group = statusGroups[status]
                 if (group.length === 0) return null
 
@@ -310,8 +330,10 @@ export const JobsReport = ({
                   </div>
                 )
               })}
-            </div>
-          </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </Card>

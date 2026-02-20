@@ -44,6 +44,7 @@ export const EmployeeHoursReport = ({
 }: EmployeeHoursReportProps) => {
   const { user: currentUser } = useAuthStore()
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   // Create a map of jobId -> job for quick lookup
   const jobMap = useMemo(() => {
@@ -327,10 +328,27 @@ export const EmployeeHoursReport = ({
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-primary-light">
-            {isTeamAccount ? 'Employee Hours & Pay' : 'Your Hours'}
-          </h3>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-primary-light">
+              {isTeamAccount ? 'Employee Hours & Pay' : 'Your Hours'}
+            </h3>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium"
+              aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+            >
+              <span>Details</span>
+              <svg
+                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
           <p className="text-sm text-primary-light/60 mt-1">
             {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
           </p>
@@ -368,8 +386,10 @@ export const EmployeeHoursReport = ({
             </div>
           </div>
 
-          {/* Employee breakdown */}
-          {employeeData.map(emp => {
+          {/* Employee breakdown - Collapsible */}
+          {isExpanded && (
+            <div className="space-y-4">
+              {employeeData.map(emp => {
             const hours = Math.floor(emp.totalHours)
             const minutes = Math.round((emp.totalHours - hours) * 60)
             const hasNoEntries = emp.entryCount === 0
@@ -449,6 +469,8 @@ export const EmployeeHoursReport = ({
               </div>
             )
           })}
+            </div>
+          )}
         </div>
       )}
     </Card>

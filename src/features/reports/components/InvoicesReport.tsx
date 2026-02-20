@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, Button } from '@/components/ui'
 import { downloadCsv } from '../utils/exportCsv'
 import { formatCurrency, formatNumber } from '@/lib/utils'
@@ -12,6 +12,7 @@ interface InvoicesReportProps {
 }
 
 export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportProps) => {
+  const [isExpanded, setIsExpanded] = useState(false)
   // Filter invoices by date range (createdAt)
   const filteredInvoices = useMemo(() => {
     return invoices.filter(invoice => {
@@ -113,8 +114,25 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-primary-light">Invoices Summary</h3>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-primary-light">Invoices Summary</h3>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium"
+              aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+            >
+              <span>Details</span>
+              <svg
+                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
           <p className="text-sm text-primary-light/60 mt-1">
             {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
           </p>
@@ -172,13 +190,14 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
             </div>
           </div>
 
-          {/* Status Breakdown */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-primary-light uppercase tracking-wide">
-              By Status
-            </h4>
-            <div className="space-y-2">
-              {(['draft', 'sent', 'overdue', 'cancelled'] as const).map(status => {
+          {/* Status Breakdown - Collapsible */}
+          {isExpanded && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-primary-light uppercase tracking-wide">
+                By Status
+              </h4>
+              <div className="space-y-2">
+                {(['draft', 'sent', 'overdue', 'cancelled'] as const).map(status => {
                 const group = statusGroups[status]
                 if (group.length === 0) return null
 
@@ -219,8 +238,9 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
                   </div>
                 )
               })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </Card>
