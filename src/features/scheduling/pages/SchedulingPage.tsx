@@ -585,14 +585,22 @@ const SchedulingPage = () => {
   const handleDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
-        console.log('Archiving single job:', selectedJob.id)
-        await deleteJob(selectedJob.id, false)
+        // If this job has a bookingId, delete only that booking, not the whole job
+        if (selectedJob.bookingId) {
+          console.log('Archiving single booking:', selectedJob.bookingId)
+          const { bookingsService } = await import('@/lib/api/services')
+          await bookingsService.delete(selectedJob.bookingId)
+          // Refetch jobs to update the calendar
+          await fetchJobs()
+        } else {
+          console.log('Archiving single job:', selectedJob.id)
+          await deleteJob(selectedJob.id, false)
+        }
         setSelectedJob(null)
         setShowJobDetail(false)
         setShowDeleteRecurringModal(false)
-        // No need to refetch - store already updated the job with archivedAt
       } catch (error) {
-        console.error('Error archiving single job:', error)
+        console.error('Error archiving:', error)
         // Error handled by store
       }
     }
@@ -614,9 +622,27 @@ const SchedulingPage = () => {
     }
   }
 
-  const handlePermanentDeleteJob = (job?: typeof selectedJob) => {
+  const handlePermanentDeleteJob = async (job?: typeof selectedJob) => {
     const jobToDelete = job || selectedJob
     if (jobToDelete) {
+      // If this job has a bookingId, delete only that booking, not the whole job
+      if (jobToDelete.bookingId) {
+        try {
+          console.log('Permanently deleting single booking:', jobToDelete.bookingId)
+          const { bookingsService } = await import('@/lib/api/services')
+          await bookingsService.permanentDelete(jobToDelete.bookingId)
+          // Refetch jobs to update the calendar
+          await fetchJobs()
+          if (jobToDelete === selectedJob) {
+            setSelectedJob(null)
+            setShowJobDetail(false)
+          }
+          return
+        } catch (error) {
+          console.error('Error permanently deleting booking:', error)
+          throw error
+        }
+      }
       // Set as selected for the confirmation modal to use
       if (job) {
         setSelectedJob(job)
@@ -633,15 +659,22 @@ const SchedulingPage = () => {
   const handleConfirmPermanentDelete = async () => {
     if (selectedJob) {
       try {
-        const jobId = selectedJob.id
-        await permanentDeleteJob(jobId, false)
-        setDeletedJobId(jobId) // Notify ArchivedJobsPage
+        // If this job has a bookingId, delete only that booking, not the whole job
+        if (selectedJob.bookingId) {
+          const { bookingsService } = await import('@/lib/api/services')
+          await bookingsService.permanentDelete(selectedJob.bookingId)
+          // Refetch jobs to update the calendar
+          await fetchJobs()
+        } else {
+          const jobId = selectedJob.id
+          await permanentDeleteJob(jobId, false)
+          setDeletedJobId(jobId) // Notify ArchivedJobsPage
+        }
         setSelectedJob(null)
         setShowJobDetail(false)
         setShowPermanentDeleteConfirm(false)
-        // No need to refetch - store already removed the job from the array
       } catch (error) {
-        console.error('Error permanently deleting job:', error)
+        console.error('Error permanently deleting:', error)
       }
     }
   }
@@ -649,15 +682,22 @@ const SchedulingPage = () => {
   const handlePermanentDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
-        const jobId = selectedJob.id
-        await permanentDeleteJob(jobId, false)
-        setDeletedJobId(jobId) // Notify ArchivedJobsPage
+        // If this job has a bookingId, delete only that booking, not the whole job
+        if (selectedJob.bookingId) {
+          const { bookingsService } = await import('@/lib/api/services')
+          await bookingsService.permanentDelete(selectedJob.bookingId)
+          // Refetch jobs to update the calendar
+          await fetchJobs()
+        } else {
+          const jobId = selectedJob.id
+          await permanentDeleteJob(jobId, false)
+          setDeletedJobId(jobId) // Notify ArchivedJobsPage
+        }
         setSelectedJob(null)
         setShowJobDetail(false)
         setShowPermanentDeleteRecurringModal(false)
-        // No need to refetch - store already removed the job from the array
       } catch (error) {
-        console.error('Error permanently deleting single job:', error)
+        console.error('Error permanently deleting:', error)
       }
     }
   }

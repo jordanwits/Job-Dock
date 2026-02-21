@@ -2305,7 +2305,44 @@ export const dataServices = {
           }
         }
       } else if (primaryBooking) {
-        if (Object.keys(bookingUpdateData).length > 0) {
+        // Check if we're scheduling a new appointment (has startTime/endTime and toBeScheduled is not explicitly true)
+        const hasNewScheduledTimes = 
+          bookingUpdateData.startTime !== undefined && 
+          bookingUpdateData.endTime !== undefined &&
+          bookingUpdateData.startTime !== null &&
+          bookingUpdateData.endTime !== null &&
+          bookingUpdateData.toBeScheduled !== true
+        
+        // Check if there are already scheduled bookings (not toBeScheduled)
+        const scheduledBookings = existingJob.bookings.filter(
+          (b: any) => b.toBeScheduled === false && b.startTime !== null && b.endTime !== null
+        )
+        const hasScheduledBookings = scheduledBookings.length > 0
+        
+        // Check if the new times match an existing scheduled booking (editing vs creating)
+        const matchesExistingBooking = hasNewScheduledTimes && scheduledBookings.some((b: any) => {
+          const existingStart = b.startTime ? new Date(b.startTime).getTime() : null
+          const existingEnd = b.endTime ? new Date(b.endTime).getTime() : null
+          const newStart = bookingUpdateData.startTime ? new Date(bookingUpdateData.startTime).getTime() : null
+          const newEnd = bookingUpdateData.endTime ? new Date(bookingUpdateData.endTime).getTime() : null
+          return existingStart === newStart && existingEnd === newEnd
+        })
+        
+        // If scheduling a new appointment (different times) and there are already scheduled bookings, create a new booking
+        // Otherwise, update the primary booking (either it's unscheduled or we're editing the existing scheduled one)
+        if (hasNewScheduledTimes && hasScheduledBookings && !matchesExistingBooking) {
+          // Create a new scheduled booking instead of updating the existing one
+          await prisma.booking.create({
+            data: {
+              tenantId,
+              jobId: id,
+              ...bookingUpdateData,
+              toBeScheduled: false,
+              status: bookingUpdateData.status ?? 'active',
+            },
+          })
+        } else if (Object.keys(bookingUpdateData).length > 0) {
+          // Update the primary booking (either unscheduled or editing existing scheduled)
           await prisma.booking.update({ where: { id: primaryBooking.id }, data: bookingUpdateData })
         }
       } else if (Object.keys(bookingUpdateData).length > 0) {
@@ -2636,6 +2673,52 @@ export const dataServices = {
         endTime: b?.endTime?.toISOString() ?? null,
         status: 'cancelled',
       }
+    },
+  },
+  bookings: {
+    delete: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      
+      const booking = await prisma.booking.findFirst({
+        where: { id, tenantId },
+        include: { job: { include: { bookings: true } } },
+      })
+      
+      if (!booking) throw new ApiError('Booking not found', 404)
+      
+      const job = booking.job
+      const otherBookings = job.bookings.filter((b: any) => b.id !== id)
+      
+      // Archive the booking
+      await prisma.booking.update({
+        where: { id },
+        data: { archivedAt: new Date() },
+      })
+      
+      // If this was the last booking and job has no other data, we could optionally archive the job too
+      // But for now, we'll keep the job even if it has no bookings
+      
+      return { success: true }
+    },
+    permanentDelete: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      
+      const booking = await prisma.booking.findFirst({
+        where: { id, tenantId },
+        include: { job: { include: { bookings: true } } },
+      })
+      
+      if (!booking) throw new ApiError('Booking not found', 404)
+      
+      const job = booking.job
+      const otherBookings = job.bookings.filter((b: any) => b.id !== id)
+      
+      // Permanently delete the booking
+      await prisma.booking.delete({
+        where: { id },
+      })
+      
+      return { success: true, permanent: true }
     },
   },
   services: {

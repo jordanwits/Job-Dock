@@ -59,6 +59,7 @@ export interface Job {
   createdAt: string
   updatedAt: string
   occurrenceCount?: number
+  bookingId?: string // ID of the specific booking (when job has multiple bookings)
 }
 
 export interface CreateJobData {

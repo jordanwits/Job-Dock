@@ -283,6 +283,18 @@ const realJobsService = {
   },
 }
 
+const realBookingsService = {
+  delete: async (id: string) => {
+    const response = await apiClient.delete(`/bookings/${id}`)
+    return response.data
+  },
+  permanentDelete: async (id: string) => {
+    const params: any = { permanent: 'true' }
+    const response = await apiClient.delete(`/bookings/${id}`, { params })
+    return response.data
+  },
+}
+
 const realServicesService = {
   getAll: async () => {
     const response = await apiClient.get('/services')
@@ -447,6 +459,7 @@ export const quotesService = useMockData ? mockServices.quotes : realQuotesServi
 export const invoicesService = useMockData ? mockServices.invoices : realInvoicesService
 export const jobsService = useMockData ? mockServices.jobs : realJobsService
 export const servicesService = useMockData ? mockServices.services : realServicesService
+export const bookingsService = realBookingsService
 export const jobLogsService = realJobLogsService
 export const timeEntriesService = realTimeEntriesService
 
@@ -560,6 +573,7 @@ export const services = {
   quotes: quotesService,
   invoices: invoicesService,
   jobs: jobsService,
+  bookings: bookingsService,
   services: servicesService,
   jobLogs: jobLogsService,
   timeEntries: timeEntriesService,

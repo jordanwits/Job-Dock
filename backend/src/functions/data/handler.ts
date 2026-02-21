@@ -1077,6 +1077,13 @@ We look forward to working with you!',
             )
           }
 
+          // For bookings, handle permanent delete
+          if (resource === 'bookings' && permanent && 'permanentDelete' in service) {
+            return successResponse(
+              await (service as typeof dataServices.bookings).permanentDelete(tenantId, id)
+            )
+          }
+
           // For time-entries delete: pass user context for permission checks
           if (resource === 'time-entries') {
             try {
@@ -1102,7 +1109,9 @@ We look forward to working with you!',
           }
 
           // Default: soft delete (or regular delete for other resources)
-          return successResponse(await service.delete(tenantId, id, deleteAll))
+          // For bookings, deleteAll is not used
+          const deleteAllParam = resource === 'bookings' ? undefined : deleteAll
+          return successResponse(await service.delete(tenantId, id, deleteAllParam))
         }
         return errorResponse('Delete method not supported', 405)
       default:
