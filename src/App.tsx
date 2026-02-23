@@ -20,6 +20,7 @@ import {
   PrivacyPolicyPage,
   TermsOfServicePage,
   EmailPolicyPage,
+  SmsConsentPage,
 } from '@/features/marketing'
 import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/onboarding'
 
@@ -76,6 +77,7 @@ function App() {
         <Route path="/request-access" element={<RequestAccessPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/sms-consent" element={<SmsConsentPage />} />
         <Route path="/email-policy" element={<EmailPolicyPage />} />
 
         {/* Public Booking Routes - No authentication required */}

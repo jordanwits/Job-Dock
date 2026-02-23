@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
 import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
@@ -42,6 +43,14 @@ const TermsOfServicePage = () => {
                     JobDock provides a contractor management platform that enables service providers to
                     manage customer relationships, create quotes and invoices, schedule bookings, and send
                     automated transactional email notifications.
+                  </p>
+                  <p className="mt-4 text-base md:text-lg leading-relaxed">
+                    SMS notifications are available only to users who opt in. Use of SMS is subject to user
+                    consent. See our{' '}
+                    <Link to="/sms-consent" className="text-primary-gold hover:text-primary-gold/80 underline font-semibold">
+                      SMS Notifications Consent
+                    </Link>
+                    {' '}for program details and to opt in.
                   </p>
                 </section>
 

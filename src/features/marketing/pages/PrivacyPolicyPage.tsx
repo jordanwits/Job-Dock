@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
 import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
@@ -44,6 +45,11 @@ const PrivacyPolicyPage = () => {
                       addresses, phone numbers, addresses)
                     </li>
                     <li>
+                      <strong className="text-primary-dark">Phone Numbers for SMS:</strong> We collect phone numbers from users who opt in
+                      to receive SMS notifications for account alerts, appointment reminders, service updates, and
+                      billing notifications.
+                    </li>
+                    <li>
                       <strong className="text-primary-dark">Transaction Data:</strong> Quotes, invoices, bookings, and related business
                       documents
                     </li>
@@ -67,6 +73,28 @@ const PrivacyPolicyPage = () => {
                     <li>Ensure the security and integrity of our services</li>
                     <li>Comply with legal obligations</li>
                   </ul>
+                </section>
+
+                <section>
+                  <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
+                    2a. SMS Notifications
+                  </h2>
+                  <p className="mb-4 text-base md:text-lg leading-relaxed">
+                    We only send SMS messages to users who have opted in. We do not sell or share your phone
+                    number with third parties for marketing. To opt out of SMS at any time, reply STOP to any
+                    message. For help, reply HELP or contact us at{' '}
+                    <a
+                      href={`mailto:${publicSiteConfig.supportEmail}`}
+                      className="text-primary-gold hover:text-primary-gold/80 transition-colors font-semibold"
+                    >
+                      {publicSiteConfig.supportEmail}
+                    </a>
+                    . For full program details, see our{' '}
+                    <Link to="/sms-consent" className="text-primary-gold hover:text-primary-gold/80 underline font-semibold">
+                      SMS Notifications Consent
+                    </Link>
+                    .
+                  </p>
                 </section>
 
                 <section>

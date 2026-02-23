@@ -133,6 +133,14 @@ const MarketingFooter = () => {
               </li>
               <li>
                 <Link
+                  to="/sms-consent"
+                  className="text-white/70 hover:text-primary-gold transition-colors"
+                >
+                  SMS Consent
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/email-policy"
                   className="text-white/70 hover:text-primary-gold transition-colors"
                 >
