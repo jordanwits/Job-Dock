@@ -9,7 +9,7 @@ export const publicSiteConfig = {
   companyLegalName: 'JobDock LLC',
   
   // Contact information - UPDATE THESE WITH YOUR EXACT DETAILS
-  supportEmail: 'support@thejobdock.com',
+  supportEmail: 'jordan@westwavecreative.com',
   fromEmail: 'noreply@thejobdock.com',
   
   // Physical mailing address - REQUIRED FOR CAN-SPAM COMPLIANCE

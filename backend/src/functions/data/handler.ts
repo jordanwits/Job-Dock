@@ -1278,6 +1278,7 @@ async function handleGet(
     const endDateStr = event.queryStringParameters?.endDate
     const includeArchived = event.queryStringParameters?.includeArchived === 'true'
     const showDeleted = event.queryStringParameters?.showDeleted === 'true'
+    const includeUnlinkedJobs = event.queryStringParameters?.includeUnlinkedJobs === 'true'
     const startDate = startDateStr ? new Date(startDateStr) : undefined
     const endDate = endDateStr ? new Date(endDateStr) : undefined
     return (service as typeof dataServices.jobs).getAll(
@@ -1288,7 +1289,8 @@ async function handleGet(
       showDeleted,
       currentUserId,
       currentUserRole,
-      currentUserCanSeeOtherJobs
+      currentUserCanSeeOtherJobs,
+      includeUnlinkedJobs
     )
   }
 

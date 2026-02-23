@@ -7,6 +7,8 @@ import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { TimeEntry } from '@/features/jobLogs/types/jobLog'
 import type { JobLog } from '@/features/jobLogs/types/jobLog'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface EmployeeHoursReportProps {
   startDate: Date
@@ -42,6 +44,7 @@ export const EmployeeHoursReport = ({
   users,
   isTeamAccount,
 }: EmployeeHoursReportProps) => {
+  const { theme } = useTheme()
   const { user: currentUser } = useAuthStore()
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -330,7 +333,10 @@ export const EmployeeHoursReport = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex-1">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            <h3 className="text-lg font-semibold text-primary-light">
+            <h3 className={cn(
+              "text-lg font-semibold",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>
               {isTeamAccount ? 'Employee Hours & Pay' : 'Your Hours'}
             </h3>
             <button
@@ -349,7 +355,10 @@ export const EmployeeHoursReport = ({
               </svg>
             </button>
           </div>
-          <p className="text-sm text-primary-light/60 mt-1">
+          <p className={cn(
+            "text-sm mt-1",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
           </p>
         </div>
@@ -360,16 +369,24 @@ export const EmployeeHoursReport = ({
 
       {employeeData.length === 0 ? (
         <div className="text-center py-8">
-          <p className="text-primary-light/60">
+          <p className={cn(
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             {isTeamAccount ? 'No team members found' : 'No time entries found for this period'}
           </p>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Summary */}
-          <div className="grid grid-cols-2 gap-4 p-4 bg-primary-dark/50 rounded-lg">
+          <div className={cn(
+            "grid grid-cols-2 gap-4 p-4 rounded-lg",
+            theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+          )}>
             <div className="min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Hours</p>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Total Hours</p>
               <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                 {totalHours.toLocaleString('en-US', {
                   minimumFractionDigits: 1,
@@ -379,7 +396,10 @@ export const EmployeeHoursReport = ({
               </p>
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Pay</p>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Total Pay</p>
               <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                 ${formatCurrency(totalPay)}
               </p>
@@ -396,29 +416,43 @@ export const EmployeeHoursReport = ({
             return (
               <div
                 key={emp.userId}
-                className={`border border-white/5 rounded-lg p-4 min-w-0 ${
+                className={cn(
+                  "border rounded-lg p-4 min-w-0",
+                  theme === 'dark' ? 'border-white/5' : 'border-gray-200',
                   hasNoEntries ? 'opacity-60' : ''
-                }`}
+                )}
               >
                 <div className="flex items-center justify-between gap-2 min-w-0">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-primary-light break-words">{emp.userName}</p>
+                    <p className={cn(
+                      "font-medium break-words",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>{emp.userName}</p>
                     {emp.userEmail && (
-                      <p className="text-xs md:text-sm text-primary-light/60 break-words">
+                      <p className={cn(
+                        "text-xs md:text-sm break-words",
+                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                      )}>
                         {emp.userEmail}
                       </p>
                     )}
                   </div>
                   <div className="text-right min-w-0 flex-shrink-0">
                     {hasNoEntries ? (
-                      <p className="text-xs md:text-sm text-primary-light/60">No entries</p>
+                      <p className={cn(
+                        "text-xs md:text-sm",
+                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                      )}>No entries</p>
                     ) : (
                       <>
                         <p className="text-base md:text-lg font-semibold text-primary-gold break-words">
                           {hours}h {minutes}m
                         </p>
                         {emp.totalPay > 0 && (
-                          <p className="text-xs md:text-sm text-primary-light/60 break-words">
+                          <p className={cn(
+                            "text-xs md:text-sm break-words",
+                            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                          )}>
                             ${formatCurrency(emp.totalPay)}
                           </p>
                         )}
@@ -427,10 +461,17 @@ export const EmployeeHoursReport = ({
                   </div>
                 </div>
                 {!hasNoEntries && (
-                  <div className="mt-3 pt-3 border-t border-white/5">
+                  <div className={cn(
+                    "mt-3 pt-3 border-t",
+                    theme === 'dark' ? 'border-white/5' : 'border-gray-200'
+                  )}>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-primary-light/60">Entries</span>
-                      <span className="text-primary-light">{formatNumber(emp.entryCount)}</span>
+                      <span className={cn(
+                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                      )}>Entries</span>
+                      <span className={cn(
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>{formatNumber(emp.entryCount)}</span>
                     </div>
                     {emp.jobs.length > 0 && (
                       <div className="mt-2">
@@ -447,10 +488,19 @@ export const EmployeeHoursReport = ({
                             {emp.jobs.map(job => (
                               <div
                                 key={job.jobId}
-                                className="p-2 bg-primary-dark/30 rounded text-sm"
+                                className={cn(
+                                  "p-2 rounded text-sm",
+                                  theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
+                                )}
                               >
-                                <p className="text-primary-light font-medium">{job.jobTitle}</p>
-                                <div className="flex justify-between mt-1 text-primary-light/60 gap-2 min-w-0">
+                                <p className={cn(
+                                  "font-medium",
+                                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                                )}>{job.jobTitle}</p>
+                                <div className={cn(
+                                  "flex justify-between mt-1 gap-2 min-w-0",
+                                  theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                                )}>
                                   <span className="break-words">{job.hours.toFixed(2)}h</span>
                                   {job.pay > 0 && (
                                     <span className="break-words text-right">

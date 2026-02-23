@@ -7,9 +7,12 @@ import ContactDetail from '../components/ContactDetail'
 import ImportContactsModal from '../components/ImportContactsModal'
 import { ScheduleJobModal } from '@/features/scheduling'
 import { Button, Modal, Card } from '@/components/ui'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 const CRMPage = () => {
   const navigate = useNavigate()
+  const { theme } = useTheme()
   const {
     selectedContact,
     createContact,
@@ -75,10 +78,16 @@ const CRMPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+          <h1 className={cn(
+            "text-2xl md:text-3xl font-bold tracking-tight",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             <span className="text-primary-gold">Contacts</span>
           </h1>
-          <p className="text-sm md:text-base text-primary-light/60">
+          <p className={cn(
+            "text-sm md:text-base",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             Manage your contacts, customers, and leads
           </p>
         </div>

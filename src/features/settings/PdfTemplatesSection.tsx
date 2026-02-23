@@ -1,6 +1,8 @@
 import { useRef } from 'react'
 import { Button } from '@/components/ui'
 import { TenantSettings } from '@/lib/api/settings'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface PdfTemplatesSectionProps {
   settings: TenantSettings | null
@@ -13,6 +15,7 @@ export const PdfTemplatesSection = ({
   onInvoicePdfUpload,
   onQuotePdfUpload,
 }: PdfTemplatesSectionProps) => {
+  const { theme } = useTheme()
   const invoiceFileInputRef = useRef<HTMLInputElement>(null)
   const quoteFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -39,8 +42,14 @@ export const PdfTemplatesSection = ({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold text-primary-light">PDF Templates</h2>
-        <p className="text-sm text-primary-light/70">
+        <h2 className={cn(
+          "text-xl font-semibold",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>PDF Templates</h2>
+        <p className={cn(
+          "text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>
           Upload custom PDF backgrounds for invoices and quotes. Your template will be used as the background with dynamic content overlaid. Max size: 10MB per file.
         </p>
       </div>
@@ -48,13 +57,22 @@ export const PdfTemplatesSection = ({
       <div className="space-y-6">
         {/* Invoice PDF Template */}
         <div>
-          <h3 className="text-lg font-medium text-primary-light mb-3">
+          <h3 className={cn(
+            "text-lg font-medium mb-3",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Invoice Template
           </h3>
 
           {settings?.invoicePdfTemplateKey && (
-            <div className="mb-3 p-4 bg-primary-dark-secondary rounded-lg">
-              <p className="text-sm text-primary-light mb-2">
+            <div className={cn(
+              "mb-3 p-4 rounded-lg",
+              theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-sm mb-2",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 Current template: <span className="text-primary-gold">{settings.invoicePdfTemplateKey.split('/').pop()}</span>
               </p>
               {settings.invoicePdfSignedUrl && (
@@ -88,13 +106,22 @@ export const PdfTemplatesSection = ({
 
         {/* Quote PDF Template */}
         <div>
-          <h3 className="text-lg font-medium text-primary-light mb-3">
+          <h3 className={cn(
+            "text-lg font-medium mb-3",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Quote Template
           </h3>
 
           {settings?.quotePdfTemplateKey && (
-            <div className="mb-3 p-4 bg-primary-dark-secondary rounded-lg">
-              <p className="text-sm text-primary-light mb-2">
+            <div className={cn(
+              "mb-3 p-4 rounded-lg",
+              theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-sm mb-2",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 Current template: <span className="text-primary-gold">{settings.quotePdfTemplateKey.split('/').pop()}</span>
               </p>
               {settings.quotePdfSignedUrl && (

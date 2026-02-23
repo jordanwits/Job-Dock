@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Card, Button, Select } from '@/components/ui'
+import { Card, Button, Select, DatePicker } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
@@ -18,10 +18,13 @@ import {
   subDays,
   format,
 } from 'date-fns'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 type DateRangePreset = 'this-month' | 'last-month' | 'last-3-months' | 'this-year' | 'custom'
 
 export const ReportsPage = () => {
+  const { theme } = useTheme()
   const { user } = useAuthStore()
   const { jobLogs, fetchJobLogs, isLoading: jobLogsLoading } = useJobLogStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
@@ -139,10 +142,16 @@ export const ReportsPage = () => {
     <div className="space-y-8">
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+        <h1 className={cn(
+          "text-2xl md:text-3xl font-bold tracking-tight",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           <span className="text-primary-gold">Reports</span>
         </h1>
-        <p className="text-sm md:text-base text-primary-light/60">
+        <p className={cn(
+          "text-sm md:text-base",
+          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+        )}>
           View and export business reports for hours, quotes, invoices, and more
         </p>
       </div>
@@ -151,7 +160,10 @@ export const ReportsPage = () => {
       <Card className="p-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-primary-light mb-2">Date Range</label>
+            <label className={cn(
+              "block text-sm font-medium mb-2",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>Date Range</label>
             <Select
               value={dateRangePreset}
               onChange={e => setDateRangePreset(e.target.value as DateRangePreset)}
@@ -167,32 +179,29 @@ export const ReportsPage = () => {
           {dateRangePreset === 'custom' && (
             <>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-primary-light mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
+                <DatePicker
+                  label="Start Date"
                   value={customStartDate}
-                  onChange={e => setCustomStartDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-primary-blue/30 bg-primary-dark-secondary text-primary-light focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold"
+                  onChange={setCustomStartDate}
+                  maxDate={customEndDate}
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-primary-light mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
+                <DatePicker
+                  label="End Date"
                   value={customEndDate}
-                  onChange={e => setCustomEndDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-primary-blue/30 bg-primary-dark-secondary text-primary-light focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold"
+                  onChange={setCustomEndDate}
+                  minDate={customStartDate}
                 />
               </div>
             </>
           )}
         </div>
         {dateRangePreset !== 'custom' && (
-          <p className="text-sm text-primary-light/60 mt-3">
+          <p className={cn(
+            "text-sm mt-3",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             {format(dateRange.start, 'MMM d, yyyy')} - {format(dateRange.end, 'MMM d, yyyy')}
           </p>
         )}
@@ -203,8 +212,14 @@ export const ReportsPage = () => {
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
             <Card key={i} className="p-6">
-              <div className="h-6 w-48 bg-primary-dark rounded animate-pulse mb-4"></div>
-              <div className="h-32 bg-primary-dark rounded animate-pulse"></div>
+              <div className={cn(
+                "h-6 w-48 rounded animate-pulse mb-4",
+                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+              )}></div>
+              <div className={cn(
+                "h-32 rounded animate-pulse",
+                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+              )}></div>
             </Card>
           ))}
         </div>

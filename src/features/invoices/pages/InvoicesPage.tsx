@@ -5,8 +5,11 @@ import InvoiceList from '../components/InvoiceList'
 import InvoiceForm from '../components/InvoiceForm'
 import InvoiceDetail from '../components/InvoiceDetail'
 import { Button, Modal, Card } from '@/components/ui'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 const InvoicesPage = () => {
+  const { theme } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const returnTo = searchParams.get('returnTo')
@@ -126,10 +129,16 @@ const InvoicesPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+          <h1 className={cn(
+            "text-2xl md:text-3xl font-bold tracking-tight",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             <span className="text-primary-gold">Invoices</span>
           </h1>
-          <p className="text-sm md:text-base text-primary-light/60">
+          <p className={cn(
+            "text-sm md:text-base",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             Create and manage invoices for your clients
           </p>
         </div>

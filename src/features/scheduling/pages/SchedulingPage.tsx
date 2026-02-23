@@ -18,9 +18,12 @@ import ArchivedJobsPage from '../components/ArchivedJobsPage'
 import { Button, Modal, Card, ConfirmationDialog } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
 import { services } from '@/lib/api/services'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 const SchedulingPage = () => {
   const { user } = useAuthStore()
+  const { theme } = useTheme()
   const [isTeamAccount, setIsTeamAccount] = useState(false)
 
   useEffect(() => {
@@ -148,6 +151,7 @@ const SchedulingPage = () => {
   const [showServiceConfirmation, setShowServiceConfirmation] = useState(false)
   const [serviceConfirmationMessage, setServiceConfirmationMessage] = useState('')
   const [showArchivedJobs, setShowArchivedJobs] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState(false)
   const [showPermanentDeleteRecurringModal, setShowPermanentDeleteRecurringModal] = useState(false)
   const [deletedJobId, setDeletedJobId] = useState<string | null>(null)
@@ -158,11 +162,13 @@ const SchedulingPage = () => {
   // External drag state for "To Be Scheduled" chips
   const [externalDragState, setExternalDragState] = useState<{
     jobId: string | null
+    bookingId: string | null
     pointerId: number | null
     isDragging: boolean
     hasMoved: boolean
   }>({
     jobId: null,
+    bookingId: null,
     pointerId: null,
     isDragging: false,
     hasMoved: false,
@@ -252,8 +258,12 @@ const SchedulingPage = () => {
             const dropDate = new Date(dropDateStr)
             const dropHour = dropHourStr ? parseInt(dropHourStr, 10) : undefined
 
-            // Call the existing handleUnscheduledDrop function
-            await handleUnscheduledDrop(externalDragState.jobId, dropDate, dropHour)
+            await handleUnscheduledDrop(
+              externalDragState.jobId,
+              dropDate,
+              dropHour,
+              externalDragState.bookingId ?? undefined
+            )
           }
         }
       }
@@ -263,6 +273,7 @@ const SchedulingPage = () => {
       setExternalDragGhost(null)
       setExternalDragState({
         jobId: null,
+        bookingId: null,
         pointerId: null,
         isDragging: false,
         hasMoved: false,
@@ -576,8 +587,8 @@ const SchedulingPage = () => {
       if (selectedJob.recurrenceId) {
         setShowDeleteRecurringModal(true)
       } else {
-        // Non-recurring job - delete directly
-        handleDeleteSingleJob()
+        // If job has a booking, delete the booking. If no booking, offer to delete the job itself.
+        setShowDeleteConfirm(true)
       }
     }
   }
@@ -585,23 +596,23 @@ const SchedulingPage = () => {
   const handleDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
-        // If this job has a bookingId, delete only that booking, not the whole job
         if (selectedJob.bookingId) {
-          console.log('Archiving single booking:', selectedJob.bookingId)
+          // Job has a booking - delete the booking only (not the job itself)
           const { bookingsService } = await import('@/lib/api/services')
           await bookingsService.delete(selectedJob.bookingId)
-          // Refetch jobs to update the calendar
           await fetchJobs()
         } else {
-          console.log('Archiving single job:', selectedJob.id)
-          await deleteJob(selectedJob.id, false)
+          // Job has no booking - delete the job itself (removes from Jobs page and Scheduling)
+          const { jobLogsService } = await import('@/lib/api/services')
+          await jobLogsService.delete(selectedJob.id)
+          await fetchJobs()
         }
         setSelectedJob(null)
         setShowJobDetail(false)
         setShowDeleteRecurringModal(false)
       } catch (error) {
-        console.error('Error archiving:', error)
-        // Error handled by store
+        console.error('Error deleting:', error)
+        throw error
       }
     }
   }
@@ -609,15 +620,24 @@ const SchedulingPage = () => {
   const handleDeleteAllJobs = async () => {
     if (selectedJob) {
       try {
-        console.log('Archiving all jobs with recurrenceId:', selectedJob.recurrenceId)
+        if (!selectedJob.bookingId) {
+          // No booking to delete
+          setJobErrorMessage(
+            'This job has no booking to delete. To delete jobs, go to the Jobs page.'
+          )
+          setShowJobError(true)
+          setShowDeleteRecurringModal(false)
+          return
+        }
+        console.log('Archiving all recurring bookings with recurrenceId:', selectedJob.recurrenceId)
         await deleteJob(selectedJob.id, true)
         setSelectedJob(null)
         setShowJobDetail(false)
         setShowDeleteRecurringModal(false)
-        // No need to refetch - store already updated the jobs with archivedAt
+        // Refetch to update the calendar
+        await fetchJobs()
       } catch (error) {
-        console.error('Error archiving all jobs:', error)
-        // Error handled by store
+        console.error('Error archiving all recurring bookings:', error)
       }
     }
   }
@@ -625,13 +645,12 @@ const SchedulingPage = () => {
   const handlePermanentDeleteJob = async (job?: typeof selectedJob) => {
     const jobToDelete = job || selectedJob
     if (jobToDelete) {
-      // If this job has a bookingId, delete only that booking, not the whole job
       if (jobToDelete.bookingId) {
+        // Job has a booking - permanently delete the booking only (not the job itself)
         try {
           console.log('Permanently deleting single booking:', jobToDelete.bookingId)
           const { bookingsService } = await import('@/lib/api/services')
           await bookingsService.permanentDelete(jobToDelete.bookingId)
-          // Refetch jobs to update the calendar
           await fetchJobs()
           if (jobToDelete === selectedJob) {
             setSelectedJob(null)
@@ -642,16 +661,13 @@ const SchedulingPage = () => {
           console.error('Error permanently deleting booking:', error)
           throw error
         }
-      }
-      // Set as selected for the confirmation modal to use
-      if (job) {
-        setSelectedJob(job)
-      }
-      // Check if this is a recurring job
-      if (jobToDelete.recurrenceId) {
-        setShowPermanentDeleteRecurringModal(true)
       } else {
-        setShowPermanentDeleteConfirm(true)
+        // Job has no booking - cannot delete from scheduling page
+        setJobErrorMessage(
+          'This job has no booking to delete. To delete the job itself, go to the Jobs page.'
+        )
+        setShowJobError(true)
+        return
       }
     }
   }
@@ -659,16 +675,19 @@ const SchedulingPage = () => {
   const handleConfirmPermanentDelete = async () => {
     if (selectedJob) {
       try {
-        // If this job has a bookingId, delete only that booking, not the whole job
         if (selectedJob.bookingId) {
+          // Job has a booking - permanently delete the booking only (not the job itself)
           const { bookingsService } = await import('@/lib/api/services')
           await bookingsService.permanentDelete(selectedJob.bookingId)
-          // Refetch jobs to update the calendar
           await fetchJobs()
         } else {
-          const jobId = selectedJob.id
-          await permanentDeleteJob(jobId, false)
-          setDeletedJobId(jobId) // Notify ArchivedJobsPage
+          // Job has no booking - cannot delete from scheduling page
+          setJobErrorMessage(
+            'This job has no booking to delete. To delete the job itself, go to the Jobs page.'
+          )
+          setShowJobError(true)
+          setShowPermanentDeleteConfirm(false)
+          return
         }
         setSelectedJob(null)
         setShowJobDetail(false)
@@ -682,22 +701,25 @@ const SchedulingPage = () => {
   const handlePermanentDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
-        // If this job has a bookingId, delete only that booking, not the whole job
         if (selectedJob.bookingId) {
+          // Job has a booking - permanently delete the booking only (not the job itself)
           const { bookingsService } = await import('@/lib/api/services')
           await bookingsService.permanentDelete(selectedJob.bookingId)
-          // Refetch jobs to update the calendar
           await fetchJobs()
         } else {
-          const jobId = selectedJob.id
-          await permanentDeleteJob(jobId, false)
-          setDeletedJobId(jobId) // Notify ArchivedJobsPage
+          // Job has no booking - cannot delete from scheduling page
+          setJobErrorMessage(
+            'This job has no booking to delete. To delete the job itself, go to the Jobs page.'
+          )
+          setShowJobError(true)
+          setShowPermanentDeleteRecurringModal(false)
+          return
         }
         setSelectedJob(null)
         setShowJobDetail(false)
         setShowPermanentDeleteRecurringModal(false)
       } catch (error) {
-        console.error('Error permanently deleting:', error)
+        console.error('Error permanently deleting booking:', error)
       }
     }
   }
@@ -705,15 +727,13 @@ const SchedulingPage = () => {
   const handlePermanentDeleteAllJobs = async () => {
     if (selectedJob) {
       try {
-        const recurrenceId = selectedJob.recurrenceId
-        await permanentDeleteJob(selectedJob.id, true)
-        if (recurrenceId) {
-          setDeletedRecurrenceId(recurrenceId) // Notify ArchivedJobsPage to remove all jobs with this recurrenceId
-        }
-        setSelectedJob(null)
-        setShowJobDetail(false)
+        // Not supported: permanently deleting Jobs from Scheduling.
+        // Scheduling can only delete bookings.
+        setJobErrorMessage(
+          'To permanently delete jobs, use the Jobs page. Scheduling can only delete bookings.'
+        )
+        setShowJobError(true)
         setShowPermanentDeleteRecurringModal(false)
-        // No need to refetch - store already removed the job from the array
       } catch (error) {
         console.error('Error permanently deleting all jobs:', error)
       }
@@ -851,9 +871,16 @@ const SchedulingPage = () => {
     }
   }
 
-  const handleUnscheduledDrop = async (jobId: string, targetDate: Date, targetHour?: number) => {
+  const handleUnscheduledDrop = async (
+    jobId: string,
+    targetDate: Date,
+    targetHour?: number,
+    bookingId?: string
+  ) => {
     try {
-      const job = jobs.find(j => j.id === jobId)
+      const job = bookingId
+        ? jobs.find(j => j.id === jobId && j.bookingId === bookingId)
+        : jobs.find(j => j.id === jobId)
       if (!job) return
 
       // Determine duration (in minutes)
@@ -880,13 +907,15 @@ const SchedulingPage = () => {
       // Compute endTime
       const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
 
-      // Update the job
-      await updateJob({
+      // Update the specific booking (bookingId) so we don't create a new one
+      const updatePayload: { id: string; toBeScheduled: boolean; startTime: string; endTime: string; bookingId?: string } = {
         id: jobId,
         toBeScheduled: false,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-      })
+      }
+      if (bookingId) updatePayload.bookingId = bookingId
+      await updateJob(updatePayload)
 
       setJobConfirmationMessage('Job scheduled successfully')
       setShowJobConfirmation(true)
@@ -900,7 +929,9 @@ const SchedulingPage = () => {
 
   // Get the job being dragged for the ghost overlay
   const draggedJob = externalDragState.jobId
-    ? jobs.find(j => j.id === externalDragState.jobId)
+    ? (externalDragState.bookingId
+        ? jobs.find(j => j.id === externalDragState.jobId && j.bookingId === externalDragState.bookingId)
+        : jobs.find(j => j.id === externalDragState.jobId))
     : null
 
   return (
@@ -943,10 +974,16 @@ const SchedulingPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+          <h1 className={cn(
+            "text-2xl md:text-3xl font-bold tracking-tight",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             <span className="text-primary-gold">Scheduling</span>
           </h1>
-          <p className="text-sm md:text-base text-primary-light/60">
+          <p className={cn(
+            "text-sm md:text-base",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             Manage your calendar, jobs, and services
           </p>
         </div>
@@ -1084,7 +1121,10 @@ const SchedulingPage = () => {
 
       {/* Tabs - horizontal scroll when needed, vertical locked. Negative margin extends into container padding for more room. */}
       <div
-        className="flex items-center gap-1 md:gap-2 border-b border-white/10 overflow-x-auto overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6"
+        className={cn(
+          "flex items-center gap-1 md:gap-2 border-b overflow-x-auto overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6",
+          theme === 'dark' ? 'border-white/10' : 'border-gray-200'
+        )}
         style={{ touchAction: 'pan-x', overscrollBehaviorY: 'none' }}
       >
         <button
@@ -1094,14 +1134,14 @@ const SchedulingPage = () => {
             params.set('tab', 'calendar')
             setSearchParams(params, { replace: true })
           }}
-          className={`
-            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
-            ${
-              activeTab === 'calendar'
-                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-                : 'text-primary-light/60 hover:text-primary-light/90'
-            }
-          `}
+          className={cn(
+            "px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            activeTab === 'calendar'
+              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+              : theme === 'dark'
+                ? 'text-primary-light/60 hover:text-primary-light/90'
+                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
+          )}
         >
           Calendar
         </button>
@@ -1112,14 +1152,14 @@ const SchedulingPage = () => {
             params.set('tab', 'upcoming-bookings')
             setSearchParams(params, { replace: true })
           }}
-          className={`
-            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
-            ${
-              activeTab === 'upcoming-bookings'
-                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-                : 'text-primary-light/60 hover:text-primary-light/90'
-            }
-          `}
+          className={cn(
+            "px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            activeTab === 'upcoming-bookings'
+              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+              : theme === 'dark'
+                ? 'text-primary-light/60 hover:text-primary-light/90'
+                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
+          )}
         >
           Upcoming Bookings
         </button>
@@ -1130,14 +1170,14 @@ const SchedulingPage = () => {
             params.set('tab', 'services')
             setSearchParams(params, { replace: true })
           }}
-          className={`
-            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
-            ${
-              activeTab === 'services'
-                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-                : 'text-primary-light/60 hover:text-primary-light/90'
-            }
-          `}
+          className={cn(
+            "px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            activeTab === 'services'
+              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+              : theme === 'dark'
+                ? 'text-primary-light/60 hover:text-primary-light/90'
+                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
+          )}
         >
           Services
         </button>
@@ -1148,14 +1188,14 @@ const SchedulingPage = () => {
             params.set('tab', 'archived')
             setSearchParams(params, { replace: true })
           }}
-          className={`
-            px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0
-            ${
-              activeTab === 'archived'
-                ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-                : 'text-primary-light/60 hover:text-primary-light/90'
-            }
-          `}
+          className={cn(
+            "px-2 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            activeTab === 'archived'
+              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
+              : theme === 'dark'
+                ? 'text-primary-light/60 hover:text-primary-light/90'
+                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
+          )}
         >
           Archive
         </button>
@@ -1179,17 +1219,21 @@ const SchedulingPage = () => {
           <div className="h-full flex flex-col min-w-0">
             {/* To Be Scheduled List (inline at top when visible) */}
             {toBeScheduledJobs.length > 0 && (
-              <div ref={toBeScheduledInlineRef} className="border-b border-white/10 p-4">
+              <div ref={toBeScheduledInlineRef} className={cn(
+                "border-b p-4",
+                theme === 'dark' ? 'border-white/10' : 'border-gray-200'
+              )}>
                 <h3 className="text-sm font-semibold text-primary-gold mb-3">
                   To Be Scheduled ({toBeScheduledJobs.length})
                 </h3>
                 <div className="flex gap-2 flex-wrap">
                   {toBeScheduledJobs.map(job => {
                     const isDragging =
-                      externalDragState.jobId === job.id && externalDragState.isDragging
+                      (externalDragState.jobId === job.id && (externalDragState.bookingId === job.bookingId || !job.bookingId)) &&
+                      externalDragState.isDragging
                     return (
                       <div
-                        key={job.id}
+                        key={job.bookingId ?? job.id}
                         onPointerDown={e => {
                           // Use pointer-based drag for ALL devices (mouse + touch)
                           e.stopPropagation()
@@ -1210,6 +1254,7 @@ const SchedulingPage = () => {
 
                           setExternalDragState({
                             jobId: job.id,
+                            bookingId: job.bookingId ?? null,
                             pointerId: e.pointerId,
                             isDragging: false,
                             hasMoved: false,
@@ -1268,7 +1313,12 @@ const SchedulingPage = () => {
                     maxWidth: floatingToBeScheduledPos.maxWidth,
                   }}
                 >
-                  <div className="rounded-xl border border-amber-500/30 bg-primary-dark/95 backdrop-blur-md shadow-lg ring-1 ring-black/20">
+                  <div className={cn(
+                    "rounded-xl border border-amber-500/30 backdrop-blur-md shadow-lg ring-1",
+                    theme === 'dark' 
+                      ? 'bg-primary-dark/95 ring-black/20' 
+                      : 'bg-white/95 ring-gray-200/50'
+                  )}>
                     <button
                       type="button"
                       onClick={() => setToBeScheduledOverlayOpen(v => !v)}
@@ -1294,11 +1344,17 @@ const SchedulingPage = () => {
                         <span className="text-sm font-semibold text-primary-gold truncate">
                           To Be Scheduled
                         </span>
-                        <span className="text-xs text-primary-light/60 flex-shrink-0">
+                        <span className={cn(
+                          "text-xs flex-shrink-0",
+                          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                        )}>
                           ({toBeScheduledJobs.length})
                         </span>
                       </div>
-                      <span className="text-primary-light/60 flex-shrink-0">
+                      <span className={cn(
+                        "flex-shrink-0",
+                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                      )}>
                         {toBeScheduledOverlayOpen ? 'Hide' : 'Show'}
                       </span>
                     </button>
@@ -1308,10 +1364,11 @@ const SchedulingPage = () => {
                         <div className="flex gap-2 flex-wrap max-h-40 overflow-auto pr-1">
                           {toBeScheduledJobs.map(job => {
                             const isDragging =
-                              externalDragState.jobId === job.id && externalDragState.isDragging
+                              (externalDragState.jobId === job.id && (externalDragState.bookingId === job.bookingId || !job.bookingId)) &&
+                              externalDragState.isDragging
                             return (
                               <div
-                                key={job.id}
+                                key={job.bookingId ?? job.id}
                                 onPointerDown={e => {
                                   // Use pointer-based drag for ALL devices (mouse + touch)
                                   e.stopPropagation()
@@ -1334,6 +1391,7 @@ const SchedulingPage = () => {
 
                                   setExternalDragState({
                                     jobId: job.id,
+                                    bookingId: job.bookingId ?? null,
                                     pointerId: e.pointerId,
                                     isDragging: false,
                                     hasMoved: false,
@@ -1561,22 +1619,33 @@ const SchedulingPage = () => {
         title="Decline Booking"
         size="md"
       >
-        <div className="space-y-4">
-          <p className="text-sm text-primary-light/70">
-            Are you sure you want to decline this booking? The client will be notified via email.
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-primary-light mb-2">
-              Reason (Optional)
-            </label>
-            <textarea
-              value={declineReason}
-              onChange={e => setDeclineReason(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
-              placeholder="Let the client know why you can't accommodate this booking..."
-            />
-          </div>
+          <div className="space-y-4">
+            <p className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
+              Are you sure you want to decline this booking? The client will be notified via email.
+            </p>
+            <div>
+              <label className={cn(
+                "block text-sm font-medium mb-2",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
+                Reason (Optional)
+              </label>
+              <textarea
+                value={declineReason}
+                onChange={e => setDeclineReason(e.target.value)}
+                rows={3}
+                className={cn(
+                  "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+                  theme === 'dark'
+                    ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+                    : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+                )}
+                placeholder="Let the client know why you can't accommodate this booking..."
+              />
+            </div>
           <div className="flex gap-3 justify-end">
             <Button
               variant="ghost"
@@ -1666,6 +1735,80 @@ const SchedulingPage = () => {
       {/* Permanent Delete Confirmation Dialog */}
       {selectedJob && (
         <ConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={async () => {
+            setShowDeleteConfirm(false)
+            try {
+              await handleDeleteSingleJob()
+            } catch (error) {
+              console.error('Failed to delete booking:', error)
+              // Error is already logged, user will see it via the store error state
+            }
+          }}
+          title={
+            selectedJob?.bookingId
+              ? (selectedJob?.toBeScheduled || !selectedJob?.startTime ? "Delete Booking?" : "Archive Job?")
+              : "Delete Job?"
+          }
+          message={
+            <div className="space-y-3">
+              {selectedJob?.bookingId ? (
+                selectedJob?.toBeScheduled || !selectedJob?.startTime ? (
+                  <>
+                    <p className="text-primary-light">
+                      Are you sure you want to delete this booking?
+                    </p>
+                    <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
+                      <p className="text-sm text-primary-light/70 mb-2">
+                        <strong className="text-primary-light">Important:</strong> This will only delete the booking, not the job itself.
+                      </p>
+                      <p className="text-sm text-primary-light/70">
+                        The job "{selectedJob?.title}" will remain in your jobs list and can be scheduled again later.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-primary-light">
+                      Are you sure you want to archive this job?
+                    </p>
+                    <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
+                      <p className="text-sm text-primary-light/70">
+                        <strong className="text-primary-light">Job:</strong> {selectedJob?.title}
+                      </p>
+                      <p className="text-sm text-primary-light/70 mt-1">
+                        Archived jobs can be restored later from the Archived tab.
+                      </p>
+                    </div>
+                  </>
+                )
+              ) : (
+                <>
+                  <p className="text-primary-light">
+                    This job has no booking. Delete the job?
+                  </p>
+                  <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
+                    <p className="text-sm text-primary-light/70">
+                      This will permanently remove "{selectedJob?.title}" from your Jobs list and Scheduling.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          }
+          confirmText={
+            selectedJob?.bookingId
+              ? (selectedJob?.toBeScheduled || !selectedJob?.startTime ? "Delete Booking" : "Archive")
+              : "Delete Job"
+          }
+          confirmVariant="danger"
+        />
+      )}
+
+      {/* Permanent Delete Confirmation */}
+      {selectedJob && (
+        <ConfirmationDialog
           isOpen={showPermanentDeleteConfirm}
           onClose={() => setShowPermanentDeleteConfirm(false)}
           onConfirm={handleConfirmPermanentDelete}
@@ -1720,17 +1863,25 @@ const SchedulingPage = () => {
         title="Booking Link"
         size="md"
       >
-        <div className="space-y-4">
-          <p className="text-sm text-primary-light/70">
-            Share this link with clients so they can view all your services and book appointments:
-          </p>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={bookingLink}
-              readOnly
-              className="flex-1 rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light"
-            />
+          <div className="space-y-4">
+            <p className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
+              Share this link with clients so they can view all your services and book appointments:
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={bookingLink}
+                readOnly
+                className={cn(
+                  "flex-1 rounded-lg border px-3 py-2 text-sm",
+                  theme === 'dark'
+                    ? 'border-primary-blue bg-primary-dark-secondary text-primary-light'
+                    : 'border-gray-200 bg-white text-primary-lightText'
+                )}
+              />
             <Button
               size="sm"
               onClick={() => {
@@ -1762,7 +1913,10 @@ const SchedulingPage = () => {
               )}
             </Button>
           </div>
-          <p className="text-xs text-primary-light/60">
+          <p className={cn(
+            "text-xs",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             Clients can select a time and book without logging in.
           </p>
         </div>
@@ -1793,8 +1947,14 @@ const SchedulingPage = () => {
                 />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-primary-light mb-2">No Services Set Up</h2>
-            <p className="text-sm text-primary-light/70">
+            <h2 className={cn(
+              "text-xl font-semibold mb-2",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>No Services Set Up</h2>
+            <p className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
               Oops! You haven't set up any services. Set up service now.
             </p>
           </div>

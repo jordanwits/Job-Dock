@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { jobsService } from '@/lib/api/services'
 import type { Job } from '../types/job'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface ArchivedJobsModalProps {
   isOpen: boolean
@@ -16,6 +17,7 @@ interface ArchivedJobsModalProps {
 }
 
 const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect, onPermanentDelete, deletedJobId, deletedRecurrenceId }: ArchivedJobsModalProps) => {
+  const { theme } = useTheme()
   const [archivedJobs, setArchivedJobs] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -83,12 +85,24 @@ const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect, onPerma
   }
 
   const statusColors = {
-    active: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    scheduled: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    'in-progress': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-    completed: 'bg-green-500/20 text-green-300 border-green-500/30',
-    cancelled: 'bg-red-500/20 text-red-300 border-red-500/30',
-    'pending-confirmation': 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+    active: theme === 'dark'
+      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    scheduled: theme === 'dark'
+      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    'in-progress': theme === 'dark'
+      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    completed: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
+    cancelled: theme === 'dark'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-red-100 text-red-700 border-red-300',
+    'pending-confirmation': theme === 'dark'
+      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+      : 'bg-orange-100 text-orange-700 border-orange-300',
   }
 
   return (

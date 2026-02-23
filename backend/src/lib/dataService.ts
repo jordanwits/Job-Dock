@@ -663,10 +663,12 @@ async function createRecurringJobs(params: {
         title,
         description,
         contactId,
+        serviceId: serviceId ?? null,
         quoteId,
         invoiceId,
         status: 'active',
         location,
+        price: price !== undefined ? price : null,
         notes,
         assignedTo: (assignedToForJobs ?? undefined) as unknown as Prisma.InputJsonValue,
         createdById: createdById ?? undefined,
@@ -1851,7 +1853,8 @@ export const dataServices = {
       showDeleted?: boolean,
       currentUserId?: string,
       currentUserRole?: string,
-      canSeeOtherJobs?: boolean
+      canSeeOtherJobs?: boolean,
+      includeUnlinkedJobs?: boolean
     ) => {
       await ensureTenantExists(tenantId)
       
@@ -1859,6 +1862,7 @@ export const dataServices = {
       const bookingWhere: Prisma.BookingWhereInput = {
         tenantId,
         ...(includeArchived ? {} : { archivedAt: null }),
+        ...(showDeleted ? {} : { deletedAt: null }),
       }
       
       if (startDate || endDate) {
@@ -1893,10 +1897,10 @@ export const dataServices = {
         ],
       })
       
-      // Filter by user visibility
-      let filtered = bookings
+      // Filter bookings by user visibility
+      let filteredBookings = bookings
       if (currentUserId && canSeeOtherJobs !== true) {
-        filtered = bookings.filter(b => {
+        filteredBookings = bookings.filter(b => {
           const job = b.job
           if (job.createdById === currentUserId) return true
           const userIds = extractUserIds(b.assignedTo ?? job.assignedTo)
@@ -1904,9 +1908,9 @@ export const dataServices = {
         })
       }
       
-      // Flatten to Job-like shape for backward compat (id = job.id for navigation to job detail)
-      const jobsWithNames = await Promise.all(
-        filtered.map(async (b) => {
+      // Flatten Bookings to Job-like shape
+      const jobsFromBookings = await Promise.all(
+        filteredBookings.map(async (b) => {
           const job = b.job
           const assignedToName = await getAssignedToName(tenantId, b.assignedTo ?? job.assignedTo)
           const assignedToWithPrivacy = getAssignedToWithPrivacy(
@@ -1946,7 +1950,93 @@ export const dataServices = {
         })
       )
       
-      return jobsWithNames
+      // When includeUnlinkedJobs is true (e.g. for "link to existing job" dropdown), also include jobs without bookings
+      if (!includeUnlinkedJobs) {
+        return jobsFromBookings
+      }
+      const jobIdsWithBookings = new Set(bookings.map(b => b.jobId))
+      const jobsWithoutBookings = await prisma.job.findMany({
+        where: {
+          tenantId,
+          id: { notIn: Array.from(jobIdsWithBookings) },
+        },
+        include: {
+          contact: true,
+          createdBy: { select: { name: true } },
+          service: true,
+          bookings: {
+            where: {
+              ...(includeArchived ? {} : { archivedAt: null }),
+              ...(showDeleted ? {} : { deletedAt: null }),
+            },
+            include: { service: true },
+            orderBy: { startTime: 'asc' },
+            take: 1,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+      let filteredJobsWithoutBookings = jobsWithoutBookings
+      if (currentUserId && canSeeOtherJobs !== true) {
+        filteredJobsWithoutBookings = jobsWithoutBookings.filter(job => {
+          if (job.createdById === currentUserId) return true
+          const userIds = extractUserIds(job.assignedTo)
+          return userIds.includes(currentUserId)
+        })
+      }
+      const jobsWithoutBookingsFormatted = await Promise.all(
+        filteredJobsWithoutBookings.map(async (job) => {
+          const firstBooking = job.bookings[0]
+          const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+          const assignedToWithPrivacy = getAssignedToWithPrivacy(
+            job.assignedTo,
+            currentUserId,
+            currentUserRole
+          )
+          return {
+            id: job.id,
+            tenantId: job.tenantId,
+            title: job.title,
+            description: job.description,
+            contactId: job.contactId,
+            contactName: job.contact ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim() : undefined,
+            serviceId: firstBooking?.serviceId ?? (job as any).serviceId ?? null,
+            serviceName: firstBooking?.service?.name ?? (job as any).service?.name ?? undefined,
+            quoteId: job.quoteId,
+            invoiceId: job.invoiceId,
+            recurrenceId: firstBooking?.recurrenceId ?? null,
+            startTime: firstBooking?.startTime?.toISOString() ?? null,
+            endTime: firstBooking?.endTime?.toISOString() ?? null,
+            toBeScheduled: firstBooking?.toBeScheduled ?? true,
+            status: firstBooking?.status ?? job.status,
+            location: job.location,
+            price:
+              firstBooking?.price != null
+                ? Number(firstBooking.price)
+                : (job as any).price != null
+                  ? Number((job as any).price)
+                  : null,
+            notes: job.notes,
+            assignedTo: assignedToWithPrivacy ?? job.assignedTo,
+            assignedToName,
+            bookingId: firstBooking?.id ?? null,
+            archivedAt: firstBooking?.archivedAt?.toISOString() ?? null,
+            deletedAt: firstBooking?.deletedAt?.toISOString() ?? null,
+            createdById: job.createdById,
+            createdByName: (job.createdBy as any)?.name,
+            createdAt: job.createdAt.toISOString(),
+            updatedAt: job.updatedAt.toISOString(),
+          }
+        })
+      )
+      // Deduplicate by job id - a job with multiple bookings should appear once in the link dropdown
+      const seen = new Set<string>()
+      const deduped = [...jobsFromBookings, ...jobsWithoutBookingsFormatted].filter((j) => {
+        if (seen.has(j.id)) return false
+        seen.add(j.id)
+        return true
+      })
+      return deduped
     },
     getById: async (
       tenantId: string, 
@@ -1960,6 +2050,7 @@ export const dataServices = {
         include: {
           contact: true,
           createdBy: { select: { name: true } },
+          service: true,
           bookings: {
             include: { service: true },
             orderBy: { startTime: 'asc' },
@@ -1984,13 +2075,18 @@ export const dataServices = {
         ...job,
         assignedToName,
         assignedTo: assignedToWithPrivacy || job.assignedTo,
-        serviceId: primaryBooking?.serviceId,
-        service: primaryBooking?.service,
+        serviceId: primaryBooking?.serviceId ?? (job as any).serviceId ?? null,
+        service: primaryBooking?.service ?? (job as any).service ?? null,
         startTime: primaryBooking?.startTime?.toISOString() ?? null,
         endTime: primaryBooking?.endTime?.toISOString() ?? null,
-        toBeScheduled: primaryBooking?.toBeScheduled ?? false,
+        toBeScheduled: primaryBooking ? (primaryBooking.toBeScheduled ?? false) : true,
         status: primaryBooking?.status ?? job.status,
-        price: primaryBooking?.price != null ? Number(primaryBooking.price) : null,
+        price:
+          primaryBooking?.price != null
+            ? Number(primaryBooking.price)
+            : (job as any).price != null
+              ? Number((job as any).price)
+              : null,
         timeEntries: job.timeEntries.map((te: any) => ({
           ...te,
           startTime: te.startTime.toISOString(),
@@ -2015,7 +2111,8 @@ export const dataServices = {
       // Normalize assignedTo to array format
       const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
 
-      // If toBeScheduled, create Job + Booking (unscheduled)
+      // If toBeScheduled, create ONLY the Job (no automatic Booking).
+      // Bookings are separate appointment records and can be created/deleted independently.
       if (toBeScheduled) {
         const job = await prisma.job.create({
           data: {
@@ -2023,34 +2120,17 @@ export const dataServices = {
             title: payload.title,
             description: payload.description,
             contactId: payload.contactId,
+            serviceId: payload.serviceId ?? null,
             quoteId: payload.quoteId,
             invoiceId: payload.invoiceId,
             status: 'active',
-            location: payload.location,
-            notes: payload.notes,
-            assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
-            createdById: payload.createdById ?? undefined,
-          },
-          include: { contact: true, createdBy: { select: { name: true } } },
-        })
-        const booking = await prisma.booking.create({
-          data: {
-            tenantId,
-            jobId: job.id,
-            serviceId: payload.serviceId,
-            quoteId: payload.quoteId,
-            invoiceId: payload.invoiceId,
-            startTime: null,
-            endTime: null,
-            toBeScheduled: true,
-            status: payload.status || 'active',
             location: payload.location,
             price: payload.price !== undefined ? payload.price : null,
             notes: payload.notes,
             assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
             createdById: payload.createdById ?? undefined,
           },
-          include: { service: true },
+          include: { contact: true, createdBy: { select: { name: true } }, service: true },
         })
         if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
           const jobWithContact = job as { contact?: { firstName?: string; lastName?: string } }
@@ -2062,20 +2142,23 @@ export const dataServices = {
             startTime: null,
             endTime: null,
             location: job.location,
-            contactName: jobWithContact.contact ? `${jobWithContact.contact.firstName ?? ''} ${jobWithContact.contact.lastName ?? ''}`.trim() || undefined : undefined,
+            contactName: jobWithContact.contact
+              ? `${jobWithContact.contact.firstName ?? ''} ${jobWithContact.contact.lastName ?? ''}`
+                  .trim() || undefined
+              : undefined,
           }).catch((e) => console.error('Failed to send assignment notification:', e))
         }
         const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
         return {
           ...job,
-          ...booking,
-          serviceId: booking.serviceId,
-          service: booking.service,
+          // Booking-like fields (backward compat for UI)
+          bookingId: null,
           startTime: null,
           endTime: null,
           toBeScheduled: true,
-          status: booking.status,
-          price: booking.price != null ? Number(booking.price) : null,
+          status: job.status,
+          serviceName: (job as any).service?.name ?? null,
+          price: (job as any).price != null ? Number((job as any).price) : null,
           assignedToName,
         }
       }
@@ -2143,15 +2226,17 @@ export const dataServices = {
           title: payload.title,
           description: payload.description,
           contactId: payload.contactId,
+          serviceId: payload.serviceId ?? null,
           quoteId: payload.quoteId,
           invoiceId: payload.invoiceId,
           status: 'active',
           location: payload.location,
+          price: payload.price !== undefined ? payload.price : null,
           notes: payload.notes,
           assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
           createdById: payload.createdById ?? undefined,
         },
-        include: { contact: true, createdBy: { select: { name: true } } },
+        include: { contact: true, createdBy: { select: { name: true } }, service: true },
       })
       const booking = await prisma.booking.create({
         data: {
@@ -2220,14 +2305,19 @@ export const dataServices = {
       if (payload.assignedTo !== undefined) jobUpdateData.assignedTo = (normalizeAssignedTo(payload.assignedTo) ?? undefined) as unknown as Prisma.InputJsonValue
 
       const bookingUpdateData: any = {}
-      if (payload.serviceId !== undefined) bookingUpdateData.serviceId = payload.serviceId
+      if (payload.serviceId !== undefined) {
+        bookingUpdateData.serviceId = payload.serviceId
+        jobUpdateData.serviceId = payload.serviceId ?? null
+      }
       if (payload.price !== undefined) {
         // Normalize price: convert to number or null
         if (payload.price === null || payload.price === '') {
           bookingUpdateData.price = null
+          jobUpdateData.price = null
         } else {
           const numPrice = typeof payload.price === 'number' ? payload.price : parseFloat(payload.price)
           bookingUpdateData.price = isNaN(numPrice) ? null : numPrice
+          jobUpdateData.price = isNaN(numPrice) ? null : numPrice
         }
       }
       if (payload.breaks !== undefined) bookingUpdateData.breaks = payload.breaks
@@ -2304,6 +2394,12 @@ export const dataServices = {
             await prisma.booking.update({ where: { id: b.id }, data })
           }
         }
+      } else if (payload.bookingId && Object.keys(bookingUpdateData).length > 0) {
+        // Update a specific booking (e.g. when dragging a to-be-scheduled onto the calendar)
+        const targetBooking = existingJob.bookings.find((b: any) => b.id === payload.bookingId)
+        if (targetBooking) {
+          await prisma.booking.update({ where: { id: payload.bookingId }, data: bookingUpdateData })
+        }
       } else if (primaryBooking) {
         // Check if we're scheduling a new appointment (has startTime/endTime and toBeScheduled is not explicitly true)
         const hasNewScheduledTimes = 
@@ -2328,9 +2424,24 @@ export const dataServices = {
           return existingStart === newStart && existingEnd === newEnd
         })
         
-        // If scheduling a new appointment (different times) and there are already scheduled bookings, create a new booking
-        // Otherwise, update the primary booking (either it's unscheduled or we're editing the existing scheduled one)
-        if (hasNewScheduledTimes && hasScheduledBookings && !matchesExistingBooking) {
+        // If adding a new to-be-scheduled booking (link to existing job + toBeScheduled), create new booking
+        const isAddingToBeScheduled =
+          bookingUpdateData.toBeScheduled === true &&
+          (bookingUpdateData.startTime === null || bookingUpdateData.startTime === undefined) &&
+          existingJob.bookings.length > 0
+        if (isAddingToBeScheduled) {
+          await prisma.booking.create({
+            data: {
+              tenantId,
+              jobId: id,
+              ...bookingUpdateData,
+              toBeScheduled: true,
+              startTime: null,
+              endTime: null,
+              status: bookingUpdateData.status ?? 'active',
+            },
+          })
+        } else if (hasNewScheduledTimes && hasScheduledBookings && !matchesExistingBooking) {
           // Create a new scheduled booking instead of updating the existing one
           await prisma.booking.create({
             data: {
@@ -2346,15 +2457,27 @@ export const dataServices = {
           await prisma.booking.update({ where: { id: primaryBooking.id }, data: bookingUpdateData })
         }
       } else if (Object.keys(bookingUpdateData).length > 0) {
-        await prisma.booking.create({
-          data: {
-            tenantId,
-            jobId: id,
-            ...bookingUpdateData,
-            toBeScheduled: bookingUpdateData.toBeScheduled ?? true,
-            status: bookingUpdateData.status ?? 'active',
-          },
-        })
+        // Job has no bookings - create when: (a) user schedules with times, or (b) user adds to-be-scheduled (link to existing job)
+        const hasScheduledTimes =
+          bookingUpdateData.startTime != null &&
+          bookingUpdateData.endTime != null &&
+          bookingUpdateData.toBeScheduled !== true
+        const isAddingToBeScheduledPlaceholder =
+          bookingUpdateData.toBeScheduled === true &&
+          (bookingUpdateData.startTime == null || bookingUpdateData.endTime == null)
+        if (hasScheduledTimes || isAddingToBeScheduledPlaceholder) {
+          await prisma.booking.create({
+            data: {
+              tenantId,
+              jobId: id,
+              ...bookingUpdateData,
+              toBeScheduled: isAddingToBeScheduledPlaceholder,
+              startTime: isAddingToBeScheduledPlaceholder ? null : bookingUpdateData.startTime,
+              endTime: isAddingToBeScheduledPlaceholder ? null : bookingUpdateData.endTime,
+              status: bookingUpdateData.status ?? 'active',
+            },
+          })
+        }
       }
 
       if (Object.keys(jobUpdateData).length > 0) {
@@ -2365,7 +2488,10 @@ export const dataServices = {
         where: { id },
         include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
       })
-      const b = updated!.bookings[0]
+      // When we updated a specific booking, use that for the flattened response
+      const b = payload.bookingId
+        ? (updated!.bookings.find((x: any) => x.id === payload.bookingId) ?? updated!.bookings[0])
+        : updated!.bookings[0]
       const assignedToName = await getAssignedToName(tenantId, updated!.assignedTo)
       if (jobUpdateData.assignedTo && JSON.stringify(jobUpdateData.assignedTo) !== JSON.stringify(existingJob.assignedTo)) {
         // Only notify newly added members
@@ -2389,6 +2515,7 @@ export const dataServices = {
       }
       return {
         ...updated,
+        bookingId: b?.id ?? null,
         serviceId: b?.serviceId,
         service: b?.service,
         startTime: b?.startTime?.toISOString() ?? null,
@@ -2676,6 +2803,82 @@ export const dataServices = {
     },
   },
   bookings: {
+    create: async (tenantId: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+
+      const jobId = payload.jobId
+      if (!jobId || typeof jobId !== 'string') {
+        throw new ApiError('jobId is required', 400)
+      }
+
+      const job = await prisma.job.findFirst({
+        where: { id: jobId, tenantId },
+        include: { contact: true, createdBy: { select: { name: true } }, service: true },
+      })
+      if (!job) throw new ApiError('Job not found', 404)
+
+      const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo ?? (job as any).assignedTo)
+      if (normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
+
+      const requestedStart = payload.startTime !== undefined && payload.startTime !== null && payload.startTime !== ''
+        ? parseValidDate(payload.startTime)
+        : null
+      const requestedEnd = payload.endTime !== undefined && payload.endTime !== null && payload.endTime !== ''
+        ? parseValidDate(payload.endTime)
+        : null
+
+      const toBeScheduled =
+        payload.toBeScheduled === true || (!requestedStart && !requestedEnd)
+
+      if (!toBeScheduled && (!requestedStart || !requestedEnd)) {
+        throw new ApiError('startTime and endTime are required for scheduled bookings', 400)
+      }
+      if ((requestedStart && !requestedEnd) || (!requestedStart && requestedEnd)) {
+        throw new ApiError('Both startTime and endTime must be provided', 400)
+      }
+
+      const booking = await prisma.booking.create({
+        data: {
+          tenantId,
+          jobId: job.id,
+          serviceId: payload.serviceId ?? (job as any).serviceId ?? null,
+          quoteId: payload.quoteId ?? (job as any).quoteId ?? null,
+          invoiceId: payload.invoiceId ?? (job as any).invoiceId ?? null,
+          startTime: toBeScheduled ? null : requestedStart,
+          endTime: toBeScheduled ? null : requestedEnd,
+          toBeScheduled,
+          status: payload.status ?? 'active',
+          location: payload.location ?? job.location ?? null,
+          price:
+            payload.price !== undefined
+              ? payload.price
+              : (job as any).price != null
+                ? Number((job as any).price)
+                : null,
+          notes: payload.notes ?? job.notes ?? null,
+          assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+          breaks: payload.breaks ?? null,
+          createdById: payload.createdById ?? payload._actingUserId ?? null,
+        },
+        include: {
+          service: true,
+        },
+      })
+
+      return {
+        ...booking,
+        price: booking.price != null ? Number(booking.price) : null,
+        startTime: booking.startTime?.toISOString() ?? null,
+        endTime: booking.endTime?.toISOString() ?? null,
+        job: {
+          id: job.id,
+          title: job.title,
+          contactId: job.contactId,
+          contactName: job.contact ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim() : undefined,
+          createdByName: (job.createdBy as any)?.name ?? undefined,
+        },
+      }
+    },
     delete: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)
       
@@ -3731,6 +3934,7 @@ export const dataServices = {
         include: {
           contact: true,
           createdBy: { select: { name: true } },
+          service: true,
           bookings: { include: { service: true }, orderBy: { startTime: 'asc' } },
           timeEntries: {
             include: { user: { select: { id: true, name: true } } },
@@ -3786,10 +3990,16 @@ export const dataServices = {
             // Flatten primary booking fields for Jobs page parity with calendar jobs
             startTime: primaryBooking?.startTime?.toISOString() ?? null,
             endTime: primaryBooking?.endTime?.toISOString() ?? null,
-            toBeScheduled: primaryBooking?.toBeScheduled ?? false,
+            toBeScheduled: primaryBooking ? (primaryBooking.toBeScheduled ?? false) : true,
             bookingStatus: primaryBooking?.status ?? null,
-            serviceName: primaryBooking?.service?.name ?? null,
-            price: primaryBooking?.price != null ? Number(primaryBooking.price) : null,
+            serviceId: primaryBooking?.serviceId ?? (job as any).serviceId ?? null,
+            serviceName: primaryBooking?.service?.name ?? (job as any).service?.name ?? null,
+            price:
+              primaryBooking?.price != null
+                ? Number(primaryBooking.price)
+                : (job as any).price != null
+                  ? Number((job as any).price)
+                  : null,
             job: primaryBooking
               ? {
                   id: job.id,
@@ -3798,8 +4008,13 @@ export const dataServices = {
                   endTime: primaryBooking.endTime?.toISOString(),
                   status: primaryBooking.status,
                   createdByName: (job.createdBy as any)?.name,
-                  serviceName: primaryBooking.service?.name ?? null,
-                  price: primaryBooking.price != null ? Number(primaryBooking.price) : null,
+                  serviceName: primaryBooking.service?.name ?? (job as any).service?.name ?? null,
+                  price:
+                    primaryBooking.price != null
+                      ? Number(primaryBooking.price)
+                      : (job as any).price != null
+                        ? Number((job as any).price)
+                        : null,
                   toBeScheduled: primaryBooking.toBeScheduled ?? false,
                 }
               : { id: job.id, title: job.title, startTime: undefined, endTime: undefined, status: job.status, createdByName: (job.createdBy as any)?.name },
@@ -3832,6 +4047,7 @@ export const dataServices = {
         include: {
           contact: true,
           createdBy: { select: { name: true } },
+          service: true,
           bookings: { include: { service: true }, orderBy: { startTime: 'asc' } },
           timeEntries: {
             include: { user: { select: { id: true, name: true } } },
@@ -3877,10 +4093,15 @@ export const dataServices = {
         // Flatten primary booking fields for Jobs page parity with calendar jobs
         startTime: primaryBooking?.startTime?.toISOString() ?? null,
         endTime: primaryBooking?.endTime?.toISOString() ?? null,
-        toBeScheduled: primaryBooking?.toBeScheduled ?? false,
+        toBeScheduled: primaryBooking ? (primaryBooking.toBeScheduled ?? false) : true,
         bookingStatus: primaryBooking?.status ?? null,
-        serviceName: primaryBooking?.service?.name ?? null,
-        price: primaryBooking?.price != null ? Number(primaryBooking.price) : null,
+        serviceName: primaryBooking?.service?.name ?? (job as any).service?.name ?? null,
+        price:
+          primaryBooking?.price != null
+            ? Number(primaryBooking.price)
+            : (job as any).price != null
+              ? Number((job as any).price)
+              : null,
         job: primaryBooking
           ? {
               id: job.id,
@@ -3889,8 +4110,13 @@ export const dataServices = {
               endTime: primaryBooking.endTime?.toISOString(),
               status: primaryBooking.status,
               createdByName: (job.createdBy as any)?.name,
-              serviceName: primaryBooking.service?.name ?? null,
-              price: primaryBooking.price != null ? Number(primaryBooking.price) : null,
+              serviceName: primaryBooking.service?.name ?? (job as any).service?.name ?? null,
+              price:
+                primaryBooking.price != null
+                  ? Number(primaryBooking.price)
+                  : (job as any).price != null
+                    ? Number((job as any).price)
+                    : null,
               toBeScheduled: primaryBooking.toBeScheduled ?? false,
             }
           : { id: job.id, title: job.title, startTime: undefined, endTime: undefined, status: job.status, createdByName: (job.createdBy as any)?.name },
@@ -3947,44 +4173,25 @@ export const dataServices = {
           title: payload.title,
           description: payload.description ?? null,
           contactId,
+          serviceId: payload.serviceId ?? null,
           location: payload.location ?? null,
+          price: normalizePrice(payload.price),
           notes: payload.notes ?? null,
           assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
           status: payload.status ?? 'active',
         },
-        include: { contact: true, bookings: true, timeEntries: true },
-      })
-
-      // Ensure Jobs-page-created jobs have a primary (unscheduled) booking so
-      // calendar/job detail screens can display price/service consistently.
-      const createdBooking = await prisma.booking.create({
-        data: {
-          tenantId,
-          jobId: created.id,
-          startTime: null,
-          endTime: null,
-          toBeScheduled: true,
-          status: 'active',
-          location: created.location ?? null,
-          price: normalizePrice(payload.price),
-          serviceId: payload.serviceId ?? null,
-          notes: created.notes ?? null,
-          assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
-          createdById: payload.createdById ?? payload._actingUserId ?? null,
-        },
-        include: { service: true },
+        include: { contact: true, createdBy: { select: { name: true } }, service: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } }, timeEntries: true },
       })
 
       if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
-        const b = createdBooking
         const createdWithContact = created as { contact?: { firstName?: string; lastName?: string } }
         sendAssignmentNotification({
           tenantId,
           assignedTo: normalizedAssignedTo,
           assignerUserId: payload._actingUserId,
           jobTitle: created.title,
-          startTime: b?.startTime ?? null,
-          endTime: b?.endTime ?? null,
+          startTime: null,
+          endTime: null,
           location: created.location ?? undefined,
           contactName: createdWithContact.contact ? `${createdWithContact.contact.firstName ?? ''} ${createdWithContact.contact.lastName ?? ''}`.trim() || undefined : undefined,
           viewPath: '/app/job-logs',
@@ -4001,23 +4208,13 @@ export const dataServices = {
       return {
         ...created,
         // flattened primary booking fields for Jobs page
-        startTime: createdBooking.startTime?.toISOString() ?? null,
-        endTime: createdBooking.endTime?.toISOString() ?? null,
-        toBeScheduled: createdBooking.toBeScheduled ?? false,
-        bookingStatus: createdBooking.status,
-        serviceName: createdBooking.service?.name ?? null,
-        price: createdBooking.price != null ? Number(createdBooking.price) : null,
-        bookings: [
-          {
-            id: createdBooking.id,
-            startTime: createdBooking.startTime?.toISOString() ?? null,
-            endTime: createdBooking.endTime?.toISOString() ?? null,
-            status: createdBooking.status,
-            toBeScheduled: createdBooking.toBeScheduled ?? false,
-            service: createdBooking.service ? { name: createdBooking.service.name } : null,
-            price: createdBooking.price != null ? Number(createdBooking.price) : null,
-          },
-        ],
+        startTime: null,
+        endTime: null,
+        toBeScheduled: true,
+        bookingStatus: null,
+        serviceName: (created as any).service?.name ?? null,
+        price: (created as any).price != null ? Number((created as any).price) : null,
+        bookings: [],
         assignedToName: assignedToNames || undefined,
         assignedToUsers: assignedUsers,
       }
@@ -4055,22 +4252,6 @@ export const dataServices = {
         if (Object.keys(bookingData).length > 0) {
           if (primaryBooking) {
             await prisma.booking.update({ where: { id: primaryBooking.id }, data: bookingData })
-          } else {
-            await prisma.booking.create({
-              data: {
-                tenantId,
-                jobId: id,
-                startTime: null,
-                endTime: null,
-                toBeScheduled: true,
-                status: 'active',
-                location: existing.location ?? null,
-                notes: existing.notes ?? null,
-                assignedTo: (normalizedAssignedTo ?? existing.assignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
-                createdById: payload.createdById ?? payload._actingUserId ?? null,
-                ...bookingData,
-              },
-            })
           }
         }
       }
@@ -4083,10 +4264,12 @@ export const dataServices = {
           location: payload.location ?? undefined,
           notes: payload.notes ?? undefined,
           contactId,
+          serviceId: payload.serviceId !== undefined ? (payload.serviceId || null) : undefined,
+          price: payload.price !== undefined ? normalizePrice(payload.price) : undefined,
           assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
           status: payload.status ?? undefined,
         },
-        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } }, timeEntries: true },
+        include: { contact: true, service: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } }, timeEntries: true },
       })
       const newAssignedTo = normalizedAssignedTo !== undefined ? normalizedAssignedTo : (existing.assignedTo as string[] | null)
       if (newAssignedTo && JSON.stringify(newAssignedTo) !== JSON.stringify(existing.assignedTo)) {
@@ -4125,10 +4308,15 @@ export const dataServices = {
         // flattened primary booking fields for Jobs page parity with calendar jobs
         startTime: updatedPrimary?.startTime ? new Date(updatedPrimary.startTime).toISOString() : null,
         endTime: updatedPrimary?.endTime ? new Date(updatedPrimary.endTime).toISOString() : null,
-        toBeScheduled: updatedPrimary?.toBeScheduled ?? false,
+        toBeScheduled: updatedPrimary ? (updatedPrimary.toBeScheduled ?? false) : true,
         bookingStatus: updatedPrimary?.status ?? null,
-        serviceName: updatedPrimary?.service?.name ?? null,
-        price: updatedPrimary?.price != null ? Number(updatedPrimary.price) : null,
+        serviceName: updatedPrimary?.service?.name ?? (updated as any).service?.name ?? null,
+        price:
+          updatedPrimary?.price != null
+            ? Number(updatedPrimary.price)
+            : (updated as any).price != null
+              ? Number((updated as any).price)
+              : null,
         bookings: Array.isArray((updated as any).bookings)
           ? (updated as any).bookings.map((b: any) => ({
               id: b.id,

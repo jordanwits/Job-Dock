@@ -4,6 +4,8 @@ import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 import { TEAM_COLORS } from '@/lib/utils/teamColors'
 import { JobRolesSection } from './JobRolesSection'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface TeamMember {
   id: string
@@ -26,6 +28,7 @@ function parseName(fullName: string): { firstName: string; lastName: string } {
 }
 
 export const TeamMembersSection = () => {
+  const { theme } = useTheme()
   const { user, updateUser } = useAuthStore()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -260,27 +263,42 @@ export const TeamMembersSection = () => {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-semibold text-primary-light">Team Members</h2>
-        <div className="h-20 bg-primary-dark rounded-lg animate-pulse" />
+        <h2 className={cn(
+          "text-xl font-semibold",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Team Members</h2>
+        <div className={cn(
+          "h-20 rounded-lg animate-pulse",
+          theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+        )} />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-primary-light">Team Members</h2>
+      <h2 className={cn(
+        "text-xl font-semibold",
+        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+      )}>Team Members</h2>
       <div className="space-y-4">
         {error && (
           <div className="text-red-400 text-sm">{error}</div>
         )}
 
         {!canInvite ? (
-          <p className="text-primary-light/70 text-sm">
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             Upgrade to the Team plan to invite team members. Admins have full access; employees can track hours and add notes on jobs.
           </p>
         ) : (
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <p className="text-primary-light/70 text-sm flex-1">
+            <p className={cn(
+              "text-sm flex-1",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
               Invite team members to collaborate. Admins have full access; employees can track hours and add notes on jobs.
             </p>
             <Button variant="primary" onClick={() => setInviteModal(true)} className="w-full sm:w-auto flex-shrink-0">
@@ -304,7 +322,12 @@ export const TeamMembersSection = () => {
             <Card key={m.id} className="relative flex flex-col py-4 px-4 gap-4">
               {/* Role badge in top right */}
               <div className="absolute top-4 right-4">
-                <span className="text-xs px-2 py-1 rounded bg-primary-dark/50 text-primary-light/80 capitalize">
+                <span className={cn(
+                  "text-xs px-2 py-1 rounded capitalize",
+                  theme === 'dark'
+                    ? 'bg-primary-dark/50 text-primary-light/80'
+                    : 'bg-gray-100 text-primary-lightText'
+                )}>
                   {m.role}
                 </span>
               </div>
@@ -340,7 +363,10 @@ export const TeamMembersSection = () => {
                 ) : (
                   <>
                     <div className="flex items-center gap-3">
-                      <p className="font-medium text-primary-light">{m.name || 'Owner'}</p>
+                      <p className={cn(
+                        "font-medium",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>{m.name || 'Owner'}</p>
                       {/* Color indicator */}
                       {m.color && (
                         <div
@@ -362,7 +388,10 @@ export const TeamMembersSection = () => {
                         />
                       )}
                     </div>
-                    <p className="text-sm text-primary-light/60">{m.email}</p>
+                    <p className={cn(
+                      "text-sm",
+                      theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                    )}>{m.email}</p>
                   </>
                 )}
               </div>
@@ -370,10 +399,10 @@ export const TeamMembersSection = () => {
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 {isCurrentUserOwner && !isEditingOwnerName && (
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     size="sm"
                     onClick={() => startOwnerNameEdit(m)}
-                    className="text-primary-gold hover:text-primary-gold/80 text-sm w-full sm:w-auto"
+                    className="text-sm w-full sm:w-auto"
                   >
                     Edit name
                   </Button>
@@ -381,7 +410,7 @@ export const TeamMembersSection = () => {
                 {/* Color picker button - available for all users */}
                 {canInvite && !isEditingOwnerName && editingColorUserId !== m.id && (
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -407,7 +436,7 @@ export const TeamMembersSection = () => {
                       className="w-full sm:w-32"
                     />
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       size="sm"
                       onClick={() => setExpandedMemberId(expandedMemberId === m.id ? null : m.id)}
                       className="text-sm w-full sm:w-auto"
@@ -416,10 +445,10 @@ export const TeamMembersSection = () => {
                       {expandedMemberId === m.id ? 'Hide Permissions' : 'Permissions'}
                     </Button>
                     <Button
-                      variant="secondary"
+                      variant="danger"
                       size="sm"
                       onClick={() => handleRemove(m.id, m.name)}
-                      className="text-red-400 hover:text-red-300 text-sm w-full sm:w-auto"
+                      className="text-sm w-full sm:w-auto"
                     >
                       Remove
                     </Button>
@@ -429,8 +458,16 @@ export const TeamMembersSection = () => {
               
               {/* Permissions Section */}
               {m.role !== 'owner' && canInvite && expandedMemberId === m.id && (
-                <div className="mt-2 pt-4 border-t border-primary-blue/30 bg-primary-dark/30 rounded-lg p-4 -mx-4 -mb-4">
-                  <p className="text-sm font-semibold text-primary-light mb-3">Permissions</p>
+                <div className={cn(
+                  "mt-2 pt-4 border-t rounded-lg p-4 -mx-4 -mb-4",
+                  theme === 'dark'
+                    ? 'border-primary-blue/30 bg-primary-dark/30'
+                    : 'border-gray-200/20 bg-gray-50'
+                )}>
+                  <p className={cn(
+                    "text-sm font-semibold mb-3",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>Permissions</p>
                   <div className="space-y-3">
                     <label className="flex items-start gap-3 cursor-pointer group">
                       <div className="mt-0.5 flex-shrink-0">
@@ -441,8 +478,14 @@ export const TeamMembersSection = () => {
                         />
                       </div>
                       <div className="flex-1">
-                        <span className="text-sm text-primary-light/90 block">Can create jobs</span>
-                        <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to create new jobs</span>
+                        <span className={cn(
+                          "text-sm block",
+                          theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                        )}>Can create jobs</span>
+                        <span className={cn(
+                          "text-xs mt-0.5 block",
+                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                        )}>Allow this team member to create new jobs</span>
                       </div>
                     </label>
                     <label className="flex items-start gap-3 cursor-pointer group">
@@ -454,8 +497,14 @@ export const TeamMembersSection = () => {
                         />
                       </div>
                       <div className="flex-1">
-                        <span className="text-sm text-primary-light/90 block">Can schedule appointments</span>
-                        <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to set start and end times for jobs</span>
+                        <span className={cn(
+                          "text-sm block",
+                          theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                        )}>Can schedule appointments</span>
+                        <span className={cn(
+                          "text-xs mt-0.5 block",
+                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                        )}>Allow this team member to set start and end times for jobs</span>
                       </div>
                     </label>
                     {m.role === 'employee' && (
@@ -469,8 +518,14 @@ export const TeamMembersSection = () => {
                             />
                           </div>
                           <div className="flex-1">
-                            <span className="text-sm text-primary-light/90 block">Can see other people's jobs</span>
-                            <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to see, edit, and delete jobs created by others</span>
+                            <span className={cn(
+                              "text-sm block",
+                              theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                            )}>Can see other people's jobs</span>
+                            <span className={cn(
+                              "text-xs mt-0.5 block",
+                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                            )}>Allow this team member to see, edit, and delete jobs created by others</span>
                           </div>
                         </label>
                         <label className="flex items-start gap-3 cursor-pointer group">
@@ -482,22 +537,37 @@ export const TeamMembersSection = () => {
                             />
                           </div>
                           <div className="flex-1">
-                            <span className="text-sm text-primary-light/90 block">Can see job prices</span>
-                            <span className="text-xs text-primary-light/50 mt-0.5 block">Allow this team member to see job prices and assignment prices</span>
+                            <span className={cn(
+                              "text-sm block",
+                              theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                            )}>Can see job prices</span>
+                            <span className={cn(
+                              "text-xs mt-0.5 block",
+                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                            )}>Allow this team member to see job prices and assignment prices</span>
                           </div>
                         </label>
                       </>
                     )}
                     {m.role === 'admin' && (
                       <div className="flex items-start gap-3">
-                        <div className="mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 border-primary-blue bg-primary-dark-secondary flex items-center justify-center">
+                        <div className={cn(
+                          "mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 border-primary-blue flex items-center justify-center",
+                          theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
+                        )}>
                           <svg className="w-3 h-3 text-primary-gold" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <span className="text-sm text-primary-light/90 block">Can see other people's jobs</span>
-                          <span className="text-xs text-primary-light/50 mt-0.5 block italic">Admins can see all jobs by default</span>
+                          <span className={cn(
+                            "text-sm block",
+                            theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                          )}>Can see other people's jobs</span>
+                          <span className={cn(
+                            "text-xs mt-0.5 block italic",
+                            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                          )}>Admins can see all jobs by default</span>
                         </div>
                       </div>
                     )}
@@ -509,18 +579,32 @@ export const TeamMembersSection = () => {
               {canInvite && editingColorUserId === m.id && (
                 <div 
                   ref={colorPickerSectionRef}
-                  className="mt-2 pt-4 border-t border-primary-blue/30 bg-primary-dark/30 rounded-lg p-4 -mx-4 -mb-4 color-picker-container"
+                  className={cn(
+                    "mt-2 pt-4 border-t rounded-lg p-4 -mx-4 -mb-4 color-picker-container",
+                    theme === 'dark'
+                      ? 'border-primary-blue/30 bg-primary-dark/30'
+                      : 'border-gray-200/20 bg-gray-50'
+                  )}
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
-                  <p className="text-sm font-semibold text-primary-light mb-3">Calendar Color</p>
-                  <p className="text-xs text-primary-light/50 mb-4">
+                  <p className={cn(
+                    "text-sm font-semibold mb-3",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>Calendar Color</p>
+                  <p className={cn(
+                    "text-xs mb-4",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                  )}>
                     Choose a color to identify this team member in the calendar view.
                   </p>
                   
                   {/* Preset Colors */}
                   <div className="mb-4" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    <p className="text-xs text-primary-light/70 mb-2">Preset Colors</p>
+                    <p className={cn(
+                      "text-xs mb-2",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Preset Colors</p>
                     <div className="grid grid-cols-6 gap-2">
                       {TEAM_COLORS.map((color) => {
                         const isSelected = pendingColorValue === color.value
@@ -550,23 +634,31 @@ export const TeamMembersSection = () => {
                         }}
                         onMouseDown={(e) => e.stopPropagation()}
                         disabled={updatingColor === m.id}
-                        className={`
-                          w-10 h-10 rounded-lg border-2 border-dashed border-primary-light/30
-                          bg-primary-dark-secondary hover:bg-primary-dark
-                          ${pendingColorValue === null ? 'ring-2 ring-primary-gold ring-offset-2 ring-offset-primary-dark' : ''}
-                          hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed
-                          flex items-center justify-center
-                        `}
+                        className={cn(
+                          "w-10 h-10 rounded-lg border-2 border-dashed hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center",
+                          theme === 'dark'
+                            ? 'border-primary-light/30 bg-primary-dark-secondary hover:bg-primary-dark'
+                            : 'border-gray-200/30 bg-white hover:bg-gray-100',
+                          pendingColorValue === null && 'ring-2 ring-primary-gold ring-offset-2',
+                          theme === 'dark' && pendingColorValue === null && 'ring-offset-primary-dark',
+                          theme === 'light' && pendingColorValue === null && 'ring-offset-white'
+                        )}
                         title="Use default (auto-assigned)"
                       >
-                        <span className="text-xs text-primary-light/50">Auto</span>
+                        <span className={cn(
+                          "text-xs",
+                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                        )}>Auto</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Custom Color Picker */}
                   <div className="mb-4" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    <p className="text-xs text-primary-light/70 mb-2">Custom Color</p>
+                    <p className={cn(
+                      "text-xs mb-2",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Custom Color</p>
                     <div className="flex items-center gap-3">
                       <div className="relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                         <input
@@ -609,17 +701,28 @@ export const TeamMembersSection = () => {
                           disabled={updatingColor === m.id}
                           placeholder="#000000"
                           maxLength={7}
-                          className="w-full h-10 rounded-lg border border-primary-blue/30 bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={cn(
+                            "w-full h-10 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold disabled:opacity-50 disabled:cursor-not-allowed",
+                            theme === 'dark'
+                              ? 'border-primary-blue/30 bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+                              : 'border-gray-200/30 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+                          )}
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-primary-light/50 mt-1">
+                    <p className={cn(
+                      "text-xs mt-1",
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                    )}>
                       Enter a hex color code (e.g., #FF5733) or use the color picker
                     </p>
                   </div>
 
                   {/* Save/Cancel Buttons */}
-                  <div className="flex gap-2 justify-end pt-2 border-t border-primary-blue/20">
+                  <div className={cn(
+                    "flex gap-2 justify-end pt-2 border-t",
+                    theme === 'dark' ? 'border-primary-blue/20' : 'border-gray-200/20'
+                  )}>
                     <Button
                       variant="secondary"
                       size="sm"
@@ -656,7 +759,10 @@ export const TeamMembersSection = () => {
         {inviteModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
             <Card className="w-full max-w-md p-6 space-y-4">
-              <h3 className="text-xl font-semibold text-primary-light">Invite team member</h3>
+              <h3 className={cn(
+                "text-xl font-semibold",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>Invite team member</h3>
               <Input
                 label="Email"
                 type="email"
@@ -701,7 +807,10 @@ export const TeamMembersSection = () => {
       </div>
 
       {/* Job Roles Section */}
-      <div className="mt-8 pt-8 border-t border-primary-blue/30">
+      <div className={cn(
+        "mt-8 pt-8 border-t",
+        theme === 'dark' ? 'border-primary-blue/30' : 'border-gray-200/20'
+      )}>
         <JobRolesSection />
       </div>
     </div>

@@ -4,6 +4,7 @@ import QuoteCard from './QuoteCard'
 import { Input, Button, Select } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { quotesService } from '@/lib/api/services'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface QuoteListProps {
   onCreateClick?: () => void
@@ -12,6 +13,7 @@ interface QuoteListProps {
 type DisplayMode = 'cards' | 'list'
 
 const QuoteList = ({ onCreateClick }: QuoteListProps) => {
+  const { theme } = useTheme()
   const {
     quotes,
     isLoading,
@@ -152,11 +154,21 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
   }
 
   const statusColors = {
-    draft: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    sent: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
-    accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
-    rejected: 'bg-red-500/20 text-red-400 border-red-500/30',
-    expired: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    draft: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-600 border-gray-300',
+    sent: theme === 'dark'
+      ? 'bg-primary-blue/20 text-primary-blue border-primary-blue/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    accepted: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
+    rejected: theme === 'dark'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-red-100 text-red-700 border-red-300',
+    expired: theme === 'dark'
+      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+      : 'bg-orange-100 text-orange-700 border-orange-300',
   }
 
   const formatCurrency = (amount: number) => {
@@ -195,14 +207,20 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
             ]}
             className="w-full sm:w-auto min-w-[140px]"
           />
-          <div className="flex gap-1 border border-primary-blue rounded-lg p-1">
+          <div className={cn(
+            "flex gap-1 border rounded-lg p-1",
+            theme === 'dark' ? 'border-primary-blue' : 'border-gray-300'
+          )}>
             <button
               onClick={() => setDisplayMode('cards')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              className={cn(
+                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                 displayMode === 'cards'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'text-primary-light hover:bg-primary-blue/20'
-              }`}
+                  : theme === 'dark'
+                    ? 'text-primary-light hover:bg-primary-blue/20'
+                    : 'text-primary-lightText hover:bg-gray-100'
+              )}
               title="Card View"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -211,11 +229,14 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
             </button>
             <button
               onClick={() => setDisplayMode('list')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              className={cn(
+                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                 displayMode === 'list'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'text-primary-light hover:bg-primary-blue/20'
-              }`}
+                  : theme === 'dark'
+                    ? 'text-primary-light hover:bg-primary-blue/20'
+                    : 'text-primary-lightText hover:bg-gray-100'
+              )}
               title="List View"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,7 +249,10 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
 
       {/* Results Count and Bulk Actions */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-primary-light/70">
+        <div className={cn(
+          "text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>
           {selectedIds.size > 0 ? (
             <span className="font-medium text-primary-gold">
               {selectedIds.size} selected
@@ -255,7 +279,10 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className={cn(
+            "border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4",
+            theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+          )} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
                 <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,7 +291,10 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-medium text-red-400 mb-2">Delete {selectedIds.size} Quote{selectedIds.size !== 1 ? 's' : ''}?</h3>
-                <p className="text-sm text-primary-light/70 mb-4">
+                <p className={cn(
+                  "text-sm mb-4",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>
                   This action cannot be undone. All selected quotes will be permanently removed.
                 </p>
                 <div className="flex gap-3 justify-end">
@@ -292,11 +322,16 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
       {/* Quote List */}
       {isLoading ? (
         <div className="text-center py-12">
-          <p className="text-primary-light/70">Loading quotes...</p>
+          <p className={cn(
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>Loading quotes...</p>
         </div>
       ) : filteredQuotes.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-primary-light/70 mb-4">
+          <p className={cn(
+            "mb-4",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             {searchQuery || statusFilter !== 'all'
               ? 'No quotes match your filters'
               : 'No quotes yet'}
@@ -319,10 +354,20 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
         </div>
       ) : (
         // List Layout
-        <div className="rounded-lg border border-primary-blue overflow-hidden">
+        <div className={cn(
+          "rounded-lg overflow-hidden",
+          theme === 'dark'
+            ? 'border border-white/10'
+            : 'border border-gray-200'
+        )}>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+              <thead className={cn(
+                "border-b",
+                theme === 'dark' 
+                  ? "bg-primary-dark-secondary border-primary-blue" 
+                  : "bg-gray-50 border-gray-200"
+              )}>
                 <tr>
                   <th className="px-4 py-3 w-12">
                     <div 
@@ -331,39 +376,70 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
                         "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
                         selectedIds.size === filteredQuotes.length && filteredQuotes.length > 0
                           ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                          : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                          : theme === 'dark'
+                            ? "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                            : "border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-primary-gold/10"
                       )}
                     >
                       {selectedIds.size === filteredQuotes.length && filteredQuotes.length > 0 && (
-                        <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                        )} />
                       )}
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Quote #
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Title
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Contact
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Company
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Total
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Status
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-primary-blue">
+              <tbody className={cn(
+                "divide-y",
+                theme === 'dark' ? 'divide-primary-blue' : 'divide-gray-200'
+              )}>
                 {filteredQuotes.map((quote) => (
                   <tr 
                     key={quote.id} 
-                    className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
+                    className={cn(
+                      "transition-colors cursor-pointer",
+                      theme === 'dark'
+                        ? "bg-primary-dark hover:bg-primary-dark/50"
+                        : "bg-white hover:bg-gray-50"
+                    )}
                     onClick={() => setSelectedQuote(quote)}
                   >
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -373,27 +449,44 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
                           "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
                           selectedIds.has(quote.id)
                             ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                            : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                            : theme === 'dark'
+                              ? "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                              : "border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-primary-gold/10"
                         )}
                       >
                         {selectedIds.has(quote.id) && (
-                          <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                          <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                          )} />
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-medium text-primary-light">
+                      <div className={cn(
+                        "text-sm font-medium",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         <span className="md:hidden">{quote.title || quote.quoteNumber}</span>
                         <span className="hidden md:inline">{quote.quoteNumber}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
+                    <td className={cn(
+                      "px-4 py-3 whitespace-nowrap text-sm hidden md:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       <div className="truncate max-w-[200px]">{quote.title || '-'}</div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
+                    <td className={cn(
+                      "px-4 py-3 whitespace-nowrap text-sm hidden sm:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       <div className="truncate max-w-[150px]">{quote.contactName || '-'}</div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                    <td className={cn(
+                      "px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       <div className="truncate max-w-[150px]">{quote.contactCompany || '-'}</div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">

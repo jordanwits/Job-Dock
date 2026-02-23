@@ -1,4 +1,6 @@
 import { Modal, Button } from '@/components/ui'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface PermanentDeleteRecurringJobModalProps {
   isOpen: boolean
@@ -19,6 +21,7 @@ const PermanentDeleteRecurringJobModal = ({
   occurrenceCount,
   isArchived,
 }: PermanentDeleteRecurringJobModalProps) => {
+  const { theme } = useTheme()
   return (
     <Modal
       isOpen={isOpen}
@@ -31,22 +34,39 @@ const PermanentDeleteRecurringJobModal = ({
           <p className="text-red-400 font-semibold mb-2">
             ⚠️ Warning: This action cannot be undone!
           </p>
-          <p className="text-primary-light/70 text-sm">
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             This will permanently remove the job{occurrenceCount && occurrenceCount > 1 ? 's' : ''} from the database
             {isArchived ? ' and S3 archive' : ''}.
           </p>
         </div>
 
-        <p className="text-primary-light">
+        <p className={cn(
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           This job is part of a recurring series{occurrenceCount ? ` with ${occurrenceCount} occurrence${occurrenceCount !== 1 ? 's' : ''}` : ''}.
         </p>
-        <p className="text-primary-light">
+        <p className={cn(
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           Would you like to permanently delete just this job, or all jobs in the series?
         </p>
         
-        <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-          <p className="text-sm text-primary-light/70">
-            <strong className="text-primary-light">Job:</strong> {jobTitle}
+        <div className={cn(
+          "border rounded-lg p-3",
+          theme === 'dark' 
+            ? 'bg-primary-blue/10 border-primary-blue' 
+            : 'bg-blue-50 border-blue-200'
+        )}>
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
+            <strong className={cn(
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>Job:</strong> {jobTitle}
           </p>
         </div>
       </div>

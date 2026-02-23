@@ -7,8 +7,11 @@ import { Modal, Button } from '@/components/ui'
 import type { CreateJobLogData } from '../types/jobLog'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 const JobLogsListPage = () => {
+  const { theme } = useTheme()
   const { user } = useAuthStore()
   const [isTeamAccount, setIsTeamAccount] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -56,10 +59,16 @@ const JobLogsListPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+          <h1 className={cn(
+            "text-2xl md:text-3xl font-bold tracking-tight",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             <span className="text-primary-gold">Jobs</span>
           </h1>
-          <p className="text-sm md:text-base text-primary-light/60">
+          <p className={cn(
+            "text-sm md:text-base",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             Create jobs, track time, capture photos, and take notes on jobsites
           </p>
         </div>

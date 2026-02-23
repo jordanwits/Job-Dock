@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button, Card } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface BillingStatus {
   hasSubscription: boolean
@@ -53,6 +54,7 @@ const PLANS: Plan[] = [
 ]
 
 export const BillingSection = () => {
+  const { theme } = useTheme()
   const [status, setStatus] = useState<BillingStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState(false)
@@ -131,8 +133,14 @@ export const BillingSection = () => {
   if (loading || !status) {
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-semibold text-primary-light">Billing & Subscription</h2>
-        <div className="h-20 bg-primary-dark rounded-lg animate-pulse" />
+        <h2 className={cn(
+          "text-xl font-semibold",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Billing & Subscription</h2>
+        <div className={cn(
+          "h-20 rounded-lg animate-pulse",
+          theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+        )} />
       </div>
     )
   }
@@ -144,17 +152,26 @@ export const BillingSection = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-primary-light">Billing & Subscription</h2>
+      <h2 className={cn(
+        "text-xl font-semibold",
+        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+      )}>Billing & Subscription</h2>
       
       {/* Current Plan Status */}
       <div className="space-y-4">
         <Card className="p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex-1">
-              <p className="text-primary-light font-medium">
+              <p className={cn(
+                "font-medium",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 Current plan: <span className="text-primary-gold">{isTeam ? 'Team' : 'Single'}</span>
               </p>
-              <p className="text-sm text-primary-light/60 mt-1">
+              <p className={cn(
+                "text-sm mt-1",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 {hasActiveSubscription
                   ? isTeam
                     ? `You can invite team members.${status.teamMemberCount != null ? ` (${status.teamMemberCount} member${status.teamMemberCount !== 1 ? 's' : ''})` : ''}`
@@ -182,7 +199,10 @@ export const BillingSection = () => {
 
         {/* Plan Selection */}
         <div>
-          <h3 className="text-lg font-medium text-primary-light mb-4">Change Subscription Plan</h3>
+          <h3 className={cn(
+            "text-lg font-medium mb-4",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Change Subscription Plan</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {PLANS.map((plan) => {
               const isCurrentPlan = tier === plan.id
@@ -209,13 +229,22 @@ export const BillingSection = () => {
                   
                   <div className="space-y-4">
                     <div>
-                      <h4 className="text-xl font-semibold text-primary-light">{plan.name}</h4>
-                      <p className="text-sm text-primary-light/70 mt-1">{plan.description}</p>
+                      <h4 className={cn(
+                        "text-xl font-semibold",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>{plan.name}</h4>
+                      <p className={cn(
+                        "text-sm mt-1",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>{plan.description}</p>
                     </div>
 
                     <ul className="space-y-2">
                       {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start text-sm text-primary-light/80">
+                        <li key={idx} className={cn(
+                          "flex items-start text-sm",
+                          theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightText'
+                        )}>
                           <svg
                             className="w-5 h-5 text-primary-gold mr-2 flex-shrink-0 mt-0.5"
                             fill="none"

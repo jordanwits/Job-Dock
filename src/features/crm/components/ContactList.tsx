@@ -5,6 +5,7 @@ import { Button, Input, Select } from '@/components/ui'
 import { phoneMatches } from '@/lib/utils/phone'
 import { contactsService } from '@/lib/api/services'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface ContactListProps {
   onCreateClick?: () => void
@@ -14,6 +15,7 @@ type ViewMode = 'status' | 'alphabetical' | 'dateEntered'
 type DisplayMode = 'cards' | 'list'
 
 const ContactList = ({ onCreateClick }: ContactListProps) => {
+  const { theme } = useTheme()
   const {
     contacts,
     isLoading,
@@ -265,14 +267,20 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
             className="w-full sm:w-auto min-w-[140px]"
           />
           {viewMode !== 'status' && (
-            <div className="flex gap-1 border border-primary-blue rounded-lg p-1">
+            <div className={cn(
+              "flex gap-1 border rounded-lg p-1",
+              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+            )}>
               <button
                 onClick={() => setDisplayMode('cards')}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                className={cn(
+                  "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                   displayMode === 'cards'
                     ? 'bg-primary-gold text-primary-dark'
-                    : 'text-primary-light hover:bg-primary-blue/20'
-                }`}
+                    : theme === 'dark'
+                      ? 'text-primary-light hover:bg-primary-blue/20'
+                      : 'text-primary-lightText hover:bg-gray-100'
+                )}
                 title="Card View"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -281,11 +289,14 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
               </button>
               <button
                 onClick={() => setDisplayMode('list')}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                className={cn(
+                  "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                   displayMode === 'list'
                     ? 'bg-primary-gold text-primary-dark'
-                    : 'text-primary-light hover:bg-primary-blue/20'
-                }`}
+                    : theme === 'dark'
+                      ? 'text-primary-light hover:bg-primary-blue/20'
+                      : 'text-primary-lightText hover:bg-gray-100'
+                )}
                 title="List View"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,7 +310,10 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
 
       {/* Results Count and Bulk Actions */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-primary-light/70">
+        <div className={cn(
+          "text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>
           {selectedIds.size > 0 ? (
             <span className="font-medium text-primary-gold">
               {selectedIds.size} selected
@@ -326,7 +340,12 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className={cn(
+            "border rounded-lg p-6 max-w-md w-full mx-4",
+            theme === 'dark'
+              ? 'bg-primary-dark border-red-500/30'
+              : 'bg-white border-red-300'
+          )} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
                 <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,7 +354,10 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-medium text-red-400 mb-2">Delete {selectedIds.size} Contact{selectedIds.size !== 1 ? 's' : ''}?</h3>
-                <p className="text-sm text-primary-light/70 mb-4">
+                <p className={cn(
+                  "text-sm mb-4",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>
                   This action cannot be undone. All associated data will be permanently removed.
                 </p>
                 <div className="flex gap-3 justify-end">
@@ -363,11 +385,16 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
       {/* Contact List */}
       {isLoading ? (
         <div className="text-center py-12">
-          <p className="text-primary-light/70">Loading contacts...</p>
+          <p className={cn(
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>Loading contacts...</p>
         </div>
       ) : displayContacts.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-primary-light/70 mb-4">
+          <p className={cn(
+            "mb-4",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             {searchQuery || statusFilter !== 'all'
               ? 'No contacts match your filters'
               : 'No contacts yet'}
@@ -381,13 +408,22 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Lead Column */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-primary-gold/30">
+            <div className={cn(
+              "flex items-center justify-between pb-2 border-b",
+              theme === 'dark' ? 'border-primary-gold/30' : 'border-gray-200/20'
+            )}>
               <h3 className="text-lg font-semibold text-primary-gold">Lead</h3>
-              <span className="text-sm text-primary-light/70">{leadContacts.length}</span>
+              <span className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>{leadContacts.length}</span>
             </div>
             {leadContacts.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-primary-light/50">No leads yet</p>
+                <p className={cn(
+                  "text-sm",
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}>No leads yet</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -405,13 +441,22 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
 
           {/* Customer Column */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-green-500/30">
+            <div className={cn(
+              "flex items-center justify-between pb-2 border-b",
+              theme === 'dark' ? 'border-green-500/30' : 'border-gray-200/20'
+            )}>
               <h3 className="text-lg font-semibold text-green-400">Customer</h3>
-              <span className="text-sm text-primary-light/70">{customerContacts.length}</span>
+              <span className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>{customerContacts.length}</span>
             </div>
             {customerContacts.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-primary-light/50">No customers</p>
+                <p className={cn(
+                  "text-sm",
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}>No customers</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -429,13 +474,25 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
 
           {/* Inactive Column */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-500/30">
-              <h3 className="text-lg font-semibold text-gray-400">Inactive</h3>
-              <span className="text-sm text-primary-light/70">{inactiveContacts.length}</span>
+            <div className={cn(
+              "flex items-center justify-between pb-2 border-b",
+              theme === 'dark' ? 'border-gray-500/30' : 'border-gray-200/20'
+            )}>
+              <h3 className={cn(
+                "text-lg font-semibold",
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              )}>Inactive</h3>
+              <span className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>{inactiveContacts.length}</span>
             </div>
             {inactiveContacts.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-primary-light/50">No inactive contacts</p>
+                <p className={cn(
+                  "text-sm",
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}>No inactive contacts</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -465,10 +522,18 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
         </div>
       ) : (
         // List Layout
-        <div className="rounded-lg border border-primary-blue overflow-hidden">
+        <div className={cn(
+          "rounded-lg border overflow-hidden",
+          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+        )}>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+              <thead className={cn(
+                "border-b",
+                theme === 'dark'
+                  ? 'bg-primary-dark-secondary border-primary-blue'
+                  : 'bg-gray-50 border-gray-200/20'
+              )}>
                 <tr>
                   <th className="px-4 py-3 w-12">
                     <div 
@@ -477,45 +542,83 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
                         "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
                         selectedIds.size === displayContacts.length && displayContacts.length > 0
                           ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                          : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                          : theme === 'dark'
+                            ? "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                            : "border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100"
                       )}
                     >
                       {selectedIds.size === displayContacts.length && displayContacts.length > 0 && (
-                        <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                        )} />
                       )}
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Name
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Company
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Email
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Phone
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Status
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-primary-blue">
+              <tbody className={cn(
+                "divide-y",
+                theme === 'dark' ? 'divide-primary-blue' : 'divide-gray-200/20'
+              )}>
                 {displayContacts.map((contact) => {
                   const statusColors = {
-                    lead: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-                    prospect: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-                    customer: 'bg-green-500/20 text-green-400 border-green-500/30',
-                    inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-                    contact: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                    lead: theme === 'dark'
+                      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                      : 'bg-blue-100 text-blue-700 border-blue-300',
+                    prospect: theme === 'dark'
+                      ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                      : 'bg-purple-100 text-purple-700 border-purple-300',
+                    customer: theme === 'dark'
+                      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                      : 'bg-green-100 text-green-700 border-green-300',
+                    inactive: theme === 'dark'
+                      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                      : 'bg-gray-200 text-gray-700 border-gray-400',
+                    contact: theme === 'dark'
+                      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
                   }
                   
                   return (
                     <tr 
                       key={contact.id} 
-                      className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
+                      className={cn(
+                        "transition-colors cursor-pointer",
+                        theme === 'dark'
+                          ? 'bg-primary-dark hover:bg-primary-dark/50'
+                          : 'bg-white hover:bg-gray-50'
+                      )}
                       onClick={() => setSelectedContact(contact)}
                     >
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -525,33 +628,55 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
                             "w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto",
                             selectedIds.has(contact.id)
                               ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                              : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                              : theme === 'dark'
+                                ? "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                                : "border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100"
                           )}
                         >
                           {selectedIds.has(contact.id) && (
-                            <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                            )} />
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-primary-blue flex items-center justify-center text-primary-gold font-semibold">
+                          <div className={cn(
+                            "h-10 w-10 rounded-full flex items-center justify-center font-semibold",
+                            theme === 'dark'
+                              ? 'bg-primary-blue text-primary-gold'
+                              : 'bg-primary-blue text-primary-gold'
+                          )}>
                             {contact.firstName.charAt(0)}{contact.lastName.charAt(0)}
                           </div>
                           <div className="ml-3">
-                            <div className="text-sm font-medium text-primary-light">
+                            <div className={cn(
+                              "text-sm font-medium",
+                              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                            )}>
                               {contact.firstName} {contact.lastName}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
+                      <td className={cn(
+                        "px-4 py-3 whitespace-nowrap text-sm hidden md:table-cell",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         {contact.company || '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
+                      <td className={cn(
+                        "px-4 py-3 whitespace-nowrap text-sm hidden sm:table-cell",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         <div className="truncate max-w-[200px]">{contact.email || '-'}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                      <td className={cn(
+                        "px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         {contact.phone || '-'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { format, setHours, setMinutes } from 'date-fns'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export interface TimePickerProps {
   value?: string // HH:mm format
@@ -25,6 +26,7 @@ const TimePicker = ({
   className,
   step = 15,
 }: TimePickerProps) => {
+  const { theme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -105,7 +107,10 @@ const TimePicker = ({
   return (
     <div className={cn('w-full', className)} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>{label}</label>
       )}
       <div className="relative">
         <button
@@ -114,19 +119,26 @@ const TimePicker = ({
           disabled={disabled}
           className={cn(
             'flex h-10 w-full rounded-lg border px-3 py-2 text-sm text-left',
-            'bg-primary-dark-secondary text-primary-light',
-            'placeholder:text-primary-light/50',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            error ? 'border-red-500 focus-visible:ring-red-500' : 'border-primary-blue',
+            theme === 'dark'
+              ? 'bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+              : 'bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary border-gray-200/20',
+            error ? 'border-red-500 focus-visible:ring-red-500' : theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20',
             className
           )}
         >
-          <span className={cn('flex-1', !value && 'text-primary-light/50')}>
+          <span className={cn(
+            'flex-1',
+            !value && (theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary')
+          )}>
             {value ? formatDisplayTime(value) : placeholder}
           </span>
           <svg
-            className="w-5 h-5 text-primary-light/70"
+            className={cn(
+              "w-5 h-5",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -143,7 +155,12 @@ const TimePicker = ({
         {isOpen && (
           <div
             ref={dropdownRef}
-            className="absolute z-50 mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl max-h-64 overflow-y-auto"
+            className={cn(
+              "absolute z-50 mt-2 w-full rounded-lg border shadow-xl max-h-64 overflow-y-auto",
+              theme === 'dark' 
+                ? 'border-primary-blue bg-primary-dark-secondary' 
+                : 'border-gray-200/20 bg-white'
+            )}
           >
             <div className="p-2">
               {timeSlots.map(time => {
@@ -161,7 +178,9 @@ const TimePicker = ({
                       'w-full px-3 py-2 text-sm rounded-lg text-left transition-colors',
                       isSelected
                         ? 'bg-primary-gold text-primary-dark font-medium'
-                        : 'text-primary-light hover:bg-primary-dark'
+                        : theme === 'dark'
+                          ? 'text-primary-light hover:bg-primary-dark'
+                          : 'text-primary-lightText hover:bg-gray-100'
                     )}
                   >
                     {format(date, 'h:mm a')}
@@ -173,7 +192,12 @@ const TimePicker = ({
         )}
       </div>
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-      {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
+      {helperText && !error && (
+        <p className={cn(
+          "mt-1 text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>{helperText}</p>
+      )}
     </div>
   )
 }

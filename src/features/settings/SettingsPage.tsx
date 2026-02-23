@@ -10,6 +10,7 @@ import { BillingSection } from './BillingSection'
 import { TeamMembersSection } from './TeamMembersSection'
 import { HelpSection } from './HelpSection'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 type TabId = 'billing' | 'team' | 'early-access' | 'company' | 'email' | 'pdf' | 'help'
 
@@ -22,6 +23,7 @@ interface TabConfig {
 }
 
 export const SettingsPage = () => {
+  const { theme } = useTheme()
   const { user } = useAuthStore()
   const [settings, setSettings] = useState<TenantSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -258,11 +260,22 @@ export const SettingsPage = () => {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="rounded-xl border border-white/5 bg-primary-dark-secondary/50 p-6 shadow-sm shadow-black/20">
-          <div className="h-6 w-48 bg-primary-dark rounded animate-pulse mb-6"></div>
+        <div className={cn(
+          "rounded-xl border p-6 shadow-sm",
+          theme === 'dark'
+            ? 'border-white/5 bg-primary-dark-secondary/50 shadow-black/20'
+            : 'border-gray-200 bg-primary-lightSecondary shadow-gray-200/50'
+        )}>
+          <div className={cn(
+            "h-6 w-48 rounded animate-pulse mb-6",
+            theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+          )}></div>
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 bg-primary-dark rounded-lg animate-pulse"></div>
+              <div key={i} className={cn(
+                "h-20 rounded-lg animate-pulse",
+                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+              )}></div>
             ))}
           </div>
         </div>
@@ -273,7 +286,10 @@ export const SettingsPage = () => {
   return (
     <div className="space-y-6 md:space-y-8">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+        <h1 className={cn(
+          "text-2xl md:text-3xl font-bold tracking-tight",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           <span className="text-primary-gold">Settings</span>
         </h1>
       </div>
@@ -295,8 +311,9 @@ export const SettingsPage = () => {
                 onClick={() => handleTabSelect(tab.id)}
                 className={cn(
                   'w-full flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left',
-                  'text-primary-light/70 hover:bg-primary-dark hover:text-primary-light',
-                  'active:bg-primary-dark'
+                  theme === 'dark'
+                    ? 'text-primary-light/70 hover:bg-primary-dark hover:text-primary-light active:bg-primary-dark'
+                    : 'text-primary-lightTextSecondary hover:bg-gray-100 hover:text-primary-lightText active:bg-gray-100'
                 )}
               >
                 <span>{tab.label}</span>
@@ -343,7 +360,9 @@ export const SettingsPage = () => {
                     'w-full flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left',
                     isActive
                       ? 'bg-primary-blue text-primary-light'
-                      : 'text-primary-light/70 hover:bg-primary-dark hover:text-primary-light'
+                      : theme === 'dark'
+                        ? 'text-primary-light/70 hover:bg-primary-dark hover:text-primary-light'
+                        : 'text-primary-lightTextSecondary hover:bg-gray-100 hover:text-primary-lightText'
                   )}
                 >
                   <span>{tab.label}</span>
@@ -358,7 +377,10 @@ export const SettingsPage = () => {
           {activeTabConfig ? (
             <div className="pb-6">{activeTabConfig.component}</div>
           ) : (
-            <div className="pb-6 text-primary-light/70">
+            <div className={cn(
+              "pb-6",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
               Select a setting category to get started
             </div>
           )}

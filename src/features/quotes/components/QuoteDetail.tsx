@@ -8,6 +8,7 @@ import ConvertQuoteToInvoiceModal from './ConvertQuoteToInvoiceModal'
 import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { ScheduleJobModal } from '@/features/scheduling'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface QuoteDetailProps {
   quote: Quote
@@ -24,6 +25,7 @@ const QuoteDetail = ({
   onJobCreated,
   onJobCreateFailed,
 }: QuoteDetailProps) => {
+  const { theme } = useTheme()
   const { updateQuote, deleteQuote, sendQuote, isLoading } = useQuoteStore()
   const { convertQuoteToInvoice, setSelectedInvoice, isLoading: isConverting } = useInvoiceStore()
   const navigate = useNavigate()
@@ -103,11 +105,21 @@ const QuoteDetail = ({
   }
 
   const statusColors = {
-    draft: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    sent: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
-    accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
-    rejected: 'bg-red-500/20 text-red-400 border-red-500/30',
-    expired: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    draft: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-600 border-gray-300',
+    sent: theme === 'dark'
+      ? 'bg-primary-blue/20 text-primary-blue border-primary-blue/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    accepted: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
+    rejected: theme === 'dark'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-red-100 text-red-700 border-red-300',
+    expired: theme === 'dark'
+      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+      : 'bg-orange-100 text-orange-700 border-orange-300',
   }
 
   const statusOptions = [
@@ -211,15 +223,23 @@ const QuoteDetail = ({
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-primary-light">{quote.quoteNumber}</h2>
+              <h2 className={cn(
+                "text-2xl font-bold",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>{quote.quoteNumber}</h2>
               {quote.contactName && (
                 <div className="mt-1">
-                  <p className="text-primary-light/70">
+                  <p className={cn(
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     {quote.contactName}
                     {quote.contactCompany && ` - ${quote.contactCompany}`}
                   </p>
                   {quote.contactEmail && (
-                    <p className="text-sm text-primary-light/50 mt-1">{quote.contactEmail}</p>
+                    <p className={cn(
+                      "text-sm mt-1",
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/80'
+                    )}>{quote.contactEmail}</p>
                   )}
                 </div>
               )}
@@ -236,37 +256,70 @@ const QuoteDetail = ({
 
           {/* Line Items Table */}
           <div>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-3">Line Items</h3>
+            <h3 className={cn(
+              "text-sm font-medium mb-3",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>Line Items</h3>
             {/* Desktop Table View */}
-            <div className="hidden sm:block rounded-lg border border-primary-blue overflow-hidden">
+            <div className={cn(
+              "hidden sm:block rounded-lg border overflow-hidden",
+              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+            )}>
               <table className="w-full">
-                <thead className="bg-primary-dark-secondary">
+                <thead className={theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-50'}>
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-primary-light">
+                    <th className={cn(
+                      "px-4 py-2 text-left text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       Description
                     </th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-primary-light">
+                    <th className={cn(
+                      "px-4 py-2 text-right text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       Quantity
                     </th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-primary-light">
+                    <th className={cn(
+                      "px-4 py-2 text-right text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       Unit Price
                     </th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-primary-light">
+                    <th className={cn(
+                      "px-4 py-2 text-right text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       Total
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {quote.lineItems.map((item, index) => (
-                    <tr key={item.id || index} className="border-t border-primary-blue">
-                      <td className="px-4 py-3 text-sm text-primary-light">{item.description}</td>
-                      <td className="px-4 py-3 text-sm text-primary-light text-right">
+                    <tr key={item.id || index} className={cn(
+                      "border-t",
+                      theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+                    )}>
+                      <td className={cn(
+                        "px-4 py-3 text-sm",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>{item.description}</td>
+                      <td className={cn(
+                        "px-4 py-3 text-sm text-right",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {item.quantity}
                       </td>
-                      <td className="px-4 py-3 text-sm text-primary-light text-right">
+                      <td className={cn(
+                        "px-4 py-3 text-sm text-right",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {formatCurrency(item.unitPrice)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-primary-light text-right font-medium">
+                      <td className={cn(
+                        "px-4 py-3 text-sm text-right font-medium",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {formatCurrency(item.total)}
                       </td>
                     </tr>
@@ -279,19 +332,40 @@ const QuoteDetail = ({
               {quote.lineItems.map((item, index) => (
                 <div
                   key={item.id || index}
-                  className="rounded-lg border border-primary-blue bg-primary-dark-secondary p-4 space-y-2"
+                  className={cn(
+                    "rounded-lg border p-4 space-y-2",
+                    theme === 'dark'
+                      ? 'border-primary-blue bg-primary-dark-secondary'
+                      : 'border-gray-200 bg-white'
+                  )}
                 >
-                  <div className="text-sm font-medium text-primary-light">{item.description}</div>
+                  <div className={cn(
+                    "text-sm font-medium",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>{item.description}</div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-primary-light/70">Quantity:</span>
-                    <span className="text-primary-light">{item.quantity}</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Quantity:</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>{item.quantity}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-primary-light/70">Unit Price:</span>
-                    <span className="text-primary-light">{formatCurrency(item.unitPrice)}</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Unit Price:</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>{formatCurrency(item.unitPrice)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-medium pt-2 border-t border-primary-blue">
-                    <span className="text-primary-light">Total:</span>
+                  <div className={cn(
+                    "flex justify-between text-sm font-medium pt-2 border-t",
+                    theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+                  )}>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>Total:</span>
                     <span className="text-primary-gold">{formatCurrency(item.total)}</span>
                   </div>
                 </div>
@@ -303,30 +377,50 @@ const QuoteDetail = ({
           <div className="flex justify-end">
             <div className="w-full max-w-md space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-primary-light/70">Subtotal</span>
-                <span className="text-primary-light">{formatCurrency(quote.subtotal)}</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>Subtotal</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>{formatCurrency(quote.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-primary-light/70">Tax ({quote.taxRate * 100}%)</span>
-                <span className="text-primary-light">{formatCurrency(quote.taxAmount)}</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>Tax ({quote.taxRate * 100}%)</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>{formatCurrency(quote.taxAmount)}</span>
               </div>
               {quote.discount > 0 && (
                 <>
                   <div className="flex justify-between">
-                    <span className="text-primary-light/70">Discount</span>
-                    <span className="text-primary-light">-{formatCurrency(quote.discount)}</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Discount</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>-{formatCurrency(quote.discount)}</span>
                   </div>
                   {quote.discountReason && (
                     <div className="text-xs -mt-1 pr-20">
-                      <span className="text-primary-light/50 italic pl-2 block">
+                      <span className={cn(
+                        "italic pl-2 block",
+                        theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
+                      )}>
                         {quote.discountReason}
                       </span>
                     </div>
                   )}
                 </>
               )}
-              <div className="flex justify-between pt-2 border-t border-primary-blue text-lg font-bold">
-                <span className="text-primary-light">Total</span>
+              <div className={cn(
+                "flex justify-between pt-2 border-t text-lg font-bold",
+                theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+              )}>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>Total</span>
                 <span className="text-primary-gold">{formatCurrency(quote.total)}</span>
               </div>
             </div>
@@ -335,13 +429,24 @@ const QuoteDetail = ({
           {/* Notes */}
           {quote.notes && (
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-2">Notes</h3>
-              <p className="text-sm text-primary-light whitespace-pre-wrap">{quote.notes}</p>
+              <h3 className={cn(
+                "text-sm font-medium mb-2",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Notes</h3>
+              <p className={cn(
+                "text-sm whitespace-pre-wrap",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>{quote.notes}</p>
             </div>
           )}
 
           {/* Metadata */}
-          <div className="pt-4 pb-2 border-t border-primary-blue text-xs text-primary-light/50 space-y-1">
+          <div className={cn(
+            "pt-4 pb-2 border-t text-xs space-y-1",
+            theme === 'dark'
+              ? 'border-primary-blue text-primary-light/50'
+              : 'border-gray-200 text-primary-lightTextSecondary'
+          )}>
             <div>Created: {new Date(quote.createdAt).toLocaleDateString()}</div>
             {quote.validUntil && (
               <div>Valid until: {new Date(quote.validUntil).toLocaleDateString()}</div>
@@ -437,7 +542,9 @@ const QuoteDetail = ({
           </>
         }
       >
-        <p className="text-primary-light">
+        <p className={cn(
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           Are you sure you want to delete quote <strong>{quote.quoteNumber}</strong>? This action
           cannot be undone.
         </p>

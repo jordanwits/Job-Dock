@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Button, Input, Card, Select, Modal, ConfirmationDialog } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface JobRole {
   id: string
@@ -16,6 +18,7 @@ interface JobRole {
 }
 
 export const JobRolesSection = () => {
+  const { theme } = useTheme()
   const { user } = useAuthStore()
   const [roles, setRoles] = useState<JobRole[]>([])
   const [loading, setLoading] = useState(true)
@@ -139,8 +142,14 @@ export const JobRolesSection = () => {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-semibold text-primary-light">Job Roles</h2>
-        <div className="h-20 bg-primary-dark rounded-lg animate-pulse" />
+        <h2 className={cn(
+          "text-xl font-semibold",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Job Roles</h2>
+        <div className={cn(
+          "h-20 rounded-lg animate-pulse",
+          theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+        )} />
       </div>
     )
   }
@@ -149,8 +158,14 @@ export const JobRolesSection = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-primary-light">Job Roles</h2>
-          <p className="text-sm text-primary-light/70 mt-1">
+          <h2 className={cn(
+            "text-xl font-semibold",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Job Roles</h2>
+          <p className={cn(
+            "text-sm mt-1",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             Create custom roles for team members assigned to jobs. Set permissions for clocking in
             and editing time entries.
           </p>
@@ -172,7 +187,10 @@ export const JobRolesSection = () => {
 
       {roles.length === 0 ? (
         <Card className="p-6 text-center">
-          <p className="text-primary-light/70 mb-4">No job roles created yet</p>
+          <p className={cn(
+            "mb-4",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>No job roles created yet</p>
           <Button variant="primary" onClick={handleOpenCreate}>
             Create your first role
           </Button>
@@ -183,30 +201,46 @@ export const JobRolesSection = () => {
             <Card key={role.id} className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-primary-light mb-2">{role.title}</h3>
+                  <h3 className={cn(
+                    "font-medium mb-2",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>{role.title}</h3>
                   <div className="flex flex-wrap gap-3 text-sm">
                     <div className="flex items-center gap-2">
-                      <span className="text-primary-light/60">Clock in:</span>
-                      <span className="px-2 py-0.5 rounded bg-primary-dark text-primary-light/80 text-xs">
+                      <span className={cn(
+                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                      )}>Clock in:</span>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-xs",
+                        theme === 'dark'
+                          ? 'bg-primary-dark text-primary-light/80'
+                          : 'bg-gray-200 text-primary-lightText'
+                      )}>
                         {getPermissionLabel(role.permissions?.canClockInFor || 'self')}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-primary-light/60">Edit entries:</span>
-                      <span className="px-2 py-0.5 rounded bg-primary-dark text-primary-light/80 text-xs">
+                      <span className={cn(
+                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                      )}>Edit entries:</span>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-xs",
+                        theme === 'dark'
+                          ? 'bg-primary-dark text-primary-light/80'
+                          : 'bg-gray-200 text-primary-lightText'
+                      )}>
                         {getPermissionLabel(role.permissions?.canEditTimeEntriesFor || 'self')}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <Button variant="secondary" size="sm" onClick={() => handleOpenEdit(role)}>
+                  <Button variant="outline" size="sm" onClick={() => handleOpenEdit(role)}>
                     Edit
                   </Button>
                   <Button
-                    variant="secondary"
+                    variant="danger"
                     size="sm"
-                    className="text-red-400 hover:text-red-300"
                     onClick={() => setDeleteId(role.id)}
                   >
                     Delete
@@ -239,7 +273,10 @@ export const JobRolesSection = () => {
           />
 
           <div>
-            <label className="block text-sm font-medium text-primary-light/70 mb-2">
+            <label className={cn(
+              "block text-sm font-medium mb-2",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
               Can clock in for
             </label>
             <Select
@@ -253,13 +290,19 @@ export const JobRolesSection = () => {
                 { value: 'everyone', label: 'Everyone' },
               ]}
             />
-            <p className="text-xs text-primary-light/60 mt-1">
+            <p className={cn(
+              "text-xs mt-1",
+              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+            )}>
               Who can this role clock in on behalf of?
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primary-light/70 mb-2">
+            <label className={cn(
+              "block text-sm font-medium mb-2",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
               Can edit time entries for
             </label>
             <Select
@@ -273,7 +316,10 @@ export const JobRolesSection = () => {
                 { value: 'everyone', label: 'Everyone' },
               ]}
             />
-            <p className="text-xs text-primary-light/60 mt-1">
+            <p className={cn(
+              "text-xs mt-1",
+              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+            )}>
               Whose time entries can this role edit?
             </p>
           </div>

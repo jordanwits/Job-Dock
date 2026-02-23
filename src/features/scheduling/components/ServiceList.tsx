@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { useServiceStore } from '../store/serviceStore'
 import ServiceCard from './ServiceCard'
 import { Button } from '@/components/ui'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface ServiceListProps {
   onServiceClick?: (serviceId: string) => void
@@ -14,6 +16,7 @@ const ServiceList = ({ onServiceClick, onCreateClick }: ServiceListProps) => {
     isLoading,
     fetchServices,
   } = useServiceStore()
+  const { theme } = useTheme()
 
   useEffect(() => {
     fetchServices()
@@ -22,7 +25,9 @@ const ServiceList = ({ onServiceClick, onCreateClick }: ServiceListProps) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="text-primary-light/70">Loading services...</div>
+        <div className={cn(
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>Loading services...</div>
       </div>
     )
   }
@@ -31,7 +36,10 @@ const ServiceList = ({ onServiceClick, onCreateClick }: ServiceListProps) => {
     <div className="space-y-4">
       {services.length === 0 ? (
         <div className="p-6 text-center">
-          <p className="text-primary-light/70 mb-4">No services created yet</p>
+          <p className={cn(
+            "mb-4",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>No services created yet</p>
           {onCreateClick && (
             <Button onClick={onCreateClick}>Create Your First Service</Button>
           )}

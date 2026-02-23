@@ -2,6 +2,8 @@ import { ReactNode, useState, useEffect } from 'react'
 import Header from './Header'
 import Sidebar from './Sidebar'
 import { settingsApi } from '@/lib/api/settings'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 export interface AppLayoutProps {
   children: ReactNode
@@ -19,6 +21,12 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>()
   const [companyDisplayName, setCompanyDisplayName] = useState<string | undefined>()
+  const { theme } = useTheme()
+  
+  // Debug: log theme changes
+  useEffect(() => {
+    console.log('AppLayout theme changed to:', theme)
+  }, [theme])
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -44,7 +52,9 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
   }, [user])
 
   return (
-    <div className="min-h-screen bg-primary-dark">
+    <div
+      className={cn('min-h-screen', theme === 'dark' ? 'bg-primary-dark' : 'bg-primary-lightBg')}
+    >
       <Header
         user={user}
         companyLogoUrl={companyLogoUrl}

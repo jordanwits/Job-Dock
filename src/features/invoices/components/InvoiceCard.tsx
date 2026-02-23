@@ -2,6 +2,7 @@ import { Invoice } from '../types/invoice'
 import { useInvoiceStore } from '../store/invoiceStore'
 import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface InvoiceCardProps {
   invoice: Invoice
@@ -10,19 +11,34 @@ interface InvoiceCardProps {
 }
 
 const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) => {
+  const { theme } = useTheme()
   const { setSelectedInvoice } = useInvoiceStore()
 
   const statusColors = {
-    draft: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    sent: 'bg-primary-blue/20 text-primary-blue border-primary-blue/30',
-    overdue: 'bg-red-500/20 text-red-400 border-red-500/30',
-    cancelled: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    draft: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-600 border-gray-300',
+    sent: theme === 'dark'
+      ? 'bg-primary-blue/20 text-primary-blue border-primary-blue/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    overdue: theme === 'dark'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-red-100 text-red-700 border-red-300',
+    cancelled: theme === 'dark'
+      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+      : 'bg-orange-100 text-orange-700 border-orange-300',
   }
 
   const paymentStatusColors = {
-    pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    partial: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    paid: 'bg-green-500/20 text-green-400 border-green-500/30',
+    pending: theme === 'dark'
+      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    partial: theme === 'dark'
+      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    paid: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
   }
 
   const paymentStatusLabels = {
@@ -32,9 +48,15 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
   }
 
   const approvalStatusColors = {
-    none: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
-    declined: 'bg-red-500/20 text-red-400 border-red-500/30',
+    none: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-600 border-gray-300',
+    accepted: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
+    declined: theme === 'dark'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-red-100 text-red-700 border-red-300',
   }
 
   // Only show status badge if it's not redundant with paymentStatus
@@ -93,10 +115,15 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
                 'w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center',
                 isSelected
                   ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                  : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                  : theme === 'dark'
+                    ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                    : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-primary-gold/10'
               )}
             >
-              {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary-dark" />}
+              {isSelected && <div className={cn(
+                "w-2.5 h-2.5 rounded-full",
+                theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+              )} />}
             </div>
           </div>
         )}
@@ -104,17 +131,25 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
         {/* Header */}
         <div className={cn('flex items-start justify-between', onToggleSelect && 'pl-8')}>
           <div className="flex-1 min-w-0 pr-2">
-            <h3 className="text-lg font-semibold text-primary-light">
+            <h3 className={cn(
+              "text-lg font-semibold",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>
               {invoice.invoiceNumber}
               {invoice.contactName && invoice.title && (
-                <span className="text-primary-light/90">
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText/90'
+                )}>
                   {' '}
                   — {invoice.contactName} {invoice.title}
                 </span>
               )}
             </h3>
             {invoice.contactCompany && (
-              <p className="text-xs text-primary-light/50 mt-1">{invoice.contactCompany}</p>
+              <p className={cn(
+                "text-xs mt-1",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>{invoice.contactCompany}</p>
             )}
           </div>
           <div className="flex flex-col gap-1 items-end">
@@ -152,21 +187,33 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
         </div>
 
         {/* Line Items Count */}
-        <div className="text-sm text-primary-light/70">
+        <div className={cn(
+          "text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>
           {invoice.lineItems.length} item{invoice.lineItems.length !== 1 ? 's' : ''}
         </div>
 
         {/* Payment Info */}
         {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
-          <div className="text-sm text-primary-light/70">
+          <div className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             Paid: {formatCurrency(invoice.paidAmount)} / {formatCurrency(invoice.total)}
           </div>
         )}
 
         {/* Total */}
-        <div className="pt-2 border-t border-primary-blue">
+        <div className={cn(
+          "pt-2 border-t",
+          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+        )}>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-primary-light/70">Total</span>
+            <span className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>Total</span>
             <span className="text-xl font-bold text-primary-gold">
               {formatCurrency(invoice.total)}
             </span>
@@ -178,7 +225,7 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
           <div
             className={cn(
               'text-xs',
-              isOverdue ? 'text-red-400 font-medium' : 'text-primary-light/50'
+              isOverdue ? 'text-red-400 font-medium' : theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
             )}
           >
             {isOverdue ? '⚠️ ' : ''}Due: {new Date(invoice.dueDate).toLocaleDateString()}

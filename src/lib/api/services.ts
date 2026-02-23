@@ -218,13 +218,15 @@ const realJobsService = {
     startDate?: Date,
     endDate?: Date,
     includeArchived?: boolean,
-    showDeleted?: boolean
+    showDeleted?: boolean,
+    includeUnlinkedJobs?: boolean
   ) => {
     const params: any = {}
     if (startDate) params.startDate = startDate.toISOString()
     if (endDate) params.endDate = endDate.toISOString()
     if (includeArchived) params.includeArchived = 'true'
     if (showDeleted) params.showDeleted = 'true'
+    if (includeUnlinkedJobs) params.includeUnlinkedJobs = 'true'
     const response = await apiClient.get('/jobs', { params })
     return response.data
   },
@@ -284,6 +286,10 @@ const realJobsService = {
 }
 
 const realBookingsService = {
+  create: async (data: any) => {
+    const response = await apiClient.post('/bookings', data)
+    return response.data
+  },
   delete: async (id: string) => {
     const response = await apiClient.delete(`/bookings/${id}`)
     return response.data

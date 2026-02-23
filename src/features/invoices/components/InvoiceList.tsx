@@ -7,6 +7,7 @@ import { invoicesService } from '@/lib/api/services'
 import type { Quote } from '@/features/quotes/types/quote'
 import ConvertQuoteToInvoiceModal from '@/features/quotes/components/ConvertQuoteToInvoiceModal'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface InvoiceListProps {
   onCreateClick?: () => void
@@ -15,6 +16,7 @@ interface InvoiceListProps {
 type DisplayMode = 'cards' | 'list'
 
 const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
+  const { theme } = useTheme()
   const {
     invoices,
     isLoading,
@@ -190,9 +192,15 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
   }
 
   const paymentStatusColors = {
-    pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    partial: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    paid: 'bg-green-500/20 text-green-400 border-green-500/30',
+    pending: theme === 'dark'
+      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    partial: theme === 'dark'
+      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    paid: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
   }
 
   const paymentStatusLabels = {
@@ -202,9 +210,15 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
   }
 
   const approvalStatusColors = {
-    none: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
-    declined: 'bg-red-500/20 text-red-400 border-red-500/30',
+    none: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-600 border-gray-300',
+    accepted: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
+    declined: theme === 'dark'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-red-100 text-red-700 border-red-300',
   }
 
   const approvalStatusLabels = {
@@ -245,7 +259,10 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     <div className="space-y-4">
       {/* To Be Invoiced Section - Only show if there are quotes */}
       {!isLoadingQuotes && unconvertedQuotes.length > 0 && (
-        <div className="border-b border-white/10 p-4">
+        <div className={cn(
+          "border-b p-4",
+          theme === 'dark' ? 'border-white/10' : 'border-gray-200'
+        )}>
           <h3 className="text-sm font-semibold text-primary-gold mb-3">
             To Be Invoiced ({unconvertedQuotes.length})
           </h3>
@@ -318,14 +335,20 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
             ]}
             className="w-full sm:w-auto min-w-[140px]"
           />
-          <div className="flex gap-1 border border-primary-blue rounded-lg p-1">
+          <div className={cn(
+            "flex gap-1 border rounded-lg p-1",
+            theme === 'dark' ? 'border-primary-blue' : 'border-gray-300'
+          )}>
             <button
               onClick={() => setDisplayMode('cards')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              className={cn(
+                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                 displayMode === 'cards'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'text-primary-light hover:bg-primary-blue/20'
-              }`}
+                  : theme === 'dark'
+                    ? 'text-primary-light hover:bg-primary-blue/20'
+                    : 'text-primary-lightText hover:bg-gray-100'
+              )}
               title="Card View"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -339,11 +362,14 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
             </button>
             <button
               onClick={() => setDisplayMode('list')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              className={cn(
+                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                 displayMode === 'list'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'text-primary-light hover:bg-primary-blue/20'
-              }`}
+                  : theme === 'dark'
+                    ? 'text-primary-light hover:bg-primary-blue/20'
+                    : 'text-primary-lightText hover:bg-gray-100'
+              )}
               title="List View"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -361,7 +387,10 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
 
       {/* Results Count and Bulk Actions */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-primary-light/70">
+        <div className={cn(
+          "text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>
           {selectedIds.size > 0 ? (
             <span className="font-medium text-primary-gold">{selectedIds.size} selected</span>
           ) : (
@@ -395,7 +424,10 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
           onClick={() => setShowDeleteConfirm(false)}
         >
           <div
-            className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4"
+            className={cn(
+              "border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4",
+              theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+            )}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-start gap-4">
@@ -418,7 +450,10 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                 <h3 className="text-lg font-medium text-red-400 mb-2">
                   Delete {selectedIds.size} Invoice{selectedIds.size !== 1 ? 's' : ''}?
                 </h3>
-                <p className="text-sm text-primary-light/70 mb-4">
+                <p className={cn(
+                  "text-sm mb-4",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>
                   This action cannot be undone. All selected invoices will be permanently removed.
                 </p>
                 <div className="flex gap-3 justify-end">
@@ -446,11 +481,16 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
       {/* Invoice List */}
       {isLoading ? (
         <div className="text-center py-12">
-          <p className="text-primary-light/70">Loading invoices...</p>
+          <p className={cn(
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>Loading invoices...</p>
         </div>
       ) : filteredInvoices.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-primary-light/70 mb-4">
+          <p className={cn(
+            "mb-4",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             {searchQuery || statusFilter !== 'all' || paymentStatusFilter !== 'all'
               ? 'No invoices match your filters'
               : 'No invoices yet'}
@@ -480,10 +520,20 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
         // List Layout
         <>
           {/* Desktop Table View */}
-          <div className="hidden sm:block rounded-lg border border-primary-blue overflow-hidden">
+          <div className={cn(
+            "hidden sm:block rounded-lg overflow-hidden",
+            theme === 'dark'
+              ? 'border border-white/10'
+              : 'border border-gray-200'
+          )}>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+                <thead className={cn(
+                  "border-b",
+                  theme === 'dark'
+                    ? "bg-primary-dark-secondary border-primary-blue"
+                    : "bg-gray-50 border-gray-200"
+                )}>
                   <tr>
                     <th className="px-4 py-3 w-12">
                       <div
@@ -493,43 +543,72 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                           selectedIds.size === filteredInvoices.length &&
                             filteredInvoices.length > 0
                             ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                            : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                            : theme === 'dark'
+                              ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                              : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-primary-gold/10'
                         )}
                       >
                         {selectedIds.size === filteredInvoices.length &&
                           filteredInvoices.length > 0 && (
-                            <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                            )} />
                           )}
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className={cn(
+                      "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Invoice #
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                    <th className={cn(
+                      "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Title
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className={cn(
+                      "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Contact
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    <th className={cn(
+                      "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Due Date
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className={cn(
+                      "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Total
                     </th>
                     {hasAnyTrackResponse && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      <th className={cn(
+                        "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         Response
                       </th>
                     )}
                     {hasAnyTrackPayment && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                      <th className={cn(
+                        "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         Payment
                       </th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-primary-blue">
+                <tbody className={cn(
+                  "divide-y",
+                  theme === 'dark' ? 'divide-primary-blue' : 'divide-gray-200'
+                )}>
                   {filteredInvoices.map(invoice => {
                     const isOverdue =
                       invoice.dueDate &&
@@ -545,7 +624,12 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                     return (
                       <tr
                         key={invoice.id}
-                        className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
+                        className={cn(
+                          "transition-colors cursor-pointer",
+                          theme === 'dark'
+                            ? "bg-primary-dark hover:bg-primary-dark/50"
+                            : "bg-white hover:bg-gray-50"
+                        )}
                         onClick={() => setSelectedInvoice(invoice)}
                       >
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -555,40 +639,56 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                               'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
                               selectedIds.has(invoice.id)
                                 ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                                : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                                : theme === 'dark'
+                                  ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                                  : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-primary-gold/10'
                             )}
                           >
                             {selectedIds.has(invoice.id) && (
-                              <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                              )} />
                             )}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-primary-light">
+                          <div className={cn(
+                            "text-sm font-medium",
+                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                          )}>
                             <span className="sm:hidden">
                               {invoice.title || invoice.invoiceNumber}
                             </span>
                             <span className="hidden sm:inline">{invoice.invoiceNumber}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden md:table-cell">
+                        <td className={cn(
+                          "px-4 py-3 whitespace-nowrap text-sm hidden md:table-cell",
+                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                        )}>
                           <div className="truncate max-w-[200px]">{invoice.title || '-'}</div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-primary-light/70">
+                        <td className={cn(
+                          "px-4 py-3 whitespace-nowrap text-sm",
+                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                        )}>
                           <div className="truncate max-w-[150px]">{invoice.contactName || '-'}</div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell">
                           {invoice.dueDate ? (
                             <div
                               className={cn(
-                                isOverdue ? 'text-red-400 font-medium' : 'text-primary-light/70'
+                                isOverdue ? 'text-red-400 font-medium' : theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
                               )}
                             >
                               {isOverdue ? '⚠️ ' : ''}
                               {new Date(invoice.dueDate).toLocaleDateString()}
                             </div>
                           ) : (
-                            <span className="text-primary-light/50">-</span>
+                            <span className={cn(
+                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
+                            )}>-</span>
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -596,7 +696,10 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                             {formatCurrency(invoice.total)}
                           </div>
                           {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
-                            <div className="text-xs text-primary-light/50">
+                            <div className={cn(
+                              "text-xs",
+                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
+                            )}>
                               Paid: {formatCurrency(invoice.paidAmount)}
                             </div>
                           )}
@@ -655,7 +758,12 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                 <div
                   key={invoice.id}
                   onClick={() => setSelectedInvoice(invoice)}
-                  className="rounded-lg border border-primary-blue bg-primary-dark p-4 space-y-3 cursor-pointer hover:bg-primary-dark/50 transition-colors"
+                  className={cn(
+                    "rounded-lg border p-4 space-y-3 cursor-pointer transition-colors",
+                    theme === 'dark'
+                      ? 'border-primary-blue bg-primary-dark hover:bg-primary-dark/50'
+                      : 'border-gray-200 bg-white hover:bg-gray-50'
+                  )}
                 >
                   {/* Header with Selection and Number */}
                   <div className="flex items-center justify-between">
@@ -666,14 +774,22 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                           'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center flex-shrink-0',
                           selectedIds.has(invoice.id)
                             ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                            : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                            : theme === 'dark'
+                              ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                              : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-primary-gold/10'
                         )}
                       >
                         {selectedIds.has(invoice.id) && (
-                          <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                          <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                          )} />
                         )}
                       </div>
-                      <div className="text-sm font-semibold text-primary-light">
+                      <div className={cn(
+                        "text-sm font-semibold",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {invoice.title || invoice.invoiceNumber}
                       </div>
                     </div>
@@ -685,7 +801,10 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                   {/* Contact, Due Date, and Status on same row */}
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     {/* Contact Name */}
-                    <div className="text-sm text-primary-light/70 truncate flex-shrink min-w-0">
+                    <div className={cn(
+                      "text-sm truncate flex-shrink min-w-0",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       {invoice.contactName || '-'}
                     </div>
 
@@ -695,7 +814,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                         <div
                           className={cn(
                             'text-xs whitespace-nowrap',
-                            isOverdue ? 'text-red-400 font-medium' : 'text-primary-light/50'
+                            isOverdue ? 'text-red-400 font-medium' : theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
                           )}
                         >
                           {isOverdue ? '⚠️ ' : ''}
@@ -730,7 +849,12 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
 
                   {/* Partial Payment Info */}
                   {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
-                    <div className="text-xs text-primary-light/50 pt-2 border-t border-primary-blue">
+                    <div className={cn(
+                      "text-xs pt-2 border-t",
+                      theme === 'dark'
+                        ? 'text-primary-light/50 border-primary-blue'
+                        : 'text-primary-lightTextSecondary/70 border-gray-200'
+                    )}>
                       Paid: {formatCurrency(invoice.paidAmount)} of {formatCurrency(invoice.total)}
                     </div>
                   )}

@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import Button from './Button'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export interface ModalProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ const Modal = ({
   transparentBackdrop = false,
   mobilePosition = 'center',
 }: ModalProps) => {
+  const { theme } = useTheme()
   const scrollYRef = useRef(0)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const onCloseRef = useRef(onClose)
@@ -131,7 +133,10 @@ const Modal = ({
     >
       <div
         className={cn(
-          'relative w-full rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl flex flex-col',
+          'relative w-full rounded-lg shadow-xl flex flex-col',
+          theme === 'dark'
+            ? 'bg-primary-dark-secondary border border-primary-blue'
+            : 'bg-white border border-gray-200',
           mobilePosition === 'bottom'
             ? size === 'sm'
               ? 'max-h-[60vh] sm:h-auto sm:max-h-[90vh] sm:my-auto'
@@ -145,21 +150,33 @@ const Modal = ({
       >
         {/* Header */}
         {(title || headerRight || closeOnOverlayClick) && (
-          <div className="flex items-center justify-between gap-2 p-4 sm:p-6 border-b border-primary-blue flex-shrink-0 relative z-20 pointer-events-auto">
+          <div className={cn(
+            "flex items-center justify-between gap-2 p-4 sm:p-6 border-b flex-shrink-0 relative z-20 pointer-events-auto",
+            theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
+          )}>
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {title && (
-                <h2 className="text-lg sm:text-xl font-semibold text-primary-light shrink-0">
+                <h2 className={cn(
+                  "text-lg sm:text-xl font-semibold shrink-0",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>
                   {title}
                 </h2>
               )}
               {headerRight && (
-                <span className="text-sm text-primary-light/70 shrink-0">{headerRight}</span>
+                <span className={cn(
+                  "text-sm shrink-0",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>{headerRight}</span>
               )}
             </div>
             {closeOnOverlayClick && (
               <button
                 ref={closeButtonRef}
-                className="text-primary-light hover:text-primary-gold transition-colors flex-shrink-0 touch-manipulation relative z-10"
+                className={cn(
+                  "hover:text-primary-gold transition-colors flex-shrink-0 touch-manipulation relative z-10",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}
                 style={{
                   touchAction: 'manipulation',
                   WebkitTapHighlightColor: 'transparent',
@@ -188,7 +205,10 @@ const Modal = ({
 
         {/* Footer */}
         {footer && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-4 sm:py-5 border-t border-primary-blue flex-shrink-0 overflow-visible">
+          <div className={cn(
+            "flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-4 sm:py-5 border-t flex-shrink-0 overflow-visible",
+            theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
+          )}>
             {footer}
           </div>
         )}

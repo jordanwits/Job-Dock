@@ -4,8 +4,11 @@ import { useJobLogStore } from '../store/jobLogStore'
 import JobLogDetail from '../components/JobLogDetail'
 import { ConfirmationDialog } from '@/components/ui'
 import { services } from '@/lib/api/services'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 const JobLogDetailPage = () => {
+  const { theme } = useTheme()
   const [isTeamAccount, setIsTeamAccount] = useState(false)
 
   useEffect(() => {
@@ -88,8 +91,14 @@ const JobLogDetailPage = () => {
   if (isLoading && !selectedJobLog) {
     return (
       <div className="space-y-6">
-        <div className="h-10 w-64 bg-primary-dark rounded animate-pulse" />
-        <div className="h-96 bg-primary-dark rounded-xl animate-pulse" />
+        <div className={cn(
+          "h-10 w-64 rounded animate-pulse",
+          theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+        )} />
+        <div className={cn(
+          "h-96 rounded-xl animate-pulse",
+          theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
+        )} />
       </div>
     )
   }
@@ -97,7 +106,9 @@ const JobLogDetailPage = () => {
   if (!selectedJobLog || selectedJobLog.id !== id) {
     return (
       <div className="space-y-6">
-        <p className="text-primary-light/60">Job not found.</p>
+        <p className={cn(
+          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+        )}>Job not found.</p>
         <button
           onClick={() => navigate('/app/job-logs')}
           className="text-primary-gold hover:underline"

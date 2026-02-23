@@ -810,6 +810,23 @@ WHERE "assignedTo" IS NOT NULL
     ],
     description: 'Add canSeeJobPrices permission field to allow controlling employee access to job prices',
   },
+  {
+    name: '20260223000000_add_job_service_price',
+    statements: [
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "serviceId" TEXT;`,
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "price" DECIMAL(10,2);`,
+      `CREATE INDEX IF NOT EXISTS "jobs_serviceId_idx" ON "jobs"("serviceId");`,
+      `DO $$ 
+       BEGIN
+         IF NOT EXISTS (
+           SELECT 1 FROM pg_constraint WHERE conname = 'jobs_serviceId_fkey'
+         ) THEN
+           ALTER TABLE "jobs" ADD CONSTRAINT "jobs_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "services"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+         END IF;
+       END $$`,
+    ],
+    description: 'Add job-level service and price fields back to jobs. Jobs are the durable record; bookings are optional appointments.',
+  },
 ]
 
 export const handler = async (

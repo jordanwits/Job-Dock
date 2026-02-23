@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import InvoiceForm from './InvoiceForm'
 import { cn } from '@/lib/utils'
 import { ScheduleJobModal } from '@/features/scheduling'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface InvoiceDetailProps {
   invoice: Invoice
@@ -22,6 +23,7 @@ const InvoiceDetail = ({
   onJobCreated,
   onJobCreateFailed,
 }: InvoiceDetailProps) => {
+  const { theme } = useTheme()
   const { updateInvoice, deleteInvoice, sendInvoice, isLoading } = useInvoiceStore()
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
@@ -79,10 +81,18 @@ const InvoiceDetail = ({
   }
 
   const statusColors = {
-    draft: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    sent: 'bg-primary-blue/20 text-primary-blue border-primary-blue/30',
-    overdue: 'bg-red-500/20 text-red-400 border-red-500/30',
-    cancelled: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    draft: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-600 border-gray-300',
+    sent: theme === 'dark'
+      ? 'bg-primary-blue/20 text-primary-blue border-primary-blue/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    overdue: theme === 'dark'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-red-100 text-red-700 border-red-300',
+    cancelled: theme === 'dark'
+      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+      : 'bg-orange-100 text-orange-700 border-orange-300',
   }
 
   // Only show status badge if it's not redundant with paymentStatus
@@ -90,15 +100,27 @@ const InvoiceDetail = ({
     invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
 
   const paymentStatusColors = {
-    pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    partial: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    paid: 'bg-green-500/20 text-green-400 border-green-500/30',
+    pending: theme === 'dark'
+      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    partial: theme === 'dark'
+      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    paid: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
   }
 
   const approvalStatusColors = {
-    none: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
-    declined: 'bg-red-500/20 text-red-400 border-red-500/30',
+    none: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-600 border-gray-300',
+    accepted: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
+    declined: theme === 'dark'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-red-100 text-red-700 border-red-300',
   }
 
   const invoiceStatusOptions = [
@@ -238,15 +260,24 @@ const InvoiceDetail = ({
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h2 className="text-2xl font-bold text-primary-light break-words">{invoice.invoiceNumber}</h2>
+              <h2 className={cn(
+                "text-2xl font-bold break-words",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>{invoice.invoiceNumber}</h2>
               {invoice.contactName && (
                 <div className="mt-1">
-                  <p className="text-primary-light/70 break-words">
+                  <p className={cn(
+                    "break-words",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     {invoice.contactName}
                     {invoice.contactCompany && ` - ${invoice.contactCompany}`}
                   </p>
                   {invoice.contactEmail && (
-                    <p className="text-sm text-primary-light/50 mt-1 break-words">{invoice.contactEmail}</p>
+                    <p className={cn(
+                      "text-sm mt-1 break-words",
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/80'
+                    )}>{invoice.contactEmail}</p>
                   )}
                 </div>
               )}
@@ -287,15 +318,32 @@ const InvoiceDetail = ({
 
           {/* Payment Info */}
           {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
-            <div className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
+            <div className={cn(
+              "p-4 rounded-lg border",
+              theme === 'dark'
+                ? 'border-primary-blue bg-primary-dark-secondary'
+                : 'border-gray-200 bg-white'
+            )}>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-primary-light/70">Amount Paid</span>
-                <span className="text-lg font-semibold text-primary-light">
+                <span className={cn(
+                  "text-sm",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>Amount Paid</span>
+                <span className={cn(
+                  "text-lg font-semibold",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>
                   {formatCurrency(invoice.paidAmount)}
                 </span>
               </div>
-              <div className="flex justify-between items-center mt-2 pt-2 border-t border-primary-blue">
-                <span className="text-sm text-primary-light/70">Remaining Balance</span>
+              <div className={cn(
+                "flex justify-between items-center mt-2 pt-2 border-t",
+                theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+              )}>
+                <span className={cn(
+                  "text-sm",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>Remaining Balance</span>
                 <span className="text-lg font-bold text-primary-gold">
                   {formatCurrency(invoice.total - invoice.paidAmount)}
                 </span>
@@ -315,37 +363,70 @@ const InvoiceDetail = ({
 
           {/* Line Items Table */}
           <div>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-3">Line Items</h3>
+            <h3 className={cn(
+              "text-sm font-medium mb-3",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>Line Items</h3>
             {/* Desktop Table View */}
-            <div className="hidden sm:block rounded-lg border border-primary-blue overflow-hidden">
+            <div className={cn(
+              "hidden sm:block rounded-lg border overflow-hidden",
+              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+            )}>
               <table className="w-full">
-                <thead className="bg-primary-dark-secondary">
+                <thead className={theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-50'}>
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-primary-light">
+                    <th className={cn(
+                      "px-4 py-2 text-left text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       Description
                     </th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-primary-light">
+                    <th className={cn(
+                      "px-4 py-2 text-right text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       Quantity
                     </th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-primary-light">
+                    <th className={cn(
+                      "px-4 py-2 text-right text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       Unit Price
                     </th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-primary-light">
+                    <th className={cn(
+                      "px-4 py-2 text-right text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       Total
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoice.lineItems.map((item, index) => (
-                    <tr key={item.id || index} className="border-t border-primary-blue">
-                      <td className="px-4 py-3 text-sm text-primary-light">{item.description}</td>
-                      <td className="px-4 py-3 text-sm text-primary-light text-right">
+                    <tr key={item.id || index} className={cn(
+                      "border-t",
+                      theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+                    )}>
+                      <td className={cn(
+                        "px-4 py-3 text-sm",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>{item.description}</td>
+                      <td className={cn(
+                        "px-4 py-3 text-sm text-right",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {item.quantity}
                       </td>
-                      <td className="px-4 py-3 text-sm text-primary-light text-right">
+                      <td className={cn(
+                        "px-4 py-3 text-sm text-right",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {formatCurrency(item.unitPrice)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-primary-light text-right font-medium">
+                      <td className={cn(
+                        "px-4 py-3 text-sm text-right font-medium",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {formatCurrency(item.total)}
                       </td>
                     </tr>
@@ -358,19 +439,40 @@ const InvoiceDetail = ({
               {invoice.lineItems.map((item, index) => (
                 <div
                   key={item.id || index}
-                  className="rounded-lg border border-primary-blue bg-primary-dark-secondary p-4 space-y-2"
+                  className={cn(
+                    "rounded-lg border p-4 space-y-2",
+                    theme === 'dark'
+                      ? 'border-primary-blue bg-primary-dark-secondary'
+                      : 'border-gray-200 bg-white'
+                  )}
                 >
-                  <div className="text-sm font-medium text-primary-light">{item.description}</div>
+                  <div className={cn(
+                    "text-sm font-medium",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>{item.description}</div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-primary-light/70">Quantity:</span>
-                    <span className="text-primary-light">{item.quantity}</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Quantity:</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>{item.quantity}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-primary-light/70">Unit Price:</span>
-                    <span className="text-primary-light">{formatCurrency(item.unitPrice)}</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Unit Price:</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>{formatCurrency(item.unitPrice)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-medium pt-2 border-t border-primary-blue">
-                    <span className="text-primary-light">Total:</span>
+                  <div className={cn(
+                    "flex justify-between text-sm font-medium pt-2 border-t",
+                    theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+                  )}>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>Total:</span>
                     <span className="text-primary-gold">{formatCurrency(item.total)}</span>
                   </div>
                 </div>
@@ -382,30 +484,50 @@ const InvoiceDetail = ({
           <div className="flex justify-end">
             <div className="w-full max-w-md space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-primary-light/70">Subtotal</span>
-                <span className="text-primary-light">{formatCurrency(invoice.subtotal)}</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>Subtotal</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>{formatCurrency(invoice.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-primary-light/70">Tax ({invoice.taxRate * 100}%)</span>
-                <span className="text-primary-light">{formatCurrency(invoice.taxAmount)}</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>Tax ({invoice.taxRate * 100}%)</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>{formatCurrency(invoice.taxAmount)}</span>
               </div>
               {invoice.discount > 0 && (
                 <>
                   <div className="flex justify-between">
-                    <span className="text-primary-light/70">Discount</span>
-                    <span className="text-primary-light">-{formatCurrency(invoice.discount)}</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Discount</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>-{formatCurrency(invoice.discount)}</span>
                   </div>
                   {invoice.discountReason && (
                     <div className="text-xs -mt-1 pr-20">
-                      <span className="text-primary-light/50 italic pl-2 block">
+                      <span className={cn(
+                        "italic pl-2 block",
+                        theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
+                      )}>
                         {invoice.discountReason}
                       </span>
                     </div>
                   )}
                 </>
               )}
-              <div className="flex justify-between pt-2 border-t border-primary-blue text-lg font-bold">
-                <span className="text-primary-light">Total</span>
+              <div className={cn(
+                "flex justify-between pt-2 border-t text-lg font-bold",
+                theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+              )}>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>Total</span>
                 <span className="text-primary-gold">{formatCurrency(invoice.total)}</span>
               </div>
             </div>
@@ -413,20 +535,34 @@ const InvoiceDetail = ({
 
           {/* Payment Terms and Due Date */}
           {(invoice.paymentTerms || invoice.dueDate) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
+            <div className={cn(
+              "grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg border",
+              theme === 'dark'
+                ? 'border-primary-blue bg-primary-dark-secondary'
+                : 'border-gray-200 bg-white'
+            )}>
               {invoice.paymentTerms && (
                 <div>
-                  <span className="text-xs text-primary-light/50">Payment Terms</span>
-                  <p className="text-sm text-primary-light mt-1">{invoice.paymentTerms}</p>
+                  <span className={cn(
+                    "text-xs",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
+                  )}>Payment Terms</span>
+                  <p className={cn(
+                    "text-sm mt-1",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>{invoice.paymentTerms}</p>
                 </div>
               )}
               {invoice.dueDate && (
                 <div>
-                  <span className="text-xs text-primary-light/50">Due Date</span>
+                  <span className={cn(
+                    "text-xs",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
+                  )}>Due Date</span>
                   <p
                     className={cn(
                       'text-sm mt-1',
-                      isOverdue ? 'text-red-400 font-medium' : 'text-primary-light'
+                      isOverdue ? 'text-red-400 font-medium' : theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
                     )}
                   >
                     {new Date(invoice.dueDate).toLocaleDateString()}
@@ -439,13 +575,24 @@ const InvoiceDetail = ({
           {/* Notes */}
           {invoice.notes && (
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-2">Notes</h3>
-              <p className="text-sm text-primary-light whitespace-pre-wrap">{invoice.notes}</p>
+              <h3 className={cn(
+                "text-sm font-medium mb-2",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Notes</h3>
+              <p className={cn(
+                "text-sm whitespace-pre-wrap",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>{invoice.notes}</p>
             </div>
           )}
 
           {/* Metadata */}
-          <div className="pt-4 border-t border-primary-blue text-xs text-primary-light/50 space-y-1">
+          <div className={cn(
+            "pt-4 border-t text-xs space-y-1",
+            theme === 'dark'
+              ? 'border-primary-blue text-primary-light/50'
+              : 'border-gray-200 text-primary-lightTextSecondary'
+          )}>
             <div>Created: {new Date(invoice.createdAt).toLocaleDateString()}</div>
             {invoice.updatedAt !== invoice.createdAt && (
               <div>Updated: {new Date(invoice.updatedAt).toLocaleDateString()}</div>
@@ -529,7 +676,9 @@ const InvoiceDetail = ({
           </>
         }
       >
-        <p className="text-primary-light">
+        <p className={cn(
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           Are you sure you want to delete invoice <strong>{invoice.invoiceNumber}</strong>? This
           action cannot be undone.
         </p>

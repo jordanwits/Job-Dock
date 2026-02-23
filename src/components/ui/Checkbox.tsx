@@ -1,5 +1,6 @@
 import { InputHTMLAttributes, forwardRef } from 'react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string
@@ -8,6 +9,7 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
 
 const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, label, error, ...props }, ref) => {
+    const { theme } = useTheme()
     // SVG checkmark as data URL - black checkmark (thicker stroke-based)
     const checkmarkSvg =
       "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8 L6 11 L13 4' stroke='%23000000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E"
@@ -27,11 +29,13 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           <input
             type="checkbox"
             className={cn(
-              'custom-checkbox w-4 h-4 rounded border-2 border-primary-blue bg-primary-dark-secondary',
-              'cursor-pointer appearance-none transition-all duration-200',
+              'custom-checkbox w-4 h-4 rounded border-2 cursor-pointer appearance-none transition-all duration-200',
               'checked:border-primary-blue',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:ring-offset-2 focus-visible:ring-offset-primary-dark',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold',
               'disabled:cursor-not-allowed disabled:opacity-50',
+              theme === 'dark'
+                ? 'border-primary-blue bg-primary-dark-secondary focus-visible:ring-offset-2 focus-visible:ring-offset-primary-dark'
+                : 'border-gray-300 bg-white focus-visible:ring-offset-2 focus-visible:ring-offset-white',
               error && 'border-red-500 focus-visible:ring-red-500',
               className
             )}
@@ -42,7 +46,8 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             <label
               htmlFor={props.id}
               className={cn(
-                'text-sm text-primary-light cursor-pointer select-none',
+                'text-sm cursor-pointer select-none',
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText',
                 props.disabled && 'cursor-not-allowed opacity-50',
                 error && 'text-red-500'
               )}

@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { serviceSchema, type ServiceFormData } from '../schemas/serviceSchemas'
 import { Service } from '../types/service'
 import { Input, Button, TimePicker, Checkbox } from '@/components/ui'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface ServiceFormProps {
   service?: Service
@@ -23,6 +25,7 @@ const DAYS_OF_WEEK = [
 ]
 
 const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProps) => {
+  const { theme } = useTheme()
   const {
     register,
     handleSubmit,
@@ -100,13 +103,21 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProp
         />
 
         <div>
-          <label className="block text-sm font-medium text-primary-light mb-2">
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Description
           </label>
           <textarea
             {...register('description')}
             rows={3}
-            className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+            className={cn(
+              "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+              theme === 'dark'
+                ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+                : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+            )}
             placeholder="Describe your service..."
           />
         </div>
@@ -135,16 +146,30 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProp
       {/* Working Hours */}
       <div className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-primary-light mb-1">Working Hours</h3>
-          <p className="text-sm text-primary-light/70 mb-4">
+          <h3 className={cn(
+            "text-lg font-semibold mb-1",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Working Hours</h3>
+          <p className={cn(
+            "text-sm mb-4",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             Set your availability for each day. Available time slots will be automatically generated based on your service duration and buffer time.
           </p>
         </div>
         <div className="space-y-2">
           {workingHoursFields.map((field, index) => (
-            <div key={field.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 rounded-lg border border-primary-blue bg-primary-dark-secondary">
+            <div key={field.id} className={cn(
+              "flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 rounded-lg border",
+              theme === 'dark' 
+                ? 'border-primary-blue bg-primary-dark-secondary' 
+                : 'border-gray-200/20 bg-gray-50'
+            )}>
               <div className="w-full sm:w-24 sm:flex-shrink-0">
-                <label className="text-sm font-medium text-primary-light">
+                <label className={cn(
+                  "text-sm font-medium",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>
                   {DAYS_OF_WEEK.find((d) => d.value === field.dayOfWeek)?.label}
                 </label>
               </div>
@@ -168,7 +193,10 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProp
                       )}
                     />
                   </div>
-                  <span className="text-primary-light/70 whitespace-nowrap">to</span>
+                  <span className={cn(
+                    "whitespace-nowrap",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>to</span>
                   <div className="w-auto min-w-[100px]">
                     <Controller
                       name={`availability.workingHours.${index}.endTime`}
@@ -192,7 +220,10 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProp
 
       {/* Availability Settings */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-primary-light">Availability Settings</h3>
+        <h3 className={cn(
+          "text-lg font-semibold",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Availability Settings</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Buffer Time (minutes)"
@@ -219,7 +250,10 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProp
 
       {/* Booking Settings */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-primary-light">Booking Settings</h3>
+        <h3 className={cn(
+          "text-lg font-semibold",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Booking Settings</h3>
         <div className="space-y-2">
           <Checkbox
               {...register('bookingSettings.requireConfirmation')}

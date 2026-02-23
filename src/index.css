@@ -24,10 +24,19 @@ input:-webkit-autofill {
   }
 
   body {
-    @apply bg-primary-dark text-primary-light font-sans antialiased;
+    @apply text-primary-light font-sans antialiased;
     overflow-x: hidden;
     max-width: 100vw;
     position: relative;
+    background-color: #0B132B; /* Default dark background */
+  }
+  
+  body[data-theme='light'] {
+    background-color: #FAFAFA; /* Light mode background */
+  }
+  
+  body[data-theme='dark'] {
+    background-color: #0B132B; /* Dark mode background */
   }
 
   #root {
@@ -47,6 +56,7 @@ input:-webkit-autofill {
     height: 8px;
   }
 
+  /* Dark mode scrollbar */
   .custom-scrollbar::-webkit-scrollbar-track {
     @apply bg-primary-dark-secondary;
   }
@@ -57,6 +67,20 @@ input:-webkit-autofill {
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     @apply bg-primary-gold;
+  }
+
+  /* Light mode scrollbar */
+  [data-theme='light'] .custom-scrollbar::-webkit-scrollbar-track {
+    background-color: #f3f4f6; /* gray-100 */
+  }
+
+  [data-theme='light'] .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #9ca3af; /* gray-400 */
+    border-radius: 9999px;
+  }
+
+  [data-theme='light'] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #D4AF37; /* primary-gold */
   }
 
   /* Hide number input spinners */

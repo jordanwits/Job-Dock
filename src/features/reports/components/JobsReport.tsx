@@ -5,6 +5,8 @@ import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { JobLog } from '@/features/jobLogs/types/jobLog'
 import type { Invoice } from '@/features/invoices/types/invoice'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface JobsReportProps {
   startDate: Date
@@ -29,6 +31,7 @@ export const JobsReport = ({
   invoices,
   timeEntries,
 }: JobsReportProps) => {
+  const { theme } = useTheme()
   const [isExpanded, setIsExpanded] = useState(false)
   // Filter jobs by date range (createdAt)
   const filteredJobs = useMemo(() => {
@@ -196,7 +199,10 @@ export const JobsReport = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex-1">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            <h3 className="text-lg font-semibold text-primary-light">Jobs Summary</h3>
+            <h3 className={cn(
+              "text-lg font-semibold",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>Jobs Summary</h3>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium self-start sm:self-center"
@@ -213,7 +219,10 @@ export const JobsReport = ({
               </svg>
             </button>
           </div>
-          <p className="text-sm text-primary-light/60 mt-1">
+          <p className={cn(
+            "text-sm mt-1",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
           </p>
         </div>
@@ -224,33 +233,62 @@ export const JobsReport = ({
 
       {filteredJobs.length === 0 ? (
         <div className="text-center py-8">
-          <p className="text-primary-light/60">No jobs found for this period</p>
+          <p className={cn(
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>No jobs found for this period</p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Total Jobs</p>
+            <div className={cn(
+              "p-4 rounded-lg min-w-0",
+              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Total Jobs</p>
               <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                 {formatNumber(totals.total)}
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Active</p>
+            <div className={cn(
+              "p-4 rounded-lg min-w-0",
+              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Active</p>
               <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
                 {formatNumber(totals.active)}
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Completed</p>
+            <div className={cn(
+              "p-4 rounded-lg min-w-0",
+              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Completed</p>
               <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">
                 {formatNumber(totals.completed)}
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Inactive</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-light/70 mt-1 break-words">
+            <div className={cn(
+              "p-4 rounded-lg min-w-0",
+              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Inactive</p>
+              <p className={cn(
+                "text-xl md:text-2xl font-bold mt-1 break-words",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 {formatNumber(totals.inactive)}
               </p>
             </div>
@@ -260,26 +298,50 @@ export const JobsReport = ({
           {isExpanded && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-                  <p className="text-xs text-primary-light/50 uppercase tracking-wide">Revenue</p>
+                <div className={cn(
+                  "p-4 rounded-lg min-w-0",
+                  theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+                )}>
+                  <p className={cn(
+                    "text-xs uppercase tracking-wide",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                  )}>Revenue</p>
                   <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                     ${formatCurrency(totals.revenue)}
                   </p>
                 </div>
-                <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-                  <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
+                <div className={cn(
+                  "p-4 rounded-lg min-w-0",
+                  theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+                )}>
+                  <p className={cn(
+                    "text-xs uppercase tracking-wide",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                  )}>Paid</p>
                   <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
                     ${formatCurrency(totals.paidRevenue)}
                   </p>
                 </div>
-                <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-                  <p className="text-xs text-primary-light/50 uppercase tracking-wide">Cost</p>
+                <div className={cn(
+                  "p-4 rounded-lg min-w-0",
+                  theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+                )}>
+                  <p className={cn(
+                    "text-xs uppercase tracking-wide",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                  )}>Cost</p>
                   <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">
                     ${formatCurrency(totals.cost)}
                   </p>
                 </div>
-                <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-                  <p className="text-xs text-primary-light/50 uppercase tracking-wide">Profit</p>
+                <div className={cn(
+                  "p-4 rounded-lg min-w-0",
+                  theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+                )}>
+                  <p className={cn(
+                    "text-xs uppercase tracking-wide",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                  )}>Profit</p>
                   <p
                     className={`text-xl md:text-2xl font-bold mt-1 break-words ${
                       totals.profit >= 0 ? 'text-green-400' : 'text-red-400'
@@ -292,7 +354,10 @@ export const JobsReport = ({
 
               {/* Status Breakdown */}
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-primary-light uppercase tracking-wide">
+                <h4 className={cn(
+                  "text-sm font-semibold uppercase tracking-wide",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>
                   By Status
                 </h4>
                 <div className="space-y-2">
@@ -307,15 +372,24 @@ export const JobsReport = ({
                 }
 
                 const statusColors: Record<string, string> = {
-                  active: 'bg-green-500/10 text-green-400',
-                  completed: 'bg-blue-500/10 text-blue-400',
-                  inactive: 'bg-primary-light/10 text-primary-light/70',
+                  active: theme === 'dark'
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                    : 'bg-green-100 text-green-700 border-green-300',
+                  completed: theme === 'dark'
+                    ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                    : 'bg-blue-100 text-blue-700 border-blue-300',
+                  inactive: theme === 'dark' 
+                    ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' 
+                    : 'bg-gray-200 text-gray-600 border-gray-300',
                 }
 
                 return (
                   <div
                     key={status}
-                    className="flex items-center justify-between p-3 bg-primary-dark/30 rounded-lg gap-2 min-w-0"
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg gap-2 min-w-0",
+                      theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
+                    )}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span
@@ -323,7 +397,10 @@ export const JobsReport = ({
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-xs md:text-sm text-primary-light truncate">
+                      <span className={cn(
+                        "text-xs md:text-sm truncate",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {formatNumber(group.length)} jobs
                       </span>
                     </div>

@@ -4,6 +4,7 @@ import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { Job, JobAssignment } from '../types/job'
 import { useAuthStore } from '@/features/auth/store/authStore'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface JobCardProps {
   job: Job
@@ -14,6 +15,7 @@ interface JobCardProps {
 const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
   const { setSelectedJob } = useJobStore()
   const { user } = useAuthStore()
+  const { theme } = useTheme()
 
   // Parse assignments from job (handle both old and new formats)
   const getAssignments = (): JobAssignment[] => {
@@ -87,13 +89,34 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
   const displayPriceResult = getDisplayPrice()
   const displayPrice = displayPriceResult?.value ?? null
 
-  const statusColors = {
-    active: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
-    scheduled: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
-    'in-progress': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    completed: 'bg-green-500/20 text-green-400 border-green-500/30',
-    cancelled: 'bg-red-500/20 text-red-400 border-red-500/30',
-    'pending-confirmation': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  const getStatusColors = (status: string) => {
+    const baseColors: Record<string, { dark: string; light: string }> = {
+      active: {
+        dark: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
+        light: 'bg-blue-100 text-blue-700 border-blue-200',
+      },
+      scheduled: {
+        dark: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
+        light: 'bg-blue-100 text-blue-700 border-blue-200',
+      },
+      'in-progress': {
+        dark: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+        light: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      },
+      completed: {
+        dark: 'bg-green-500/20 text-green-400 border-green-500/30',
+        light: 'bg-green-100 text-green-700 border-green-300',
+      },
+      cancelled: {
+        dark: 'bg-red-500/20 text-red-400 border-red-500/30',
+        light: 'bg-red-100 text-red-700 border-red-300',
+      },
+      'pending-confirmation': {
+        dark: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+        light: 'bg-orange-100 text-orange-700 border-orange-300',
+      },
+    }
+    return baseColors[status]?.[theme] || baseColors.active[theme]
   }
 
   const statusLabels = {
@@ -131,18 +154,37 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0 pr-2">
-            <h3 className="text-lg font-semibold text-primary-light">
+            <h3 className={cn(
+              "text-lg font-semibold",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>
               {job.title}
-              {isArchived && <span className="text-primary-light/60 ml-2">• Archived</span>}
+              {isArchived && (
+                <span className={cn(
+                  "ml-2",
+                  theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                )}>• Archived</span>
+              )}
             </h3>
-            {subtitle && <p className="text-xs text-primary-light/50 mt-1">{subtitle}</p>}
+            {subtitle && (
+              <p className={cn(
+                "text-xs mt-1",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>{subtitle}</p>
+            )}
             {hasAssignee && (
-              <span className="text-xs text-primary-light/60 mt-1 block">
+              <span className={cn(
+                "text-xs mt-1 block",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 Assigned to {job.assignedToName}
               </span>
             )}
             {showCreatedBy && job.createdByName && (
-              <span className="text-xs text-primary-light/60 mt-1 block">
+              <span className={cn(
+                "text-xs mt-1 block",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 Created by {job.createdByName}
               </span>
             )}
@@ -150,7 +192,7 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
           <span
             className={cn(
               'px-2 py-1 text-xs font-medium rounded border flex-shrink-0',
-              statusColors[job.status]
+              getStatusColors(job.status)
             )}
           >
             {statusLabels[job.status]}
@@ -178,13 +220,24 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
         </div>
 
         {/* Total / Price */}
-        <div className="pt-2 border-t border-primary-blue">
+        <div className={cn(
+          "pt-2 border-t",
+          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+        )}>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-primary-light/70">
+            <span className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
               {displayPrice != null || !canSeeJobPrices ? 'Price' : 'Scheduled'}
             </span>
             <span
-              className={`text-xl font-bold ${displayPrice == null && !canSeeJobPrices ? 'text-primary-light/40' : 'text-primary-gold'}`}
+              className={cn(
+                "text-xl font-bold",
+                displayPrice == null && !canSeeJobPrices 
+                  ? theme === 'dark' ? 'text-primary-light/40' : 'text-primary-lightTextSecondary/60'
+                  : 'text-primary-gold'
+              )}
             >
               {displayPrice == null && !canSeeJobPrices && job.price != null ? (
                 <span className="text-xs italic">Insufficient permissions</span>
@@ -192,7 +245,10 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
                 <>
                   {formatCurrency(displayPriceResult.value)}
                   {displayPriceResult.isHourly && (
-                    <span className="text-sm font-normal text-primary-light/80">/hr</span>
+                    <span className={cn(
+                      "text-sm font-normal",
+                      theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+                    )}>/hr</span>
                   )}
                 </>
               ) : job.startTime ? (
@@ -205,7 +261,12 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
         </div>
 
         {/* Service */}
-        {job.serviceName && <div className="text-xs text-primary-light/50">{job.serviceName}</div>}
+        {job.serviceName && (
+          <div className={cn(
+            "text-xs",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+          )}>{job.serviceName}</div>
+        )}
       </div>
     </Card>
   )

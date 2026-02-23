@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import { Button, Input } from '@/components/ui'
 import { earlyAccessApi, EarlyAccessRequest } from '@/lib/api/earlyAccess'
 import { useAuthStore } from '@/features/auth/store/authStore'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 export const EarlyAccessSection = () => {
+  const { theme } = useTheme()
   const user = useAuthStore(state => state.user)
   const [requests, setRequests] = useState<EarlyAccessRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,15 +86,23 @@ export const EarlyAccessSection = () => {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-semibold text-primary-light">Early Access Management</h2>
-        <div className="text-primary-light/70">Loading...</div>
+        <h2 className={cn(
+          "text-xl font-semibold",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Early Access Management</h2>
+        <div className={cn(
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>Loading...</div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-primary-light">Early Access Management</h2>
+      <h2 className={cn(
+        "text-xl font-semibold",
+        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+      )}>Early Access Management</h2>
       <div className="space-y-6">
         {error && (
           <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
@@ -101,8 +112,14 @@ export const EarlyAccessSection = () => {
 
         {/* Manual approval */}
         <div>
-          <h3 className="text-lg font-medium text-primary-light mb-3">Manually Approve Email</h3>
-          <p className="text-sm text-primary-light/70 mb-3">
+          <h3 className={cn(
+            "text-lg font-medium mb-3",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Manually Approve Email</h3>
+          <p className={cn(
+            "text-sm mb-3",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             Add an email address directly to the allowlist (even if they haven't submitted a
             request).
           </p>
@@ -125,22 +142,40 @@ export const EarlyAccessSection = () => {
 
         {/* Pending requests */}
         <div>
-          <h3 className="text-lg font-medium text-primary-light mb-3">
+          <h3 className={cn(
+            "text-lg font-medium mb-3",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Pending Requests ({pendingRequests.length})
           </h3>
           {pendingRequests.length === 0 ? (
-            <p className="text-sm text-primary-light/60">No pending requests</p>
+            <p className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+            )}>No pending requests</p>
           ) : (
             <div className="space-y-2">
               {pendingRequests.map(request => (
                 <div
                   key={request.id}
-                  className="flex items-center justify-between p-4 bg-primary-dark-secondary rounded-lg"
+                  className={cn(
+                    "flex items-center justify-between p-4 rounded-lg",
+                    theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-100'
+                  )}
                 >
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-primary-light">{request.name}</p>
-                    <p className="text-xs text-primary-light/70">{request.email}</p>
-                    <p className="text-xs text-primary-light/50 mt-1">
+                    <p className={cn(
+                      "text-sm font-medium",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>{request.name}</p>
+                    <p className={cn(
+                      "text-xs",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>{request.email}</p>
+                    <p className={cn(
+                      "text-xs mt-1",
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                    )}>
                       Requested {new Date(request.createdAt).toLocaleDateString()}
                     </p>
                   </div>

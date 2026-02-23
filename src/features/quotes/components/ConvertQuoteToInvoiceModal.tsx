@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Modal, Button, DatePicker, Select } from '@/components/ui'
 import { Quote } from '../types/quote'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface ConvertQuoteToInvoiceModalProps {
   quote: Quote
@@ -19,6 +21,7 @@ const ConvertQuoteToInvoiceModal = ({
   onConvert,
   isLoading,
 }: ConvertQuoteToInvoiceModalProps) => {
+  const { theme } = useTheme()
   const [selectedTerm, setSelectedTerm] = useState<PaymentTermOption>('Net 30')
   const [customDate, setCustomDate] = useState('')
   const [paymentTerms, setPaymentTerms] = useState('Net 30')
@@ -127,14 +130,23 @@ const ConvertQuoteToInvoiceModal = ({
       }
     >
       <div className="space-y-4">
-        <p className="text-primary-light/70">
+        <p className={cn(
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>
           This will create a new invoice based on the quote. You can customize the payment terms and due date below.
         </p>
 
-        <div className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
+        <div className={cn(
+          "p-4 rounded-lg border",
+          theme === 'dark'
+            ? 'border-primary-blue bg-primary-dark-secondary'
+            : 'border-gray-200 bg-white'
+        )}>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-primary-light/70">Quote Total</span>
+              <span className={cn(
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Quote Total</span>
               <span className="text-lg font-bold text-primary-gold">
                 {new Intl.NumberFormat('en-US', {
                   style: 'currency',
@@ -170,10 +182,21 @@ const ConvertQuoteToInvoiceModal = ({
         )}
 
         {dueDate && (
-          <div className="p-3 rounded-lg border border-primary-blue bg-primary-dark-secondary">
+          <div className={cn(
+            "p-3 rounded-lg border",
+            theme === 'dark'
+              ? 'border-primary-blue bg-primary-dark-secondary'
+              : 'border-gray-200 bg-white'
+          )}>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-primary-light/70">Due Date</span>
-              <span className="text-sm font-medium text-primary-light">
+              <span className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Due Date</span>
+              <span className={cn(
+                "text-sm font-medium",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 {new Date(dueDate).toLocaleDateString()}
               </span>
             </div>
@@ -181,7 +204,10 @@ const ConvertQuoteToInvoiceModal = ({
         )}
 
         {selectedTerm !== 'Custom' && (
-          <p className="text-xs text-primary-light/50">
+          <p className={cn(
+            "text-xs",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
+          )}>
             Due date: {dueDate ? new Date(dueDate).toLocaleDateString() : 'Calculating...'}
           </p>
         )}

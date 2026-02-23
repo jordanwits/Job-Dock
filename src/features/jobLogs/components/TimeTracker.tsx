@@ -7,6 +7,7 @@ import type { TimeEntry, JobAssignment } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface TimeTrackerProps {
   jobLogId: string
@@ -37,6 +38,7 @@ function TimeNumberInput({
   onChange: (v: string) => void
   label?: string
 }) {
+  const { theme } = useTheme()
   const to12h = (h24: number) => (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24)
   const [hourStr, setHourStr] = useState(() => {
     const [h] = (value || ':').split(':')
@@ -104,12 +106,19 @@ function TimeNumberInput({
     emit(hourStr, minStr, !isPM)
   }
 
-  const base =
-    'bg-transparent text-primary-light focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+  const base = cn(
+    'bg-transparent focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
+    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+  )
   const inputSize = 'h-9 w-7 min-w-0 px-0 py-1 text-base sm:text-sm text-center'
   return (
     <div className="flex flex-col gap-0.5">
-      {label && <span className="text-xs font-medium text-primary-light/60">{label}</span>}
+      {label && (
+        <span className={cn(
+          "text-xs font-medium",
+          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+        )}>{label}</span>
+      )}
       <div className="flex items-center gap-0">
         <input
           type="text"
@@ -120,7 +129,10 @@ function TimeNumberInput({
           placeholder="hr"
           aria-label={label ? `${label} hour` : undefined}
         />
-        <span className="text-primary-light/50 shrink-0">:</span>
+        <span className={cn(
+          "shrink-0",
+          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+        )}>:</span>
         <input
           type="text"
           inputMode="numeric"
@@ -140,7 +152,7 @@ function TimeNumberInput({
           className={cn(
             base,
             'h-9 w-7 min-w-0 px-0.5 py-1 text-xs font-medium shrink-0 self-end',
-            isPM ? 'text-primary-gold' : 'text-primary-light/70'
+            isPM ? 'text-primary-gold' : theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
           )}
           aria-label={label ? `${label} AM/PM` : undefined}
         >
@@ -162,6 +174,7 @@ const TimeTracker = ({
   clockInFor,
   externalTimerState,
 }: TimeTrackerProps) => {
+  const { theme } = useTheme()
   const { createTimeEntry, updateTimeEntry, deleteTimeEntry } = useJobLogStore()
   const { user } = useAuthStore()
   const effectiveIsAdmin = isAdmin ?? (user?.role === 'admin' || user?.role === 'owner')
@@ -790,28 +803,48 @@ const TimeTracker = ({
     <div
       key={te.id}
       className={cn(
-        'flex gap-2 sm:gap-3 py-2 px-3 rounded-lg bg-primary-dark/30 border border-primary-blue/30 hover:bg-primary-dark/40 transition-colors',
+        'flex gap-2 sm:gap-3 py-2 px-3 rounded-lg transition-colors',
         inlineTimeEditId === te.id
           ? 'flex-col sm:flex-row sm:flex-nowrap sm:items-center'
-          : 'flex-nowrap items-center overflow-x-auto'
+          : 'flex-nowrap items-center overflow-x-auto',
+        theme === 'dark'
+          ? 'bg-primary-dark/30 border border-primary-blue/30 hover:bg-primary-dark/40'
+          : 'bg-gray-50 border border-gray-200/20 hover:bg-gray-100'
       )}
     >
       {/* Index + Job title + Team member (admin) + Notes */}
       <div className="flex items-center gap-2 min-w-0 flex-1 w-full sm:w-auto">
-        <div className="w-8 h-8 flex items-center justify-center rounded border border-primary-blue/50 bg-primary-dark/50 text-xs font-medium text-primary-light/80 shrink-0">
+        <div className={cn(
+          "w-8 h-8 flex items-center justify-center rounded border text-xs font-medium shrink-0",
+          theme === 'dark'
+            ? 'border-primary-blue/50 bg-primary-dark/50 text-primary-light/80'
+            : 'border-gray-200/30 bg-white text-primary-lightText'
+        )}>
           {index + 1}
         </div>
         <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
           {(effectiveIsAdmin || effectiveClockInFor !== 'self') && te.userName && (
             <>
-              <span className="text-sm font-medium text-primary-light/70 shrink-0">
+              <span className={cn(
+                "text-sm font-medium shrink-0",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 {te.userName}
               </span>
-              <span className="text-primary-light/50 shrink-0 hidden sm:inline">–</span>
+              <span className={cn(
+                "shrink-0 hidden sm:inline",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>–</span>
             </>
           )}
-          <span className="font-semibold text-base text-primary-light truncate">{jobLogTitle}</span>
-          <span className="text-primary-light/50 shrink-0 hidden sm:inline">–</span>
+          <span className={cn(
+            "font-semibold text-base truncate",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>{jobLogTitle}</span>
+          <span className={cn(
+            "shrink-0 hidden sm:inline",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+          )}>–</span>
           {inlineEditId === te.id ? (
             canEditEntry(te) ? (
               <input
@@ -821,11 +854,19 @@ const TimeTracker = ({
                 onBlur={() => handleInlineNotesSave(te)}
                 onKeyDown={e => e.key === 'Enter' && handleInlineNotesSave(te)}
                 placeholder="Add description"
-                className="flex-1 min-w-0 bg-transparent text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-0"
+                className={cn(
+                  "flex-1 min-w-0 bg-transparent text-sm focus:outline-none focus:ring-0",
+                  theme === 'dark'
+                    ? 'text-primary-light placeholder:text-primary-light/40'
+                    : 'text-primary-lightText placeholder:text-primary-lightTextSecondary'
+                )}
                 autoFocus
               />
             ) : (
-              <span className="flex-1 min-w-0 text-sm text-primary-light/80 truncate">
+              <span className={cn(
+                "flex-1 min-w-0 text-sm truncate",
+                theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+              )}>
                 {te.notes || ''}
               </span>
             )
@@ -843,11 +884,18 @@ const TimeTracker = ({
               }}
               disabled={!canEditEntry(te)}
               className={cn(
-                'flex-1 min-w-0 text-left text-sm text-primary-light/80 hover:text-primary-light truncate',
-                !canEditEntry(te) && 'cursor-default opacity-60'
+                'flex-1 min-w-0 text-left text-sm truncate',
+                !canEditEntry(te) && 'cursor-default opacity-60',
+                theme === 'dark'
+                  ? 'text-primary-light/80 hover:text-primary-light'
+                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
               )}
             >
-              {te.notes || <span className="text-primary-light/40">Add description</span>}
+              {te.notes || (
+                <span className={theme === 'dark' ? 'text-primary-light/40' : 'text-primary-lightTextSecondary'}>
+                  Add description
+                </span>
+              )}
             </button>
           )}
         </div>
@@ -866,7 +914,12 @@ const TimeTracker = ({
         <div className={cn('shrink-0', inlineTimeEditId === te.id && 'w-full sm:w-auto')}>
           {inlineTimeEditId === te.id ? (
             <div
-              className="flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0 p-2 sm:p-0 rounded-lg sm:rounded-none bg-primary-dark/50 sm:bg-transparent border border-primary-blue/30 sm:border-0"
+              className={cn(
+                "flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0 p-2 sm:p-0 rounded-lg sm:rounded-none sm:bg-transparent sm:border-0",
+                theme === 'dark'
+                  ? 'bg-primary-dark/50 border border-primary-blue/30'
+                  : 'bg-gray-50 border border-gray-200/20'
+              )}
               onClick={e => e.stopPropagation()}
             >
               <div className="flex flex-row items-start gap-2 flex-wrap">
@@ -879,17 +932,29 @@ const TimeTracker = ({
                   />
                 </div>
                 <div className="flex flex-col gap-0.5 items-start">
-                  <span className="text-xs font-medium text-primary-light/60">Start</span>
+                  <span className={cn(
+                    "text-xs font-medium",
+                    theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                  )}>Start</span>
                   <TimeNumberInput value={inlineStartTime} onChange={setInlineStartTime} />
                 </div>
-                <span className="text-primary-light/50 self-end pb-1">–</span>
+                <span className={cn(
+                  "self-end pb-1",
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}>–</span>
                 <div className="flex flex-col gap-0.5 items-start">
-                  <span className="text-xs font-medium text-primary-light/60">End</span>
+                  <span className={cn(
+                    "text-xs font-medium",
+                    theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                  )}>End</span>
                   <TimeNumberInput value={inlineEndTime} onChange={setInlineEndTime} />
                 </div>
               </div>
               {timeEditError && <p className="text-sm text-red-400">{timeEditError}</p>}
-              <div className="flex gap-2 sm:gap-1 pt-0.5 sm:pt-0 border-t border-primary-blue/20 sm:border-0">
+              <div className={cn(
+                "flex gap-2 sm:gap-1 pt-0.5 sm:pt-0 sm:border-0",
+                theme === 'dark' ? 'border-t border-primary-blue/20' : 'border-t border-gray-200/20'
+              )}>
                 <button
                   type="button"
                   onClick={() => handleInlineTimeSave(te)}
@@ -903,7 +968,12 @@ const TimeTracker = ({
                     setInlineTimeEditId(null)
                     setTimeEditError(null)
                   }}
-                  className="flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm text-primary-light/80 hover:text-primary-light rounded-lg border border-primary-blue/50 hover:border-primary-blue"
+                  className={cn(
+                    "flex-1 sm:flex-none px-4 py-2 sm:px-2 sm:py-1 text-sm rounded-lg border transition-colors",
+                    theme === 'dark'
+                      ? 'text-primary-light/80 hover:text-primary-light border-primary-blue/50 hover:border-primary-blue'
+                      : 'text-primary-lightTextSecondary hover:text-primary-lightText border-gray-200/30 hover:border-gray-200'
+                  )}
                 >
                   Cancel
                 </button>
@@ -913,13 +983,21 @@ const TimeTracker = ({
             <button
               type="button"
               onClick={() => beginTimeEdit(te)}
-              className="text-sm text-primary-light/80 hover:text-primary-light hover:underline hidden sm:inline-block"
+              className={cn(
+                "text-sm hover:underline hidden sm:inline-block",
+                theme === 'dark'
+                  ? 'text-primary-light/80 hover:text-primary-light'
+                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
+              )}
             >
               {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')}{' '}
               – {format(new Date(te.endTime), 'h:mma')}
             </button>
           ) : (
-            <span className="text-sm text-primary-light/80 hidden sm:inline-block">
+            <span className={cn(
+              "text-sm hidden sm:inline-block",
+              theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+            )}>
               {format(new Date(te.startTime), 'MMM d')} • {format(new Date(te.startTime), 'h:mma')}{' '}
               – {format(new Date(te.endTime), 'h:mma')}
             </span>
@@ -927,7 +1005,10 @@ const TimeTracker = ({
         </div>
 
         {/* Date on mobile (time range hidden) */}
-        <span className="text-xs text-primary-light/60 shrink-0 sm:hidden">
+        <span className={cn(
+          "text-xs shrink-0 sm:hidden",
+          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+        )}>
           {format(new Date(te.startTime), 'MMM d')}
         </span>
 
@@ -954,7 +1035,10 @@ const TimeTracker = ({
                 }}
                 onBlur={() => handleInlineDurationSave(te)}
                 placeholder="00:00:00"
-                className="w-full text-sm font-medium text-primary-light bg-transparent px-2 py-1 text-right focus:outline-none focus:ring-0 font-mono tabular-nums"
+                className={cn(
+                  "w-full text-sm font-medium bg-transparent px-2 py-1 text-right focus:outline-none focus:ring-0 font-mono tabular-nums",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}
                 autoFocus
               />
               {durationError && (
@@ -965,12 +1049,18 @@ const TimeTracker = ({
             <button
               type="button"
               onClick={() => beginDurationEdit(te)}
-              className="text-sm font-medium text-primary-light hover:text-primary-gold hover:underline w-full text-right"
+              className={cn(
+                "text-sm font-medium hover:text-primary-gold hover:underline w-full text-right",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}
             >
               {formatDuration(te)}
             </button>
           ) : (
-            <span className="text-sm font-medium text-primary-light w-full text-right">
+            <span className={cn(
+              "text-sm font-medium w-full text-right",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>
               {formatDuration(te)}
             </span>
           )}
@@ -984,7 +1074,12 @@ const TimeTracker = ({
               menuButtonRef.current = e.currentTarget
               setOpenMenuId(openMenuId === te.id ? null : te.id)
             }}
-            className="p-1 rounded hover:bg-primary-dark text-primary-light/60 hover:text-primary-light"
+            className={cn(
+              "p-1 rounded transition-colors",
+              theme === 'dark'
+                ? 'hover:bg-primary-dark text-primary-light/60 hover:text-primary-light'
+                : 'hover:bg-gray-100 text-primary-lightTextSecondary hover:text-primary-lightText'
+            )}
             aria-label="More options"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -1000,7 +1095,12 @@ const TimeTracker = ({
                   aria-hidden
                 />
                 <div
-                  className="fixed z-[101] py-1 rounded-lg bg-primary-dark-secondary border border-primary-blue shadow-xl min-w-[140px]"
+                  className={cn(
+                    "fixed z-[101] py-1 rounded-lg shadow-xl min-w-[140px]",
+                    theme === 'dark'
+                      ? 'bg-primary-dark-secondary border border-primary-blue'
+                      : 'bg-white border border-gray-200'
+                  )}
                   style={
                     menuButtonRef.current
                       ? (() => {
@@ -1062,8 +1162,14 @@ const TimeTracker = ({
   return (
     <div className="space-y-4">
       {/* Header: Today | Total */}
-      <div className="flex items-center justify-between border-b border-primary-blue/50 pb-3">
-        <span className="text-sm font-medium text-primary-light/80">
+      <div className={cn(
+        "flex items-center justify-between border-b pb-3",
+        theme === 'dark' ? 'border-primary-blue/50' : 'border-gray-200/20'
+      )}>
+        <span className={cn(
+          "text-sm font-medium",
+          theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+        )}>
           {effectiveIsAdmin
             ? 'All Time Entries'
             : effectiveClockInFor === 'self'
@@ -1072,7 +1178,10 @@ const TimeTracker = ({
         </span>
         <div className="flex items-center gap-2">
           {filteredEntries.length > 0 && (
-            <span className="text-sm text-primary-light/80">
+            <span className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+            )}>
               {effectiveIsAdmin ? 'Overall Total' : 'Total'}:{' '}
               <span className="font-medium text-primary-gold">{totalFormatted}</span>
             </span>
@@ -1092,7 +1201,10 @@ const TimeTracker = ({
         ) : (
           <div className="flex items-center gap-4">
             {selectedClockInUserId && selectedClockInUserId !== effectiveCurrentUserId && (
-              <span className="text-sm text-primary-light/70">
+              <span className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 For: {teamMembers.find(u => u.id === selectedClockInUserId)?.name || 'Unknown'}
               </span>
             )}
@@ -1290,7 +1402,12 @@ const TimeTracker = ({
               onChange={e => setManualEntryNotes(e.target.value)}
               placeholder="Add description"
               rows={3}
-              className="rounded-lg border border-primary-blue bg-primary-blue/10 px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/40 focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold resize-none"
+              className={cn(
+                "rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-gold resize-none",
+                theme === 'dark'
+                  ? 'border-primary-blue bg-primary-blue/10 text-primary-light placeholder:text-primary-light/40 focus:border-primary-gold'
+                  : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary focus:border-primary-gold'
+              )}
             />
           </div>
         </div>
@@ -1345,7 +1462,12 @@ const TimeTracker = ({
               onChange={e => setModalEditNotes(e.target.value)}
               readOnly={!descriptionModalEditing}
               placeholder="Add description"
-              className="w-full min-h-[80px] p-0 bg-transparent text-primary-light placeholder:text-primary-light/40 focus:outline-none border-none resize-none whitespace-pre-wrap text-base"
+              className={cn(
+                "w-full min-h-[80px] p-0 bg-transparent focus:outline-none border-none resize-none whitespace-pre-wrap text-base",
+                theme === 'dark'
+                  ? 'text-primary-light placeholder:text-primary-light/40'
+                  : 'text-primary-lightText placeholder:text-primary-lightTextSecondary'
+              )}
               style={{ font: 'inherit' }}
             />
           </Modal>

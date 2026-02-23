@@ -5,6 +5,7 @@ import { Input, Button, Select, Checkbox } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { getRecurringTag } from '../utils/recurringPattern'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface JobLogListProps {
   onCreateClick?: () => void
@@ -16,6 +17,7 @@ type DisplayMode = 'cards' | 'list'
 type SortBy = 'recent' | 'oldest' | 'title'
 
 const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogListProps) => {
+  const { theme } = useTheme()
   const {
     jobLogs,
     isLoading,
@@ -208,12 +210,20 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
           />
         </div>
         <div className="flex gap-2 flex-wrap sm:flex-nowrap items-center">
-          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary-blue/30 bg-primary-dark-secondary cursor-pointer whitespace-nowrap flex-shrink-0">
+          <label className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer whitespace-nowrap flex-shrink-0",
+            theme === 'dark'
+              ? 'border-primary-blue/30 bg-primary-dark-secondary'
+              : 'border-gray-200 bg-white'
+          )}>
             <Checkbox
               checked={showCompleted}
               onChange={(e) => setShowCompleted(e.target.checked)}
             />
-            <span className="text-sm text-primary-light select-none">Show completed</span>
+            <span className={cn(
+              "text-sm select-none",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>Show completed</span>
           </label>
           <Select
             value={statusFilter}
@@ -240,14 +250,20 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
             ]}
             className="w-full sm:w-auto min-w-[140px]"
           />
-          <div className="flex gap-1 border border-primary-blue rounded-lg p-1">
+          <div className={cn(
+            "flex gap-1 border rounded-lg p-1",
+            theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+          )}>
             <button
               onClick={() => setDisplayMode('cards')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              className={cn(
+                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                 displayMode === 'cards'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'text-primary-light hover:bg-primary-blue/20'
-              }`}
+                  : theme === 'dark'
+                    ? 'text-primary-light hover:bg-primary-blue/20'
+                    : 'text-primary-lightText hover:bg-gray-100'
+              )}
               title="Card View"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,11 +272,14 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
             </button>
             <button
               onClick={() => setDisplayMode('list')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              className={cn(
+                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                 displayMode === 'list'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'text-primary-light hover:bg-primary-blue/20'
-              }`}
+                  : theme === 'dark'
+                    ? 'text-primary-light hover:bg-primary-blue/20'
+                    : 'text-primary-lightText hover:bg-gray-100'
+              )}
               title="List View"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -274,7 +293,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
               variant="ghost"
               size="sm"
               onClick={clearFilters}
-              className="text-primary-light/70 hover:text-primary-light"
+              className={theme === 'dark' ? 'text-primary-light/70 hover:text-primary-light' : 'text-primary-lightTextSecondary hover:text-primary-lightText'}
               title="Clear search and filters"
             >
               Clear
@@ -285,7 +304,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
 
       {/* Results Count and Bulk Actions */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-primary-light/70">
+        <div className={cn(
+          "text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>
           {selectedIds.size > 0 ? (
             <span className="font-medium text-primary-gold">
               {selectedIds.size} selected
@@ -316,7 +338,12 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
           onClick={() => setShowDeleteConfirm(false)}
         >
           <div
-            className="bg-primary-dark border border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4"
+            className={cn(
+              "border rounded-lg p-6 max-w-md w-full mx-4",
+              theme === 'dark'
+                ? 'bg-primary-dark border-red-500/30'
+                : 'bg-white border-red-300'
+            )}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-4">
@@ -339,7 +366,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                 <h3 className="text-lg font-medium text-red-400 mb-2">
                   Delete {selectedIds.size} Job{selectedIds.size !== 1 ? 's' : ''}?
                 </h3>
-                <p className="text-sm text-primary-light/70 mb-4">
+                <p className={cn(
+                  "text-sm mb-4",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>
                   This action cannot be undone. All selected jobs will be permanently removed.
                 </p>
                 <div className="flex gap-3 justify-end">
@@ -371,74 +401,129 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
             {Array.from({ length: 6 }).map((_, idx) => (
               <div
                 key={idx}
-                className="rounded-xl border border-white/10 bg-primary-dark-secondary p-4 shadow-sm shadow-black/20 animate-pulse"
+                className={cn(
+                  "rounded-xl border p-4 shadow-sm animate-pulse",
+                  theme === 'dark'
+                    ? 'border-white/10 bg-primary-dark-secondary shadow-black/20'
+                    : 'border-gray-200/20 bg-white'
+                )}
               >
-                <div className="h-4 bg-white/10 rounded w-2/3" />
-                <div className="h-3 bg-white/10 rounded w-1/2 mt-3" />
-                <div className="h-3 bg-white/10 rounded w-1/3 mt-2" />
-                <div className="h-3 bg-white/10 rounded w-full mt-4" />
+                <div className={cn(
+                  "h-4 rounded w-2/3",
+                  theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
+                )} />
+                <div className={cn(
+                  "h-3 rounded w-1/2 mt-3",
+                  theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
+                )} />
+                <div className={cn(
+                  "h-3 rounded w-1/3 mt-2",
+                  theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
+                )} />
+                <div className={cn(
+                  "h-3 rounded w-full mt-4",
+                  theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
+                )} />
               </div>
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-primary-blue overflow-hidden">
+          <div className={cn(
+            "rounded-lg border overflow-hidden",
+            theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+          )}>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+                <thead className={cn(
+                  "border-b",
+                  theme === 'dark'
+                    ? 'bg-primary-dark-secondary border-primary-blue'
+                    : 'bg-gray-50 border-gray-200/20'
+                )}>
                   <tr>
                     <th className="px-4 py-3 w-12" />
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className={cn(
+                      "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Job
                     </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden md:table-cell">
+                    <th className={cn(
+                      "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Created
                     </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    <th className={cn(
+                      "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Contact
                     </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    <th className={cn(
+                      "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Assigned to
                     </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                    <th className={cn(
+                      "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Location
                     </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                    <th className={cn(
+                      "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Status
                     </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    <th className={cn(
+                      "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Total
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-primary-blue">
-                  {Array.from({ length: 8 }).map((_, idx) => (
-                    <tr key={idx} className="bg-primary-dark animate-pulse">
-                      <td className="px-4 py-3 w-12">
-                        <div className="h-4 w-4 rounded-full bg-white/10 mx-auto" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="h-4 bg-white/10 rounded w-32" />
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <div className="h-4 bg-white/10 rounded w-24" />
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <div className="h-4 bg-white/10 rounded w-28" />
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <div className="h-4 bg-white/10 rounded w-24" />
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <div className="h-4 bg-white/10 rounded w-20" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="h-4 bg-white/10 rounded w-16" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="h-4 bg-white/10 rounded w-16" />
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className={cn(
+                  "divide-y",
+                  theme === 'dark' ? 'divide-primary-blue' : 'divide-gray-200/20'
+                )}>
+                  {Array.from({ length: 8 }).map((_, idx) => {
+                    const skeletonClass = theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
+                    return (
+                      <tr key={idx} className={cn(
+                        "animate-pulse",
+                        theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                      )}>
+                        <td className="px-4 py-3 w-12">
+                          <div className={cn("h-4 w-4 rounded-full mx-auto", skeletonClass)} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className={cn("h-4 rounded w-32", skeletonClass)} />
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <div className={cn("h-4 rounded w-24", skeletonClass)} />
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          <div className={cn("h-4 rounded w-28", skeletonClass)} />
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
+                          <div className={cn("h-4 rounded w-24", skeletonClass)} />
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
+                          <div className={cn("h-4 rounded w-20", skeletonClass)} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className={cn("h-4 rounded w-16", skeletonClass)} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className={cn("h-4 rounded w-16", skeletonClass)} />
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -446,7 +531,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
         )
       ) : filteredJobLogs.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-primary-light/70 mb-4">
+          <p className={cn(
+            "mb-4",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             {searchQuery || statusFilter !== 'all'
               ? 'No jobs match your filters'
               : 'No jobs yet'}
@@ -475,10 +563,18 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
         </div>
       ) : (
         // List Layout (table - matches Quotes page)
-        <div className="rounded-lg border border-primary-blue overflow-hidden">
+        <div className={cn(
+          "rounded-lg border overflow-hidden",
+          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+        )}>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-primary-dark-secondary border-b border-primary-blue">
+              <thead className={cn(
+                "border-b",
+                theme === 'dark'
+                  ? 'bg-primary-dark-secondary border-primary-blue'
+                  : 'bg-gray-50 border-gray-200/20'
+              )}>
                 <tr>
                   <th className="px-2 sm:px-4 py-3 w-8 sm:w-12">
                     <div
@@ -487,45 +583,79 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                         'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
                         selectedIds.size === filteredJobLogs.length && filteredJobLogs.length > 0
                           ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                          : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                          : theme === 'dark'
+                            ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                            : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100'
                       )}
                     >
                       {selectedIds.size === filteredJobLogs.length && filteredJobLogs.length > 0 && (
-                        <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                        )} />
                       )}
                     </div>
                   </th>
-                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                  <th className={cn(
+                    "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Job
                   </th>
-                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider">
+                  <th className={cn(
+                    "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Created
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Contact
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Assigned to
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden lg:table-cell">
+                  <th className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Location
                   </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    <th className={cn(
+                      "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Status
                     </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-primary-light/70 uppercase tracking-wider hidden sm:table-cell">
+                    <th className={cn(
+                      "px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Total
                     </th>
                   </tr>
               </thead>
-              <tbody className="divide-y divide-primary-blue">
+              <tbody className={cn(
+                "divide-y",
+                theme === 'dark' ? 'divide-primary-blue' : 'divide-gray-200/20'
+              )}>
                 {filteredJobLogs.map((jobLog) => {
                   const hasTime = (jobLog.timeEntries?.length ?? 0) > 0
                   const recurringTag = jobLog.bookings ? getRecurringTag(jobLog.bookings) : null
                   return (
                     <tr
                       key={jobLog.id}
-                      className="bg-primary-dark hover:bg-primary-dark/50 transition-colors cursor-pointer"
+                      className={cn(
+                        "transition-colors cursor-pointer",
+                        theme === 'dark'
+                          ? 'bg-primary-dark hover:bg-primary-dark/50'
+                          : 'bg-white hover:bg-gray-50'
+                      )}
                       onClick={() => onSelectJobLog(jobLog.id)}
                     >
                       <td className="px-2 sm:px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -535,17 +665,25 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                             'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
                             selectedIds.has(jobLog.id)
                               ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                              : 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                              : theme === 'dark'
+                                ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                                : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100'
                           )}
                         >
                           {selectedIds.has(jobLog.id) && (
-                            <div className="w-2 h-2 rounded-full bg-primary-dark" />
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                            )} />
                           )}
                         </div>
                       </td>
                       <td className="px-2 sm:px-4 py-3 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm font-medium text-primary-light truncate min-w-0">
+                          <span className={cn(
+                            "text-sm font-medium truncate min-w-0",
+                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                          )}>
                             {jobLog.title}
                           </span>
                           {recurringTag && (
@@ -555,7 +693,10 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                           )}
                         </div>
                       </td>
-                      <td className="px-2 sm:px-4 py-3 text-sm text-primary-light/70">
+                      <td className={cn(
+                        "px-2 sm:px-4 py-3 text-sm",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         <span className="hidden sm:inline whitespace-nowrap">
                           {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
                         </span>
@@ -563,19 +704,38 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
                           {format(new Date(jobLog.createdAt), 'MMM d')}
                         </span>
                       </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden sm:table-cell">
+                      <td className={cn(
+                        "px-2 sm:px-4 py-3 whitespace-nowrap text-sm hidden sm:table-cell",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         <div className="truncate max-w-[150px]">{jobLog.contact?.name || '-'}</div>
                       </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                      <td className={cn(
+                        "px-2 sm:px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         <div className="truncate max-w-[150px]">{jobLog.assignedToName || '-'}</div>
                       </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-sm text-primary-light/70 hidden lg:table-cell">
+                      <td className={cn(
+                        "px-2 sm:px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         <div className="truncate max-w-[150px]">{jobLog.location || '-'}</div>
                       </td>
                       <td className="px-2 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell">
                         {(() => {
                           const s = jobLog.status === 'archived' ? 'inactive' : (jobLog.status || 'active')
-                          const classes = { active: 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20', completed: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20', inactive: 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20' }
+                          const classes = {
+                            active: theme === 'dark'
+                              ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
+                              : 'bg-green-100 text-green-700 ring-1 ring-green-300',
+                            completed: theme === 'dark'
+                              ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
+                              : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
+                            inactive: theme === 'dark'
+                              ? 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20'
+                              : 'bg-gray-200 text-gray-600 ring-1 ring-gray-300'
+                          }
                           return (
                             <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium capitalize whitespace-nowrap', classes[s as keyof typeof classes] || classes.inactive)}>
                               {s}

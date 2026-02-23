@@ -4,6 +4,8 @@ import { downloadCsv } from '../utils/exportCsv'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { Invoice } from '@/features/invoices/types/invoice'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface InvoicesReportProps {
   startDate: Date
@@ -12,6 +14,7 @@ interface InvoicesReportProps {
 }
 
 export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportProps) => {
+  const { theme } = useTheme()
   const [isExpanded, setIsExpanded] = useState(false)
   // Filter invoices by date range (createdAt)
   const filteredInvoices = useMemo(() => {
@@ -116,7 +119,10 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex-1">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            <h3 className="text-lg font-semibold text-primary-light">Invoices Summary</h3>
+            <h3 className={cn(
+              "text-lg font-semibold",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>Invoices Summary</h3>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium self-start sm:self-center"
@@ -133,7 +139,10 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
               </svg>
             </button>
           </div>
-          <p className="text-sm text-primary-light/60 mt-1">
+          <p className={cn(
+            "text-sm mt-1",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
           </p>
         </div>
@@ -144,47 +153,85 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
 
       {filteredInvoices.length === 0 ? (
         <div className="text-center py-8">
-          <p className="text-primary-light/60">No invoices found for this period</p>
+          <p className={cn(
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>No invoices found for this period</p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">
+            <div className={cn(
+              "p-4 rounded-lg min-w-0",
+              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 Total Invoices
               </p>
               <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                 {formatNumber(totals.count)}
               </p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+              <p className={cn(
+                "text-xs md:text-sm mt-1 break-words",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 ${formatCurrency(totals.total)}
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Paid</p>
+            <div className={cn(
+              "p-4 rounded-lg min-w-0",
+              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Paid</p>
               <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
                 {formatNumber(totals.paidCount)}
               </p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+              <p className={cn(
+                "text-xs md:text-sm mt-1 break-words",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 ${formatCurrency(totals.paid)}
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Outstanding</p>
+            <div className={cn(
+              "p-4 rounded-lg min-w-0",
+              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Outstanding</p>
               <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">
                 ${formatCurrency(totals.outstanding)}
               </p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+              <p className={cn(
+                "text-xs md:text-sm mt-1 break-words",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 {formatNumber(totals.pendingCount + totals.partialCount)} invoices
               </p>
             </div>
-            <div className="p-4 bg-primary-dark/50 rounded-lg min-w-0">
-              <p className="text-xs text-primary-light/50 uppercase tracking-wide">Overdue</p>
+            <div className={cn(
+              "p-4 rounded-lg min-w-0",
+              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+            )}>
+              <p className={cn(
+                "text-xs uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>Overdue</p>
               <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">
                 {formatNumber(totals.overdueCount)}
               </p>
-              <p className="text-xs md:text-sm text-primary-light/60 mt-1 break-words">
+              <p className={cn(
+                "text-xs md:text-sm mt-1 break-words",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 ${formatCurrency(totals.overdue)}
               </p>
             </div>
@@ -193,7 +240,10 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
           {/* Status Breakdown - Collapsible */}
           {isExpanded && (
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-primary-light uppercase tracking-wide">
+              <h4 className={cn(
+                "text-sm font-semibold uppercase tracking-wide",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 By Status
               </h4>
               <div className="space-y-2">
@@ -209,10 +259,18 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
                 }
 
                 const statusColors: Record<string, string> = {
-                  draft: 'bg-primary-light/10 text-primary-light/70',
-                  sent: 'bg-blue-500/10 text-blue-400',
-                  overdue: 'bg-red-500/10 text-red-400',
-                  cancelled: 'bg-gray-500/10 text-gray-400',
+                  draft: theme === 'dark' 
+                    ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' 
+                    : 'bg-gray-200 text-gray-600 border-gray-300',
+                  sent: theme === 'dark'
+                    ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                    : 'bg-blue-100 text-blue-700 border-blue-300',
+                  overdue: theme === 'dark'
+                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                    : 'bg-red-100 text-red-700 border-red-300',
+                  cancelled: theme === 'dark'
+                    ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                    : 'bg-gray-200 text-gray-600 border-gray-300',
                 }
 
                 const total = group.reduce((sum, i) => sum + i.total, 0)
@@ -220,7 +278,10 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
                 return (
                   <div
                     key={status}
-                    className="flex items-center justify-between p-3 bg-primary-dark/30 rounded-lg gap-2 min-w-0"
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg gap-2 min-w-0",
+                      theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
+                    )}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span
@@ -228,7 +289,10 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
                       >
                         {statusLabels[status]}
                       </span>
-                      <span className="text-xs md:text-sm text-primary-light truncate">
+                      <span className={cn(
+                        "text-xs md:text-sm truncate",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {formatNumber(group.length)} invoices
                       </span>
                     </div>

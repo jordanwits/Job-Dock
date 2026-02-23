@@ -46,11 +46,13 @@ const normalizeJob = (apiJob: any): Job => {
     createdAt: apiJob.createdAt,
     updatedAt: apiJob.updatedAt,
     occurrenceCount: apiJob.occurrenceCount,
+    bookingId: apiJob.bookingId ?? undefined,
   }
 }
 
 interface JobState {
   jobs: Job[]
+  jobsForLink: Job[] // All jobs including unlinked - for "link to existing job" dropdown
   selectedJob: Job | null
   isLoading: boolean
   error: string | null
@@ -60,6 +62,7 @@ interface JobState {
   
   // Actions
   fetchJobs: (startDate?: Date, endDate?: Date, includeArchived?: boolean, showDeleted?: boolean) => Promise<void>
+  fetchJobsForLink: (startDate?: Date, endDate?: Date) => Promise<void>
   getJobById: (id: string) => Promise<void>
   createJob: (data: CreateJobData) => Promise<Job>
   updateJob: (data: UpdateJobData) => Promise<void>
@@ -77,6 +80,7 @@ interface JobState {
 
 export const useJobStore = create<JobState>((set, get) => ({
   jobs: [],
+  jobsForLink: [],
   selectedJob: null,
   isLoading: false,
   error: null,
@@ -95,6 +99,16 @@ export const useJobStore = create<JobState>((set, get) => ({
         error: error.message || 'Failed to fetch jobs',
         isLoading: false,
       })
+    }
+  },
+
+  fetchJobsForLink: async (startDate?: Date, endDate?: Date) => {
+    try {
+      const apiJobs = await jobsService.getAll(startDate, endDate, false, false, true)
+      const jobsForLink = apiJobs.map(normalizeJob)
+      set({ jobsForLink })
+    } catch (error: any) {
+      set({ jobsForLink: [] })
     }
   },
 
@@ -181,13 +195,18 @@ export const useJobStore = create<JobState>((set, get) => ({
         const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0)
         await get().fetchJobs(startDate, endDate)
       } else {
-        // Single job update - just update it in the state
+        // Single job update - when bookingId is provided, replace only that entry to avoid lumping
+        const bookingId = data.bookingId ?? (updatedJob as any).bookingId
         set((state) => ({
-          jobs: state.jobs.map((j) =>
-            j.id === data.id ? updatedJob : j
-          ),
+          jobs: state.jobs.map((j) => {
+            if (j.id !== data.id) return j
+            if (bookingId && j.bookingId === bookingId) return updatedJob
+            if (!bookingId) return updatedJob
+            return j
+          }),
           selectedJob:
-            state.selectedJob?.id === data.id
+            state.selectedJob?.id === data.id &&
+            (state.selectedJob?.bookingId === bookingId || !bookingId)
               ? updatedJob
               : state.selectedJob,
           isLoading: false,

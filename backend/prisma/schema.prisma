@@ -226,6 +226,7 @@ model Service {
   bookingSettings Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+  jobs            Job[]
   bookings        Booking[]
   jobRecurrences  JobRecurrence[]
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -241,16 +242,19 @@ model Job {
   title         String
   description   String?
   contactId     String
+  serviceId     String?
   quoteId       String?
   invoiceId     String?
   status        String         @default("active")
   location      String?
+  price         Decimal?       @db.Decimal(10, 2)
   notes         String?
   assignedTo    Json?      // Array of assignments: [{userId: "id1", role: "Lead", price: 500}, ...]
   createdById   String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   contact       Contact        @relation(fields: [contactId], references: [id])
+  service       Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   quote         Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   invoice       Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -261,6 +265,7 @@ model Job {
   @@index([tenantId])
   @@index([createdById])
   @@index([contactId])
+  @@index([serviceId])
   @@index([quoteId])
   @@index([invoiceId])
   @@index([status])

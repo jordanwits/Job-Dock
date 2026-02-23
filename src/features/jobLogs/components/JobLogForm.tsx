@@ -7,6 +7,8 @@ import { Input, Button, Select, Textarea } from '@/components/ui'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface TeamMemberOption {
   id: string
@@ -28,6 +30,7 @@ const statusOptions = [
 ] as const
 
 const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = false }: JobLogFormProps) => {
+  const { theme } = useTheme()
   const { contacts, fetchContacts } = useContactStore()
   const { user } = useAuthStore()
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
@@ -315,7 +318,10 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
       {/* Contact field - shown in both simplified and full forms */}
       {showSimplifiedForm ? (
         <div>
-          <label className="block text-sm font-medium text-primary-light mb-2">
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Contact *
           </label>
           <Select
@@ -340,9 +346,15 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
       {!showSimplifiedForm && (
         <>
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">Price</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Price</label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+          <span className={cn(
+            "absolute left-3 top-1/2 -translate-y-1/2 text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             $
           </span>
           <Controller
@@ -385,7 +397,10 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
             Insufficient permissions to view or edit job price.
           </p>
         ) : (
-          <p className="text-xs text-primary-light/50 mt-1">
+          <p className={cn(
+            "text-xs mt-1",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+          )}>
             This is the job price shown on the Jobs page (not the individual assignee pay).
           </p>
         )}
@@ -398,7 +413,10 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
         rows={3}
       />
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">Status</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Status</label>
         <Select
           value={selectedStatus}
           onChange={e => {
@@ -410,7 +428,10 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           Contact (optional)
         </label>
         <Select
@@ -433,17 +454,31 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
       )}
       {!showSimplifiedForm && canShowAssignee && (
         <div className="pt-2">
-          <label className="block text-sm font-medium text-primary-light mb-2">
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Assign to Team Members (with Roles & Pricing)
           </label>
-          <p className="text-xs text-primary-light/50 mb-4">
+          <p className={cn(
+            "text-xs mb-4",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+          )}>
             Assign team members to this job and set their role and individual pricing. Team members
             can only see their own pricing.
           </p>
           <div className="space-y-3">
             {assignments.length === 0 ? (
-              <div className="border border-primary-blue/30 rounded-lg p-4 bg-primary-dark-secondary/30 text-center">
-                <p className="text-sm text-primary-light/70 mb-3">No team members assigned yet</p>
+              <div className={cn(
+                "border rounded-lg p-4 text-center",
+                theme === 'dark'
+                  ? 'border-primary-blue/30 bg-primary-dark-secondary/30'
+                  : 'border-gray-200/20 bg-gray-50'
+              )}>
+                <p className={cn(
+                  "text-sm mb-3",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>No team members assigned yet</p>
                 <Button
                   type="button"
                   variant="ghost"
@@ -473,12 +508,20 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
                   return (
                     <div
                       key={index}
-                      className="border border-primary-blue rounded-lg p-3 bg-primary-dark-secondary/50 space-y-3"
+                      className={cn(
+                        "border rounded-lg p-3 space-y-3",
+                        theme === 'dark'
+                          ? 'border-primary-blue bg-primary-dark-secondary/50'
+                          : 'border-gray-200/20 bg-gray-50'
+                      )}
                     >
                       <div className="flex flex-col sm:flex-row items-start gap-3">
                         <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                            <label className={cn(
+                              "block text-xs font-medium mb-1",
+                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                            )}>
                               Team Member
                             </label>
                             <Select
@@ -496,7 +539,10 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                            <label className={cn(
+                              "block text-xs font-medium mb-1",
+                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                            )}>
                               Role
                             </label>
                             {jobRoles.length > 0 ? (
@@ -559,7 +605,10 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
                             )}
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                            <label className={cn(
+                              "block text-xs font-medium mb-1",
+                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                            )}>
                               Pay Type
                             </label>
                             <Select
@@ -585,11 +634,17 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
                           </div>
                           {assignment.payType === 'hourly' ? (
                             <div>
-                              <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                              <label className={cn(
+                                "block text-xs font-medium mb-1",
+                                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                              )}>
                                 Hourly Rate
                               </label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+                                <span className={cn(
+                                  "absolute left-3 top-1/2 -translate-y-1/2 text-sm",
+                                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                                )}>
                                   $
                                 </span>
                                 <Input
@@ -617,11 +672,17 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
                             </div>
                           ) : (
                             <div>
-                              <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                              <label className={cn(
+                                "block text-xs font-medium mb-1",
+                                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                              )}>
                                 Price
                               </label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+                                <span className={cn(
+                                  "absolute left-3 top-1/2 -translate-y-1/2 text-sm",
+                                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                                )}>
                                   $
                                 </span>
                                 <Input

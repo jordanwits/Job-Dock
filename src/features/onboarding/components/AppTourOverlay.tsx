@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface TourStep {
   path: string
@@ -49,6 +51,7 @@ const TOUR_STEPS: TourStep[] = [
 ]
 
 export const AppTourOverlay = () => {
+  const { theme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -116,7 +119,10 @@ export const AppTourOverlay = () => {
       mobilePosition="bottom"
       footer={
         <>
-          <div className="flex-1 text-sm text-primary-light/60">
+          <div className={cn(
+            "flex-1 text-sm",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             Step {currentStepIndex + 1} of {TOUR_STEPS.length}
           </div>
           {!isFirstStep && (
@@ -132,20 +138,26 @@ export const AppTourOverlay = () => {
       }
     >
       <div className="space-y-4">
-        <p className="text-primary-light text-base leading-relaxed">{currentStep.description}</p>
+        <p className={cn(
+          "text-base leading-relaxed",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>{currentStep.description}</p>
 
         {/* Progress indicator */}
         <div className="flex gap-2 pt-4">
           {TOUR_STEPS.map((_, index) => (
             <div
               key={index}
-              className={`h-2 flex-1 rounded-full transition-colors ${
+              className={cn(
+                "h-2 flex-1 rounded-full transition-colors",
                 index === currentStepIndex
                   ? 'bg-primary-gold'
                   : index < currentStepIndex
                     ? 'bg-primary-blue'
-                    : 'bg-primary-dark'
-              }`}
+                    : theme === 'dark'
+                      ? 'bg-primary-dark'
+                      : 'bg-gray-300'
+              )}
             />
           ))}
         </div>

@@ -2,6 +2,7 @@ import { Contact } from '../types/contact'
 import { useContactStore } from '../store/contactStore'
 import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface ContactCardProps {
   contact: Contact
@@ -11,13 +12,24 @@ interface ContactCardProps {
 
 const ContactCard = ({ contact, isSelected, onToggleSelect }: ContactCardProps) => {
   const { setSelectedContact } = useContactStore()
+  const { theme } = useTheme()
 
   const statusColors = {
-    customer: 'bg-green-500/20 text-green-400 border-green-500/30',
-    inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    lead: 'bg-primary-gold/20 text-primary-gold border-primary-gold/30',
-    prospect: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    contact: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+    customer: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
+    inactive: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-700 border-gray-400',
+    lead: theme === 'dark'
+      ? 'bg-primary-gold/20 text-primary-gold border-primary-gold/30'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    prospect: theme === 'dark'
+      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    contact: theme === 'dark'
+      ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
+      : 'bg-cyan-100 text-cyan-700 border-cyan-300',
   }
 
   const fullName = `${contact.firstName} ${contact.lastName}`
@@ -45,11 +57,16 @@ const ContactCard = ({ contact, isSelected, onToggleSelect }: ContactCardProps) 
                 "w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center",
                 isSelected 
                   ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                  : "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                  : theme === 'dark'
+                    ? "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
+                    : "border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100"
               )}
             >
               {isSelected && (
-                <div className="w-2.5 h-2.5 rounded-full bg-primary-dark" />
+                <div className={cn(
+                  "w-2.5 h-2.5 rounded-full",
+                  theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                )} />
               )}
             </div>
           </div>
@@ -58,11 +75,17 @@ const ContactCard = ({ contact, isSelected, onToggleSelect }: ContactCardProps) 
         {/* Header */}
         <div className={cn("flex items-start justify-between", onToggleSelect && "pl-8")}>
           <div>
-            <h3 className="text-lg font-semibold text-primary-light">
+            <h3 className={cn(
+              "text-lg font-semibold",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>
               {fullName}
             </h3>
             {contact.jobTitle && (
-              <p className="text-sm text-primary-light/70">{contact.jobTitle}</p>
+              <p className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>{contact.jobTitle}</p>
             )}
           </div>
           <span
@@ -77,11 +100,17 @@ const ContactCard = ({ contact, isSelected, onToggleSelect }: ContactCardProps) 
 
         {/* Company */}
         {contact.company && (
-          <p className="text-sm text-primary-light/80">{contact.company}</p>
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+          )}>{contact.company}</p>
         )}
 
         {/* Contact Info */}
-        <div className="space-y-1 text-sm text-primary-light/70">
+        <div className={cn(
+          "space-y-1 text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>
           {contact.email && (
             <div className="flex items-center gap-2">
               <svg
@@ -126,13 +155,21 @@ const ContactCard = ({ contact, isSelected, onToggleSelect }: ContactCardProps) 
             {contact.tags.slice(0, 3).map((tag, index) => (
               <span
                 key={index}
-                className="px-2 py-0.5 text-xs bg-primary-blue/20 text-primary-blue rounded"
+                className={cn(
+                  "px-2 py-0.5 text-xs rounded",
+                  theme === 'dark'
+                    ? 'bg-primary-blue/20 text-primary-blue'
+                    : 'bg-blue-100 text-blue-700'
+                )}
               >
                 {tag}
               </span>
             ))}
             {contact.tags.length > 3 && (
-              <span className="px-2 py-0.5 text-xs text-primary-light/50">
+              <span className={cn(
+                "px-2 py-0.5 text-xs",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 +{contact.tags.length - 3}
               </span>
             )}

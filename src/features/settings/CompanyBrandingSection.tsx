@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { Input, Button, PhoneInput } from '@/components/ui'
 import { TenantSettings } from '@/lib/api/settings'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface CompanyBrandingSectionProps {
   formData: {
@@ -21,6 +23,7 @@ export const CompanyBrandingSection = ({
   onLogoUpload,
   onSave,
 }: CompanyBrandingSectionProps) => {
+  const { theme } = useTheme()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -52,7 +55,10 @@ export const CompanyBrandingSection = ({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-primary-light">Company & Branding</h2>
+      <h2 className={cn(
+        "text-xl font-semibold",
+        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+      )}>Company & Branding</h2>
       <div className="space-y-4">
         <Input
           label="Company Name"
@@ -79,16 +85,25 @@ export const CompanyBrandingSection = ({
         />
 
         <div>
-          <label className="block text-sm font-medium text-primary-light mb-2">
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Company Logo
           </label>
-          <p className="text-sm text-primary-light/70 mb-3">
+          <p className={cn(
+            "text-sm mb-3",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             Upload your company logo. It will appear on invoices, quotes, and emails.
             Supported formats: PNG, JPEG, SVG. Max size: 5MB.
           </p>
 
           {settings?.logoSignedUrl && (
-            <div className="mb-3 p-4 bg-primary-dark-secondary rounded-lg">
+            <div className={cn(
+              "mb-3 p-4 rounded-lg",
+              theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-100'
+            )}>
               <img
                 src={settings.logoSignedUrl}
                 alt="Company logo"

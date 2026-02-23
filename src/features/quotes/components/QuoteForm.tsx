@@ -6,6 +6,8 @@ import { Quote } from '../types/quote'
 import { Input, Button, DatePicker, Select, Modal } from '@/components/ui'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import ContactForm from '@/features/crm/components/ContactForm'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface QuoteFormProps {
   quote?: Quote
@@ -28,6 +30,7 @@ const QuoteForm = ({
   defaultTitle,
   defaultNotes,
 }: QuoteFormProps) => {
+  const { theme } = useTheme()
   const { contacts, fetchContacts, createContact } = useContactStore()
   const [showCreateContact, setShowCreateContact] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
@@ -203,7 +206,10 @@ const QuoteForm = ({
         {/* Line Items */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-primary-light">Line Items *</label>
+            <label className={cn(
+              "block text-sm font-medium",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>Line Items *</label>
             <Button
               type="button"
               variant="ghost"
@@ -218,10 +224,18 @@ const QuoteForm = ({
             {fields.map((field, index) => (
               <div
                 key={field.id}
-                className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary space-y-3"
+                className={cn(
+                  "p-4 rounded-lg border space-y-3",
+                  theme === 'dark'
+                    ? 'border-primary-blue bg-primary-dark-secondary'
+                    : 'border-gray-200 bg-white'
+                )}
               >
                 <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-primary-light">Item {index + 1}</span>
+                  <span className={cn(
+                    "text-sm font-medium",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>Item {index + 1}</span>
                   {fields.length > 1 && (
                     <Button
                       type="button"
@@ -265,7 +279,10 @@ const QuoteForm = ({
                   />
                 </div>
 
-                <div className="text-right text-sm text-primary-light/70">
+                <div className={cn(
+                  "text-right text-sm",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>
                   Total:{' '}
                   {formatCurrency(
                     (Number(watchedLineItems[index]?.quantity) || 0) *
@@ -313,24 +330,47 @@ const QuoteForm = ({
         )}
 
         {/* Totals Summary */}
-        <div className="p-4 rounded-lg border border-primary-blue bg-primary-dark-secondary">
+        <div className={cn(
+          "p-4 rounded-lg border",
+          theme === 'dark'
+            ? 'border-primary-blue bg-primary-dark-secondary'
+            : 'border-gray-200 bg-white'
+        )}>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-primary-light/70">Subtotal</span>
-              <span className="text-primary-light">{formatCurrency(subtotal)}</span>
+              <span className={cn(
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Subtotal</span>
+              <span className={cn(
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-primary-light/70">Tax ({watchedTaxRatePercent}%)</span>
-              <span className="text-primary-light">{formatCurrency(taxAmount)}</span>
+              <span className={cn(
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Tax ({watchedTaxRatePercent}%)</span>
+              <span className={cn(
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>{formatCurrency(taxAmount)}</span>
             </div>
             {watchedDiscount > 0 && (
               <div className="flex justify-between">
-                <span className="text-primary-light/70">Discount</span>
-                <span className="text-primary-light">-{formatCurrency(watchedDiscount)}</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>Discount</span>
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>-{formatCurrency(watchedDiscount)}</span>
               </div>
             )}
-            <div className="flex justify-between pt-2 border-t border-primary-blue">
-              <span className="text-lg font-semibold text-primary-light">Total</span>
+            <div className={cn(
+              "flex justify-between pt-2 border-t",
+              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+            )}>
+              <span className={cn(
+                "text-lg font-semibold",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>Total</span>
               <span className="text-lg font-bold text-primary-gold">{formatCurrency(total)}</span>
             </div>
           </div>
@@ -347,9 +387,17 @@ const QuoteForm = ({
         />
 
         <div>
-          <label className="block text-sm font-medium text-primary-light mb-2">Notes</label>
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Notes</label>
           <textarea
-            className="flex min-h-[100px] w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold disabled:cursor-not-allowed disabled:opacity-50"
+            className={cn(
+              "flex min-h-[100px] w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold disabled:cursor-not-allowed disabled:opacity-50",
+              theme === 'dark'
+                ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+                : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+            )}
             placeholder="Add notes about this quote..."
             {...register('notes')}
           />

@@ -4,6 +4,8 @@ import { Button, DatePicker, Textarea } from '@/components/ui'
 import { useJobLogStore } from '../store/jobLogStore'
 import type { JobLogNoteEntry } from '../types/jobLog'
 import { parseNotes, serializeNotes } from '../utils/notesUtils'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface JobLogNotesProps {
   jobLogId: string
@@ -11,6 +13,7 @@ interface JobLogNotesProps {
 }
 
 const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
+  const { theme } = useTheme()
   const { updateJobLog } = useJobLogStore()
   const [entries, setEntries] = useState<JobLogNoteEntry[]>(() => parseNotes(initialNotes))
   const [isSaving, setIsSaving] = useState(false)
@@ -81,7 +84,10 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h5 className="text-sm font-medium text-primary-light/80">Notes</h5>
+          <h5 className={cn(
+            "text-sm font-medium",
+            theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightText'
+          )}>Notes</h5>
           <Button type="button" size="sm" variant="outline" onClick={addEntry}>
             Add entry
           </Button>
@@ -94,15 +100,29 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
               tabIndex={0}
               onClick={expandToEditAll}
               onKeyDown={e => e.key === 'Enter' && expandToEditAll()}
-              className="flex items-center justify-between gap-2 rounded-lg border border-primary-blue/50 bg-primary-dark/30 px-3 py-2 cursor-pointer hover:bg-primary-dark/50 transition-colors"
+              className={cn(
+                "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors",
+                theme === 'dark'
+                  ? 'border-primary-blue/50 bg-primary-dark/30 hover:bg-primary-dark/50'
+                  : 'border-gray-200/20 bg-gray-50 hover:bg-gray-100'
+              )}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-primary-light truncate">{truncate(entry.text, 120)}</p>
+                <p className={cn(
+                  "text-sm truncate",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>{truncate(entry.text, 120)}</p>
                 {entry.date && (
-                  <p className="text-xs text-primary-light/50 mt-0.5">{formatDate(entry.date)}</p>
+                  <p className={cn(
+                    "text-xs mt-0.5",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                  )}>{formatDate(entry.date)}</p>
                 )}
               </div>
-              <span className="text-primary-light/60 shrink-0">Edit</span>
+              <span className={cn(
+                "shrink-0",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>Edit</span>
             </li>
           ))}
         </ul>
@@ -115,7 +135,10 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h5 className="text-sm font-medium text-primary-light/80">Notes</h5>
+          <h5 className={cn(
+            "text-sm font-medium",
+            theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightText'
+          )}>Notes</h5>
           <Button type="button" size="sm" variant="outline" onClick={addEntry}>
             Add entry
           </Button>
@@ -128,15 +151,29 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
               tabIndex={0}
               onClick={expandToEditAll}
               onKeyDown={e => e.key === 'Enter' && expandToEditAll()}
-              className="flex items-center justify-between gap-2 rounded-lg border border-primary-blue/50 bg-primary-dark/30 px-3 py-2 cursor-pointer hover:bg-primary-dark/50 transition-colors"
+              className={cn(
+                "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors",
+                theme === 'dark'
+                  ? 'border-primary-blue/50 bg-primary-dark/30 hover:bg-primary-dark/50'
+                  : 'border-gray-200/20 bg-gray-50 hover:bg-gray-100'
+              )}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-primary-light truncate">{truncate(entry.text, 120)}</p>
+                <p className={cn(
+                  "text-sm truncate",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>{truncate(entry.text, 120)}</p>
                 {entry.date && (
-                  <p className="text-xs text-primary-light/50 mt-0.5">{formatDate(entry.date)}</p>
+                  <p className={cn(
+                    "text-xs mt-0.5",
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                  )}>{formatDate(entry.date)}</p>
                 )}
               </div>
-              <span className="text-primary-light/60 shrink-0">Edit</span>
+              <span className={cn(
+                "shrink-0",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>Edit</span>
             </li>
           ))}
         </ul>
@@ -145,7 +182,12 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
           return (
             <div
               key={index}
-              className="space-y-2 rounded-lg border border-primary-blue/50 bg-primary-dark/30 p-3"
+              className={cn(
+                "space-y-2 rounded-lg border p-3",
+                theme === 'dark'
+                  ? 'border-primary-blue/50 bg-primary-dark/30'
+                  : 'border-gray-200/20 bg-gray-50'
+              )}
             >
               <div className="flex gap-2 items-start">
                 <div className="flex-1 min-w-0 space-y-2">
@@ -170,7 +212,7 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
                         size="sm"
                         variant="ghost"
                         onClick={() => updateEntry(index, { date: undefined })}
-                        className="text-primary-light/60 hover:text-primary-light"
+                        className={theme === 'dark' ? 'text-primary-light/60 hover:text-primary-light' : 'text-primary-lightTextSecondary hover:text-primary-lightText'}
                       >
                         Clear date
                       </Button>
@@ -204,7 +246,10 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h5 className="text-sm font-medium text-primary-light/80">Notes</h5>
+        <h5 className={cn(
+          "text-sm font-medium",
+          theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightText'
+        )}>Notes</h5>
         <Button size="sm" variant="outline" onClick={addEntry}>
           Add entry
         </Button>
@@ -214,7 +259,12 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
         {entries.map((entry, index) => (
           <div
             key={index}
-            className="space-y-2 rounded-lg border border-primary-blue/50 bg-primary-dark/30 p-3"
+            className={cn(
+              "space-y-2 rounded-lg border p-3",
+              theme === 'dark'
+                ? 'border-primary-blue/50 bg-primary-dark/30'
+                : 'border-gray-200/20 bg-gray-50'
+            )}
           >
             <div className="flex gap-2 items-start">
               <div className="flex-1 min-w-0 space-y-2">
@@ -239,7 +289,7 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
                       size="sm"
                       variant="ghost"
                       onClick={() => updateEntry(index, { date: undefined })}
-                      className="text-primary-light/60 hover:text-primary-light"
+                      className={theme === 'dark' ? 'text-primary-light/60 hover:text-primary-light' : 'text-primary-lightTextSecondary hover:text-primary-lightText'}
                     >
                       Clear date
                     </Button>
@@ -260,7 +310,10 @@ const JobLogNotes = ({ jobLogId, initialNotes = '' }: JobLogNotesProps) => {
       </div>
 
       {entries.length === 0 && (
-        <p className="text-sm text-primary-light/50 py-4">
+        <p className={cn(
+          "text-sm py-4",
+          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+        )}>
           No notes yet. Add an entry to get started.
         </p>
       )}

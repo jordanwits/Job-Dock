@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export interface SearchableSelectProps {
   label?: string
@@ -26,6 +27,7 @@ const SearchableSelect = ({
   disabled,
   className,
 }: SearchableSelectProps) => {
+  const { theme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -79,7 +81,10 @@ const SearchableSelect = ({
   return (
     <div className={cn('w-full', className)}>
       {label && (
-        <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>{label}</label>
       )}
 
       <div className="relative w-full" ref={containerRef}>
@@ -88,13 +93,15 @@ const SearchableSelect = ({
           onClick={handleToggle}
           disabled={disabled}
           className={cn(
-            'flex h-10 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm text-primary-light',
-            'bg-primary-dark-secondary border-primary-blue',
+            'flex h-10 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
             'disabled:cursor-not-allowed disabled:opacity-50',
             error && 'border-red-500 focus-visible:ring-red-500',
             isOpen && 'border-primary-gold ring-2 ring-primary-gold',
-            !selectedOption && 'text-primary-light/50'
+            theme === 'dark'
+              ? 'bg-primary-dark-secondary border-primary-blue text-primary-light'
+              : 'bg-white border-gray-200/20 text-primary-lightText',
+            !selectedOption && (theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary')
           )}
         >
           <span className="truncate">{displayValue}</span>
@@ -119,17 +126,30 @@ const SearchableSelect = ({
         {isOpen && (
           <div
             ref={dropdownRef}
-            className="absolute z-50 mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl max-h-80 overflow-hidden flex flex-col"
+            className={cn(
+              "absolute z-50 mt-2 w-full rounded-lg border shadow-xl max-h-80 overflow-hidden flex flex-col",
+              theme === 'dark'
+                ? 'border-primary-blue bg-primary-dark-secondary'
+                : 'border-gray-200/20 bg-white'
+            )}
           >
             {/* Search input */}
-            <div className="p-2 border-b border-primary-blue/30">
+            <div className={cn(
+              "p-2 border-b",
+              theme === 'dark' ? 'border-primary-blue/30' : 'border-gray-200/20'
+            )}>
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full rounded-lg border border-primary-blue bg-primary-dark px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+                className={cn(
+                  "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+                  theme === 'dark'
+                    ? 'border-primary-blue bg-primary-dark text-primary-light placeholder:text-primary-light/50'
+                    : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+                )}
                 onClick={e => e.stopPropagation()}
               />
             </div>
@@ -137,7 +157,10 @@ const SearchableSelect = ({
             {/* Options list */}
             <div className="overflow-y-auto max-h-64">
               {filteredOptions.length === 0 ? (
-                <div className="p-4 text-center text-sm text-primary-light/50">
+                <div className={cn(
+                  "p-4 text-center text-sm",
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}>
                   {searchQuery ? 'No results found' : 'No options available'}
                 </div>
               ) : (
@@ -154,7 +177,9 @@ const SearchableSelect = ({
                           'w-full px-3 py-2 text-sm rounded-lg text-left transition-colors',
                           isSelected
                             ? 'bg-primary-blue text-primary-light font-medium'
-                            : 'text-primary-light hover:bg-primary-dark'
+                            : theme === 'dark'
+                              ? 'text-primary-light hover:bg-primary-dark'
+                              : 'text-primary-lightText hover:bg-gray-100'
                         )}
                       >
                         {option.label}
@@ -169,7 +194,12 @@ const SearchableSelect = ({
       </div>
 
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-      {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
+      {helperText && !error && (
+        <p className={cn(
+          "mt-1 text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>{helperText}</p>
+      )}
     </div>
   )
 }

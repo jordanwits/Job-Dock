@@ -4,6 +4,7 @@ import type { Job } from '../types/job'
 import JobCard from './JobCard'
 import { startOfMonth, endOfMonth, addMonths, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 type TimeFrame = 'day' | 'week' | 'month'
 
@@ -19,6 +20,7 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
     currentDate,
     fetchJobs,
   } = useJobStore()
+  const { theme } = useTheme()
 
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('week')
 
@@ -63,7 +65,9 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="text-primary-light/70">Loading jobs...</div>
+        <div className={cn(
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>Loading jobs...</div>
       </div>
     )
   }
@@ -78,7 +82,9 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
             'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
             timeFrame === 'day'
               ? 'bg-primary-gold text-primary-dark'
-              : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+              : theme === 'dark'
+                ? 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                : 'bg-gray-100 text-primary-lightText hover:bg-gray-200'
           )}
         >
           Day
@@ -89,7 +95,9 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
             'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
             timeFrame === 'week'
               ? 'bg-primary-gold text-primary-dark'
-              : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+              : theme === 'dark'
+                ? 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                : 'bg-gray-100 text-primary-lightText hover:bg-gray-200'
           )}
         >
           Week
@@ -100,7 +108,9 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
             'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
             timeFrame === 'month'
               ? 'bg-primary-gold text-primary-dark'
-              : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+              : theme === 'dark'
+                ? 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                : 'bg-gray-100 text-primary-lightText hover:bg-gray-200'
           )}
         >
           Month
@@ -111,7 +121,9 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
       <div className="flex-1 overflow-y-auto">
         {filteredJobs.length === 0 ? (
           <div className="p-6 text-center">
-            <p className="text-primary-light/70">
+            <p className={cn(
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>
               No upcoming jobs scheduled for the next {timeFrame}
             </p>
           </div>

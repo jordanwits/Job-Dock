@@ -13,6 +13,8 @@ import { useAuthStore } from '@/features/auth/store/authStore'
 import { useJobStore } from '../store/jobStore'
 import { services as apiServices } from '@/lib/api/services'
 import { format, addWeeks, addMonths } from 'date-fns'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface JobFormProps {
   job?: Job
@@ -74,7 +76,8 @@ const JobForm = ({
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
   const { user } = useAuthStore()
-  const { jobs: allJobs, fetchJobs } = useJobStore()
+  const { jobs: allJobs, jobsForLink, fetchJobs, fetchJobsForLink } = useJobStore()
+  const { theme } = useTheme()
   const canSchedule = user?.canScheduleAppointments !== false
   const canCreateJobs = user?.canCreateJobs !== false
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
@@ -198,23 +201,22 @@ const JobForm = ({
     }
   }, [propExistingJobId])
 
-  // Fetch jobs for selector when allowLinkExistingJob is true
+  // Fetch jobs for "link to existing job" selector - includes ALL jobs (even those without bookings)
   useEffect(() => {
     if (allowLinkExistingJob && canSeeOtherJobs && !schedulingUnscheduledJob && !job) {
-      // Fetch jobs from a wide date range to get all available jobs
       const startDate = new Date()
-      startDate.setMonth(startDate.getMonth() - 6) // 6 months back
+      startDate.setFullYear(startDate.getFullYear() - 10)
       const endDate = new Date()
-      endDate.setMonth(endDate.getMonth() + 12) // 12 months forward
-      fetchJobs(startDate, endDate, false, false)
+      endDate.setFullYear(endDate.getFullYear() + 10)
+      fetchJobsForLink(startDate, endDate)
     }
-  }, [allowLinkExistingJob, canSeeOtherJobs, schedulingUnscheduledJob, job, fetchJobs])
+  }, [allowLinkExistingJob, canSeeOtherJobs, schedulingUnscheduledJob, job, fetchJobsForLink])
 
-  // Filter available jobs based on contact
+  // Filter available jobs based on contact (use jobsForLink when linking - includes unlinked jobs)
   const filteredJobs = useMemo(() => {
     if (!allowLinkExistingJob || !canSeeOtherJobs) return []
-    
-    const filtered = allJobs.filter(j => {
+    const source = allowLinkExistingJob ? jobsForLink : allJobs
+    const filtered = source.filter(j => {
       // Exclude archived/deleted jobs
       if (j.archivedAt || j.deletedAt) return false
       // Exclude the current job if editing
@@ -223,9 +225,15 @@ const JobForm = ({
       if (defaultContactId && j.contactId !== defaultContactId) return false
       return true
     })
-
-    return filtered.slice(0, 100) // Limit to 100 results (SearchableSelect will handle search filtering)
-  }, [allJobs, defaultContactId, allowLinkExistingJob, canSeeOtherJobs, job])
+    // Deduplicate by job id - jobs with multiple bookings can appear multiple times from the API
+    const seen = new Set<string>()
+    const deduped = filtered.filter(j => {
+      if (seen.has(j.id)) return false
+      seen.add(j.id)
+      return true
+    })
+    return deduped.slice(0, 100) // Limit to 100 results (SearchableSelect will handle search filtering)
+  }, [allJobs, jobsForLink, defaultContactId, allowLinkExistingJob, canSeeOtherJobs, job])
 
   useEffect(() => {
     const role = user?.role
@@ -931,7 +939,10 @@ const JobForm = ({
                 }}
                 className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
               />
-              <span className="text-sm text-primary-light">Create New Job</span>
+              <span className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>Create New Job</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -941,7 +952,10 @@ const JobForm = ({
                 onChange={() => setJobSelectionMode('existing')}
                 className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
               />
-              <span className="text-sm text-primary-light">Link to Existing Job</span>
+              <span className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>Link to Existing Job</span>
             </label>
           </div>
 
@@ -966,7 +980,10 @@ const JobForm = ({
 
       {/* Job Title - Always a text field */}
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">Job Title *</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Job Title *</label>
         <Input
           {...register('title')}
           error={errors.title?.message}
@@ -975,11 +992,19 @@ const JobForm = ({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">Description</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Description</label>
         <textarea
           {...register('description')}
           rows={3}
-          className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+          className={cn(
+            "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+            theme === 'dark'
+              ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+              : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+          )}
           placeholder="Add job description..."
         />
       </div>
@@ -1007,7 +1032,10 @@ const JobForm = ({
       {/* Location field - shown in both simplified and full forms */}
       {showSimplifiedForm ? (
         <div>
-          <label className="block text-sm font-medium text-primary-light mb-2">Location</label>
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Location</label>
           <Input
             {...register('location')}
             error={errors.location?.message}
@@ -1021,17 +1049,31 @@ const JobForm = ({
         <>
       {canShowAssignee && (
         <div className="pt-2">
-          <label className="block text-sm font-medium text-primary-light mb-2">
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Assign to Team Members (with Roles & Pricing)
           </label>
-          <p className="text-xs text-primary-light/50 mb-4">
+          <p className={cn(
+            "text-xs mb-4",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+          )}>
             Assign team members to this job and set their role and individual pricing. Team members
             can only see their own pricing.
           </p>
           <div className="space-y-3">
             {assignments.length === 0 ? (
-              <div className="border border-primary-blue/30 rounded-lg p-4 bg-primary-dark-secondary/30 text-center">
-                <p className="text-sm text-primary-light/70 mb-3">No team members assigned yet</p>
+              <div className={cn(
+                "border rounded-lg p-4 text-center",
+                theme === 'dark' 
+                  ? 'border-primary-blue/30 bg-primary-dark-secondary/30' 
+                  : 'border-gray-200/20 bg-gray-50'
+              )}>
+                <p className={cn(
+                  "text-sm mb-3",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>No team members assigned yet</p>
                 <Button
                   type="button"
                   variant="ghost"
@@ -1052,12 +1094,20 @@ const JobForm = ({
                   return (
                     <div
                       key={index}
-                      className="border border-primary-blue rounded-lg p-3 bg-primary-dark-secondary/50 space-y-3"
+                      className={cn(
+                        "border rounded-lg p-3 space-y-3",
+                        theme === 'dark' 
+                          ? 'border-primary-blue bg-primary-dark-secondary/50' 
+                          : 'border-gray-200/20 bg-gray-50'
+                      )}
                     >
                       <div className="flex flex-col sm:flex-row items-start gap-3">
                         <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                            <label className={cn(
+                              "block text-xs font-medium mb-1",
+                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                            )}>
                               Team Member
                             </label>
                             <Select
@@ -1075,7 +1125,10 @@ const JobForm = ({
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                            <label className={cn(
+                              "block text-xs font-medium mb-1",
+                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                            )}>
                               Role
                             </label>
                             {jobRoles.length > 0 ? (
@@ -1126,7 +1179,10 @@ const JobForm = ({
                             )}
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                            <label className={cn(
+                              "block text-xs font-medium mb-1",
+                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                            )}>
                               Pay Type
                             </label>
                             <Select
@@ -1152,11 +1208,17 @@ const JobForm = ({
                           </div>
                           {assignment.payType === 'hourly' ? (
                             <div>
-                              <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                              <label className={cn(
+                                "block text-xs font-medium mb-1",
+                                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                              )}>
                                 Hourly Rate
                               </label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+                                <span className={cn(
+                                  "absolute left-3 top-1/2 -translate-y-1/2 text-sm",
+                                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                                )}>
                                   $
                                 </span>
                                 <Input
@@ -1188,11 +1250,17 @@ const JobForm = ({
                             </div>
                           ) : (
                             <div>
-                            <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                            <label className={cn(
+                              "block text-xs font-medium mb-1",
+                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                            )}>
                               Price
                             </label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70 text-sm">
+                                <span className={cn(
+                                  "absolute left-3 top-1/2 -translate-y-1/2 text-sm",
+                                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                                )}>
                                   $
                                 </span>
                                 <Input
@@ -1272,7 +1340,12 @@ const JobForm = ({
 
       {/* To Be Scheduled checkbox - show if user can schedule appointments */}
       {canSchedule && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary-blue/5 border border-primary-blue/30">
+        <div className={cn(
+          "flex items-center gap-2 p-3 rounded-lg border",
+          theme === 'dark' 
+            ? 'bg-primary-blue/5 border-primary-blue/30' 
+            : 'bg-blue-50 border-blue-200'
+        )}>
           <input
             type="checkbox"
             id="toBeScheduled"
@@ -1284,15 +1357,24 @@ const JobForm = ({
                 setRepeatPattern('none')
               }
             }}
-            className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer"
+            className={cn(
+              "w-4 h-4 rounded border-primary-blue text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer",
+              theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
+            )}
           />
           <label
             htmlFor="toBeScheduled"
-            className="text-sm font-medium text-primary-light cursor-pointer"
+            className={cn(
+              "text-sm font-medium cursor-pointer",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}
           >
             To Be Scheduled
           </label>
-          <span className="text-xs text-primary-light/50 ml-auto">(Schedule date/time later)</span>
+          <span className={cn(
+            "text-xs ml-auto",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+          )}>(Schedule date/time later)</span>
         </div>
       )}
       {!canSchedule && (
@@ -1307,7 +1389,10 @@ const JobForm = ({
       {/* Job Time */}
       {!isAllDay && !toBeScheduled && (
         <div>
-          <label className="block text-sm font-medium text-primary-light mb-2">Job Time *</label>
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Job Time *</label>
           <div className="flex gap-2">
             <input
               type="number"
@@ -1315,7 +1400,12 @@ const JobForm = ({
               onChange={e => setDurationValue(Number(e.target.value))}
               min={0.1}
               step={0.1}
-              className="w-24 rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+              className={cn(
+                "w-24 rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+                theme === 'dark'
+                  ? 'border-primary-blue bg-primary-dark-secondary text-primary-light'
+                  : 'border-gray-200/20 bg-white text-primary-lightText'
+              )}
             />
             <Select
               value={durationUnit}
@@ -1350,11 +1440,17 @@ const JobForm = ({
                   setDurationValue(1)
                 }
               }}
-              className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer"
+              className={cn(
+                "w-4 h-4 rounded border-primary-blue text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer",
+                theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
+              )}
             />
             <label
               htmlFor="isAllDay"
-              className="text-sm font-medium text-primary-light cursor-pointer"
+              className={cn(
+                "text-sm font-medium cursor-pointer",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}
             >
               All Day Event
             </label>
@@ -1401,7 +1497,10 @@ const JobForm = ({
 
           {/* End time/date preview */}
           {startDate && (
-            <div className="text-xs text-primary-light/50">
+            <div className={cn(
+              "text-xs",
+              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+            )}>
               {isAllDay ? (
                 <p>
                   All-day event: {format(new Date(startDate), 'MMM d, yyyy')}
@@ -1462,7 +1561,10 @@ const JobForm = ({
       )}
 
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">Location</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Location</label>
         <Select
           value={locationMode}
           onChange={e => {
@@ -1495,11 +1597,19 @@ const JobForm = ({
               setValue('location', e.target.value)
             }}
             placeholder="e.g., 123 Main St, New York, NY"
-            className="mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+            className={cn(
+              "mt-2 w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+              theme === 'dark'
+                ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+                : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+            )}
           />
         )}
         {locationMode === 'contact' && watch('contactId') && (
-          <p className="mt-2 text-xs text-primary-light/50">
+          <p className={cn(
+            "mt-2 text-xs",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+          )}>
             {(() => {
               const contact = contacts.find(c => c.id === watch('contactId'))
               if (contact && contact.address) {
@@ -1515,9 +1625,15 @@ const JobForm = ({
 
       {/* Price Field */}
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">Price</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Price</label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-light/70">$</span>
+          <span className={cn(
+            "absolute left-3 top-1/2 -translate-y-1/2",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>$</span>
           <Input
             {...register('price')}
             type="number"
@@ -1530,18 +1646,27 @@ const JobForm = ({
           />
         </div>
         {!canSeeJobPrices ? (
-          <p className="text-xs text-primary-light/50 mt-1 text-yellow-400">Insufficient permissions to view or edit prices</p>
+          <p className="text-xs text-yellow-400 mt-1">Insufficient permissions to view or edit prices</p>
         ) : (
-          <p className="text-xs text-primary-light/50 mt-1">Optional job price or estimated cost</p>
+          <p className={cn(
+            "text-xs mt-1",
+            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+          )}>Optional job price or estimated cost</p>
         )}
       </div>
 
       {/* Job Timeline & Breaks */}
-      <div className="border-t border-primary-blue pt-4">
+      <div className={cn(
+        "border-t pt-4",
+        theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
+      )}>
         <button
           type="button"
           onClick={() => setShowBreaks(!showBreaks)}
-          className="flex items-center gap-2 text-sm font-medium text-primary-light mb-2"
+          className={cn(
+            "flex items-center gap-2 text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}
         >
           <span className="text-primary-gold">{showBreaks ? '▼' : '▶'}</span>
           <span>Job Timeline & Breaks (Optional)</span>
@@ -1554,17 +1679,28 @@ const JobForm = ({
 
         {showBreaks && (
           <div className="space-y-3 mt-3">
-            <p className="text-xs text-primary-light/50">
+            <p className={cn(
+              "text-xs",
+              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+            )}>
               Add planned pauses to the job timeline (e.g., rain delays, material delivery waits)
             </p>
 
             {breaks.map((breakItem, index) => (
               <div
                 key={index}
-                className="border border-primary-blue rounded-lg p-3 space-y-3 bg-primary-dark-secondary/50"
+                className={cn(
+                  "border rounded-lg p-3 space-y-3",
+                  theme === 'dark' 
+                    ? 'border-primary-blue bg-primary-dark-secondary/50' 
+                    : 'border-gray-200/20 bg-gray-50'
+                )}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-primary-light">Break {index + 1}</span>
+                  <span className={cn(
+                    "text-sm font-medium",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>Break {index + 1}</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -1579,7 +1715,10 @@ const JobForm = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                    <label className={cn(
+                      "block text-xs font-medium mb-1",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Pause From
                     </label>
                     <DatePicker
@@ -1595,7 +1734,10 @@ const JobForm = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                    <label className={cn(
+                      "block text-xs font-medium mb-1",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>
                       Resume On
                     </label>
                     <DatePicker
@@ -1613,7 +1755,10 @@ const JobForm = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-primary-light/70 mb-1">
+                  <label className={cn(
+                    "block text-xs font-medium mb-1",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Reason (Optional)
                   </label>
                   <input
@@ -1625,7 +1770,12 @@ const JobForm = ({
                       setBreaks(newBreaks)
                     }}
                     placeholder="e.g., Rain delay, material delivery"
-                    className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-xs text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+                    className={cn(
+                      "w-full rounded-lg border px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+                      theme === 'dark'
+                        ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+                        : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+                    )}
                   />
                 </div>
               </div>
@@ -1656,8 +1806,14 @@ const JobForm = ({
 
       {/* Recurrence Section */}
       {!toBeScheduled && (
-        <div className="border-t border-primary-blue pt-4">
-          <label className="block text-sm font-medium text-primary-light mb-2">
+        <div className={cn(
+          "border-t pt-4",
+          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
+        )}>
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             Repeat Schedule
           </label>
           <Select
@@ -1681,7 +1837,10 @@ const JobForm = ({
             <div className="mt-3 space-y-3">
               {repeatPattern === 'custom-1' && (
                 <div>
-                  <label className="block text-sm font-medium text-primary-light mb-2">
+                  <label className={cn(
+                    "block text-sm font-medium mb-2",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>
                     Select Days
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -1704,11 +1863,14 @@ const JobForm = ({
                               : [...prev, day.value].sort()
                           )
                         }}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={cn(
+                          "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                           customDays.includes(day.value)
                             ? 'bg-primary-gold text-primary-dark'
-                            : 'bg-primary-dark-secondary text-primary-light border border-primary-blue hover:border-primary-gold'
-                        }`}
+                            : theme === 'dark'
+                              ? 'bg-primary-dark-secondary text-primary-light border border-primary-blue hover:border-primary-gold'
+                              : 'bg-white text-primary-lightText border border-gray-200/20 hover:border-primary-gold'
+                        )}
                       >
                         {day.label}
                       </button>
@@ -1749,16 +1911,32 @@ const JobForm = ({
               )}
 
               {endRepeatMode === 'never' && getRecurrenceEndDate() && (
-                <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
-                  <p className="text-xs text-primary-light/70">
+                <div className={cn(
+                  "p-3 rounded-lg border",
+                  theme === 'dark' 
+                    ? 'bg-primary-blue/10 border-primary-blue' 
+                    : 'bg-blue-50 border-blue-200'
+                )}>
+                  <p className={cn(
+                    "text-xs",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Will create {occurrenceCount} jobs through {getRecurrenceEndDate()}
                   </p>
                 </div>
               )}
 
               {endRepeatMode === 'on-date' && endRepeatDate && (
-                <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
-                  <p className="text-xs text-primary-light/70">
+                <div className={cn(
+                  "p-3 rounded-lg border",
+                  theme === 'dark' 
+                    ? 'bg-primary-blue/10 border-primary-blue' 
+                    : 'bg-blue-50 border-blue-200'
+                )}>
+                  <p className={cn(
+                    "text-xs",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Will repeat until {format(new Date(endRepeatDate), 'MMM d, yyyy')}
                   </p>
                 </div>
@@ -1788,11 +1966,19 @@ const JobForm = ({
       />
 
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">Notes</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Notes</label>
         <textarea
           {...register('notes')}
           rows={3}
-          className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold"
+          className={cn(
+            "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+            theme === 'dark'
+              ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+              : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+          )}
           placeholder="Add notes..."
         />
       </div>

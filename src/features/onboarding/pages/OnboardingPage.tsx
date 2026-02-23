@@ -4,10 +4,13 @@ import { Button, Input, PhoneInput, Card } from '@/components/ui'
 import { settingsApi, TenantSettings } from '@/lib/api/settings'
 import { onboardingApi } from '@/lib/api/onboarding'
 import { useAuthStore } from '@/features/auth'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 type Step = 'welcome' | 'company-info' | 'logo' | 'tour-start'
 
 export const OnboardingPage = () => {
+  const { theme } = useTheme()
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const [step, setStep] = useState<Step>('welcome')
@@ -123,10 +126,11 @@ export const OnboardingPage = () => {
       console.log('Navigating to /app?tour=start')
       // Navigate to dashboard and trigger tour
       navigate('/app?tour=start')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to complete onboarding:', error)
-      console.error('Error details:', error.response?.data || error.message)
-      alert(`Failed to start tour: ${error.response?.data?.error?.message || error.message}`)
+      const err = error as { response?: { data?: { error?: { message?: string } } }; message?: string }
+      console.error('Error details:', err.response?.data || err.message)
+      alert(`Failed to start tour: ${err.response?.data?.error?.message || err.message || 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -162,19 +166,28 @@ export const OnboardingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-primary-dark flex items-center justify-center p-4">
+    <div className={cn(
+      "min-h-screen flex items-center justify-center p-4",
+      theme === 'dark' ? 'bg-primary-dark' : 'bg-primary-lightBg'
+    )}>
       <div className="w-full max-w-2xl">
         {step === 'welcome' && (
           <Card className="p-8 space-y-6">
             <div className="text-center space-y-4">
               <h1 className="text-4xl font-bold text-primary-gold">Welcome to JobDock!</h1>
-              <p className="text-lg text-primary-light/80">
+              <p className={cn(
+                "text-lg",
+                theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+              )}>
                 Let's get you started with a quick tour and setup to make JobDock your own.
               </p>
             </div>
 
             <div className="space-y-4 pt-4">
-              <div className="flex items-start space-x-3 text-primary-light">
+              <div className={cn(
+                "flex items-start space-x-3",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 <svg
                   className="w-6 h-6 text-primary-gold flex-shrink-0 mt-0.5"
                   fill="none"
@@ -190,13 +203,19 @@ export const OnboardingPage = () => {
                 </svg>
                 <div>
                   <h3 className="font-semibold">Company Information</h3>
-                  <p className="text-sm text-primary-light/70">
+                  <p className={cn(
+                    "text-sm",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Add your company details to personalize invoices and quotes
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start space-x-3 text-primary-light">
+              <div className={cn(
+                "flex items-start space-x-3",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 <svg
                   className="w-6 h-6 text-primary-gold flex-shrink-0 mt-0.5"
                   fill="none"
@@ -212,13 +231,19 @@ export const OnboardingPage = () => {
                 </svg>
                 <div>
                   <h3 className="font-semibold">Upload Your Logo</h3>
-                  <p className="text-sm text-primary-light/70">
+                  <p className={cn(
+                    "text-sm",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>
                     Brand your documents with your company logo
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start space-x-3 text-primary-light">
+              <div className={cn(
+                "flex items-start space-x-3",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 <svg
                   className="w-6 h-6 text-primary-gold flex-shrink-0 mt-0.5"
                   fill="none"
@@ -234,7 +259,10 @@ export const OnboardingPage = () => {
                 </svg>
                 <div>
                   <h3 className="font-semibold">Quick Tour</h3>
-                  <p className="text-sm text-primary-light/70">Brief walkthrough of each page</p>
+                  <p className={cn(
+                    "text-sm",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}>Brief walkthrough of each page</p>
                 </div>
               </div>
             </div>
@@ -259,7 +287,9 @@ export const OnboardingPage = () => {
           <Card className="p-8 space-y-6">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-primary-gold">Company Information</h2>
-              <p className="text-primary-light/70">
+              <p className={cn(
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 This information will appear on your invoices, quotes, and emails. All fields are
                 optional.
               </p>
@@ -314,14 +344,21 @@ export const OnboardingPage = () => {
           <Card className="p-8 space-y-6">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-primary-gold">Company Logo</h2>
-              <p className="text-primary-light/70">
+              <p className={cn(
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 Upload your company logo. It will appear on invoices, quotes, and emails.
               </p>
             </div>
 
             <div className="space-y-4">
               {logoPreview && (
-                <div className="p-6 bg-primary-dark-secondary rounded-lg border border-primary-blue">
+                <div className={cn(
+                  "p-6 rounded-lg border",
+                  theme === 'dark'
+                    ? 'bg-primary-dark-secondary border-primary-blue'
+                    : 'bg-gray-100 border-gray-200'
+                )}>
                   <img
                     src={logoPreview}
                     alt="Logo preview"
@@ -347,7 +384,10 @@ export const OnboardingPage = () => {
                 {logoFile ? 'Change Logo' : settings?.logoUrl ? 'Change Logo' : 'Upload Logo'}
               </Button>
 
-              <p className="text-sm text-primary-light/60 text-center">
+              <p className={cn(
+                "text-sm text-center",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 Supported formats: PNG, JPEG, SVG. Max size: 5MB.
               </p>
             </div>
@@ -398,10 +438,16 @@ export const OnboardingPage = () => {
                 </svg>
               </div>
               <h2 className="text-2xl font-bold text-primary-gold">You're All Set!</h2>
-              <p className="text-lg text-primary-light/80">
+              <p className={cn(
+                "text-lg",
+                theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+              )}>
                 Would you like a quick tour of the application?
               </p>
-              <p className="text-sm text-primary-light/60">
+              <p className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+              )}>
                 We'll show you each page and what it's used for. Takes less than a minute.
               </p>
             </div>

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export interface SelectProps
   extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'options'> {
@@ -29,6 +30,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     },
     ref
   ) => {
+    const { theme } = useTheme()
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
@@ -95,7 +97,10 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className={cn('w-full', className)}>
         {label && (
-          <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
+          <label className={cn(
+            "block text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>{label}</label>
         )}
 
         {/* Hidden select for react-hook-form */}
@@ -123,13 +128,15 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             onClick={() => !disabled && setIsOpen(!isOpen)}
             disabled={disabled}
             className={cn(
-              'flex h-10 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm text-primary-light',
-              'bg-primary-dark-secondary border-primary-blue',
+              'flex h-10 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
               'disabled:cursor-not-allowed disabled:opacity-50',
+              theme === 'dark'
+                ? 'bg-primary-dark-secondary border-primary-blue text-primary-light'
+                : 'bg-white border-gray-200 text-primary-lightText',
               error && 'border-red-500 focus-visible:ring-red-500',
               isOpen && 'border-primary-gold ring-2 ring-primary-gold',
-              !selectedOption && 'text-primary-light/50'
+              !selectedOption && (theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary')
             )}
           >
             <span className="truncate">{displayValue}</span>
@@ -154,7 +161,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           {isOpen && (
             <div
               ref={dropdownRef}
-              className="absolute z-50 mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl max-h-64 overflow-y-auto"
+              className={cn(
+                "absolute z-50 mt-2 w-full rounded-lg border shadow-xl max-h-64 overflow-y-auto",
+                theme === 'dark'
+                  ? 'border-primary-blue bg-primary-dark-secondary'
+                  : 'border-gray-200 bg-white'
+              )}
             >
               <div className="p-2">
                 {options.map(option => {
@@ -168,8 +180,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                       className={cn(
                         'w-full px-3 py-2 text-sm rounded-lg text-left transition-colors',
                         isSelected
-                          ? 'bg-primary-blue text-primary-light font-medium'
-                          : 'text-primary-light hover:bg-primary-dark'
+                          ? theme === 'dark'
+                            ? 'bg-primary-blue text-primary-light font-medium'
+                            : 'bg-primary-blue text-white font-medium'
+                          : theme === 'dark'
+                            ? 'text-primary-light hover:bg-primary-dark'
+                            : 'text-primary-lightText hover:bg-gray-100'
                       )}
                     >
                       {option.label}
@@ -182,7 +198,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
         </div>
 
         {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-        {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
+        {helperText && !error && (
+          <p className={cn(
+            "mt-1 text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>{helperText}</p>
+        )}
       </div>
     )
   }

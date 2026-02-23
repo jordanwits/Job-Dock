@@ -14,6 +14,7 @@ import InvoiceForm from '@/features/invoices/components/InvoiceForm'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { services } from '@/lib/api/services'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface ContactDetailProps {
   contact: Contact
@@ -31,6 +32,7 @@ const ContactDetail = ({
   onJobCreateFailed,
 }: ContactDetailProps) => {
   const navigate = useNavigate()
+  const { theme } = useTheme()
   const { updateContact, deleteContact, isLoading } = useContactStore()
   const { createQuote, sendQuote, isLoading: quoteLoading } = useQuoteStore()
   const { createJob, isLoading: jobLoading, error: jobError, clearError: clearJobError } = useJobStore()
@@ -70,11 +72,21 @@ const ContactDetail = ({
   }
 
   const statusColors = {
-    customer: 'bg-green-500/20 text-green-400 border-green-500/30',
-    lead: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    prospect: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    contact: 'bg-primary-gold/20 text-primary-gold border-primary-gold/30',
+    customer: theme === 'dark'
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : 'bg-green-100 text-green-700 border-green-300',
+    lead: theme === 'dark'
+      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    prospect: theme === 'dark'
+      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      : 'bg-blue-100 text-blue-700 border-blue-300',
+    inactive: theme === 'dark'
+      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      : 'bg-gray-200 text-gray-700 border-gray-400',
+    contact: theme === 'dark'
+      ? 'bg-primary-gold/20 text-primary-gold border-primary-gold/30'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
   }
 
   const statusOptions = [
@@ -550,13 +562,23 @@ const ContactDetail = ({
               <div className="relative w-full sm:w-auto overflow-visible" ref={dropdownRef}>
                 <Button
                   onClick={() => setShowDropdown(!showDropdown)}
-                  className="bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0] w-full sm:w-10 h-10 p-0 text-2xl sm:text-xl font-semibold"
+                  className={cn(
+                    "w-full sm:w-10 h-10 p-0 text-2xl sm:text-xl font-semibold",
+                    theme === 'dark'
+                      ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                      : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
+                  )}
                 >
                   +
                 </Button>
                 {showDropdown && (
                   <>
-                    <div className="absolute z-40 mt-2 w-full sm:min-w-[160px] sm:w-auto left-0 right-0 sm:left-auto sm:right-auto rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl">
+                    <div className={cn(
+                      "absolute z-40 mt-2 w-full sm:min-w-[160px] sm:w-auto left-0 right-0 sm:left-auto sm:right-auto rounded-lg border shadow-xl",
+                      theme === 'dark'
+                        ? 'border-primary-blue bg-primary-dark-secondary'
+                        : 'border-gray-200 bg-white'
+                    )}>
                       <div className="p-2 space-y-2">
                         <button
                           type="button"
@@ -565,9 +587,10 @@ const ContactDetail = ({
                             setShowDropdown(false)
                           }}
                           className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors',
-                            'text-center sm:text-left',
-                            'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
+                            theme === 'dark'
+                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
                           )}
                         >
                           Create Quote
@@ -579,9 +602,10 @@ const ContactDetail = ({
                             setShowDropdown(false)
                           }}
                           className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors',
-                            'text-center sm:text-left',
-                            'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
+                            theme === 'dark'
+                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
                           )}
                         >
                           Create Invoice
@@ -593,9 +617,10 @@ const ContactDetail = ({
                             setShowDropdown(false)
                           }}
                           className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors',
-                            'text-center sm:text-left',
-                            'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
+                            theme === 'dark'
+                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
                           )}
                         >
                           Create Job
@@ -607,9 +632,10 @@ const ContactDetail = ({
                             setShowDropdown(false)
                           }}
                           className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors',
-                            'text-center sm:text-left',
-                            'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
+                            theme === 'dark'
+                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
                           )}
                         >
                           Schedule Job
@@ -632,10 +658,18 @@ const ContactDetail = ({
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-primary-light">
+              <h2 className={cn(
+                "text-2xl font-bold",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 {contact.firstName} {contact.lastName}
               </h2>
-              {contact.company && <p className="text-primary-light/70 mt-1">{contact.company}</p>}
+              {contact.company && (
+                <p className={cn(
+                  "mt-1",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>{contact.company}</p>
+              )}
             </div>
             <StatusBadgeSelect
               value={contact.status}
@@ -653,7 +687,12 @@ const ContactDetail = ({
               {contact.tags.map((tag, index) => (
                 <span
                   key={index}
-                  className="px-2 py-1 text-xs bg-primary-blue/20 text-primary-blue rounded"
+                  className={cn(
+                    "px-2 py-1 text-xs rounded",
+                    theme === 'dark'
+                      ? 'bg-primary-blue/20 text-primary-blue'
+                      : 'bg-blue-100 text-blue-700'
+                  )}
                 >
                   {tag}
                 </span>
@@ -664,13 +703,18 @@ const ContactDetail = ({
           {/* Contact Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-3">
+              <h3 className={cn(
+                "text-sm font-medium mb-3",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 Contact Information
               </h3>
               <div className="space-y-2 text-sm">
                 {contact.email && (
                   <div>
-                    <span className="text-primary-light/70">Email: </span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Email: </span>
                     <a
                       href={`mailto:${contact.email}`}
                       className="text-primary-gold hover:underline"
@@ -681,8 +725,12 @@ const ContactDetail = ({
                 )}
                 {contact.phone && (
                   <div>
-                    <span className="text-primary-light/70">Phone: </span>
-                    <a href={`tel:${contact.phone}`} className="text-primary-light">
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Phone: </span>
+                    <a href={`tel:${contact.phone}`} className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       {contact.phone}
                     </a>
                   </div>
@@ -691,20 +739,31 @@ const ContactDetail = ({
             </div>
 
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-3">
+              <h3 className={cn(
+                "text-sm font-medium mb-3",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 Company Information
               </h3>
               <div className="space-y-2 text-sm">
                 {contact.company && (
                   <div>
-                    <span className="text-primary-light/70">Company: </span>
-                    <span className="text-primary-light">{contact.company}</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Company: </span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>{contact.company}</span>
                   </div>
                 )}
                 {contact.jobTitle && (
                   <div>
-                    <span className="text-primary-light/70">Job Title: </span>
-                    <span className="text-primary-light">{contact.jobTitle}</span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>Job Title: </span>
+                    <span className={cn(
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>{contact.jobTitle}</span>
                   </div>
                 )}
               </div>
@@ -714,8 +773,14 @@ const ContactDetail = ({
           {/* Address */}
           {(contact.address || contact.city || contact.state) && (
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-3">Address</h3>
-              <div className="text-sm text-primary-light">
+              <h3 className={cn(
+                "text-sm font-medium mb-3",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Address</h3>
+              <div className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 {contact.address && <div>{contact.address}</div>}
                 {(contact.city || contact.state || contact.zipCode) && (
                   <div>
@@ -732,13 +797,24 @@ const ContactDetail = ({
           {/* Notes */}
           {contact.notes && (
             <div>
-              <h3 className="text-sm font-medium text-primary-light/70 mb-3">Notes</h3>
-              <p className="text-sm text-primary-light whitespace-pre-wrap">{contact.notes}</p>
+              <h3 className={cn(
+                "text-sm font-medium mb-3",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Notes</h3>
+              <p className={cn(
+                "text-sm whitespace-pre-wrap",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>{contact.notes}</p>
             </div>
           )}
 
           {/* Metadata */}
-          <div className="pt-4 border-t border-primary-blue text-xs text-primary-light/50">
+          <div className={cn(
+            "pt-4 border-t text-xs",
+            theme === 'dark'
+              ? 'border-primary-blue text-primary-light/50'
+              : 'border-gray-200/20 text-primary-lightTextSecondary'
+          )}>
             <div>Created: {new Date(contact.createdAt).toLocaleDateString()}</div>
             {contact.updatedAt !== contact.createdAt && (
               <div>Updated: {new Date(contact.updatedAt).toLocaleDateString()}</div>
@@ -781,7 +857,10 @@ const ContactDetail = ({
           </>
         }
       >
-        <div className="text-primary-light space-y-3 text-sm">
+        <div className={cn(
+          "space-y-3 text-sm",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           <p>
             Deleting{' '}
             <strong>

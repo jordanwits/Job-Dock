@@ -12,6 +12,7 @@ import TimeTracker from './TimeTracker'
 import PhotoCapture from './PhotoCapture'
 import JobLogNotes from './JobLogNotes'
 import { useJobLogStore } from '../store/jobLogStore'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const TIMER_STORAGE_KEY = 'joblog-active-timer'
 
@@ -45,11 +46,17 @@ const statusOptions = [
   { value: 'inactive', label: 'Inactive' },
 ] as const
 
-const statusColors: Record<string, string> = {
-  active: 'bg-green-500/20 text-green-400 border-green-500/30',
-  completed: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
-  inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-}
+const getStatusColors = (theme: 'dark' | 'light'): Record<string, string> => ({
+  active: theme === 'dark'
+    ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
+    : 'bg-green-100 text-green-700 ring-1 ring-green-300',
+  completed: theme === 'dark'
+    ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
+    : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
+  inactive: theme === 'dark'
+    ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+    : 'bg-gray-200 text-gray-600 ring-1 ring-gray-300',
+})
 
 const JobLogDetail = ({
   jobLog,
@@ -63,6 +70,8 @@ const JobLogDetail = ({
   onStatusChange,
   isLoading,
 }: JobLogDetailProps) => {
+  const { theme } = useTheme()
+  const statusColors = getStatusColors(theme)
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { createTimeEntry, updateTimeEntry } = useJobLogStore()
@@ -598,7 +607,10 @@ const JobLogDetail = ({
     return (
       <div className="max-w-[95vw] sm:max-w-[90vw] md:max-w-6xl lg:max-w-7xl mx-auto">
         <Card>
-          <h3 className="text-lg font-semibold text-primary-light mb-4">Edit Job</h3>
+          <h3 className={cn(
+            "text-lg font-semibold mb-4",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Edit Job</h3>
           <JobLogForm
             jobLog={jobLog}
             onSubmit={onSaveEdit}
@@ -632,7 +644,10 @@ const JobLogDetail = ({
       <div className="flex items-center justify-between gap-2 sm:justify-start">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-sm text-primary-light/60 hover:text-primary-gold transition-colors"
+          className={cn(
+            "flex items-center gap-1 text-sm hover:text-primary-gold transition-colors",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -648,7 +663,12 @@ const JobLogDetail = ({
         <div className="relative sm:hidden ml-auto">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors"
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              theme === 'dark'
+                ? 'hover:bg-primary-blue/20 text-primary-light'
+                : 'hover:bg-gray-100 text-primary-lightText'
+            )}
             aria-label="Actions"
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -658,18 +678,33 @@ const JobLogDetail = ({
           {showMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 py-1 w-56 bg-primary-dark-secondary border border-primary-blue rounded-lg shadow-xl z-50">
+              <div className={cn(
+                "absolute right-0 top-full mt-1 py-1 w-56 rounded-lg shadow-xl z-50",
+                theme === 'dark'
+                  ? 'bg-primary-dark-secondary border border-primary-blue'
+                  : 'bg-white border border-gray-200'
+              )}>
                 {canAccessQuotes && (
                   <>
                     <button
                       onClick={handleCreateQuote}
-                      className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                      className={cn(
+                        "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                        theme === 'dark'
+                          ? 'text-primary-light hover:bg-primary-blue/20'
+                          : 'text-primary-lightText hover:bg-gray-100'
+                      )}
                     >
                       Create Quote
                     </button>
                     <button
                       onClick={handleCreateInvoice}
-                      className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                      className={cn(
+                        "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                        theme === 'dark'
+                          ? 'text-primary-light hover:bg-primary-blue/20'
+                          : 'text-primary-lightText hover:bg-gray-100'
+                      )}
                     >
                       Create Invoice
                     </button>
@@ -677,7 +712,12 @@ const JobLogDetail = ({
                 )}
                 <button
                   onClick={handleScheduleAppointment}
-                  className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                  className={cn(
+                    "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                    theme === 'dark'
+                      ? 'text-primary-light hover:bg-primary-blue/20'
+                      : 'text-primary-lightText hover:bg-gray-100'
+                  )}
                 >
                   Schedule Appointment
                 </button>
@@ -687,7 +727,12 @@ const JobLogDetail = ({
                       setShowMenu(false)
                       onEdit()
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-primary-light hover:bg-primary-blue/20"
+                    className={cn(
+                      "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                      theme === 'dark'
+                        ? 'text-primary-light hover:bg-primary-blue/20'
+                        : 'text-primary-lightText hover:bg-gray-100'
+                    )}
                   >
                     Edit
                   </button>
@@ -710,7 +755,10 @@ const JobLogDetail = ({
       {/* Header content - title, status, assigned to, and desktop buttons */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-primary-light break-words">{jobLog.title}</h1>
+          <h1 className={cn(
+            "text-2xl font-bold break-words",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>{jobLog.title}</h1>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {onStatusChange ? (
               <StatusBadgeSelect
@@ -737,7 +785,10 @@ const JobLogDetail = ({
                 {String(jobLog.status) === 'archived' ? 'Inactive' : jobLog.status || 'Active'}
               </span>
             )}
-            <span className="text-sm text-primary-light/50 shrink-0">
+            <span className={cn(
+              "text-sm shrink-0",
+              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+            )}>
               {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
             </span>
             {primaryPrice != null && (
@@ -772,7 +823,10 @@ const JobLogDetail = ({
                   if (assignments.length > 0 && assignments[0].role) {
                     return (
                       <div>
-                        <span className="text-xs font-medium text-primary-light/70 mb-1.5 block">
+                        <span className={cn(
+                          "text-xs font-medium mb-1.5 block",
+                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                        )}>
                           Assigned to
                         </span>
                         <div className="grid grid-cols-1 gap-2 w-max max-w-md">
@@ -813,16 +867,25 @@ const JobLogDetail = ({
                               <div
                                 key={assignment.userId || index}
                                 className={cn(
-                                  'flex items-center rounded-md bg-primary-dark-secondary/50 border border-primary-blue/30 w-full',
-                                  hasPayInfo ? 'flex-row gap-3 px-2 py-1.5' : 'px-2 py-1'
+                                  'flex items-center rounded-md w-full',
+                                  hasPayInfo ? 'flex-row gap-3 px-2 py-1.5' : 'px-2 py-1',
+                                  theme === 'dark'
+                                    ? 'bg-primary-dark-secondary/50 border border-primary-blue/30'
+                                    : 'bg-gray-50 border border-gray-200/20'
                                 )}
                               >
                                 <div className="min-w-0 flex-shrink">
-                                  <span className="text-primary-light font-medium">
+                                  <span className={cn(
+                                    "font-medium",
+                                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                                  )}>
                                     {displayName}
                                   </span>
                                   {assignment.role && assignment.role !== 'Team Member' && (
-                                    <span className="text-primary-light/60 ml-2">
+                                    <span className={cn(
+                                      "ml-2",
+                                      theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                                    )}>
                                       ({assignment.role})
                                     </span>
                                   )}
@@ -850,7 +913,10 @@ const JobLogDetail = ({
                                           /hr
                                         </span>
                                         {totalEarned != null && (
-                                          <span className="text-xs text-primary-light/70">
+                                          <span className={cn(
+                                            "text-xs",
+                                            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                                          )}>
                                             Earned: $
                                             {totalEarned.toLocaleString('en-US', {
                                               minimumFractionDigits: 2,
@@ -873,14 +939,22 @@ const JobLogDetail = ({
                   // Fallback to simple name display for old format
                   return (
                     <div>
-                      <span className="text-xs font-medium text-primary-light/70 mb-1.5 block">
+                      <span className={cn(
+                        "text-xs font-medium mb-1.5 block",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         Assigned to
                       </span>
                       <div className="flex flex-wrap gap-2">
                         {jobLog.assignedToName.split(',').map((name, index) => (
                           <span
                             key={index}
-                            className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words"
+                            className={cn(
+                              "inline-block px-2 py-1 rounded text-xs font-medium border break-words",
+                              theme === 'dark'
+                                ? 'bg-primary-blue/20 text-primary-light/90 border-primary-blue/30'
+                                : 'bg-blue-100 text-blue-700 border-blue-300'
+                            )}
                           >
                             {name.trim()}
                           </span>
@@ -890,7 +964,12 @@ const JobLogDetail = ({
                   )
                 })()}
               {showCreatedBy && jobLog.job?.createdByName && (
-                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30 break-words">
+                <span className={cn(
+                  "inline-block px-2 py-1 rounded text-xs font-medium border break-words",
+                  theme === 'dark'
+                    ? 'bg-primary-blue/20 text-primary-light/90 border-primary-blue/30'
+                    : 'bg-blue-100 text-blue-700 border-blue-300'
+                )}>
                   Created by {jobLog.job.createdByName}
                 </span>
               )}
@@ -954,7 +1033,12 @@ const JobLogDetail = ({
             </>
           ) : (
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-dark rounded-lg border border-primary-blue/30 shrink-0">
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg shrink-0",
+                theme === 'dark'
+                  ? 'bg-primary-dark border border-primary-blue/30'
+                  : 'bg-gray-50 border border-gray-200/20'
+              )}>
                 <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 <span className="text-lg font-mono text-primary-gold tabular-nums">
                   {formatElapsed(elapsedSeconds)}
@@ -1077,7 +1161,12 @@ const JobLogDetail = ({
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-dark rounded-lg border border-primary-blue/30">
+                <div className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg",
+                  theme === 'dark'
+                    ? 'bg-primary-dark border border-primary-blue/30'
+                    : 'bg-gray-50 border border-gray-200/20'
+                )}>
                   <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                   <span className="text-lg font-mono text-primary-gold tabular-nums">
                     {formatElapsed(elapsedSeconds)}
@@ -1143,22 +1232,39 @@ const JobLogDetail = ({
 
           return (
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-primary-light/70 uppercase tracking-wider">
+              <h3 className={cn(
+                "text-sm font-medium uppercase tracking-wider",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 Upcoming Bookings
               </h3>
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary-dark/50 border border-primary-blue/20">
+                <div className={cn(
+                  "flex items-center justify-between gap-3 p-3 rounded-lg",
+                  theme === 'dark'
+                    ? 'bg-primary-dark/50 border border-primary-blue/20'
+                    : 'bg-gray-50 border border-gray-200/20'
+                )}>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       {nextBooking.toBeScheduled ? (
-                        <span className="text-primary-light/70 text-sm">To be scheduled</span>
+                        <span className={cn(
+                          "text-sm",
+                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                        )}>To be scheduled</span>
                       ) : nextBooking.startTime && nextBooking.endTime ? (
-                        <span className="text-primary-light text-sm">
+                        <span className={cn(
+                          "text-sm",
+                          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                        )}>
                           {format(new Date(nextBooking.startTime), 'MMM d, yyyy • h:mm a')} –{' '}
                           {format(new Date(nextBooking.endTime), 'h:mm a')}
                         </span>
                       ) : (
-                        <span className="text-primary-light/70 text-sm">No time set</span>
+                        <span className={cn(
+                          "text-sm",
+                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                        )}>No time set</span>
                       )}
                       {recurringTag && (
                         <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
@@ -1167,7 +1273,10 @@ const JobLogDetail = ({
                       )}
                     </div>
                     {nextBooking.service?.name && (
-                      <p className="text-xs text-primary-light/50 mt-0.5">
+                      <p className={cn(
+                        "text-xs mt-0.5",
+                        theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                      )}>
                         {nextBooking.service.name}
                       </p>
                     )}
@@ -1200,28 +1309,46 @@ const JobLogDetail = ({
         <dl className="space-y-3">
           {jobLog.description && (
             <div>
-              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+              <dt className={cn(
+                "text-xs font-medium uppercase tracking-wider",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 Description
               </dt>
-              <dd className="text-sm text-primary-light/90 mt-1 whitespace-pre-wrap">
+              <dd className={cn(
+                "text-sm mt-1 whitespace-pre-wrap",
+                theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+              )}>
                 {jobLog.description}
               </dd>
             </div>
           )}
           {primaryServiceName && (
             <div>
-              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+              <dt className={cn(
+                "text-xs font-medium uppercase tracking-wider",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 Service
               </dt>
-              <dd className="text-sm text-primary-light/90 mt-1">{primaryServiceName}</dd>
+              <dd className={cn(
+                "text-sm mt-1",
+                theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+              )}>{primaryServiceName}</dd>
             </div>
           )}
           {primaryStartTime && primaryEndTime && (
             <div>
-              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+              <dt className={cn(
+                "text-xs font-medium uppercase tracking-wider",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 Scheduled
               </dt>
-              <dd className="text-sm text-primary-light/90 mt-1">
+              <dd className={cn(
+                "text-sm mt-1",
+                theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+              )}>
                 {(() => {
                   const start = new Date(primaryStartTime)
                   const end = new Date(primaryEndTime)
@@ -1240,28 +1367,45 @@ const JobLogDetail = ({
           )}
           {jobLog.location && (
             <div>
-              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+              <dt className={cn(
+                "text-xs font-medium uppercase tracking-wider",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 Location
               </dt>
-              <dd className="text-sm text-primary-light/90 mt-1">{jobLog.location}</dd>
+              <dd className={cn(
+                "text-sm mt-1",
+                theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+              )}>{jobLog.location}</dd>
             </div>
           )}
           {jobLog.contact && (
             <div>
-              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+              <dt className={cn(
+                "text-xs font-medium uppercase tracking-wider",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 Contact
               </dt>
-              <dd className="text-sm text-primary-light/90 mt-1">
+              <dd className={cn(
+                "text-sm mt-1",
+                theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+              )}>
                 {jobLog.contact.name}
                 {jobLog.contact.email && (
-                  <span className="text-primary-light/60"> · {jobLog.contact.email}</span>
+                  <span className={cn(
+                    theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                  )}> · {jobLog.contact.email}</span>
                 )}
               </dd>
             </div>
           )}
           {primaryPrice != null && (
             <div>
-              <dt className="text-xs font-medium text-primary-light/50 uppercase tracking-wider">
+              <dt className={cn(
+                "text-xs font-medium uppercase tracking-wider",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 Price
               </dt>
               <dd className="text-sm text-primary-gold font-semibold mt-1">
@@ -1278,14 +1422,19 @@ const JobLogDetail = ({
 
       {/* Tabbed tools: Notes | Clock | Photos */}
       <div className="pt-4">
-        <div className="flex gap-1 border-b border-primary-blue mb-4">
+        <div className={cn(
+          "flex gap-1 border-b mb-4",
+          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
+        )}>
           <button
             onClick={() => setActiveTab('notes')}
             className={cn(
               'px-4 py-2 text-sm font-medium transition-colors -mb-px',
               activeTab === 'notes'
                 ? 'text-primary-gold border-b-2 border-primary-gold'
-                : 'text-primary-light/60 hover:text-primary-light'
+                : theme === 'dark'
+                  ? 'text-primary-light/60 hover:text-primary-light'
+                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
             )}
           >
             Notes
@@ -1296,7 +1445,9 @@ const JobLogDetail = ({
               'px-4 py-2 text-sm font-medium transition-colors -mb-px',
               activeTab === 'clock'
                 ? 'text-primary-gold border-b-2 border-primary-gold'
-                : 'text-primary-light/60 hover:text-primary-light'
+                : theme === 'dark'
+                  ? 'text-primary-light/60 hover:text-primary-light'
+                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
             )}
           >
             Clock
@@ -1307,7 +1458,9 @@ const JobLogDetail = ({
               'px-4 py-2 text-sm font-medium transition-colors -mb-px',
               activeTab === 'photos'
                 ? 'text-primary-gold border-b-2 border-primary-gold'
-                : 'text-primary-light/60 hover:text-primary-light'
+                : theme === 'dark'
+                  ? 'text-primary-light/60 hover:text-primary-light'
+                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
             )}
           >
             Photos
@@ -1357,9 +1510,15 @@ const JobLogDetail = ({
         size="sm"
       >
         <div className="space-y-4">
-          <p className="text-sm text-primary-light/70">Select which team member(s) to clock in:</p>
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>Select which team member(s) to clock in:</p>
           {teamMembersLoading ? (
-            <p className="text-sm text-primary-light/50">Loading team members...</p>
+            <p className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+            )}>Loading team members...</p>
           ) : (
             <Select
               value={selectedClockInUserId || 'all'}

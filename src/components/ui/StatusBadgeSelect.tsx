@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export interface StatusOption {
   value: string
@@ -25,6 +26,7 @@ const StatusBadgeSelect = ({
   isLoading = false,
   size = 'md',
 }: StatusBadgeSelectProps) => {
+  const { theme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -68,7 +70,7 @@ const StatusBadgeSelect = ({
         onClick={() => !isDisabled && setIsOpen(!isOpen)}
         disabled={isDisabled}
         className={cn(
-          'font-medium rounded border transition-all cursor-pointer',
+          'font-medium rounded transition-all cursor-pointer',
           sizeClasses[size],
           colorClassesByValue[value],
           'hover:opacity-80',
@@ -120,7 +122,12 @@ const StatusBadgeSelect = ({
       </button>
 
       {isOpen && !isDisabled && (
-        <div className="absolute z-50 mt-2 min-w-[140px] rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl">
+        <div className={cn(
+          "absolute z-50 mt-2 min-w-[140px] rounded-lg border shadow-xl",
+          theme === 'dark'
+            ? 'border-primary-blue bg-primary-dark-secondary'
+            : 'border-gray-200 bg-white'
+        )}>
           <div className="p-2">
             {options.map(option => {
               const isSelected = value === option.value
@@ -133,8 +140,12 @@ const StatusBadgeSelect = ({
                   className={cn(
                     'w-full px-3 py-2 text-sm rounded-lg text-left transition-colors capitalize',
                     isSelected
-                      ? 'bg-primary-blue text-primary-light font-medium'
-                      : 'text-primary-light hover:bg-primary-dark'
+                      ? theme === 'dark'
+                        ? 'bg-primary-blue text-primary-light font-medium'
+                        : 'bg-primary-blue text-white font-medium'
+                      : theme === 'dark'
+                        ? 'text-primary-light hover:bg-primary-dark'
+                        : 'text-primary-lightText hover:bg-gray-100'
                   )}
                 >
                   {option.label}

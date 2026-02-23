@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 import {
   format,
   startOfMonth,
@@ -45,6 +46,7 @@ const DatePicker = ({
   maxDate,
   className,
 }: DatePickerProps) => {
+  const { theme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(
     value ? parseDateStringAsLocal(value) : new Date()
@@ -127,7 +129,10 @@ const DatePicker = ({
   return (
     <div className={cn('w-full', className)} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>{label}</label>
       )}
       <div className="relative">
         <button
@@ -136,19 +141,26 @@ const DatePicker = ({
           disabled={disabled}
           className={cn(
             'flex h-10 w-full rounded-lg border px-3 py-2 text-sm text-left',
-            'bg-primary-dark-secondary text-primary-light',
-            'placeholder:text-primary-light/50',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            error ? 'border-red-500 focus-visible:ring-red-500' : 'border-primary-blue',
+            theme === 'dark'
+              ? 'bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+              : 'bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary border-gray-200',
+            error ? 'border-red-500 focus-visible:ring-red-500' : theme === 'dark' ? 'border-primary-blue' : '',
             className
           )}
         >
-          <span className={cn('flex-1', !value && 'text-primary-light/50')}>
+          <span className={cn(
+            'flex-1',
+            !value && (theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary')
+          )}>
             {value ? formatDisplayDate(value) : placeholder}
           </span>
           <svg
-            className="w-5 h-5 text-primary-light/70"
+            className={cn(
+              "w-5 h-5",
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -165,14 +177,24 @@ const DatePicker = ({
         {isOpen && (
           <div
             ref={calendarRef}
-            className="absolute z-50 mt-2 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary shadow-xl p-4"
+            className={cn(
+              "absolute z-50 mt-2 w-full rounded-lg border shadow-xl p-4",
+              theme === 'dark'
+                ? 'border-primary-blue bg-primary-dark-secondary'
+                : 'border-gray-200 bg-white'
+            )}
           >
             {/* Calendar Header */}
             <div className="flex items-center justify-between mb-4">
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="p-1 rounded hover:bg-primary-dark text-primary-light hover:text-primary-gold transition-colors"
+                className={cn(
+                  "p-1 rounded transition-colors",
+                  theme === 'dark'
+                    ? 'hover:bg-primary-dark text-primary-light hover:text-primary-gold'
+                    : 'hover:bg-gray-100 text-primary-lightText hover:text-primary-gold'
+                )}
                 aria-label="Previous month"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,13 +206,21 @@ const DatePicker = ({
                   />
                 </svg>
               </button>
-              <h3 className="text-base font-semibold text-primary-light">
+              <h3 className={cn(
+                "text-base font-semibold",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 {format(currentMonth, 'MMMM yyyy')}
               </h3>
               <button
                 type="button"
                 onClick={handleNextMonth}
-                className="p-1 rounded hover:bg-primary-dark text-primary-light hover:text-primary-gold transition-colors"
+                className={cn(
+                  "p-1 rounded transition-colors",
+                  theme === 'dark'
+                    ? 'hover:bg-primary-dark text-primary-light hover:text-primary-gold'
+                    : 'hover:bg-gray-100 text-primary-lightText hover:text-primary-gold'
+                )}
                 aria-label="Next month"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,7 +239,10 @@ const DatePicker = ({
               {weekDays.map(day => (
                 <div
                   key={day}
-                  className="text-center text-xs font-medium text-primary-light/70 py-1"
+                  className={cn(
+                    "text-center text-xs font-medium py-1",
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}
                 >
                   {day}
                 </div>
@@ -232,17 +265,21 @@ const DatePicker = ({
                     disabled={isDisabled || !isCurrentMonth}
                     className={cn(
                       'h-9 w-9 rounded text-sm transition-colors',
-                      !isCurrentMonth && 'text-primary-light/20',
+                      !isCurrentMonth && (theme === 'dark' ? 'text-primary-light/20' : 'text-gray-300'),
                       isCurrentMonth &&
                         !isSelected &&
                         !isTodayDate &&
-                        'text-primary-light hover:bg-primary-dark',
+                        (theme === 'dark'
+                          ? 'text-primary-light hover:bg-primary-dark'
+                          : 'text-primary-lightText hover:bg-gray-100'),
                       isTodayDate &&
                         !isSelected &&
-                        'bg-primary-blue/20 text-primary-light font-semibold',
+                        (theme === 'dark'
+                          ? 'bg-primary-blue/20 text-primary-light font-semibold'
+                          : 'bg-gray-100 text-primary-lightText font-semibold'),
                       isSelected && 'bg-primary-gold text-primary-dark font-semibold',
                       isDisabled && 'opacity-30 cursor-not-allowed',
-                      !isDisabled && isCurrentMonth && 'hover:bg-primary-dark'
+                      !isDisabled && isCurrentMonth && (theme === 'dark' ? 'hover:bg-primary-dark' : 'hover:bg-gray-100')
                     )}
                   >
                     {format(day, 'd')}
@@ -252,11 +289,17 @@ const DatePicker = ({
             </div>
 
             {/* Today Button */}
-            <div className="mt-4 pt-4 border-t border-primary-blue">
+            <div className={cn(
+              "mt-4 pt-4 border-t",
+              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+            )}>
               <button
                 type="button"
                 onClick={() => handleDateSelect(new Date())}
-                className="w-full px-4 py-2 text-sm font-medium text-primary-gold hover:bg-primary-dark rounded-lg transition-colors"
+                className={cn(
+                  "w-full px-4 py-2 text-sm font-medium text-primary-gold rounded-lg transition-colors",
+                  theme === 'dark' ? 'hover:bg-primary-dark' : 'hover:bg-gray-100'
+                )}
               >
                 Today
               </button>
@@ -265,7 +308,12 @@ const DatePicker = ({
         )}
       </div>
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-      {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
+      {helperText && !error && (
+        <p className={cn(
+          "mt-1 text-sm",
+          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+        )}>{helperText}</p>
+      )}
     </div>
   )
 }

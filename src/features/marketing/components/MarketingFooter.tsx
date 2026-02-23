@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
+import { publicSiteConfig } from '../content/publicSiteConfig'
 import MarketingButton from './MarketingButton'
 
 const MarketingFooter = () => {
@@ -155,21 +155,6 @@ const MarketingFooter = () => {
                   {publicSiteConfig.supportEmail}
                 </a>
               </p>
-              {publicSiteConfig.phoneNumber && (
-                <p className="text-white/70">
-                  <span className="font-medium text-white">Phone:</span>{' '}
-                  <a
-                    href={`tel:${publicSiteConfig.phoneNumber}`}
-                    className="text-primary-gold hover:text-primary-light transition-colors"
-                  >
-                    {publicSiteConfig.phoneNumber}
-                  </a>
-                </p>
-              )}
-              <div className="pt-2">
-                <p className="font-medium text-white mb-1">Business Address</p>
-                <p className="text-white/70 leading-relaxed">{getFormattedAddress()}</p>
-              </div>
             </div>
           </div>
         </div>

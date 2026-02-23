@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '@/components/ui/Button'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 export interface HeaderProps {
   user?: {
@@ -22,12 +24,18 @@ const Header = ({
   onMenuClick,
 }: HeaderProps) => {
   const [logoFailed, setLogoFailed] = useState(false)
+  const { theme, toggleTheme } = useTheme()
 
   const leftLogoHref = useMemo(() => (user ? '/app' : '/'), [user])
   const showCompanyLogo = Boolean(companyLogoUrl) && !logoFailed
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-primary-blue bg-primary-dark-secondary/95 backdrop-blur supports-[backdrop-filter]:bg-primary-dark-secondary/60">
+    <header className={cn(
+      "sticky top-0 z-40 w-full border-b backdrop-blur",
+      theme === 'dark'
+        ? 'border-primary-blue bg-primary-dark-secondary/95 supports-[backdrop-filter]:bg-primary-dark-secondary/60'
+        : 'border-gray-200 bg-white/95 supports-[backdrop-filter]:bg-white/60'
+    )}>
       {/* Note: sidebar is fixed at lg width (w-64). Offset header content so it doesn't sit underneath it. */}
       <div className="w-full lg:pl-64">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6 relative">
@@ -36,7 +44,12 @@ const Header = ({
             {onMenuClick && (
               <button
                 onClick={onMenuClick}
-                className="lg:hidden p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors"
+                className={cn(
+                  "lg:hidden p-2 rounded-lg transition-colors",
+                  theme === 'dark'
+                    ? 'hover:bg-primary-blue/20 text-primary-light'
+                    : 'hover:bg-gray-100 text-primary-lightText'
+                )}
                 aria-label="Toggle menu"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,7 +71,10 @@ const Header = ({
                   onError={() => setLogoFailed(true)}
                 />
               ) : companyDisplayName ? (
-                <span className="text-sm md:text-base font-semibold text-primary-light whitespace-nowrap">
+                <span className={cn(
+                  "text-sm md:text-base font-semibold whitespace-nowrap",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>
                   {companyDisplayName}
                 </span>
               ) : null}
@@ -76,7 +92,10 @@ const Header = ({
                   onError={() => setLogoFailed(true)}
                 />
               ) : companyDisplayName ? (
-                <span className="text-sm font-semibold text-primary-light whitespace-nowrap">
+                <span className={cn(
+                  "text-sm font-semibold whitespace-nowrap",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>
                   {companyDisplayName}
                 </span>
               ) : null}
@@ -90,19 +109,62 @@ const Header = ({
                 {/* Center: name + email */}
                 <div className="hidden md:flex items-center justify-center min-w-0 px-4">
                   <div className="text-center min-w-0">
-                    <p className="text-sm font-medium text-primary-light truncate">
+                    <p className={cn(
+                      "text-sm font-medium truncate",
+                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                    )}>
                       {user.role === 'employee'
                         ? companyDisplayName
                           ? `${companyDisplayName} Team`
                           : 'Team'
                         : user.name}
                     </p>
-                    <p className="text-xs text-primary-light/70 truncate">{user.email}</p>
+                    <p className={cn(
+                      "text-xs truncate",
+                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                    )}>{user.email}</p>
                   </div>
                 </div>
 
-                {/* Right: logout (desktop) */}
-                <div className="hidden md:flex items-center justify-end">
+                {/* Right: theme toggle + logout (desktop) */}
+                <div className="hidden md:flex items-center justify-end gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleTheme()
+                    }}
+                    className={cn(
+                      "p-2 rounded-lg transition-colors",
+                      theme === 'dark'
+                        ? 'hover:bg-primary-blue/20 text-primary-light'
+                        : 'hover:bg-gray-100 text-primary-lightText'
+                    )}
+                    aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                  >
+                    {theme === 'dark' ? (
+                      // Sun icon for light mode
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                        />
+                      </svg>
+                    ) : (
+                      // Moon icon for dark mode
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                        />
+                      </svg>
+                    )}
+                  </button>
                   {onLogout && (
                     <Button variant="ghost" size="sm" onClick={onLogout}>
                       Logout
@@ -110,8 +172,45 @@ const Header = ({
                   )}
                 </div>
 
-                {/* Mobile: logout only */}
-                <div className="md:hidden col-span-2 flex items-center justify-end">
+                {/* Mobile: theme toggle + logout */}
+                <div className="md:hidden col-span-2 flex items-center justify-end gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleTheme()
+                    }}
+                    className={cn(
+                      "p-2 rounded-lg transition-colors",
+                      theme === 'dark'
+                        ? 'hover:bg-primary-blue/20 text-primary-light'
+                        : 'hover:bg-gray-100 text-primary-lightText'
+                    )}
+                    aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                  >
+                    {theme === 'dark' ? (
+                      // Sun icon for light mode
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                        />
+                      </svg>
+                    ) : (
+                      // Moon icon for dark mode
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                        />
+                      </svg>
+                    )}
+                  </button>
                   {onLogout && (
                     <Button variant="ghost" size="sm" onClick={onLogout}>
                       Logout
@@ -122,7 +221,44 @@ const Header = ({
             ) : (
               <>
                 <div />
-                <div className="flex items-center justify-end gap-6 md:gap-12">
+                <div className="flex items-center justify-end gap-2 md:gap-6">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleTheme()
+                    }}
+                    className={cn(
+                      "p-2 rounded-lg transition-colors",
+                      theme === 'dark'
+                        ? 'hover:bg-primary-blue/20 text-primary-light'
+                        : 'hover:bg-gray-100 text-primary-lightText'
+                    )}
+                    aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                  >
+                    {theme === 'dark' ? (
+                      // Sun icon for light mode
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                        />
+                      </svg>
+                    ) : (
+                      // Moon icon for dark mode
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                        />
+                      </svg>
+                    )}
+                  </button>
                   <Link to="/auth/login">
                     <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
                       Login

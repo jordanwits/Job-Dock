@@ -1,5 +1,6 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
@@ -12,14 +13,21 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     { className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props },
     ref
   ) => {
+    const { theme } = useTheme()
     const baseStyles =
       'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap'
 
     const variants = {
       primary: 'bg-primary-gold text-primary-dark hover:bg-primary-gold/90',
-      secondary: 'bg-primary-blue text-primary-light hover:bg-primary-blue/90',
-      outline: 'border-2 border-primary-gold/50 text-primary-light hover:bg-primary-gold/20',
-      ghost: 'text-primary-light hover:bg-primary-dark-secondary',
+      secondary: theme === 'dark' 
+        ? 'bg-primary-blue text-primary-light hover:bg-primary-blue/90'
+        : 'bg-primary-blue text-white hover:bg-primary-blue/90',
+      outline: theme === 'dark'
+        ? 'border-2 border-primary-gold/50 text-primary-light hover:bg-primary-gold/20'
+        : 'border-2 border-primary-gold/50 text-primary-lightText hover:bg-primary-gold/20',
+      ghost: theme === 'dark'
+        ? 'text-primary-light hover:bg-primary-dark-secondary'
+        : 'text-primary-lightText hover:bg-gray-100',
       danger: 'bg-red-500 text-white hover:bg-red-600',
     }
 

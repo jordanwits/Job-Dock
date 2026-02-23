@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { jobsService } from '@/lib/api/services'
 import type { Job } from '../types/job'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface ArchivedJobsPageProps {
   onJobRestore: (job: Job) => Promise<void>
@@ -14,6 +15,7 @@ interface ArchivedJobsPageProps {
 }
 
 const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, deletedJobId, deletedRecurrenceId }: ArchivedJobsPageProps) => {
+  const { theme } = useTheme()
   const [archivedJobs, setArchivedJobs] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,13 +80,34 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
     }
   }
 
-  const statusColors = {
-    active: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    scheduled: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    'in-progress': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-    completed: 'bg-green-500/20 text-green-300 border-green-500/30',
-    cancelled: 'bg-red-500/20 text-red-300 border-red-500/30',
-    'pending-confirmation': 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+  const getStatusColors = (status: string) => {
+    const baseColors: Record<string, { dark: string; light: string }> = {
+      active: {
+        dark: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+        light: 'bg-blue-100 text-blue-700 border-blue-300',
+      },
+      scheduled: {
+        dark: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+        light: 'bg-blue-100 text-blue-700 border-blue-300',
+      },
+      'in-progress': {
+        dark: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+        light: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      },
+      completed: {
+        dark: 'bg-green-500/20 text-green-300 border-green-500/30',
+        light: 'bg-green-100 text-green-700 border-green-300',
+      },
+      cancelled: {
+        dark: 'bg-red-500/20 text-red-300 border-red-500/30',
+        light: 'bg-red-100 text-red-700 border-red-300',
+      },
+      'pending-confirmation': {
+        dark: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+        light: 'bg-orange-100 text-orange-700 border-orange-300',
+      },
+    }
+    return baseColors[status]?.[theme] || baseColors.active[theme]
   }
 
   return (
@@ -93,7 +116,10 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold text-primary-gold">Archived Jobs</h2>
-          <p className="text-sm text-primary-light/70 mt-1">
+          <p className={cn(
+            "text-sm mt-1",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
             These will be moved to long-term storage after 30 days. Restore any job back to your active calendar.
           </p>
         </div>
@@ -103,7 +129,9 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
       <div className="flex-1 overflow-hidden">
         {isLoading && (
           <div className="flex items-center justify-center h-full">
-            <div className="text-primary-light/70">Loading archived jobs...</div>
+            <div className={cn(
+              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+            )}>Loading archived jobs...</div>
           </div>
         )}
 
@@ -115,11 +143,20 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
 
         {!isLoading && !error && archivedJobs.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <svg className="w-20 h-20 mb-4 text-primary-light/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={cn(
+              "w-20 h-20 mb-4",
+              theme === 'dark' ? 'text-primary-light/30' : 'text-primary-lightTextSecondary/30'
+            )} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
             </svg>
-            <p className="text-xl text-primary-light/50 mb-2">No archived jobs found</p>
-            <p className="text-sm text-primary-light/40">Archived jobs will appear here</p>
+            <p className={cn(
+              "text-xl mb-2",
+              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+            )}>No archived jobs found</p>
+            <p className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-primary-light/40' : 'text-primary-lightTextSecondary/60'
+            )}>Archived jobs will appear here</p>
           </div>
         )}
 
@@ -134,13 +171,16 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-primary-light truncate">
+                      <h3 className={cn(
+                        "font-semibold truncate",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
                         {job.title}
                       </h3>
                       <span
                         className={cn(
                           'px-2 py-0.5 rounded text-xs font-medium border flex-shrink-0',
-                          statusColors[job.status]
+                          getStatusColors(job.status)
                         )}
                       >
                         {job.status}
@@ -148,14 +188,23 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
                     </div>
 
                     {job.description && (
-                      <p className="text-sm text-primary-light/70 mb-2 line-clamp-1">
+                      <p className={cn(
+                        "text-sm mb-2 line-clamp-1",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>
                         {job.description}
                       </p>
                     )}
 
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-primary-light/60">
+                    <div className={cn(
+                      "flex flex-wrap gap-x-4 gap-y-1 text-sm",
+                      theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                    )}>
                       <div className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={cn(
+                          "w-4 h-4",
+                          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                        )} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         {job.startTime ? (
@@ -167,7 +216,10 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
 
                       {job.contactName && (
                         <div className="flex items-center gap-1.5">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className={cn(
+                            "w-4 h-4",
+                            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                          )} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                           <span className="truncate">{job.contactName}</span>
@@ -175,7 +227,10 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
                       )}
 
                       {job.archivedAt && (
-                        <div className="flex items-center gap-1.5 text-primary-light/40">
+                        <div className={cn(
+                          "flex items-center gap-1.5",
+                          theme === 'dark' ? 'text-primary-light/40' : 'text-primary-lightTextSecondary/60'
+                        )}>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                           </svg>

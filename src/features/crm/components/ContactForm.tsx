@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { contactSchema, type ContactFormData } from '../schemas/contactSchemas'
 import { Contact } from '../types/contact'
 import { Input, Button, Select, PhoneInput } from '@/components/ui'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface ContactFormProps {
   contact?: Contact
@@ -13,6 +15,7 @@ interface ContactFormProps {
 }
 
 const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProps) => {
+  const { theme } = useTheme()
   const [scheduleJobAfterCreate, setScheduleJobAfterCreate] = useState(false)
   
   const {
@@ -169,11 +172,21 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       />
 
       <div>
-        <label className="block text-sm font-medium text-primary-light mb-2">
+        <label className={cn(
+          "block text-sm font-medium mb-2",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>
           Notes
         </label>
         <textarea
-          className="flex min-h-[100px] w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold disabled:cursor-not-allowed disabled:opacity-50"
+          className={cn(
+            "flex min-h-[100px] w-full rounded-lg border px-3 py-2 text-sm",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            theme === 'dark'
+              ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+              : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+          )}
           placeholder="Add notes about this contact..."
           {...register('notes')}
         />
@@ -184,19 +197,33 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
 
       {/* Schedule job option - only show when creating new contact */}
       {!contact && (
-        <div className="border-t border-primary-blue pt-4">
+        <div className={cn(
+          "border-t pt-4",
+          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
+        )}>
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={scheduleJobAfterCreate}
               onChange={(e) => setScheduleJobAfterCreate(e.target.checked)}
-              className="w-4 h-4 rounded border-primary-blue bg-primary-dark-secondary text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0"
+              className={cn(
+                "w-4 h-4 rounded text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0",
+                theme === 'dark'
+                  ? 'border-primary-blue bg-primary-dark-secondary'
+                  : 'border-gray-200 bg-white'
+              )}
             />
             <div className="flex-1">
-              <span className="text-sm font-medium text-primary-light">
+              <span className={cn(
+                "text-sm font-medium",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 Schedule a job for this contact
               </span>
-              <p className="text-xs text-primary-light/50 mt-0.5">
+              <p className={cn(
+                "text-xs mt-0.5",
+                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+              )}>
                 After creating this contact, open the job scheduling form
               </p>
             </div>

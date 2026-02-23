@@ -5,8 +5,11 @@ import QuoteList from '../components/QuoteList'
 import QuoteForm from '../components/QuoteForm'
 import QuoteDetail from '../components/QuoteDetail'
 import { Button, Modal, Card } from '@/components/ui'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 const QuotesPage = () => {
+  const { theme } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const returnTo = searchParams.get('returnTo')
@@ -126,10 +129,16 @@ const QuotesPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
+          <h1 className={cn(
+            "text-2xl md:text-3xl font-bold tracking-tight",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>
             <span className="text-primary-gold">Quotes</span>
           </h1>
-          <p className="text-sm md:text-base text-primary-light/60">
+          <p className={cn(
+            "text-sm md:text-base",
+            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+          )}>
             Create and manage quotes for your projects
           </p>
         </div>

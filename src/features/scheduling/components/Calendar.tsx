@@ -28,6 +28,7 @@ import { useJobStore } from '../store/jobStore'
 import { getTeamMemberColors } from '@/lib/utils/teamColors'
 import type { User } from '@/features/auth'
 import { services } from '@/lib/api/services'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface CalendarProps {
   jobs: Job[]
@@ -37,7 +38,7 @@ interface CalendarProps {
   onViewModeChange: (mode: 'day' | 'week' | 'month') => void
   onJobClick: (job: Job) => void
   onDateClick: (date: Date) => void
-  onUnscheduledDrop?: (jobId: string, targetDate: Date, targetHour?: number) => void
+  onUnscheduledDrop?: (jobId: string, targetDate: Date, targetHour?: number, bookingId?: string) => void
   user?: User | null
 }
 
@@ -66,6 +67,7 @@ const Calendar = ({
   onUnscheduledDrop,
   user,
 }: CalendarProps) => {
+  const { theme } = useTheme()
   // Determine if we should use team member colors (for admin/owner)
   const useTeamColors = user?.role === 'admin' || user?.role === 'owner'
 
@@ -522,11 +524,13 @@ const Calendar = ({
 
         // Only update if something actually changed
         if (newStartTime.getTime() !== originalStart.getTime()) {
-          await updateJob({
+          const payload: { id: string; startTime: string; endTime: string; bookingId?: string } = {
             id: job.id,
             startTime: newStartTime.toISOString(),
             endTime: newEndTime.toISOString(),
-          })
+          }
+          if (job.bookingId) payload.bookingId = job.bookingId
+          await updateJob(payload)
         }
       } catch (error) {
         console.error('Failed to update job:', error)
@@ -577,10 +581,12 @@ const Calendar = ({
         const startTime = new Date(job.startTime!)
         if (newEndTime <= startTime) return
 
-        await updateJob({
+        const payload: { id: string; endTime: string; bookingId?: string } = {
           id: job.id,
           endTime: newEndTime.toISOString(),
-        })
+        }
+        if (job.bookingId) payload.bookingId = job.bookingId
+        await updateJob(payload)
       } catch (error) {
         console.error('Failed to resize job:', error)
       }
@@ -834,11 +840,13 @@ const Calendar = ({
           const newStartTime = addDays(originalStart, dayOffset)
           const newEndTime = addDays(originalEnd, dayOffset)
 
-          updateJob({
+          const payload: { id: string; startTime: string; endTime: string; bookingId?: string } = {
             id: dragState.job.id,
             startTime: newStartTime.toISOString(),
             endTime: newEndTime.toISOString(),
-          }).catch(error => {
+          }
+          if (dragState.job.bookingId) payload.bookingId = dragState.job.bookingId
+          updateJob(payload).catch(error => {
             console.error('Failed to move job:', error)
           })
         }
@@ -884,11 +892,13 @@ const Calendar = ({
           new Date(dragState.job.endTime).getTime() - new Date(dragState.job.startTime).getTime()
         const newEndTime = new Date(newStartTime.getTime() + duration)
 
-        updateJob({
+        const payload: { id: string; startTime: string; endTime: string; bookingId?: string } = {
           id: dragState.job.id,
           startTime: newStartTime.toISOString(),
           endTime: newEndTime.toISOString(),
-        }).catch(error => {
+        }
+        if (dragState.job.bookingId) payload.bookingId = dragState.job.bookingId
+        updateJob(payload).catch(error => {
           console.error('Failed to move job:', error)
         })
 
@@ -954,9 +964,17 @@ const Calendar = ({
 
     return (
       <div className="flex-1 overflow-y-auto" ref={dayViewRef}>
-        <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
+        <div className={cn(
+          "sticky top-0 border-b z-10",
+          theme === 'dark' 
+            ? 'bg-primary-dark-secondary border-primary-blue' 
+            : 'bg-primary-lightSecondary border-gray-200/20'
+        )}>
           <div className="p-3 md:p-4 text-center">
-            <h2 className="text-base md:text-xl font-semibold text-primary-light">
+            <h2 className={cn(
+              "text-base md:text-xl font-semibold",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>
               {format(selectedDate, 'EEEE, MMMM d, yyyy')}
             </h2>
           </div>
@@ -964,9 +982,17 @@ const Calendar = ({
 
         {/* All-day / Multi-day jobs section */}
         {allDayJobs.length > 0 && (
-          <div className="border-b border-primary-blue/30 bg-primary-dark-secondary/50">
+          <div className={cn(
+            "border-b",
+            theme === 'dark' 
+              ? 'border-primary-blue/30 bg-primary-dark-secondary/50' 
+              : 'border-gray-200/20 bg-gray-50'
+          )}>
             <div className="p-2 md:p-3">
-              <div className="text-xs md:text-sm font-medium text-primary-light/70 mb-2">
+              <div className={cn(
+                "text-xs md:text-sm font-medium mb-2",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
                 All Day
               </div>
               <div className="space-y-1">
@@ -999,13 +1025,25 @@ const Calendar = ({
                         onJobClick(job)
                       }}
                     >
-                      <div className="text-sm font-medium text-primary-light">{job.title}</div>
-                      <div className="text-xs text-primary-light/70">{dateRange}</div>
+                      <div className={cn(
+                        "text-sm font-medium",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>{job.title}</div>
+                      <div className={cn(
+                        "text-xs",
+                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                      )}>{dateRange}</div>
                       {job.contactName && (
-                        <div className="text-xs text-primary-light/60">{job.contactName}</div>
+                        <div className={cn(
+                          "text-xs",
+                          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                        )}>{job.contactName}</div>
                       )}
                       {job.assignedToName && (
-                        <div className="text-xs text-primary-light/50">→ {job.assignedToName}</div>
+                        <div className={cn(
+                          "text-xs",
+                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                        )}>→ {job.assignedToName}</div>
                       )}
                     </div>
                   )
@@ -1021,7 +1059,10 @@ const Calendar = ({
             return (
               <div
                 key={hour}
-                className="border-b border-primary-blue/30 min-h-[60px] md:min-h-[80px] relative select-none"
+                className={cn(
+                  "border-b min-h-[60px] md:min-h-[80px] relative select-none",
+                  theme === 'dark' ? 'border-primary-blue/30' : 'border-gray-200/20'
+                )}
                 data-drop-date={selectedDate.toISOString()}
                 data-drop-hour={hour}
                 onDragOver={e => {
@@ -1035,12 +1076,16 @@ const Calendar = ({
                   e.preventDefault()
                   e.currentTarget.classList.remove('bg-primary-gold/10')
                   const jobId = e.dataTransfer.getData('jobId')
+                  const bookingId = e.dataTransfer.getData('bookingId') || undefined
                   if (jobId && onUnscheduledDrop) {
-                    onUnscheduledDrop(jobId, selectedDate, hour)
+                    onUnscheduledDrop(jobId, selectedDate, hour, bookingId)
                   }
                 }}
               >
-                <div className="absolute left-0 top-0 w-12 md:w-20 p-1 md:p-2 text-xs md:text-sm text-primary-light/70">
+                <div className={cn(
+                  "absolute left-0 top-0 w-12 md:w-20 p-1 md:p-2 text-xs md:text-sm",
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>
                   {format(setHours(setMinutes(new Date(), 0), hour), 'h:mm a')}
                 </div>
                 <div className="ml-12 md:ml-20 p-1 md:p-2 relative">
@@ -1049,7 +1094,11 @@ const Calendar = ({
                     if (!job.startTime || !job.endTime) return null
 
                     const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
-                    const isDragging = dragState.job?.id === job.id
+                    const isDragging =
+                      dragState.job?.id === job.id &&
+                      (dragState.job?.bookingId == null
+                        ? job.bookingId == null
+                        : dragState.job.bookingId === job.bookingId)
                     const isResizing = isDragging && dragState.type === 'resize'
                     const isMoving = isDragging && dragState.type === 'move'
 
@@ -1130,22 +1179,34 @@ const Calendar = ({
                             onJobClick(job)
                           }}
                         >
-                          <div className="text-sm font-medium text-primary-light pointer-events-none">
+                          <div className={cn(
+                            "text-sm font-medium pointer-events-none",
+                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                          )}>
                             {job.title}
                           </div>
-                          <div className="text-xs text-primary-light/70 pointer-events-none">
+                          <div className={cn(
+                            "text-xs pointer-events-none",
+                            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                          )}>
                             {format(displayStartTime, 'h:mm a')} -{' '}
                             {format(displayEndTime, 'h:mm a')}
                             {isResizing && ' (resizing...)'}
                             {isMoving && ' (moving...)'}
                           </div>
                           {job.contactName && (
-                            <div className="text-xs text-primary-light/60 pointer-events-none">
+                            <div className={cn(
+                              "text-xs pointer-events-none",
+                              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                            )}>
                               {job.contactName}
                             </div>
                           )}
                           {job.assignedToName && (
-                            <div className="text-xs text-primary-light/50 pointer-events-none">
+                            <div className={cn(
+                              "text-xs pointer-events-none",
+                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                            )}>
                               → {job.assignedToName}
                             </div>
                           )}
@@ -1160,7 +1221,12 @@ const Calendar = ({
                             handleDragStart(e, job, 'resize')
                           }}
                         >
-                          <div className="w-8 h-1 bg-primary-light/30 group-hover:bg-primary-light/50 rounded-full pointer-events-none"></div>
+                          <div className={cn(
+                            "w-8 h-1 rounded-full pointer-events-none",
+                            theme === 'dark' 
+                              ? 'bg-primary-light/30 group-hover:bg-primary-light/50' 
+                              : 'bg-primary-lightTextSecondary/50 group-hover:bg-primary-lightTextSecondary/70'
+                          )}></div>
                         </div>
                       </div>
                     )
@@ -1283,21 +1349,42 @@ const Calendar = ({
           }
         `}</style>
         <div className="flex-1 overflow-auto week-slot-height min-w-0" ref={weekViewRef}>
-          <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
+          <div className={cn(
+            "sticky top-0 border-b z-10",
+            theme === 'dark' 
+              ? 'bg-primary-dark-secondary border-primary-blue' 
+              : 'bg-primary-lightSecondary border-gray-200/20'
+          )}>
             <div className="p-3 md:p-4 text-center">
-              <h2 className="text-base md:text-xl font-semibold text-primary-light">
+              <h2 className={cn(
+                "text-base md:text-xl font-semibold",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>
                 {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
               </h2>
             </div>
           </div>
           <div className="flex overflow-x-auto min-w-0">
             {/* Time column */}
-            <div className="w-12 md:w-20 flex-shrink-0 border-r border-primary-blue/30 sticky left-0 bg-primary-dark-secondary z-10">
+            <div className={cn(
+              "w-12 md:w-20 flex-shrink-0 border-r sticky left-0 z-10",
+              theme === 'dark' 
+                ? 'border-primary-blue/30 bg-primary-dark-secondary' 
+                : 'border-gray-200/20 bg-primary-lightSecondary'
+            )}>
               {/* Empty space for day headers */}
-              <div className="h-10 md:h-12 border-b border-primary-blue/30"></div>
+              <div className={cn(
+                "h-10 md:h-12 border-b",
+                theme === 'dark' ? 'border-primary-blue/30' : 'border-gray-200/20'
+              )}></div>
               {/* All-day slot label */}
               <div
-                className="border-b border-primary-blue/30 p-1 md:p-2 text-xs text-primary-light/70 font-normal"
+                className={cn(
+                  "border-b p-1 md:p-2 text-xs font-normal",
+                  theme === 'dark' 
+                    ? 'border-primary-blue/30 text-primary-light/70' 
+                    : 'border-gray-200/20 text-primary-lightTextSecondary'
+                )}
                 style={{
                   minHeight: `${allDaySlotHeight}rem`,
                   height: `${allDaySlotHeight}rem`,
@@ -1309,7 +1396,12 @@ const Calendar = ({
               {hours.map(hour => (
                 <div
                   key={hour}
-                  className="h-12 md:h-20 border-b border-primary-blue/30 p-1 md:p-2 text-xs text-primary-light/70"
+                  className={cn(
+                    "h-12 md:h-20 border-b p-1 md:p-2 text-xs",
+                    theme === 'dark' 
+                      ? 'border-primary-blue/30 text-primary-light/70' 
+                      : 'border-gray-200/20 text-primary-lightTextSecondary'
+                  )}
                 >
                   <span className="hidden sm:inline">
                     {format(setHours(setMinutes(new Date(), 0), hour), 'h:mm a')}
@@ -1333,7 +1425,8 @@ const Calendar = ({
                     key={day.toISOString()}
                     data-day-column={dayIndex}
                     className={cn(
-                      'w-[100px] md:flex-1 md:min-w-0 flex-shrink-0 border-r border-primary-blue/30 last:border-r-0 flex flex-col',
+                      'w-[100px] md:flex-1 md:min-w-0 flex-shrink-0 border-r last:border-r-0 flex flex-col',
+                      theme === 'dark' ? 'border-primary-blue/30' : 'border-gray-200/20',
                       dragState.type === 'move' &&
                         dragTargetDay &&
                         isSameDay(dragTargetDay, day) &&
@@ -1348,19 +1441,25 @@ const Calendar = ({
                     {/* Day header */}
                     <div
                       className={cn(
-                        'h-10 md:h-12 border-b border-primary-blue/30 cursor-pointer hover:bg-primary-blue/10 flex-shrink-0'
+                        'h-10 md:h-12 border-b cursor-pointer flex-shrink-0',
+                        theme === 'dark' 
+                          ? 'border-primary-blue/30 hover:bg-primary-blue/10' 
+                          : 'border-gray-200/20 hover:bg-gray-100'
                       )}
                       onClick={() => onDateClick(day)}
                     >
                       <div className="p-1 md:p-2 text-center w-full">
-                        <div className="text-xs text-primary-light/70">
+                        <div className={cn(
+                          "text-xs",
+                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                        )}>
                           <span className="hidden sm:inline">{format(day, 'EEE')}</span>
                           <span className="sm:hidden">{format(day, 'EEEEE')}</span>
                         </div>
                         <div
                           className={cn(
                             'text-xs md:text-sm font-medium',
-                            isToday(day) ? 'text-primary-gold' : 'text-primary-light',
+                            isToday(day) ? 'text-primary-gold' : theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText',
                             isSameDay(day, selectedDate) &&
                               'ring-2 ring-primary-gold rounded-full w-5 h-5 md:w-6 md:h-6 mx-auto flex items-center justify-center'
                           )}
@@ -1372,7 +1471,10 @@ const Calendar = ({
 
                     {/* All-day slot - dedicated row for multi-day jobs */}
                     <div
-                      className="border-b border-primary-blue/30 relative flex-shrink-0 overflow-visible"
+                      className={cn(
+                        "border-b relative flex-shrink-0 overflow-visible",
+                        theme === 'dark' ? 'border-primary-blue/30' : 'border-gray-200/20'
+                      )}
                       style={{
                         minHeight: `${allDaySlotHeight}rem`,
                         height: `${allDaySlotHeight}rem`,
@@ -1411,7 +1513,11 @@ const Calendar = ({
                           if (startDayIndex === -1 || endDayIndex === -1) return null
 
                           const spanDays = endDayIndex - startDayIndex + 1
-                          const isDragging = dragState.job?.id === job.id
+                          const isDragging =
+                            dragState.job?.id === job.id &&
+                            (dragState.job?.bookingId == null
+                              ? job.bookingId == null
+                              : dragState.job.bookingId === job.bookingId)
                           const isMoving = isDragging && dragState.type === 'week-all-day-move'
                           const translateX = isMoving ? dragOffset.x : 0
                           const translateY = isMoving ? dragOffset.y : 0
@@ -1492,7 +1598,10 @@ const Calendar = ({
                         return (
                           <div
                             key={hour}
-                            className="h-12 md:h-20 border-b border-primary-blue/30 relative select-none"
+                            className={cn(
+                              "h-12 md:h-20 border-b relative select-none",
+                              theme === 'dark' ? 'border-primary-blue/30' : 'border-gray-200/20'
+                            )}
                             data-drop-date={day.toISOString()}
                             data-drop-hour={hour}
                             onDragOver={e => {
@@ -1506,8 +1615,9 @@ const Calendar = ({
                               e.preventDefault()
                               e.currentTarget.classList.remove('bg-primary-gold/10')
                               const jobId = e.dataTransfer.getData('jobId')
+                              const bookingId = e.dataTransfer.getData('bookingId') || undefined
                               if (jobId && onUnscheduledDrop) {
-                                onUnscheduledDrop(jobId, day, hour)
+                                onUnscheduledDrop(jobId, day, hour, bookingId)
                               }
                             }}
                           >
@@ -1516,7 +1626,11 @@ const Calendar = ({
                               if (!job.startTime || !job.endTime) return null
 
                               const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
-                              const isDragging = dragState.job?.id === job.id
+                              const isDragging =
+                                dragState.job?.id === job.id &&
+                                (dragState.job?.bookingId == null
+                                  ? job.bookingId == null
+                                  : dragState.job.bookingId === job.bookingId)
                               const isResizing = isDragging && dragState.type === 'resize'
                               const isMoving = isDragging && dragState.type === 'move'
 
@@ -1602,10 +1716,16 @@ const Calendar = ({
                                       onJobClick(job)
                                     }}
                                   >
-                                    <div className="font-medium text-primary-light truncate pointer-events-none">
+                                    <div className={cn(
+                                      "font-medium truncate pointer-events-none",
+                                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                                    )}>
                                       {job.title}
                                     </div>
-                                    <div className="text-primary-light/70 truncate pointer-events-none">
+                                    <div className={cn(
+                                      "truncate pointer-events-none",
+                                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                                    )}>
                                       <span className="hidden sm:inline">
                                         {format(displayStartTime, 'h:mm a')}
                                       </span>
@@ -1630,7 +1750,12 @@ const Calendar = ({
                                       handleDragStart(e, job, 'resize')
                                     }}
                                   >
-                                    <div className="w-6 h-0.5 bg-primary-light/30 group-hover:bg-primary-light/50 rounded-full pointer-events-none"></div>
+                                    <div className={cn(
+                                      "w-6 h-0.5 rounded-full pointer-events-none",
+                                      theme === 'dark' 
+                                        ? 'bg-primary-light/30 group-hover:bg-primary-light/50' 
+                                        : 'bg-primary-lightTextSecondary/50 group-hover:bg-primary-lightTextSecondary/70'
+                                    )}></div>
                                   </div>
                                 </div>
                               )
@@ -1782,9 +1907,17 @@ const Calendar = ({
             }
           }
         `}</style>
-        <div className="sticky top-0 bg-primary-dark-secondary border-b border-primary-blue z-10">
+        <div className={cn(
+          "sticky top-0 border-b z-10",
+          theme === 'dark' 
+            ? 'bg-primary-dark-secondary border-primary-blue' 
+            : 'bg-primary-lightSecondary border-gray-200/20'
+        )}>
           <div className="p-3 md:p-4 text-center">
-            <h2 className="text-base md:text-xl font-semibold text-primary-light">
+            <h2 className={cn(
+              "text-base md:text-xl font-semibold",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>
               {format(selectedDate, 'MMMM yyyy')}
             </h2>
           </div>
@@ -1794,7 +1927,12 @@ const Calendar = ({
           {weekDays.map(day => (
             <div
               key={day}
-              className="p-1 md:p-2 text-center text-xs md:text-sm font-medium text-primary-light/70 border-b border-primary-blue/30"
+              className={cn(
+                "p-1 md:p-2 text-center text-xs md:text-sm font-medium border-b",
+                theme === 'dark' 
+                  ? 'text-primary-light/70 border-primary-blue/30' 
+                  : 'text-primary-lightTextSecondary border-gray-200/20'
+              )}
             >
               <span className="hidden sm:inline">{day}</span>
               <span className="sm:hidden">{day.substring(0, 1)}</span>
@@ -1852,7 +1990,10 @@ const Calendar = ({
                 className={cn(
                   // Only use Tailwind minHeight class on desktop (when dynamicHeight is not set)
                   !scaleSettings.dynamicHeight && scaleSettings.minHeight,
-                  'border-b border-r border-primary-blue/30 p-1 md:p-2 cursor-pointer hover:bg-primary-blue/10 transition-colors relative select-none overflow-visible',
+                  'border-b border-r p-1 md:p-2 cursor-pointer transition-colors relative select-none overflow-visible',
+                  theme === 'dark' 
+                    ? 'border-primary-blue/30 hover:bg-primary-blue/10' 
+                    : 'border-gray-200/20 hover:bg-gray-100',
                   isDropTarget && 'bg-primary-gold/20 ring-2 ring-primary-gold'
                 )}
                 style={
@@ -1886,26 +2027,31 @@ const Calendar = ({
                       setMinutes(day, getMinutes(originalStart)),
                       getHours(originalStart)
                     )
-                    const originalJob = jobs.find(j => j.id === monthJobId)
+                    const monthBookingId = e.dataTransfer.getData('monthBookingId') || undefined
+                    const originalJob = monthBookingId
+                      ? jobs.find(j => j.id === monthJobId && j.bookingId === monthBookingId)
+                      : jobs.find(j => j.id === monthJobId)
                     if (originalJob && originalJob.startTime && originalJob.endTime) {
                       const duration =
                         new Date(originalJob.endTime).getTime() -
                         new Date(originalJob.startTime).getTime()
                       const newEndTime = new Date(newStartTime.getTime() + duration)
-                      await updateJob({
+                      const payload: { id: string; startTime: string; endTime: string; bookingId?: string } = {
                         id: monthJobId,
                         startTime: newStartTime.toISOString(),
                         endTime: newEndTime.toISOString(),
-                      })
+                      }
+                      if (originalJob.bookingId) payload.bookingId = originalJob.bookingId
+                      await updateJob(payload)
                     }
                     return
                   }
 
-                  // Handle unscheduled job drop
+                  // Handle unscheduled job drop (HTML5 DnD - if used)
                   const jobId = e.dataTransfer.getData('jobId')
+                  const bookingId = e.dataTransfer.getData('bookingId') || undefined
                   if (jobId && onUnscheduledDrop) {
-                    // Month view: no specific hour, will default to 9 AM
-                    onUnscheduledDrop(jobId, day)
+                    onUnscheduledDrop(jobId, day, undefined, bookingId)
                   }
                 }}
               >
@@ -1913,7 +2059,7 @@ const Calendar = ({
                   className={cn(
                     'text-xs md:text-sm font-medium mb-0.5 md:mb-1',
                     !isCurrentMonth && 'opacity-40',
-                    isToday(day) ? 'text-primary-gold' : 'text-primary-light'
+                    isToday(day) ? 'text-primary-gold' : theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
                   )}
                 >
                   {format(day, 'd')}
@@ -1923,7 +2069,11 @@ const Calendar = ({
                   {multiDayJobsToRender.map((jobData, _jobIndex) => {
                     const { job, jobEndDay, isJobStartDay, jobDates } = jobData
 
-                    const isDragging = dragState.job?.id === job.id
+                    const isDragging =
+                      dragState.job?.id === job.id &&
+                      (dragState.job?.bookingId == null
+                        ? job.bookingId == null
+                        : dragState.job.bookingId === job.bookingId)
                     const isMonthMoving = isDragging && dragState.type === 'month-move'
                     const translateX = isMonthMoving ? dragOffset.x : 0
                     const translateY = isMonthMoving ? dragOffset.y : 0
@@ -2039,7 +2189,11 @@ const Calendar = ({
                     // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
                     if (!job.startTime || !job.endTime) return null
 
-                    const isDragging = dragState.job?.id === job.id
+                    const isDragging =
+                      dragState.job?.id === job.id &&
+                      (dragState.job?.bookingId == null
+                        ? job.bookingId == null
+                        : dragState.job.bookingId === job.bookingId)
                     const isMonthMoving = isDragging && dragState.type === 'month-move'
                     const translateX = isMonthMoving ? dragOffset.x : 0
                     const translateY = isMonthMoving ? dragOffset.y : 0
@@ -2096,7 +2250,8 @@ const Calendar = ({
                   {singleDayJobs.length > scaleSettings.maxItems && (
                     <div
                       className={cn(
-                        'text-[10px] md:text-xs text-primary-light/50',
+                        'text-[10px] md:text-xs',
+                        theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary',
                         !isCurrentMonth && 'opacity-60'
                       )}
                     >
@@ -2113,7 +2268,12 @@ const Calendar = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-primary-dark-secondary rounded-lg border border-primary-blue overflow-hidden select-none">
+    <div className={cn(
+      "flex flex-col h-full rounded-lg border overflow-hidden select-none",
+      theme === 'dark' 
+        ? 'bg-primary-dark-secondary border-primary-blue' 
+        : 'bg-primary-lightSecondary border-gray-200/20'
+    )}>
       {/* Drag ghost overlay (follows pointer for real-time movement) - only for move operations */}
       {dragGhost?.isVisible &&
         dragState.job &&
@@ -2152,7 +2312,10 @@ const Calendar = ({
             <div className="p-2">
               {previewStartTime && dragState.originalEndTime ? (
                 <>
-                  <div className="text-sm font-medium text-primary-light">
+                  <div className={cn(
+                    "text-sm font-medium",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>
                     {format(previewStartTime, 'h:mm a')} -{' '}
                     {format(
                       new Date(
@@ -2163,7 +2326,10 @@ const Calendar = ({
                       'h:mm a'
                     )}
                   </div>
-                  <div className="text-xs text-primary-light/60">
+                  <div className={cn(
+                    "text-xs",
+                    theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                  )}>
                     {Math.round(
                       (new Date(dragState.originalEndTime).getTime() -
                         new Date(dragState.originalStartTime!).getTime()) /
@@ -2174,12 +2340,18 @@ const Calendar = ({
                 </>
               ) : (
                 <>
-                  <div className="text-sm font-medium text-primary-light">
+                  <div className={cn(
+                    "text-sm font-medium",
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}>
                     {dragState.job.startTime &&
                       dragState.job.endTime &&
                       `${format(new Date(dragState.job.startTime), 'h:mm a')} - ${format(new Date(dragState.job.endTime), 'h:mm a')}`}
                   </div>
-                  <div className="text-xs text-primary-light/60">Dragging...</div>
+                  <div className={cn(
+                    "text-xs",
+                    theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                  )}>Dragging...</div>
                 </>
               )}
             </div>
@@ -2188,13 +2360,21 @@ const Calendar = ({
 
       {/* Toolbar */}
       <div
-        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 md:p-4 border-b border-primary-blue overflow-hidden flex-shrink-0"
+        className={cn(
+          "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 md:p-4 border-b overflow-hidden flex-shrink-0",
+          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
+        )}
         style={{ touchAction: 'none', overscrollBehavior: 'none' }}
       >
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-h-0">
           <button
             onClick={() => navigateDate('prev')}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors flex-shrink-0"
+            className={cn(
+              "p-1.5 sm:p-2 rounded-lg transition-colors flex-shrink-0",
+              theme === 'dark' 
+                ? 'hover:bg-primary-blue/20 text-primary-light' 
+                : 'hover:bg-gray-100 text-primary-lightText'
+            )}
             aria-label="Previous"
           >
             <svg
@@ -2219,7 +2399,12 @@ const Calendar = ({
           </button>
           <button
             onClick={() => navigateDate('next')}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-primary-blue/20 text-primary-light transition-colors flex-shrink-0"
+            className={cn(
+              "p-1.5 sm:p-2 rounded-lg transition-colors flex-shrink-0",
+              theme === 'dark' 
+                ? 'hover:bg-primary-blue/20 text-primary-light' 
+                : 'hover:bg-gray-100 text-primary-lightText'
+            )}
             aria-label="Next"
           >
             <svg
@@ -2241,7 +2426,9 @@ const Calendar = ({
                 'px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap',
                 viewMode === 'day'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                  : theme === 'dark'
+                    ? 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                    : 'bg-gray-100 text-primary-lightText hover:bg-gray-200'
               )}
             >
               Day
@@ -2252,7 +2439,9 @@ const Calendar = ({
                 'px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap',
                 viewMode === 'week'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                  : theme === 'dark'
+                    ? 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                    : 'bg-gray-100 text-primary-lightText hover:bg-gray-200'
               )}
             >
               Week
@@ -2263,7 +2452,9 @@ const Calendar = ({
                 'px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap',
                 viewMode === 'month'
                   ? 'bg-primary-gold text-primary-dark'
-                  : 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                  : theme === 'dark'
+                    ? 'bg-primary-blue/20 text-primary-light hover:bg-primary-blue/30'
+                    : 'bg-gray-100 text-primary-lightText hover:bg-gray-200'
               )}
             >
               Month
@@ -2272,8 +2463,14 @@ const Calendar = ({
 
           {/* Zoom Control - Only show in month view and hidden on mobile */}
           {viewMode === 'month' && (
-            <div className="hidden md:flex items-center gap-1 border-l border-primary-blue/50 pl-2 flex-shrink-0">
-              <span className="text-xs text-primary-light/70 mr-1">Zoom:</span>
+            <div className={cn(
+              "hidden md:flex items-center gap-1 border-l pl-2 flex-shrink-0",
+              theme === 'dark' ? 'border-primary-blue/50' : 'border-gray-200/20'
+            )}>
+              <span className={cn(
+                "text-xs mr-1",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>Zoom:</span>
               {[100, 125, 150, 175].map(scale => (
                 <button
                   key={scale}
@@ -2282,7 +2479,9 @@ const Calendar = ({
                     'px-2 py-1 rounded text-xs font-medium transition-colors',
                     calendarScale === scale
                       ? 'bg-primary-gold text-primary-dark'
-                      : 'bg-primary-blue/10 text-primary-light/70 hover:bg-primary-blue/20'
+                      : theme === 'dark'
+                        ? 'bg-primary-blue/10 text-primary-light/70 hover:bg-primary-blue/20'
+                        : 'bg-gray-100 text-primary-lightTextSecondary hover:bg-gray-200'
                   )}
                 >
                   {scale}%
