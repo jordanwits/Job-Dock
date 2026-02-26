@@ -1397,7 +1397,7 @@ export const dataServices = {
       // Generate token for email and/or SMS link
       const approvalToken = generateApprovalToken('quote', quote.id, tenantId)
       const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
-      const acceptUrl = `${publicAppUrl}/public/quote/${quote.id}/accept?token=${approvalToken}`
+      const viewUrl = `${publicAppUrl}/public/quote/${quote.id}?token=${approvalToken}`
 
       const sentVia: string[] = []
 
@@ -1414,11 +1414,13 @@ export const dataServices = {
         }
         if (wantsSms && quote.contact.phone?.trim()) {
           const { isSmsConfigured } = await import('./sms')
+          const { createShortLink } = await import('./shortLinks')
           console.log(`[QUOTE-SEND] Attempting SMS for ${quote.quoteNumber}, isSmsConfigured: ${isSmsConfigured()}`)
+          const smsViewUrl = wantsEmail ? undefined : await createShortLink(viewUrl)
           const smsBody = buildQuoteNotificationSms({
             quoteNumber: quote.quoteNumber,
             companyName,
-            viewUrl: wantsEmail ? undefined : acceptUrl,
+            viewUrl: smsViewUrl,
           })
           const smsSid = await sendSms(quote.contact.phone, smsBody)
           if (smsSid) {
@@ -1788,9 +1790,9 @@ export const dataServices = {
       const trackResponse = serializedInvoice.trackResponse !== false
       const approvalToken = trackResponse ? generateApprovalToken('invoice', invoice.id, tenantId) : null
       const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
-      const acceptUrl =
+      const viewUrl =
         trackResponse && approvalToken
-          ? `${publicAppUrl}/public/invoice/${invoice.id}/accept?token=${approvalToken}`
+          ? `${publicAppUrl}/public/invoice/${invoice.id}?token=${approvalToken}`
           : ''
 
       const sentVia: string[] = []
@@ -1807,10 +1809,12 @@ export const dataServices = {
           console.log(`[OK] Invoice ${invoice.invoiceNumber} email sent to ${invoice.contact.email}`)
         }
         if (wantsSms && invoice.contact.phone?.trim()) {
+          const { createShortLink } = await import('./shortLinks')
+          const smsViewUrl = wantsEmail ? undefined : (viewUrl ? await createShortLink(viewUrl) : undefined)
           const smsBody = buildInvoiceNotificationSms({
             invoiceNumber: invoice.invoiceNumber,
             companyName,
-            viewUrl: wantsEmail ? undefined : acceptUrl || undefined,
+            viewUrl: smsViewUrl,
           })
           const smsSid = await sendSms(invoice.contact.phone, smsBody)
           if (smsSid) {

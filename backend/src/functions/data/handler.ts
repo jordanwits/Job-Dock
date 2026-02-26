@@ -20,6 +20,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return corsResponse()
   }
 
+  // Short link resolve (no auth - for SMS redirects)
+  if (event.httpMethod === 'GET' && event.path) {
+    const pathMatch = event.path.match(/\/s\/([A-Za-z0-9]+)(?:\?|$)/)
+    if (pathMatch) {
+      try {
+        const { resolveShortLink } = await import('../../lib/shortLinks')
+        const url = await resolveShortLink(pathMatch[1]!)
+        if (!url) return errorResponse('Link not found or expired', 404)
+        return successResponse({ url })
+      } catch (e) {
+        console.error('[SHORT-LINK] Resolve error:', e)
+        return errorResponse('Failed to resolve link', 500)
+      }
+    }
+  }
+
   // SMS config diagnostic (no auth - for debugging Twilio setup)
   if (event.path?.includes('/__sms-status') && event.httpMethod === 'GET') {
     try {
@@ -871,18 +887,25 @@ We look forward to working with you!',
       ((resource === 'quotes' && action === 'approval-info') ||
         (resource === 'invoices' && action === 'approval-info'))
 
+    // Check if this is a public PDF endpoint (GET request to fetch quote/invoice PDF for view page)
+    const isPublicPdfEndpoint =
+      event.httpMethod === 'GET' &&
+      id &&
+      ((resource === 'quotes' && action === 'public-pdf') ||
+        (resource === 'invoices' && action === 'public-pdf'))
+
     // For public endpoints, determine tenant ID from the resource itself
     let tenantId: string
     if (isPublicBookingEndpoint) {
       tenantId = 'public-booking-placeholder'
-    } else if ((isPublicApprovalEndpoint || isPublicApprovalInfoEndpoint) && id) {
+    } else if ((isPublicApprovalEndpoint || isPublicApprovalInfoEndpoint || isPublicPdfEndpoint) && id) {
       // For approval endpoints, look up the tenantId from the quote/invoice record
       tenantId = await getTenantIdFromResource(resource as 'quotes' | 'invoices', id)
     } else {
       tenantId = await resolveTenantId(event)
     }
 
-    if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint) {
+    if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint) {
       await ensureTenantExists(tenantId)
     }
 
@@ -894,7 +917,7 @@ We look forward to working with you!',
     const enforceSubscription = process.env.STRIPE_ENFORCE_SUBSCRIPTION === 'true'
     if (enforceSubscription && resource !== 'billing') {
       // Always allow public endpoints
-      if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint) {
+      if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint) {
         // Check subscription status
         const { default: prisma } = await import('../../lib/db')
         const tenant = await prisma.tenant.findUnique({
@@ -1221,6 +1244,59 @@ async function handleGet(
     return {
       tenantId,
       ...branding,
+    }
+  }
+
+  // Get public PDF URL for quote/invoice view page (view PDF, then accept/decline)
+  if ((resource === 'quotes' || resource === 'invoices') && id && action === 'public-pdf') {
+    const token = event.queryStringParameters?.token
+    if (!token) {
+      throw new ApiError('Approval token required', 400)
+    }
+
+    const { verifyApprovalToken } = await import('../../lib/approvalTokens')
+    const { generateQuotePDF, generateInvoicePDF } = await import('../../lib/pdf')
+    const { uploadFileWithKey } = await import('../../lib/fileUpload')
+    const resourceType = resource === 'quotes' ? 'quote' : 'invoice'
+
+    if (!verifyApprovalToken(resourceType, id, tenantId, token)) {
+      throw new ApiError('Invalid or expired approval token', 403)
+    }
+
+    const tenant = await (await import('../../lib/db')).default.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true },
+    })
+    const settings = await (await import('../../lib/db')).default.tenantSettings.findUnique({
+      where: { tenantId },
+    })
+    const tenantName = tenant?.name
+    const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
+
+    if (resource === 'quotes') {
+      const quote = await (service as typeof dataServices.quotes).getById(tenantId, id)
+      const pdfBuffer = await generateQuotePDF(quote, tenantName, {
+        name: companyName,
+        email: settings?.companySupportEmail || undefined,
+        phone: settings?.companyPhone || undefined,
+        logoKey: settings?.logoUrl || undefined,
+        templateKey: settings?.quotePdfTemplateKey || undefined,
+      })
+      const key = `public-pdf/quote-${id}.pdf`
+      const pdfUrl = await uploadFileWithKey(key, pdfBuffer, 'application/pdf')
+      return { pdfUrl }
+    } else {
+      const invoice = await (service as typeof dataServices.invoices).getById(tenantId, id)
+      const pdfBuffer = await generateInvoicePDF(invoice, tenantName, {
+        name: companyName,
+        email: settings?.companySupportEmail || undefined,
+        phone: settings?.companyPhone || undefined,
+        logoKey: settings?.logoUrl || undefined,
+        templateKey: settings?.invoicePdfTemplateKey || undefined,
+      })
+      const key = `public-pdf/invoice-${id}.pdf`
+      const pdfUrl = await uploadFileWithKey(key, pdfBuffer, 'application/pdf')
+      return { pdfUrl }
     }
   }
 

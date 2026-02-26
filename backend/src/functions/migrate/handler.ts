@@ -834,6 +834,23 @@ WHERE "assignedTo" IS NOT NULL
     ],
     description: 'Add notificationPreference to contacts for per-client email/SMS/both selection',
   },
+  {
+    name: '20260226000000_add_short_links',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "short_links" (
+        "id" TEXT NOT NULL,
+        "code" TEXT NOT NULL,
+        "url" TEXT NOT NULL,
+        "expiresAt" TIMESTAMP(3) NOT NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "short_links_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "short_links_code_key" ON "short_links"("code")`,
+      `CREATE INDEX IF NOT EXISTS "short_links_code_idx" ON "short_links"("code")`,
+      `CREATE INDEX IF NOT EXISTS "short_links_expiresAt_idx" ON "short_links"("expiresAt")`,
+    ],
+    description: 'Add short_links table for SMS URL shortening',
+  },
 ]
 
 export const handler = async (

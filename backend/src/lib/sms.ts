@@ -32,10 +32,24 @@ export function isSmsConfigured(): boolean {
   return !!(twilioClient && TWILIO_PHONE_NUMBER)
 }
 
+/** GSM-7 single-segment limit (160 chars = 1 segment, lower cost) */
+const SMS_SINGLE_SEGMENT_LIMIT = 160
+
+/**
+ * Truncate message to single segment when possible.
+ * Skips truncation if body contains a URL (truncating would break the link).
+ */
+function truncateToSingleSegment(body: string): string {
+  const trimmed = body.trim()
+  if (trimmed.length <= SMS_SINGLE_SEGMENT_LIMIT) return trimmed
+  if (/https?:\/\//i.test(trimmed)) return trimmed
+  return trimmed.slice(0, SMS_SINGLE_SEGMENT_LIMIT - 3) + '...'
+}
+
 /**
  * Send an SMS message via Twilio.
  * @param to - Recipient phone number (will be normalized to E.164)
- * @param body - Message body (max 1600 chars for single segment)
+ * @param body - Message body (kept to 160 chars when possible for single-segment)
  * @returns Message SID if sent, null if skipped or failed
  */
 export async function sendSms(to: string, body: string): Promise<string | null> {
@@ -45,10 +59,12 @@ export async function sendSms(to: string, body: string): Promise<string | null> 
     return null
   }
 
+  const bodyToSend = truncateToSingleSegment(body)
+
   try {
     const toNormalized = normalizePhone(to)
     const result = await twilioClient.messages.create({
-      body: body.trim(),
+      body: bodyToSend,
       from: TWILIO_PHONE_NUMBER,
       to: toNormalized,
     })
@@ -81,7 +97,7 @@ export function buildBookingConfirmationSms(params: {
     month: 'short',
     day: 'numeric',
   })
-  return `${companyName}: Your ${serviceName} appointment is confirmed for ${dateStr} at ${timeStr}.`
+  return `${companyName}: ${serviceName} confirmed for ${dateStr} at ${timeStr}.`
 }
 
 /**
@@ -105,7 +121,7 @@ export function buildBookingPendingSms(params: {
     month: 'short',
     day: 'numeric',
   })
-  return `${companyName}: Your ${serviceName} request for ${dateStr} at ${timeStr} is pending. We'll confirm soon.`
+  return `${companyName}: ${serviceName} request for ${dateStr} at ${timeStr} pending. We'll confirm soon.`
 }
 
 /**
@@ -116,7 +132,7 @@ export function buildBookingDeclinedSms(params: {
   companyName: string
 }): string {
   const { serviceName, companyName } = params
-  return `${companyName}: Your ${serviceName} appointment request could not be confirmed. Please contact us to reschedule.`
+  return `${companyName}: ${serviceName} request couldn't be confirmed. Contact us to reschedule.`
 }
 
 /**
@@ -130,9 +146,9 @@ export function buildQuoteNotificationSms(params: {
 }): string {
   const { quoteNumber, companyName, viewUrl } = params
   if (viewUrl) {
-    return `${companyName}: Your quote ${quoteNumber} is ready. View: ${viewUrl}`
+    return `${companyName}: Quote ${quoteNumber} ready. View: ${viewUrl}`
   }
-  return `${companyName}: Your quote ${quoteNumber} is ready. Check your email for details.`
+  return `${companyName}: Quote ${quoteNumber} ready. Check email for details.`
 }
 
 /**
@@ -145,9 +161,9 @@ export function buildInvoiceNotificationSms(params: {
 }): string {
   const { invoiceNumber, companyName, viewUrl } = params
   if (viewUrl) {
-    return `${companyName}: Your invoice ${invoiceNumber} is ready. View: ${viewUrl}`
+    return `${companyName}: Invoice ${invoiceNumber} ready. View: ${viewUrl}`
   }
-  return `${companyName}: Your invoice ${invoiceNumber} is ready. Check your email for details.`
+  return `${companyName}: Invoice ${invoiceNumber} ready. Check email for details.`
 }
 
 export type NotificationPreference = 'email' | 'sms' | 'both'

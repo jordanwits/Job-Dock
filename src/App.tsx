@@ -12,7 +12,7 @@ import { SchedulingPage } from '@/features/scheduling'
 import { JobLogsListPage, JobLogDetailPage } from '@/features/jobLogs'
 import { PublicBookingPage } from '@/features/booking'
 import { SettingsPage, ProfileSettingsPage } from '@/features/settings'
-import { QuoteApprovalPage, InvoiceApprovalPage } from '@/features/publicApproval'
+import { QuoteApprovalPage, InvoiceApprovalPage, QuoteViewPage, InvoiceViewPage, ShortLinkRedirect } from '@/features/publicApproval'
 import { ReportsPage } from '@/features/reports'
 import {
   LandingPage,
@@ -86,8 +86,13 @@ function App() {
         <Route path="/book" element={<PublicBookingPage />} />
         <Route path="/book/:serviceId" element={<PublicBookingPage />} />
 
+        {/* Short link redirect (for SMS) */}
+
+        <Route path="/s/:code" element={<ShortLinkRedirect />} />
         {/* Public Approval Routes - No authentication required */}
+        <Route path="/public/quote/:id" element={<QuoteViewPage />} />
         <Route path="/public/quote/:id/:action" element={<QuoteApprovalPage />} />
+        <Route path="/public/invoice/:id" element={<InvoiceViewPage />} />
         <Route path="/public/invoice/:id/:action" element={<InvoiceApprovalPage />} />
 
         {/* Auth Routes - Always render, let pages handle redirect */}

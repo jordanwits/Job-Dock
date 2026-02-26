@@ -1353,6 +1353,7 @@ export async function sendQuoteEmail(data: {
   // Use provided token or generate (allows reuse for SMS)
   const approvalToken = providedToken ?? generateApprovalToken('quote', quoteData.id, tenantId)
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+  const viewUrl = `${publicAppUrl}/public/quote/${quoteData.id}?token=${approvalToken}`
   const acceptUrl = `${publicAppUrl}/public/quote/${quoteData.id}/accept?token=${approvalToken}`
   const declineUrl = `${publicAppUrl}/public/quote/${quoteData.id}/decline?token=${approvalToken}`
 
@@ -1439,7 +1440,7 @@ export async function sendQuoteEmail(data: {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
                 <tr>
                   <td align="center" style="padding: 0 0 20px 0;">
-                    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; font-weight: 500; line-height: 1.5;">Please review and respond to this quote:</p>
+                    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; font-weight: 500; line-height: 1.5;">View your quote and respond:</p>
                   </td>
                 </tr>
                 <tr>
@@ -1450,7 +1451,7 @@ export async function sendQuoteEmail(data: {
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td style="background-color: #D4AF37; border-radius: 6px;">
-                                <a href="${acceptUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Accept Quote</a>
+                                <a href="${viewUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">View Quote & Respond</a>
                               </td>
                             </tr>
                           </table>
@@ -1459,7 +1460,7 @@ export async function sendQuoteEmail(data: {
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td style="background-color: #6c757d; border-radius: 6px;">
-                                <a href="${declineUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Decline Quote</a>
+                                <a href="${declineUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Quick Decline</a>
                               </td>
                             </tr>
                           </table>
@@ -1525,9 +1526,9 @@ Valid Until: ${validUntilText}
 
 **PLEASE RESPOND TO THIS QUOTE:**
 
-Accept Quote: ${acceptUrl}
+View quote and respond: ${viewUrl}
 
-Decline Quote: ${declineUrl}
+Quick decline: ${declineUrl}
 
 Please review the attached quote and let us know if you have any questions.
 
@@ -1873,6 +1874,7 @@ export async function sendInvoiceEmail(data: {
     ? (providedToken ?? generateApprovalToken('invoice', invoiceData.id, tenantId))
     : null
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+  const viewUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}?token=${approvalToken}` : ''
   const acceptUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}` : ''
   const declineUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}` : ''
 
@@ -1968,7 +1970,7 @@ export async function sendInvoiceEmail(data: {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
                 <tr>
                   <td align="center" style="padding: 0 0 20px 0;">
-                    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; font-weight: 500; line-height: 1.5;">Please confirm receipt and acceptance of this invoice:</p>
+                    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; font-weight: 500; line-height: 1.5;">View your invoice and respond:</p>
                   </td>
                 </tr>
                 <tr>
@@ -1979,7 +1981,7 @@ export async function sendInvoiceEmail(data: {
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td style="background-color: #D4AF37; border-radius: 6px;">
-                                <a href="${acceptUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Approve Invoice</a>
+                                <a href="${viewUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">View Invoice & Respond</a>
                               </td>
                             </tr>
                           </table>
@@ -1988,7 +1990,7 @@ export async function sendInvoiceEmail(data: {
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td style="background-color: #6c757d; border-radius: 6px;">
-                                <a href="${declineUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Decline Invoice</a>
+                                <a href="${declineUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Quick Decline</a>
                               </td>
                             </tr>
                           </table>
@@ -2056,9 +2058,9 @@ ${invoiceData.paymentTerms ? `Payment Terms: ${invoiceData.paymentTerms}` : ''}
 
 ${trackResponse ? `**PLEASE CONFIRM RECEIPT:**
 
-Approve Invoice: ${acceptUrl}
+View invoice and respond: ${viewUrl}
 
-Decline Invoice: ${declineUrl}
+Quick decline: ${declineUrl}
 
 ` : ''}Please remit payment by the due date.
 

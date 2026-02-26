@@ -12,6 +12,21 @@ export interface UploadResult {
 }
 
 /**
+ * Upload a file to S3 with a specific key (for public PDFs)
+ */
+export async function uploadFileWithKey(key: string, buffer: Buffer, contentType: string): Promise<string> {
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: FILES_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    })
+  )
+  return getFileUrl(key, 3600)
+}
+
+/**
  * Upload a file to S3
  */
 export async function uploadFile(params: {

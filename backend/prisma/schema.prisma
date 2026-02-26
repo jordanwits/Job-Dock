@@ -460,3 +460,15 @@ model JobRole {
   @@index([tenantId])
   @@map("job_roles")
 }
+
+model ShortLink {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  url       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([code])
+  @@index([expiresAt])
+  @@map("short_links")
+}

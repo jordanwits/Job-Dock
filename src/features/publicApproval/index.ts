@@ -1,2 +1,5 @@
 export { default as QuoteApprovalPage } from './QuoteApprovalPage'
 export { default as InvoiceApprovalPage } from './InvoiceApprovalPage'
+export { default as QuoteViewPage } from './QuoteViewPage'
+export { default as InvoiceViewPage } from './InvoiceViewPage'
+export { default as ShortLinkRedirect } from './ShortLinkRedirect'
