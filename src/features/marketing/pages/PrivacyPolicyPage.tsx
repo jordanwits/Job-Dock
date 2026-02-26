@@ -1,9 +1,17 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
 import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
 
 const PrivacyPolicyPage = () => {
+  useEffect(() => {
+    document.title = 'Privacy Policy | JobDock'
+    return () => {
+      document.title = 'The Job Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
+    }
+  }, [])
+
   return (
     <MarketingLayout>
       {/* Hero Section */}
@@ -24,6 +32,15 @@ const PrivacyPolicyPage = () => {
           <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-2xl shadow-lg border border-primary-blue/10 p-8 md:p-12">
               <div className="space-y-10 text-primary-dark/80">
+                <section>
+                  <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
+                    Who We Are
+                  </h2>
+                  <p className="text-base md:text-lg leading-relaxed">
+                    JobDock is operated by West Wave Creative, a DBA of Amicus Group, Inc., a California S-Corporation.
+                  </p>
+                </section>
+
                 <section>
                   <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
                     1. Information We Collect
@@ -80,14 +97,17 @@ const PrivacyPolicyPage = () => {
                     2a. SMS Notifications
                   </h2>
                   <p className="mb-4 text-base md:text-lg leading-relaxed">
+                    We collect phone numbers only from users who opt in. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out. Reply HELP for help. We do not sell phone numbers.
+                  </p>
+                  <p className="text-base md:text-lg leading-relaxed">
                     We only send SMS messages to users who have opted in. We do not sell or share your phone
                     number with third parties for marketing. To opt out of SMS at any time, reply STOP to any
                     message. For help, reply HELP or contact us at{' '}
                     <a
-                      href={`mailto:${publicSiteConfig.supportEmail}`}
+                      href="mailto:noreply@thejobdock.com"
                       className="text-primary-gold hover:text-primary-gold/80 transition-colors font-semibold"
                     >
-                      {publicSiteConfig.supportEmail}
+                      noreply@thejobdock.com
                     </a>
                     . For full program details, see our{' '}
                     <Link to="/sms-consent" className="text-primary-gold hover:text-primary-gold/80 underline font-semibold">
@@ -190,10 +210,10 @@ const PrivacyPolicyPage = () => {
                     <p className="mb-3 text-base md:text-lg">
                       <strong className="text-primary-dark">Email:</strong>{' '}
                       <a
-                        href={`mailto:${publicSiteConfig.supportEmail}`}
+                        href="mailto:noreply@thejobdock.com"
                         className="text-primary-gold hover:text-primary-gold/80 transition-colors font-semibold"
                       >
-                        {publicSiteConfig.supportEmail}
+                        noreply@thejobdock.com
                       </a>
                     </p>
                     <p className="text-base md:text-lg">

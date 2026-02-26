@@ -19,6 +19,7 @@ import {
   RequestAccessPage,
   PrivacyPolicyPage,
   TermsOfServicePage,
+  AboutPage,
   EmailPolicyPage,
   SmsConsentPage,
 } from '@/features/marketing'
@@ -77,6 +78,7 @@ function App() {
         <Route path="/request-access" element={<RequestAccessPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/sms-consent" element={<SmsConsentPage />} />
         <Route path="/email-policy" element={<EmailPolicyPage />} />
 

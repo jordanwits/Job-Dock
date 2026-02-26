@@ -1,9 +1,17 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
 import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
 
 const TermsOfServicePage = () => {
+  useEffect(() => {
+    document.title = 'Terms of Service | JobDock'
+    return () => {
+      document.title = 'The Job Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
+    }
+  }, [])
+
   return (
     <MarketingLayout>
       {/* Hero Section */}
@@ -24,6 +32,15 @@ const TermsOfServicePage = () => {
           <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-2xl shadow-lg border border-primary-blue/10 p-8 md:p-12">
               <div className="space-y-10 text-primary-dark/80">
+                <section>
+                  <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
+                    Company
+                  </h2>
+                  <p className="text-base md:text-lg leading-relaxed">
+                    JobDock is operated by West Wave Creative, a DBA of Amicus Group, Inc.
+                  </p>
+                </section>
+
                 <section>
                   <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
                     1. Acceptance of Terms
@@ -205,10 +222,10 @@ const TermsOfServicePage = () => {
                     <p className="mb-3 text-base md:text-lg">
                       <strong className="text-primary-dark">Email:</strong>{' '}
                       <a
-                        href={`mailto:${publicSiteConfig.supportEmail}`}
+                        href="mailto:noreply@thejobdock.com"
                         className="text-primary-gold hover:text-primary-gold/80 transition-colors font-semibold"
                       >
-                        {publicSiteConfig.supportEmail}
+                        noreply@thejobdock.com
                       </a>
                     </p>
                     <p className="text-base md:text-lg">

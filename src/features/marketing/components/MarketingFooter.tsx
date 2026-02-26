@@ -133,6 +133,14 @@ const MarketingFooter = () => {
               </li>
               <li>
                 <Link
+                  to="/about"
+                  className="text-white/70 hover:text-primary-gold transition-colors"
+                >
+                  About
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/sms-consent"
                   className="text-white/70 hover:text-primary-gold transition-colors"
                 >
@@ -168,7 +176,10 @@ const MarketingFooter = () => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-white/10 pt-8 text-center">
+        <div className="border-t border-white/10 pt-8 text-center space-y-2">
+          <p className="text-sm text-white/60">
+            JobDock is a product of West Wave Creative, a DBA of Amicus Group, Inc. &copy; {new Date().getFullYear()} Amicus Group, Inc. All rights reserved.
+          </p>
           <p className="text-sm text-white/60">
             &copy; {publicSiteConfig.copyrightYear} {publicSiteConfig.copyrightHolder}. All rights reserved.
           </p>
