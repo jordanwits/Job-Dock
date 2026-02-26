@@ -8,48 +8,52 @@ const UNASSIGNED_COLOR = {
   bg: 'bg-blue-500/20',
   border: 'border-blue-500',
   text: 'text-blue-300',
+  textLight: 'text-blue-700',
   value: 'blue-500',
 }
 
 // Predefined color palette for team members
-// Using maximally distinct colors that work well on dark backgrounds
-// Colors are spaced across the color spectrum for maximum visual distinction
-// Note: blue-500, cyan-500, indigo-500, teal-500, and rose-500 are reserved/removed to avoid confusion
+// text: for dark mode (light text on dark bg); textLight: for light mode (dark text on light bg)
 export const TEAM_COLORS = [
-  { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-300', value: 'red-500' },
+  { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-300', textLight: 'text-red-700', value: 'red-500' },
   {
     bg: 'bg-orange-500/20',
     border: 'border-orange-500',
     text: 'text-orange-300',
+    textLight: 'text-orange-700',
     value: 'orange-500',
   },
   {
     bg: 'bg-yellow-500/20',
     border: 'border-yellow-500',
     text: 'text-yellow-300',
+    textLight: 'text-yellow-800',
     value: 'yellow-500',
   },
-  { bg: 'bg-lime-500/20', border: 'border-lime-500', text: 'text-lime-300', value: 'lime-500' },
-  { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-300', value: 'green-500' },
+  { bg: 'bg-lime-500/20', border: 'border-lime-500', text: 'text-lime-300', textLight: 'text-lime-700', value: 'lime-500' },
+  { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-300', textLight: 'text-green-700', value: 'green-500' },
   {
     bg: 'bg-violet-500/20',
     border: 'border-violet-500',
     text: 'text-violet-300',
+    textLight: 'text-violet-700',
     value: 'violet-500',
   },
   {
     bg: 'bg-purple-500/20',
     border: 'border-purple-500',
     text: 'text-purple-300',
+    textLight: 'text-purple-700',
     value: 'purple-500',
   },
   {
     bg: 'bg-fuchsia-500/20',
     border: 'border-fuchsia-500',
     text: 'text-fuchsia-300',
+    textLight: 'text-fuchsia-700',
     value: 'fuchsia-500',
   },
-  { bg: 'bg-pink-500/20', border: 'border-pink-500', text: 'text-pink-300', value: 'pink-500' },
+  { bg: 'bg-pink-500/20', border: 'border-pink-500', text: 'text-pink-300', textLight: 'text-pink-700', value: 'pink-500' },
 ]
 
 // Cache to ensure consistent colors for the same team member
@@ -86,10 +90,12 @@ function getColorIndex(name: string): number {
  * Creates a gradient/striped pattern for multi-assignment
  * @param assignedToName - Comma-separated list of team member names
  * @param userColorMap - Optional map of user names to color values (e.g., "blue-500")
+ * @param theme - "light" uses darker text for readability on light backgrounds; "dark" uses lighter text
  */
 export function getTeamMemberColors(
   assignedToName?: string | null,
-  userColorMap?: Map<string, string> | Record<string, string>
+  userColorMap?: Map<string, string> | Record<string, string>,
+  theme: 'light' | 'dark' = 'dark'
 ): {
   bg: string
   border: string
@@ -102,6 +108,7 @@ export function getTeamMemberColors(
     // Use blue color for unassigned jobs
     return {
       ...UNASSIGNED_COLOR,
+      text: theme === 'light' ? UNASSIGNED_COLOR.textLight : UNASSIGNED_COLOR.text,
       isMultiAssignment: false,
       memberCount: 0,
     }
@@ -118,6 +125,7 @@ export function getTeamMemberColors(
   if (memberCount === 0) {
     return {
       ...UNASSIGNED_COLOR,
+      text: theme === 'light' ? UNASSIGNED_COLOR.textLight : UNASSIGNED_COLOR.text,
       isMultiAssignment: false,
       memberCount: 0,
     }
@@ -130,6 +138,7 @@ export function getTeamMemberColors(
     if (!firstMemberLower) {
       return {
         ...UNASSIGNED_COLOR,
+        text: theme === 'light' ? UNASSIGNED_COLOR.textLight : UNASSIGNED_COLOR.text,
         isMultiAssignment: false,
         memberCount: 0,
       }
@@ -177,6 +186,11 @@ export function getTeamMemberColors(
       const r = parseInt(hexColor.substring(0, 2), 16)
       const g = parseInt(hexColor.substring(2, 4), 16)
       const b = parseInt(hexColor.substring(4, 6), 16)
+      // Light mode: dark text for readability on light bg; dark mode: lighter text
+      const textColor =
+        theme === 'light'
+          ? `rgb(${Math.round(r * 0.45)}, ${Math.round(g * 0.45)}, ${Math.round(b * 0.45)})`
+          : `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`
 
       return {
         bg: '', // Will use inline style instead
@@ -191,13 +205,14 @@ export function getTeamMemberColors(
           borderRightColor: `rgb(${r}, ${g}, ${b})`,
           borderBottomColor: `rgb(${r}, ${g}, ${b})`,
           borderColor: `rgb(${r}, ${g}, ${b})`,
-          color: `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`,
+          color: textColor,
         },
       }
     }
 
     return {
       ...colors,
+      text: theme === 'light' && 'textLight' in colors ? colors.textLight : colors.text,
       isMultiAssignment: false,
       memberCount: 1,
     }
@@ -280,13 +295,21 @@ export function getTeamMemberColors(
     const g = parseInt(hexColor.substring(2, 4), 16)
     const b = parseInt(hexColor.substring(4, 6), 16)
     borderStyle = `rgb(${r}, ${g}, ${b})`
-    textStyle = `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`
+    textStyle =
+      theme === 'light'
+        ? `rgb(${Math.round(r * 0.45)}, ${Math.round(g * 0.45)}, ${Math.round(b * 0.45)})`
+        : `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`
   }
+
+  const textClass =
+    theme === 'light' && 'textLight' in firstColor
+      ? firstColor.textLight
+      : firstColor.text || ''
 
   return {
     bg: '', // Will use gradient instead
     border: firstColor.border || '', // Empty for hex colors
-    text: firstColor.text || '', // Empty for hex colors
+    text: textStyle ? '' : textClass, // Use class or inline style
     isMultiAssignment: true,
     memberCount,
     gradientStyle: {

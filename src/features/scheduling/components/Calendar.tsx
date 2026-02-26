@@ -100,15 +100,17 @@ const Calendar = ({
   // Helper function to get job colors based on user role
   const getJobColors = (job: Job) => {
     if (useTeamColors) {
-      return getTeamMemberColors(job.assignedToName, userColorMap)
+      return getTeamMemberColors(job.assignedToName, userColorMap, theme)
     }
-    // Fall back to status-based colors for employees
+    // Fall back to status-based colors for employees (theme-aware text for light mode)
+    const textFor = (dark: string, light: string) =>
+      theme === 'dark' ? dark : light
     switch (job.status) {
       case 'scheduled':
         return {
           bg: 'bg-blue-500/20',
           border: 'border-blue-500',
-          text: 'text-blue-300',
+          text: textFor('text-blue-300', 'text-blue-700'),
           isMultiAssignment: false,
           memberCount: 0,
         }
@@ -116,7 +118,7 @@ const Calendar = ({
         return {
           bg: 'bg-yellow-500/20',
           border: 'border-yellow-500',
-          text: 'text-yellow-300',
+          text: textFor('text-yellow-300', 'text-yellow-800'),
           isMultiAssignment: false,
           memberCount: 0,
         }
@@ -124,7 +126,7 @@ const Calendar = ({
         return {
           bg: 'bg-green-500/20',
           border: 'border-green-500',
-          text: 'text-green-300',
+          text: textFor('text-green-300', 'text-green-700'),
           isMultiAssignment: false,
           memberCount: 0,
         }
@@ -132,7 +134,7 @@ const Calendar = ({
         return {
           bg: 'bg-red-500/20',
           border: 'border-red-500',
-          text: 'text-red-300',
+          text: textFor('text-red-300', 'text-red-700'),
           isMultiAssignment: false,
           memberCount: 0,
         }
@@ -140,7 +142,7 @@ const Calendar = ({
         return {
           bg: 'bg-orange-500/20',
           border: 'border-orange-500',
-          text: 'text-orange-300',
+          text: textFor('text-orange-300', 'text-orange-700'),
           isMultiAssignment: false,
           memberCount: 0,
         }
@@ -148,7 +150,7 @@ const Calendar = ({
         return {
           bg: 'bg-gray-500/20',
           border: 'border-gray-500',
-          text: 'text-gray-300',
+          text: textFor('text-gray-300', 'text-gray-700'),
           isMultiAssignment: false,
           memberCount: 0,
         }
