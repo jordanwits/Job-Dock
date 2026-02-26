@@ -144,11 +144,11 @@ export function buildQuoteNotificationSms(params: {
   companyName: string
   viewUrl?: string
 }): string {
-  const { quoteNumber, companyName, viewUrl } = params
+  const { companyName, viewUrl } = params
   if (viewUrl) {
-    return `${companyName}: Quote ${quoteNumber} ready. View: ${viewUrl}`
+    return `${companyName}: Your quote is ready. View: ${viewUrl}`
   }
-  return `${companyName}: Quote ${quoteNumber} ready. Check email for details.`
+  return `${companyName}: Your quote is ready. Check email for details.`
 }
 
 /**
@@ -159,11 +159,11 @@ export function buildInvoiceNotificationSms(params: {
   companyName: string
   viewUrl?: string
 }): string {
-  const { invoiceNumber, companyName, viewUrl } = params
+  const { companyName, viewUrl } = params
   if (viewUrl) {
-    return `${companyName}: Invoice ${invoiceNumber} ready. View: ${viewUrl}`
+    return `${companyName}: Your invoice is ready. View: ${viewUrl}`
   }
-  return `${companyName}: Invoice ${invoiceNumber} ready. Check email for details.`
+  return `${companyName}: Your invoice is ready. Check email for details.`
 }
 
 export type NotificationPreference = 'email' | 'sms' | 'both'
