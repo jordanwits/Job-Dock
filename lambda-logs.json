@@ -1,0 +1,21 @@
+﻿{
+    "events": [
+        {
+            "logStreamName": "2026/02/26/[$LATEST]22993bdcf4ae451fa3678783a0a5bd09",
+            "timestamp": 1772071446003,
+            "message": "INIT_START Runtime Version: nodejs:20.v95\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1\n",
+            "ingestionTime": 1772071451515,
+            "eventId": "39518513790904620663440157741424119689984466966651404288"
+        },
+        {
+            "logStreamName": "2026/02/26/[$LATEST]22993bdcf4ae451fa3678783a0a5bd09",
+            "timestamp": 1772071446759,
+aws : 
+At C:\Users\jorda\AppData\Local\Temp\ps-script-7db12a2c-d65a-4c38-ad4b-4ea0b0a82ee4.ps1:85 char:77
++ ... iseconds(); aws logs filter-log-events --log-group-name "/aws/lambda/ ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+'charmap' codec can't encode character '\u2705' in position 44: character maps to <undefined>
+            "message": 

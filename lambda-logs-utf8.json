@@ -1,0 +1,36 @@
+﻿{
+    "events": [
+        {
+            "logStreamName": "2026/02/26/[$LATEST]799c646c54684cd8bb48bf7f0c6d166a",
+            "timestamp": 1772070705844,
+            "message": "START RequestId: 7e2bde04-a323-4b82-9117-d97d3bc1408d Version: $LATEST\n",
+            "ingestionTime": 1772070714871,
+            "eventId": "39518497284807355264212663034940472857418792168783937536"
+        },
+        {
+            "logStreamName": "2026/02/26/[$LATEST]799c646c54684cd8bb48bf7f0c6d166a",
+            "timestamp": 1772070705845,
+            "message": "2026-02-26T01:51:45.845Z\t7e2bde04-a323-4b82-9117-d97d3bc1408d\tINFO\t[HANDLER v2.1] Parsed path: {\n  resource: 'contacts',\n  id: undefined,\n  action: undefined,\n  method: 'GET',\n  path: '/contacts'\n}\n",
+            "ingestionTime": 1772070714871,
+            "eventId": "39518497284829656009411193658082008575691440530289917953"
+        },
+        {
+            "logStreamName": "2026/02/26/[$LATEST]0aa308725fcd4902b472466bba093481",
+            "timestamp": 1772070705881,
+            "message": "START RequestId: 37804366-ccab-451b-a566-81203815df4a Version: $LATEST\n",
+            "ingestionTime": 1772070714898,
+            "eventId": "39518497285632482836558296091209811758875583637143027712"
+        },
+        {
+            "logStreamName": "2026/02/26/[$LATEST]799c646c54684cd8bb48bf7f0c6d166a",
+            "timestamp": 1772070705900,
+aws : 
+At C:\Users\jorda\AppData\Local\Temp\ps-script-45293f26-e1f6-4cd6-8097-a065fdc2babf.ps1:86 char:145
++ ... lliseconds; aws logs filter-log-events --log-group-name "/aws/lambda/ ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+'charmap' codec can't encode character '\u2192' in position 28024: character maps to <undefined>
+            "message": 
+
