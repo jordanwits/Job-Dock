@@ -161,7 +161,7 @@ export function buildBookingDeclinedSms(params: {
 
 /**
  * Build a short quote notification SMS.
- * Use with viewUrl when sending SMS-only (no email); otherwise "Check your email for details."
+ * Include viewUrl for the link to view/respond; omit for "Check email for details."
  */
 export function buildQuoteNotificationSms(params: {
   quoteNumber: string
@@ -177,6 +177,7 @@ export function buildQuoteNotificationSms(params: {
 
 /**
  * Build a short invoice notification SMS.
+ * Include viewUrl for the link to view/respond; omit for "Check email for details."
  */
 export function buildInvoiceNotificationSms(params: {
   invoiceNumber: string

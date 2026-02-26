@@ -1418,7 +1418,7 @@ export const dataServices = {
           const { isSmsConfigured } = await import('./sms')
           const { createShortLink } = await import('./shortLinks')
           console.log(`[QUOTE-SEND] Attempting SMS for ${quote.quoteNumber}, isSmsConfigured: ${isSmsConfigured()}`)
-          const smsViewUrl = wantsEmail ? undefined : await createShortLink(viewUrl)
+          const smsViewUrl = await createShortLink(viewUrl)
           const smsBody = buildQuoteNotificationSms({
             quoteNumber: quote.quoteNumber,
             companyName,
@@ -1812,7 +1812,7 @@ export const dataServices = {
         }
         if (wantsSms && invoice.contact.phone?.trim()) {
           const { createShortLink } = await import('./shortLinks')
-          const smsViewUrl = wantsEmail ? undefined : (viewUrl ? await createShortLink(viewUrl) : undefined)
+          const smsViewUrl = viewUrl ? await createShortLink(viewUrl) : undefined
           const smsBody = buildInvoiceNotificationSms({
             invoiceNumber: invoice.invoiceNumber,
             companyName,
