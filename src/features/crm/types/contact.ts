@@ -14,6 +14,7 @@ export interface Contact {
   tags?: string[]
   notes?: string
   status: 'lead' | 'prospect' | 'customer' | 'inactive' | 'contact'
+  notificationPreference?: 'email' | 'sms' | 'both'
   createdAt: string
   updatedAt: string
 }
@@ -33,6 +34,7 @@ export interface CreateContactData {
   tags?: string[]
   notes?: string
   status?: 'lead' | 'prospect' | 'customer' | 'inactive' | 'contact'
+  notificationPreference?: 'email' | 'sms' | 'both'
 }
 
 export interface UpdateContactData extends Partial<CreateContactData> {

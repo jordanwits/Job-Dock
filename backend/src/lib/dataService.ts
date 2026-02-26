@@ -27,7 +27,12 @@ import {
   buildBookingConfirmationSms,
   buildBookingPendingSms,
   buildBookingDeclinedSms,
+  buildQuoteNotificationSms,
+  buildInvoiceNotificationSms,
+  shouldSendEmail,
+  shouldSendSms,
 } from './sms'
+import { generateApprovalToken } from './approvalTokens'
 import { uploadFile, deleteFile, getFileUrl } from './fileUpload'
 import { createPhotoToken } from './photoToken'
 import {
@@ -720,13 +725,15 @@ async function createRecurringJobs(params: {
 }
 
 const withContactInfo = (
-  contact?: Pick<Contact, 'firstName' | 'lastName' | 'email' | 'company'> | null
+  contact?: Pick<Contact, 'firstName' | 'lastName' | 'email' | 'company' | 'phone' | 'notificationPreference'> | null
 ) => ({
   contactName: contact
     ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || undefined
     : undefined,
   contactEmail: contact?.email ?? undefined,
   contactCompany: contact?.company ?? undefined,
+  contactPhone: contact?.phone ?? undefined,
+  contactNotificationPreference: (contact as any)?.notificationPreference ?? 'both',
 })
 
 async function generateSequentialNumber(tenantId: string, model: 'quote' | 'invoice') {
@@ -1360,31 +1367,71 @@ export const dataServices = {
         throw new ApiError('Quote not found', 404)
       }
 
-      if (!quote.contact.email) {
+      const pref = (quote.contact as any)?.notificationPreference ?? 'both'
+      const wantsEmail = shouldSendEmail(pref)
+      const wantsSms = shouldSendSms(pref)
+
+      if (wantsEmail && !quote.contact.email) {
         throw new ApiError('Contact does not have an email address', 400)
+      }
+      if (wantsSms && !quote.contact.phone?.trim()) {
+        throw new ApiError('Contact does not have a phone number for SMS', 400)
+      }
+      if (!wantsEmail && !wantsSms) {
+        throw new ApiError('Contact has no valid notification preference', 400)
       }
 
       // Serialize the quote for email
       const serializedQuote = serializeQuote(quote)
 
-      // Get tenant name (optional, for branding)
+      // Get tenant settings for company name
+      const settings = await prisma.tenantSettings.findUnique({
+        where: { tenantId },
+      })
       const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: { name: true },
       })
+      const companyName = settings?.companyDisplayName || tenant?.name || 'JobDock'
 
-      // Send the email with PDF
+      // Generate token for email and/or SMS link
+      const approvalToken = generateApprovalToken('quote', quote.id, tenantId)
+      const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+      const acceptUrl = `${publicAppUrl}/public/quote/${quote.id}/accept?token=${approvalToken}`
+
+      const sentVia: string[] = []
+
       try {
-        await sendQuoteEmail({
-          quoteData: serializedQuote,
-          tenantName: tenant?.name ?? undefined,
-          tenantId,
-        })
-        console.log(`✅ Quote ${quote.quoteNumber} sent to ${quote.contact.email}`)
-      } catch (emailError) {
-        console.error('❌ Failed to send quote email:', emailError)
+        if (wantsEmail && quote.contact.email) {
+          await sendQuoteEmail({
+            quoteData: serializedQuote,
+            tenantName: tenant?.name ?? undefined,
+            tenantId,
+            approvalToken,
+          })
+          sentVia.push('email')
+          console.log(`[OK] Quote ${quote.quoteNumber} email sent to ${quote.contact.email}`)
+        }
+        if (wantsSms && quote.contact.phone?.trim()) {
+          const { isSmsConfigured } = await import('./sms')
+          console.log(`[QUOTE-SEND] Attempting SMS for ${quote.quoteNumber}, isSmsConfigured: ${isSmsConfigured()}`)
+          const smsBody = buildQuoteNotificationSms({
+            quoteNumber: quote.quoteNumber,
+            companyName,
+            viewUrl: wantsEmail ? undefined : acceptUrl,
+          })
+          const smsSid = await sendSms(quote.contact.phone, smsBody)
+          if (smsSid) {
+            sentVia.push('sms')
+            console.log(`[OK] Quote ${quote.quoteNumber} SMS sent to ${quote.contact.phone}`)
+          } else {
+            console.warn(`[WARN] Quote ${quote.quoteNumber} SMS skipped or failed for ${quote.contact.phone}`)
+          }
+        }
+      } catch (err) {
+        console.error('[ERROR] Failed to send quote:', err)
         throw new ApiError(
-          `Failed to send quote email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`,
+          `Failed to send quote: ${err instanceof Error ? err.message : 'Unknown error'}`,
           500
         )
       }
@@ -1396,7 +1443,7 @@ export const dataServices = {
         include: { contact: true, lineItems: true },
       })
 
-      return serializeQuote(updatedQuote)
+      return { ...serializeQuote(updatedQuote), sentVia }
     },
     approve: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)
@@ -1711,31 +1758,72 @@ export const dataServices = {
         throw new ApiError('Invoice not found', 404)
       }
 
-      if (!invoice.contact.email) {
+      const pref = (invoice.contact as any)?.notificationPreference ?? 'both'
+      const wantsEmail = shouldSendEmail(pref)
+      const wantsSms = shouldSendSms(pref)
+
+      if (wantsEmail && !invoice.contact.email) {
         throw new ApiError('Contact does not have an email address', 400)
+      }
+      if (wantsSms && !invoice.contact.phone?.trim()) {
+        throw new ApiError('Contact does not have a phone number for SMS', 400)
+      }
+      if (!wantsEmail && !wantsSms) {
+        throw new ApiError('Contact has no valid notification preference', 400)
       }
 
       // Serialize the invoice for email
       const serializedInvoice = serializeInvoice(invoice)
 
-      // Get tenant name (optional, for branding)
+      // Get tenant settings for company name
+      const settings = await prisma.tenantSettings.findUnique({
+        where: { tenantId },
+      })
       const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: { name: true },
       })
+      const companyName = settings?.companyDisplayName || tenant?.name || 'JobDock'
 
-      // Send the email with PDF
+      const trackResponse = serializedInvoice.trackResponse !== false
+      const approvalToken = trackResponse ? generateApprovalToken('invoice', invoice.id, tenantId) : null
+      const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+      const acceptUrl =
+        trackResponse && approvalToken
+          ? `${publicAppUrl}/public/invoice/${invoice.id}/accept?token=${approvalToken}`
+          : ''
+
+      const sentVia: string[] = []
+
       try {
-        await sendInvoiceEmail({
-          invoiceData: serializedInvoice,
-          tenantName: tenant?.name ?? undefined,
-          tenantId,
-        })
-        console.log(`✅ Invoice ${invoice.invoiceNumber} sent to ${invoice.contact.email}`)
-      } catch (emailError) {
-        console.error('❌ Failed to send invoice email:', emailError)
+        if (wantsEmail && invoice.contact.email) {
+          await sendInvoiceEmail({
+            invoiceData: serializedInvoice,
+            tenantName: tenant?.name ?? undefined,
+            tenantId,
+            approvalToken,
+          })
+          sentVia.push('email')
+          console.log(`[OK] Invoice ${invoice.invoiceNumber} email sent to ${invoice.contact.email}`)
+        }
+        if (wantsSms && invoice.contact.phone?.trim()) {
+          const smsBody = buildInvoiceNotificationSms({
+            invoiceNumber: invoice.invoiceNumber,
+            companyName,
+            viewUrl: wantsEmail ? undefined : acceptUrl || undefined,
+          })
+          const smsSid = await sendSms(invoice.contact.phone, smsBody)
+          if (smsSid) {
+            sentVia.push('sms')
+            console.log(`[OK] Invoice ${invoice.invoiceNumber} SMS sent to ${invoice.contact.phone}`)
+          } else {
+            console.warn(`[WARN] Invoice ${invoice.invoiceNumber} SMS skipped or failed for ${invoice.contact.phone}`)
+          }
+        }
+      } catch (err) {
+        console.error('[ERROR] Failed to send invoice:', err)
         throw new ApiError(
-          `Failed to send invoice email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`,
+          `Failed to send invoice: ${err instanceof Error ? err.message : 'Unknown error'}`,
           500
         )
       }
@@ -1747,7 +1835,7 @@ export const dataServices = {
         include: { contact: true, lineItems: true },
       })
 
-      return serializeInvoice(updatedInvoice)
+      return { ...serializeInvoice(updatedInvoice), sentVia }
     },
     setApprovalStatus: async (
       tenantId: string,
@@ -2646,31 +2734,32 @@ export const dataServices = {
         include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
       })
 
-      // Send confirmation email to client
+      // Send confirmation to client (email and/or SMS per preference)
       try {
         const b = primaryBooking ?? updatedJob!.bookings[0]
-        if (job.contact.email) {
-          console.log(`📧 Sending confirmation email to ${job.contact.email}`)
+        const pref = (job.contact as any)?.notificationPreference ?? 'both'
+        const wantsEmail = shouldSendEmail(pref) && job.contact.email
+        const wantsSms = shouldSendSms(pref) && job.contact?.phone?.trim()
 
-          const settings = await prisma.tenantSettings.findUnique({
-            where: { tenantId },
-          })
+        const settings = await prisma.tenantSettings.findUnique({
+          where: { tenantId },
+        })
+        const serviceAvailability = ((b as any)?.service?.availability as any) || {}
+        const timezoneOffset = serviceAvailability?.timezoneOffset ?? -8
+        const companyName = settings?.companyDisplayName || 'JobDock'
 
-          const serviceAvailability = ((b as any)?.service?.availability as any) || {}
-          const timezoneOffset = serviceAvailability?.timezoneOffset ?? -8
-
-          let logoUrl: string | null = null
-          if (settings?.logoUrl) {
-            try {
-              const { getFileUrl } = await import('./fileUpload')
-              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
-            } catch (error) {
-              console.error('Error fetching logo URL for email:', error)
-            }
+        let logoUrl: string | null = null
+        if (settings?.logoUrl) {
+          try {
+            const { getFileUrl } = await import('./fileUpload')
+            logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+          } catch (error) {
+            console.error('Error fetching logo URL for email:', error)
           }
+        }
 
-          const companyName = settings?.companyDisplayName || 'JobDock'
-
+        if (wantsEmail) {
+          console.log(`📧 Sending confirmation email to ${job.contact.email}`)
           const emailPayload = buildClientBookingConfirmedEmail({
             clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             serviceName: (b as any)?.service?.name || 'Service',
@@ -2685,7 +2774,6 @@ export const dataServices = {
               companyPhone: settings?.companyPhone || null,
             },
           })
-
           await sendEmail({
             ...emailPayload,
             to: job.contact.email,
@@ -2694,14 +2782,14 @@ export const dataServices = {
           })
           console.log('✅ Confirmation email sent successfully')
         }
-        if (job.contact?.phone) {
+        if (wantsSms) {
           const smsBody = buildBookingConfirmationSms({
             serviceName: (b as any)?.service?.name || 'Service',
             startTime: b?.startTime ? new Date(b.startTime) : new Date(),
             companyName,
             timezoneOffset,
           })
-          await sendSms(job.contact.phone, smsBody)
+          await sendSms(job.contact!.phone!, smsBody)
         }
       } catch (emailError) {
         console.error('❌ Failed to send confirmation email:', emailError)
@@ -2738,29 +2826,28 @@ export const dataServices = {
       })
 
       try {
-        if (job.contact?.email) {
-          console.log(`📧 Sending decline email to ${job.contact.email}`)
+        const pref = (job.contact as any)?.notificationPreference ?? 'both'
+        const wantsEmail = shouldSendEmail(pref) && job.contact?.email
+        const wantsSms = shouldSendSms(pref) && job.contact?.phone?.trim()
 
-          // Get tenant settings for company name and reply-to email
-          const settings = await prisma.tenantSettings.findUnique({
-            where: { tenantId },
-          })
-
-          // Fetch logo URL if available (7 days expiration for email)
-          let logoUrl: string | null = null
-          if (settings?.logoUrl) {
-            try {
-              const { getFileUrl } = await import('./fileUpload')
-              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
-            } catch (error) {
-              console.error('Error fetching logo URL for email:', error)
-            }
+        const settings = await prisma.tenantSettings.findUnique({
+          where: { tenantId },
+        })
+        let logoUrl: string | null = null
+        if (settings?.logoUrl) {
+          try {
+            const { getFileUrl } = await import('./fileUpload')
+            logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+          } catch (error) {
+            console.error('Error fetching logo URL for email:', error)
           }
+        }
+        const companyName = settings?.companyDisplayName || 'JobDock'
 
-          const companyName = settings?.companyDisplayName || 'JobDock'
-
+        if (wantsEmail) {
+          console.log(`📧 Sending decline email to ${job.contact!.email}`)
           const emailPayload = buildClientBookingDeclinedEmail({
-            clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
+            clientName: `${job.contact!.firstName} ${job.contact!.lastName}`.trim(),
             serviceName: (primaryBooking as any)?.service?.name || 'Service',
             startTime: primaryBooking?.startTime ? new Date(primaryBooking.startTime) : new Date(),
             reason,
@@ -2771,21 +2858,20 @@ export const dataServices = {
               companyPhone: settings?.companyPhone || null,
             },
           })
-
           await sendEmail({
             ...emailPayload,
-            to: job.contact.email,
+            to: job.contact!.email,
             fromName: companyName,
             replyTo: settings?.companySupportEmail || undefined,
           })
           console.log('✅ Decline email sent successfully')
         }
-        if (job.contact?.phone) {
+        if (wantsSms) {
           const smsBody = buildBookingDeclinedSms({
             serviceName: (primaryBooking as any)?.service?.name || 'Service',
             companyName,
           })
-          await sendSms(job.contact.phone, smsBody)
+          await sendSms(job.contact!.phone!, smsBody)
         }
       } catch (emailError) {
         console.error('❌ Failed to send decline email:', emailError)
@@ -3465,32 +3551,37 @@ export const dataServices = {
             }
           }
 
-          if (clientEmail) {
-            // Send email to client
+          const phoneForSms = contactData.phone?.trim() || contact.phone
+          const pref = (contact as any)?.notificationPreference ?? 'both'
+          const wantsEmail = shouldSendEmail(pref) && clientEmail
+          const wantsSms = shouldSendSms(pref) && phoneForSms
+
+          if (wantsEmail || wantsSms) {
             if (requireConfirmation) {
-              console.log(`📧 Sending booking request email to ${clientEmail}`)
-              const emailPayload = buildClientPendingEmail({
-                clientName,
-                serviceName: service.name,
-                startTime,
-                endTime,
-                timezoneOffset,
-                companyName,
-                logoUrl,
-                settings: {
-                  companySupportEmail: settings?.companySupportEmail || null,
-                  companyPhone: settings?.companyPhone || null,
-                },
-              })
-              await sendEmail({
-                ...emailPayload,
-                to: clientEmail,
-                fromName: companyName,
-                replyTo: replyToEmail,
-              })
-              console.log('✅ Booking request email sent successfully')
-              const phoneForSms = contactData.phone?.trim() || contact.phone
-              if (phoneForSms) {
+              if (wantsEmail) {
+                console.log(`📧 Sending booking request email to ${clientEmail}`)
+                const emailPayload = buildClientPendingEmail({
+                  clientName,
+                  serviceName: service.name,
+                  startTime,
+                  endTime,
+                  timezoneOffset,
+                  companyName,
+                  logoUrl,
+                  settings: {
+                    companySupportEmail: settings?.companySupportEmail || null,
+                    companyPhone: settings?.companyPhone || null,
+                  },
+                })
+                await sendEmail({
+                  ...emailPayload,
+                  to: clientEmail!,
+                  fromName: companyName,
+                  replyTo: replyToEmail,
+                })
+                console.log('✅ Booking request email sent successfully')
+              }
+              if (wantsSms) {
                 console.log(`📱 Sending pending SMS to ${phoneForSms}`)
                 const smsBody = buildBookingPendingSms({
                   serviceName: service.name,
@@ -3501,30 +3592,31 @@ export const dataServices = {
                 await sendSms(phoneForSms, smsBody)
               }
             } else {
-              console.log(`📧 Sending instant confirmation email to ${clientEmail}`)
-              const emailPayload = buildClientConfirmationEmail({
-                clientName,
-                serviceName: service.name,
-                startTime,
-                endTime,
-                location: payload.location,
-                timezoneOffset,
-                companyName,
-                logoUrl,
-                settings: {
-                  companySupportEmail: settings?.companySupportEmail || null,
-                  companyPhone: settings?.companyPhone || null,
-                },
-              })
-              await sendEmail({
-                ...emailPayload,
-                to: clientEmail,
-                fromName: companyName,
-                replyTo: replyToEmail,
-              })
-              console.log('✅ Instant confirmation email sent successfully')
-              const phoneForSms = contactData.phone?.trim() || contact.phone
-              if (phoneForSms) {
+              if (wantsEmail) {
+                console.log(`📧 Sending instant confirmation email to ${clientEmail}`)
+                const emailPayload = buildClientConfirmationEmail({
+                  clientName,
+                  serviceName: service.name,
+                  startTime,
+                  endTime,
+                  location: payload.location,
+                  timezoneOffset,
+                  companyName,
+                  logoUrl,
+                  settings: {
+                    companySupportEmail: settings?.companySupportEmail || null,
+                    companyPhone: settings?.companyPhone || null,
+                  },
+                })
+                await sendEmail({
+                  ...emailPayload,
+                  to: clientEmail!,
+                  fromName: companyName,
+                  replyTo: replyToEmail,
+                })
+                console.log('✅ Instant confirmation email sent successfully')
+              }
+              if (wantsSms) {
                 console.log(`📱 Sending SMS to ${phoneForSms}`)
                 const smsBody = buildBookingConfirmationSms({
                   serviceName: service.name,

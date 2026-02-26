@@ -14,6 +14,9 @@ export interface Quote {
   contactName?: string
   contactEmail?: string
   contactCompany?: string
+  contactPhone?: string
+  contactNotificationPreference?: 'email' | 'sms' | 'both'
+  sentVia?: string[] // ['email'] | ['sms'] | ['email','sms'] - set by send response
   lineItems: QuoteLineItem[]
   subtotal: number
   taxRate: number

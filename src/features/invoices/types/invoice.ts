@@ -14,6 +14,9 @@ export interface Invoice {
   contactName?: string
   contactEmail?: string
   contactCompany?: string
+  contactPhone?: string
+  contactNotificationPreference?: 'email' | 'sms' | 'both'
+  sentVia?: string[] // ['email'] | ['sms'] | ['email','sms'] - set by send response
   lineItems: InvoiceLineItem[]
   subtotal: number
   taxRate: number

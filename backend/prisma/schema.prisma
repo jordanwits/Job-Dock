@@ -81,11 +81,12 @@ model Contact {
   state          String?
   zipCode        String?
   country        String          @default("USA")
-  tags           String[]        @default([])
-  notes          String?
-  status         String          @default("active")
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  tags                    String[]        @default([])
+  notes                   String?
+  status                  String          @default("active")
+  notificationPreference  String          @default("both") // 'email' | 'sms' | 'both'
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices       Invoice[]
   jobs           Job[]

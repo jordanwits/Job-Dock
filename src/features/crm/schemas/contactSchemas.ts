@@ -15,6 +15,7 @@ export const contactSchema = z.object({
   tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
   status: z.enum(['lead', 'prospect', 'customer', 'inactive', 'contact']).optional(),
+  notificationPreference: z.enum(['email', 'sms', 'both']).optional(),
 })
 
 export type ContactFormData = z.infer<typeof contactSchema>

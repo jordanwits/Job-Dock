@@ -1301,8 +1301,9 @@ export async function sendQuoteEmail(data: {
   quoteData: any
   tenantName?: string
   tenantId: string
+  approvalToken?: string
 }): Promise<void> {
-  const { quoteData, tenantName, tenantId } = data
+  const { quoteData, tenantName, tenantId, approvalToken: providedToken } = data
 
   const clientEmail = quoteData.contactEmail
   if (!clientEmail) {
@@ -1349,8 +1350,8 @@ export async function sendQuoteEmail(data: {
     .map(line => `<p>${line}</p>`)
     .join('')
 
-  // Generate approval token and URLs
-  const approvalToken = generateApprovalToken('quote', quoteData.id, tenantId)
+  // Use provided token or generate (allows reuse for SMS)
+  const approvalToken = providedToken ?? generateApprovalToken('quote', quoteData.id, tenantId)
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
   const acceptUrl = `${publicAppUrl}/public/quote/${quoteData.id}/accept?token=${approvalToken}`
   const declineUrl = `${publicAppUrl}/public/quote/${quoteData.id}/decline?token=${approvalToken}`
@@ -1815,8 +1816,9 @@ export async function sendInvoiceEmail(data: {
   invoiceData: any
   tenantName?: string
   tenantId: string
+  approvalToken?: string | null
 }): Promise<void> {
-  const { invoiceData, tenantName, tenantId } = data
+  const { invoiceData, tenantName, tenantId, approvalToken: providedToken } = data
 
   const clientEmail = invoiceData.contactEmail
   if (!clientEmail) {
@@ -1866,8 +1868,10 @@ export async function sendInvoiceEmail(data: {
     .map(line => `<p>${line}</p>`)
     .join('')
 
-  // Generate approval token and URLs (only if tracking response)
-  const approvalToken = trackResponse ? generateApprovalToken('invoice', invoiceData.id, tenantId) : null
+  // Use provided token or generate (allows reuse for SMS)
+  const approvalToken = trackResponse
+    ? (providedToken ?? generateApprovalToken('invoice', invoiceData.id, tenantId))
+    : null
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
   const acceptUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}` : ''
   const declineUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}` : ''

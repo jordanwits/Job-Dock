@@ -20,6 +20,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return corsResponse()
   }
 
+  // SMS config diagnostic (no auth - for debugging Twilio setup)
+  if (event.path?.includes('/__sms-status') && event.httpMethod === 'GET') {
+    try {
+      const { isSmsConfigured } = await import('../../lib/sms')
+      const hasSid = !!(process.env.TWILIO_ACCOUNT_SID || '').trim()
+      const hasToken = !!(process.env.TWILIO_AUTH_TOKEN || '').trim()
+      const hasPhone = !!(process.env.TWILIO_PHONE_NUMBER || '').trim()
+      console.log('[SMS-STATUS]', { configured: isSmsConfigured(), hasSid, hasToken, hasPhone })
+      return successResponse({
+        smsConfigured: isSmsConfigured(),
+        envVarsPresent: { hasSid, hasToken, hasPhone },
+      })
+    } catch (e) {
+      console.error('[SMS-STATUS] Error:', e)
+      return errorResponse('Failed to check SMS status', 500)
+    }
+  }
+
   // Special migration endpoint
   if (event.path?.includes('/__migrate') && event.httpMethod === 'POST') {
     try {

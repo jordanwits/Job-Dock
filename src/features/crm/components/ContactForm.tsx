@@ -41,10 +41,12 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       tags: contact?.tags || [],
       notes: contact?.notes || '',
       status: contact?.status || 'lead',
+      notificationPreference: contact?.notificationPreference || 'both',
     },
   })
 
   const statusValue = watch('status')
+  const notificationPreferenceValue = watch('notificationPreference')
 
   useEffect(() => {
     if (contact) {
@@ -63,6 +65,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
         tags: contact.tags || [],
         notes: contact.notes || '',
         status: contact.status || 'lead',
+        notificationPreference: contact.notificationPreference || 'both',
       })
     }
   }, [contact, reset])
@@ -81,6 +84,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       zipCode: data.zipCode || undefined,
       country: data.country || undefined,
       notes: data.notes || undefined,
+      notificationPreference: data.notificationPreference || 'both',
     }
     await onSubmit(cleanedData, scheduleJobAfterCreate)
   }
@@ -157,19 +161,32 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
         {...register('country')}
       />
 
-      <Select
-        label="Status"
-        {...register('status')}
-        value={statusValue}
-        error={errors.status?.message}
-        options={[
-          { value: 'lead', label: 'Lead' },
-          { value: 'prospect', label: 'Prospect' },
-          { value: 'customer', label: 'Customer' },
-          { value: 'inactive', label: 'Inactive' },
-          { value: 'contact', label: 'Contact' },
-        ]}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Select
+          label="Status"
+          {...register('status')}
+          value={statusValue}
+          error={errors.status?.message}
+          options={[
+            { value: 'lead', label: 'Lead' },
+            { value: 'prospect', label: 'Prospect' },
+            { value: 'customer', label: 'Customer' },
+            { value: 'inactive', label: 'Inactive' },
+            { value: 'contact', label: 'Contact' },
+          ]}
+        />
+        <Select
+          label="Notifications"
+          {...register('notificationPreference')}
+          value={notificationPreferenceValue}
+          error={errors.notificationPreference?.message}
+          options={[
+            { value: 'both', label: 'Email & Text' },
+            { value: 'email', label: 'Email only' },
+            { value: 'sms', label: 'Text only' },
+          ]}
+        />
+      </div>
 
       <div>
         <label className={cn(

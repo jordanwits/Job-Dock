@@ -709,6 +709,12 @@ export class JobDockStack extends cdk.Stack {
       exportName: `JobDock-${config.env}-CloudFrontUrl`,
     })
 
+    new cdk.CfnOutput(this, 'DataLambdaName', {
+      value: dataLambda.functionName,
+      description: 'Data API Lambda function name',
+      exportName: `JobDock-${config.env}-DataLambdaName`,
+    })
+
     new cdk.CfnOutput(this, 'MigrationLambdaName', {
       value: migrationLambda.functionName,
       description: 'Migration Lambda function name for running database migrations',

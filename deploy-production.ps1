@@ -195,16 +195,26 @@ if (-not $SkipInfrastructure) {
     Pop-Location
     
     Write-Host ""
-    Write-Host "Verifying Resend API key in production Lambda..." -ForegroundColor Yellow
-    $query = "Stacks[0].Outputs[?OutputKey=='JobDock-prod-DataLambdaName'].OutputValue"
+    Write-Host "Verifying API keys in production Data Lambda..." -ForegroundColor Yellow
+    $query = "Stacks[0].Outputs[?OutputKey=='DataLambdaName'].OutputValue"
     $lambdaName = aws cloudformation describe-stacks --stack-name "JobDockStack-prod" --query $query --output text 2>$null
     if ($lambdaName) {
-        $resendKey = aws lambda get-function-configuration --function-name $lambdaName --query "Environment.Variables.RESEND_API_KEY" --output text 2>$null
+        $config = aws lambda get-function-configuration --function-name $lambdaName --query "Environment.Variables" --output json 2>$null | ConvertFrom-Json
+        $resendKey = $config.RESEND_API_KEY
         if ($resendKey -and $resendKey -ne "null" -and $resendKey -ne "") {
             Write-Host "[SUCCESS] RESEND_API_KEY is set in production Lambda" -ForegroundColor Green
         } else {
             Write-Host "[ERROR] RESEND_API_KEY is NOT set in production Lambda!" -ForegroundColor Red
             Write-Host "   Emails will not send. Please redeploy with RESEND_API_KEY set." -ForegroundColor Yellow
+        }
+        $twilioSid = $config.TWILIO_ACCOUNT_SID
+        $twilioToken = $config.TWILIO_AUTH_TOKEN
+        $twilioPhone = $config.TWILIO_PHONE_NUMBER
+        if ($twilioSid -and $twilioToken -and $twilioPhone -and $twilioSid -ne "null" -and $twilioToken -ne "null" -and $twilioPhone -ne "") {
+            Write-Host "[SUCCESS] Twilio SMS vars are set in production Lambda" -ForegroundColor Green
+        } else {
+            Write-Host "[WARNING] Twilio SMS vars are NOT set in production Lambda - SMS will not send" -ForegroundColor Yellow
+            Write-Host "   Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER to .env.local and redeploy" -ForegroundColor Gray
         }
     } else {
         Write-Host "[WARNING] Could not verify Lambda configuration (stack may still be deploying)" -ForegroundColor Yellow

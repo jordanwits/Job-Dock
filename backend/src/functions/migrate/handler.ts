@@ -827,6 +827,13 @@ WHERE "assignedTo" IS NOT NULL
     ],
     description: 'Add job-level service and price fields back to jobs. Jobs are the durable record; bookings are optional appointments.',
   },
+  {
+    name: '20260225000000_add_contact_notification_preference',
+    statements: [
+      `ALTER TABLE "contacts" ADD COLUMN IF NOT EXISTS "notificationPreference" TEXT NOT NULL DEFAULT 'both';`,
+    ],
+    description: 'Add notificationPreference to contacts for per-client email/SMS/both selection',
+  },
 ]
 
 export const handler = async (

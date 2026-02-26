@@ -195,9 +195,23 @@ const QuoteDetail = ({
               </Button>
               <Button
                 onClick={handleSend}
-                disabled={isSending || !quote.contactEmail}
+                disabled={
+                  isSending ||
+                  !(
+                    (['email', 'both'].includes(quote.contactNotificationPreference || 'both') && quote.contactEmail) ||
+                    (['sms', 'both'].includes(quote.contactNotificationPreference || 'both') && quote.contactPhone?.trim())
+                  )
+                }
                 className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto py-2 whitespace-nowrap"
-                title={!quote.contactEmail ? 'Contact does not have an email address' : undefined}
+                title={
+                  !quote.contactEmail && !quote.contactPhone?.trim()
+                    ? 'Contact needs email or phone to receive quote'
+                    : (['email', 'both'].includes(quote.contactNotificationPreference || 'both') && !quote.contactEmail)
+                      ? 'Contact prefers email but has no email address'
+                      : (['sms', 'both'].includes(quote.contactNotificationPreference || 'both') && !quote.contactPhone?.trim())
+                        ? 'Contact prefers text but has no phone number'
+                        : undefined
+                }
               >
                 {isSending ? 'Sending...' : quote.status === 'sent' ? 'Resend Quote' : 'Send Quote'}
               </Button>
@@ -457,10 +471,27 @@ const QuoteDetail = ({
           </div>
 
           {/* Success/Error Messages - Positioned at Bottom for Mobile Visibility */}
-          {sendSuccess && (
+          {sendSuccess && quote.sentVia && quote.sentVia.length > 0 && (
             <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
               <p className="text-sm text-green-400 font-medium">
-                ✓ Quote sent successfully to {quote.contactEmail}
+                ✓ Quote sent successfully
+                {quote.sentVia.includes('email') && quote.sentVia.includes('sms')
+                  ? ` via email and SMS to ${quote.contactEmail || quote.contactPhone || 'contact'}`
+                  : quote.sentVia.includes('sms')
+                    ? ` via SMS to ${quote.contactPhone || 'contact'}`
+                    : ` via email to ${quote.contactEmail || 'contact'}`}
+              </p>
+            </div>
+          )}
+          {sendSuccess && (!quote.sentVia || quote.sentVia.length === 0) && (
+            <div className="p-4 rounded-lg border border-amber-500 bg-amber-500/10">
+              <p className="text-sm text-amber-400 font-medium">
+                Quote could not be delivered.
+                {quote.contactNotificationPreference === 'sms'
+                  ? ' SMS delivery failed. Check Twilio configuration.'
+                  : quote.contactNotificationPreference === 'email'
+                    ? ' Email delivery failed. Check Resend configuration.'
+                    : ' Check Twilio and email configuration.'}
               </p>
             </div>
           )}

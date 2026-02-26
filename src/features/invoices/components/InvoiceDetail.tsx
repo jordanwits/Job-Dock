@@ -236,9 +236,23 @@ const InvoiceDetail = ({
               </Button>
               <Button
                 onClick={handleSend}
-                disabled={isSending || !invoice.contactEmail}
+                disabled={
+                  isSending ||
+                  !(
+                    (['email', 'both'].includes(invoice.contactNotificationPreference || 'both') && invoice.contactEmail) ||
+                    (['sms', 'both'].includes(invoice.contactNotificationPreference || 'both') && invoice.contactPhone?.trim())
+                  )
+                }
                 className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto whitespace-nowrap"
-                title={!invoice.contactEmail ? 'Contact does not have an email address' : undefined}
+                title={
+                  !invoice.contactEmail && !invoice.contactPhone?.trim()
+                    ? 'Contact needs email or phone to receive invoice'
+                    : (['email', 'both'].includes(invoice.contactNotificationPreference || 'both') && !invoice.contactEmail)
+                      ? 'Contact prefers email but has no email address'
+                      : (['sms', 'both'].includes(invoice.contactNotificationPreference || 'both') && !invoice.contactPhone?.trim())
+                        ? 'Contact prefers text but has no phone number'
+                        : undefined
+                }
               >
                 {isSending
                   ? 'Sending...'
@@ -600,10 +614,27 @@ const InvoiceDetail = ({
           </div>
 
           {/* Success/Error Messages - Positioned at Bottom for Mobile Visibility */}
-          {sendSuccess && (
+          {sendSuccess && invoice.sentVia && invoice.sentVia.length > 0 && (
             <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
               <p className="text-sm text-green-400 font-medium">
-                ✓ Invoice sent successfully to {invoice.contactEmail}
+                ✓ Invoice sent successfully
+                {invoice.sentVia.includes('email') && invoice.sentVia.includes('sms')
+                  ? ` via email and SMS to ${invoice.contactEmail || invoice.contactPhone || 'contact'}`
+                  : invoice.sentVia.includes('sms')
+                    ? ` via SMS to ${invoice.contactPhone || 'contact'}`
+                    : ` via email to ${invoice.contactEmail || 'contact'}`}
+              </p>
+            </div>
+          )}
+          {sendSuccess && (!invoice.sentVia || invoice.sentVia.length === 0) && (
+            <div className="p-4 rounded-lg border border-amber-500 bg-amber-500/10">
+              <p className="text-sm text-amber-400 font-medium">
+                Invoice could not be delivered.
+                {invoice.contactNotificationPreference === 'sms'
+                  ? ' SMS delivery failed. Check Twilio configuration.'
+                  : invoice.contactNotificationPreference === 'email'
+                    ? ' Email delivery failed. Check Resend configuration.'
+                    : ' Check Twilio and email configuration.'}
               </p>
             </div>
           )}

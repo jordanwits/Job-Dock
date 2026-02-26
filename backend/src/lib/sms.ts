@@ -7,10 +7,10 @@ const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || ''
 let twilioClient: ReturnType<typeof twilio> | null = null
 if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
   twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-  console.log('✅ Twilio SMS client initialized')
+  console.log('[OK] Twilio SMS client initialized')
 } else {
   console.warn(
-    `⚠️ Twilio not initialized. TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID ? 'SET' : 'NOT SET'}, TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN ? 'SET' : 'NOT SET'}`
+    `[WARN] Twilio not initialized. TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID ? 'SET' : 'NOT SET'}, TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN ? 'SET' : 'NOT SET'}`
   )
 }
 
@@ -41,7 +41,7 @@ export function isSmsConfigured(): boolean {
 export async function sendSms(to: string, body: string): Promise<string | null> {
   if (!to || !body?.trim()) return null
   if (!twilioClient || !TWILIO_PHONE_NUMBER) {
-    console.warn('⚠️ Twilio SMS not configured, skipping send')
+    console.warn('[WARN] Twilio SMS not configured, skipping send')
     return null
   }
 
@@ -52,10 +52,10 @@ export async function sendSms(to: string, body: string): Promise<string | null> 
       from: TWILIO_PHONE_NUMBER,
       to: toNormalized,
     })
-    console.log(`✅ SMS sent to ${toNormalized} (SID: ${result.sid})`)
+    console.log(`[OK] SMS sent to ${toNormalized} (SID: ${result.sid})`)
     return result.sid
   } catch (error) {
-    console.error('❌ Failed to send SMS:', error)
+    console.error('[ERROR] Failed to send SMS:', error)
     return null
   }
 }
@@ -117,4 +117,51 @@ export function buildBookingDeclinedSms(params: {
 }): string {
   const { serviceName, companyName } = params
   return `${companyName}: Your ${serviceName} appointment request could not be confirmed. Please contact us to reschedule.`
+}
+
+/**
+ * Build a short quote notification SMS.
+ * Use with viewUrl when sending SMS-only (no email); otherwise "Check your email for details."
+ */
+export function buildQuoteNotificationSms(params: {
+  quoteNumber: string
+  companyName: string
+  viewUrl?: string
+}): string {
+  const { quoteNumber, companyName, viewUrl } = params
+  if (viewUrl) {
+    return `${companyName}: Your quote ${quoteNumber} is ready. View: ${viewUrl}`
+  }
+  return `${companyName}: Your quote ${quoteNumber} is ready. Check your email for details.`
+}
+
+/**
+ * Build a short invoice notification SMS.
+ */
+export function buildInvoiceNotificationSms(params: {
+  invoiceNumber: string
+  companyName: string
+  viewUrl?: string
+}): string {
+  const { invoiceNumber, companyName, viewUrl } = params
+  if (viewUrl) {
+    return `${companyName}: Your invoice ${invoiceNumber} is ready. View: ${viewUrl}`
+  }
+  return `${companyName}: Your invoice ${invoiceNumber} is ready. Check your email for details.`
+}
+
+export type NotificationPreference = 'email' | 'sms' | 'both'
+
+/**
+ * Check if we should send email based on contact's notification preference.
+ */
+export function shouldSendEmail(preference?: NotificationPreference | string | null): boolean {
+  return preference === 'email' || preference === 'both' || !preference
+}
+
+/**
+ * Check if we should send SMS based on contact's notification preference.
+ */
+export function shouldSendSms(preference?: NotificationPreference | string | null): boolean {
+  return preference === 'sms' || preference === 'both' || !preference
 }
