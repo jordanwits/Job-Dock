@@ -77,10 +77,10 @@ const QuoteViewPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-primary-dark flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-gold mx-auto mb-4"></div>
-          <p className="text-primary-light/70">Loading your quote...</p>
+          <p className="text-primary-light/70 text-sm sm:text-base">Loading your quote...</p>
         </div>
       </div>
     )
@@ -88,11 +88,11 @@ const QuoteViewPage = () => {
 
   if (error && !success) {
     return (
-      <div className="min-h-screen bg-primary-dark flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-8 text-center">
-          <div className="text-5xl mb-4">❌</div>
-          <h2 className="text-2xl font-semibold text-red-500 mb-2">Error</h2>
-          <p className="text-primary-light/70">{error}</p>
+      <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-6 sm:p-8 text-center">
+          <div className="text-4xl sm:text-5xl mb-4">❌</div>
+          <h2 className="text-xl sm:text-2xl font-semibold text-red-500 mb-2">Error</h2>
+          <p className="text-primary-light/70 text-sm sm:text-base">{error}</p>
           <p className="text-sm text-primary-light/50 mt-6">
             Please contact the contractor directly if you need assistance.
           </p>
@@ -103,26 +103,26 @@ const QuoteViewPage = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-primary-dark flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-8 text-center">
-          <div className="mb-6">
+      <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-6 sm:p-8 text-center">
+          <div className="mb-4 sm:mb-6">
             {companyLogoUrl ? (
               <img
                 src={companyLogoUrl}
                 alt={companyDisplayName || 'Company logo'}
-                className="h-12 w-auto max-w-[200px] mx-auto object-contain"
+                className="h-10 sm:h-12 w-auto max-w-[160px] sm:max-w-[200px] mx-auto object-contain"
               />
             ) : companyDisplayName ? (
-              <h1 className="text-3xl font-bold text-primary-gold">{companyDisplayName}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-primary-gold">{companyDisplayName}</h1>
             ) : (
-              <h1 className="text-3xl font-bold text-primary-gold">JobDock</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-primary-gold">JobDock</h1>
             )}
           </div>
-          <div className="text-5xl mb-4">{success === 'accept' ? '✅' : '📝'}</div>
-          <h2 className="text-2xl font-semibold text-primary-light mb-2">
+          <div className="text-4xl sm:text-5xl mb-4">{success === 'accept' ? '✅' : '📝'}</div>
+          <h2 className="text-xl sm:text-2xl font-semibold text-primary-light mb-2">
             {success === 'accept' ? 'Quote Accepted!' : 'Quote Declined'}
           </h2>
-          <p className="text-primary-light/70">
+          <p className="text-primary-light/70 text-sm sm:text-base">
             {success === 'accept'
               ? `Thank you for accepting quote ${quoteNumber}. The contractor has been notified and will be in touch soon.`
               : `We've recorded that you declined quote ${quoteNumber}. The contractor has been notified.`}
@@ -134,52 +134,60 @@ const QuoteViewPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-primary-dark flex flex-col">
-      <header className="bg-primary-dark-secondary border-b border-primary-dark/50 px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {companyLogoUrl ? (
-              <img
-                src={companyLogoUrl}
-                alt={companyDisplayName || 'Company'}
-                className="h-10 w-auto max-w-[160px] object-contain"
-              />
-            ) : (
-              <h1 className="text-xl font-bold text-primary-gold">
-                {companyDisplayName || 'JobDock'}
-              </h1>
-            )}
-          </div>
+    <div className="min-h-[100dvh] bg-primary-dark flex flex-col safe-area-inset">
+      <header className="bg-primary-dark-secondary border-b border-primary-dark/50 px-3 py-2 sm:px-4 sm:py-3 shrink-0">
+        <div className="max-w-4xl mx-auto flex items-center justify-center sm:justify-start">
+          {companyLogoUrl ? (
+            <img
+              src={companyLogoUrl}
+              alt={companyDisplayName || 'Company'}
+              className="h-8 sm:h-10 w-auto max-w-[120px] sm:max-w-[160px] object-contain"
+            />
+          ) : (
+            <h1 className="text-lg sm:text-xl font-bold text-primary-gold truncate max-w-[200px] sm:max-w-none">
+              {companyDisplayName || 'JobDock'}
+            </h1>
+          )}
         </div>
       </header>
 
-      <main className="flex-1 p-4 max-w-4xl mx-auto w-full">
-        <div className="bg-primary-dark-secondary rounded-lg overflow-hidden mb-6">
+      <main className="flex-1 p-3 sm:p-4 max-w-4xl mx-auto w-full min-w-0 flex flex-col">
+        <div className="bg-primary-dark-secondary rounded-lg overflow-hidden mb-4 sm:mb-6 flex-1 min-h-0 flex flex-col">
           {pdfUrl ? (
-            <iframe
-              src={pdfUrl}
-              title="Quote PDF"
-              className="w-full h-[70vh] min-h-[400px] border-0"
-            />
+            <>
+              <iframe
+                src={pdfUrl}
+                title="Quote PDF"
+                className="w-full flex-1 min-h-[50vh] sm:min-h-[400px] border-0"
+              />
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block sm:hidden py-2 text-center text-sm text-primary-gold hover:text-primary-gold/80"
+              >
+                Open PDF in new tab
+              </a>
+            </>
           ) : (
-            <div className="h-[70vh] min-h-[400px] flex items-center justify-center text-primary-light/50">
+            <div className="min-h-[50vh] sm:min-h-[400px] flex items-center justify-center text-primary-light/50 text-sm">
               PDF could not be loaded
             </div>
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 justify-center shrink-0">
           <button
             onClick={() => handleAction('accept')}
             disabled={!!submitting}
-            className="px-6 py-3 bg-primary-gold text-primary-dark font-semibold rounded-lg hover:bg-primary-gold/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-gold text-primary-dark font-semibold rounded-lg hover:bg-primary-gold/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
           >
             {submitting === 'accept' ? 'Processing...' : 'Accept Quote'}
           </button>
           <button
             onClick={() => handleAction('decline')}
             disabled={!!submitting}
-            className="px-6 py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
           >
             {submitting === 'decline' ? 'Processing...' : 'Decline'}
           </button>

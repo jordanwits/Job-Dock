@@ -240,4 +240,12 @@ input:-webkit-autofill {
   .border-industrial {
     border-image: linear-gradient(to right, transparent, rgba(212, 175, 55, 0.5), transparent) 1;
   }
+
+  /* Safe area insets for mobile notches/home indicator */
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
 }
