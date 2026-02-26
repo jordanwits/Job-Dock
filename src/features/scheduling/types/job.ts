@@ -91,6 +91,7 @@ export interface UpdateJobData extends Partial<CreateJobData> {
   id: string
   updateAll?: boolean // Update all future jobs in a recurring series
   bookingId?: string // When updating a specific booking (e.g. drag to-be-scheduled onto calendar)
+  notifyClient?: boolean // When true and date/time changed, send reschedule notification to client
 }
 
 export type JobStatus =

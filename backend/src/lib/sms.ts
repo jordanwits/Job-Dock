@@ -125,6 +125,30 @@ export function buildBookingPendingSms(params: {
 }
 
 /**
+ * Build a short reschedule notification SMS.
+ */
+export function buildRescheduleNotificationSms(params: {
+  serviceName: string
+  startTime: Date
+  companyName: string
+  timezoneOffset?: number
+}): string {
+  const { serviceName, startTime, companyName, timezoneOffset = -8 } = params
+  const localHours = startTime.getUTCHours() + timezoneOffset
+  const localMinutes = startTime.getUTCMinutes()
+  const period = localHours >= 12 ? 'PM' : 'AM'
+  const hour12 = ((localHours % 12) || 12).toString()
+  const minStr = localMinutes.toString().padStart(2, '0')
+  const timeStr = `${hour12}:${minStr} ${period}`
+  const dateStr = startTime.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+  return `${companyName}: Your ${serviceName} appointment has been rescheduled to ${dateStr} at ${timeStr}.`
+}
+
+/**
  * Build a short booking declined SMS.
  */
 export function buildBookingDeclinedSms(params: {

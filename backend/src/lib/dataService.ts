@@ -15,6 +15,7 @@ import {
   sendEmail,
   buildClientConfirmationEmail,
   buildClientPendingEmail,
+  buildClientRescheduleEmail,
   buildContractorNotificationEmail,
   buildClientBookingConfirmedEmail,
   buildClientBookingDeclinedEmail,
@@ -26,6 +27,7 @@ import {
   sendSms,
   buildBookingConfirmationSms,
   buildBookingPendingSms,
+  buildRescheduleNotificationSms,
   buildBookingDeclinedSms,
   buildQuoteNotificationSms,
   buildInvoiceNotificationSms,
@@ -2605,6 +2607,78 @@ export const dataServices = {
           }).catch((e) => console.error('Failed to send assignment notification:', e))
         }
       }
+
+      // Reschedule notification: when notifyClient is true and date/time changed
+      const timesChanged = payload.startTime !== undefined || payload.endTime !== undefined
+      if (payload.notifyClient === true && timesChanged && b?.startTime && b?.endTime) {
+        try {
+          const contact = updated!.contact as (Contact & { notificationPreference?: string }) | null
+          // No contact (e.g. online booking): send both. With contact: use notificationPreference.
+          const pref = contact?.notificationPreference ?? 'both'
+          const wantsEmail = shouldSendEmail(pref)
+          const wantsSms = shouldSendSms(pref)
+          const clientEmail = contact?.email?.trim() || null
+          const clientPhone = contact?.phone?.trim() || null
+
+          const settings = await prisma.tenantSettings.findUnique({
+            where: { tenantId },
+          })
+          let logoUrl: string | null = null
+          if (settings?.logoUrl) {
+            try {
+              const { getFileUrl } = await import('./fileUpload')
+              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+            } catch (error) {
+              console.error('Error fetching logo URL for reschedule email:', error)
+            }
+          }
+          const companyName = settings?.companyDisplayName || 'JobDock'
+          const timezoneOffset = (settings?.timezoneOffset as number) ?? -8
+          const serviceName = (b as any)?.service?.name || updated!.title || 'Appointment'
+
+          if (wantsEmail && clientEmail) {
+            console.log(`📧 Sending reschedule email to ${clientEmail}`)
+            const clientName = contact
+              ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || 'there'
+              : 'there'
+            const emailPayload = buildClientRescheduleEmail({
+              clientName,
+              serviceName,
+              startTime: new Date(b.startTime),
+              endTime: new Date(b.endTime),
+              location: updated!.location ?? undefined,
+              timezoneOffset,
+              companyName,
+              logoUrl,
+              settings: {
+                companySupportEmail: settings?.companySupportEmail || null,
+                companyPhone: settings?.companyPhone || null,
+              },
+            })
+            await sendEmail({
+              ...emailPayload,
+              to: clientEmail,
+              fromName: companyName,
+              replyTo: settings?.companySupportEmail || undefined,
+            })
+            console.log('✅ Reschedule email sent successfully')
+          }
+          if (wantsSms && clientPhone) {
+            console.log(`📱 Sending reschedule SMS to ${clientPhone}`)
+            const smsBody = buildRescheduleNotificationSms({
+              serviceName,
+              startTime: new Date(b.startTime),
+              companyName,
+              timezoneOffset,
+            })
+            await sendSms(clientPhone, smsBody)
+            console.log('✅ Reschedule SMS sent successfully')
+          }
+        } catch (rescheduleError) {
+          console.error('❌ Failed to send reschedule notification:', rescheduleError)
+        }
+      }
+
       return {
         ...updated,
         bookingId: b?.id ?? null,

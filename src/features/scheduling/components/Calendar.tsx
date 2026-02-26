@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { Job } from '../types/job'
 import { useJobStore } from '../store/jobStore'
+import NotifyClientModal from './NotifyClientModal'
 import { getTeamMemberColors } from '@/lib/utils/teamColors'
 import type { User } from '@/features/auth'
 import { services } from '@/lib/api/services'
@@ -204,6 +205,8 @@ const Calendar = ({
   const isDraggingRef = useRef(false) // True only after crossing drag threshold
   const justDraggedRef = useRef(false) // Used to suppress the post-drag click
   const [justFinishedDrag, setJustFinishedDrag] = useState(false) // Disable transitions after drop
+  const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
+  const [pendingUpdatePayload, setPendingUpdatePayload] = useState<Record<string, unknown> | null>(null)
 
   const { updateJob } = useJobStore()
 
@@ -530,7 +533,8 @@ const Calendar = ({
             endTime: newEndTime.toISOString(),
           }
           if (job.bookingId) payload.bookingId = job.bookingId
-          await updateJob(payload)
+          setPendingUpdatePayload(payload)
+          setShowNotifyClientModal(true)
         }
       } catch (error) {
         console.error('Failed to update job:', error)
@@ -563,7 +567,7 @@ const Calendar = ({
         setJustFinishedDrag(false)
       }, 100)
     },
-    [dragState, previewStartTime, dragTargetDay, updateJob]
+    [dragState, previewStartTime, dragTargetDay]
   )
 
   const handleResizeDrop = useCallback(
@@ -586,7 +590,8 @@ const Calendar = ({
           endTime: newEndTime.toISOString(),
         }
         if (job.bookingId) payload.bookingId = job.bookingId
-        await updateJob(payload)
+        setPendingUpdatePayload(payload)
+        setShowNotifyClientModal(true)
       } catch (error) {
         console.error('Failed to resize job:', error)
       }
@@ -614,7 +619,7 @@ const Calendar = ({
         setJustFinishedDrag(false)
       }, 50)
     },
-    [dragState, updateJob]
+    [dragState]
   )
 
   useEffect(() => {
@@ -846,9 +851,8 @@ const Calendar = ({
             endTime: newEndTime.toISOString(),
           }
           if (dragState.job.bookingId) payload.bookingId = dragState.job.bookingId
-          updateJob(payload).catch(error => {
-            console.error('Failed to move job:', error)
-          })
+          setPendingUpdatePayload(payload)
+          setShowNotifyClientModal(true)
         }
 
         // Clear drag state
@@ -898,9 +902,8 @@ const Calendar = ({
           endTime: newEndTime.toISOString(),
         }
         if (dragState.job.bookingId) payload.bookingId = dragState.job.bookingId
-        updateJob(payload).catch(error => {
-          console.error('Failed to move job:', error)
-        })
+        setPendingUpdatePayload(payload)
+        setShowNotifyClientModal(true)
 
         // Clear drag state
         isDraggingRef.current = false
@@ -2042,7 +2045,8 @@ const Calendar = ({
                         endTime: newEndTime.toISOString(),
                       }
                       if (originalJob.bookingId) payload.bookingId = originalJob.bookingId
-                      await updateJob(payload)
+                      setPendingUpdatePayload(payload)
+                      setShowNotifyClientModal(true)
                     }
                     return
                   }
@@ -2498,6 +2502,28 @@ const Calendar = ({
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'month' && renderMonthView()}
       </div>
+
+      <NotifyClientModal
+        isOpen={showNotifyClientModal}
+        onClose={() => {
+          if (pendingUpdatePayload) {
+            updateJob({ ...pendingUpdatePayload, notifyClient: false }).catch((error) => {
+              console.error('Failed to update job:', error)
+            })
+          }
+          setShowNotifyClientModal(false)
+          setPendingUpdatePayload(null)
+        }}
+        onNotify={(notify) => {
+          if (pendingUpdatePayload) {
+            updateJob({ ...pendingUpdatePayload, notifyClient: notify }).catch((error) => {
+              console.error('Failed to update job:', error)
+            })
+          }
+          setShowNotifyClientModal(false)
+          setPendingUpdatePayload(null)
+        }}
+      />
     </div>
   )
 }

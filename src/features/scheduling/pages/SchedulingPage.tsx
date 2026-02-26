@@ -16,6 +16,7 @@ import EditRecurringJobModal from '../components/EditRecurringJobModal'
 import PermanentDeleteRecurringJobModal from '../components/PermanentDeleteRecurringJobModal'
 import ArchivedJobsPage from '../components/ArchivedJobsPage'
 import { Button, Modal, Card, ConfirmationDialog } from '@/components/ui'
+import NotifyClientModal from '../components/NotifyClientModal'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
 import { services } from '@/lib/api/services'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -142,6 +143,8 @@ const SchedulingPage = () => {
   const [showDeleteRecurringModal, setShowDeleteRecurringModal] = useState(false)
   const [showEditRecurringModal, setShowEditRecurringModal] = useState(false)
   const [editUpdateAll, setEditUpdateAll] = useState(false)
+  const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
+  const [pendingUpdatePayload, setPendingUpdatePayload] = useState<any>(null)
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [jobConfirmationMessage, setJobConfirmationMessage] = useState('')
 
@@ -518,6 +521,27 @@ const SchedulingPage = () => {
     }
   }
 
+  const performJobUpdate = async (payload: any) => {
+    try {
+      await updateJob(payload)
+      setEditingJob(null)
+      setEditUpdateAll(false)
+      setShowJobForm(false)
+      setSelectedJob(null)
+      setShowJobDetail(false)
+      clearJobsError()
+      const message = payload.updateAll
+        ? 'All future jobs updated successfully'
+        : 'Job updated successfully'
+      setJobConfirmationMessage(message)
+      setShowJobConfirmation(true)
+      setTimeout(() => setShowJobConfirmation(false), 3000)
+    } catch (error: any) {
+      // Error will be displayed in the modal via jobsError
+      // Keep the modal open so user can fix the issue
+    }
+  }
+
   const handleUpdateJob = async (data: any) => {
     console.log('📝 SchedulingPage: handleUpdateJob called', {
       editUpdateAll,
@@ -526,27 +550,17 @@ const SchedulingPage = () => {
       hasRecurrence: !!data.recurrence,
       recurrenceData: data.recurrence,
     })
-    try {
-      if (editingJob) {
-        const updatePayload = { ...data, id: editingJob.id, updateAll: editUpdateAll }
-        console.log('📤 Sending update payload:', updatePayload)
-        await updateJob(updatePayload)
-        setEditingJob(null)
-        setEditUpdateAll(false)
-        setShowJobForm(false)
-        setSelectedJob(null)
-        setShowJobDetail(false)
-        clearJobsError()
-        const message = editUpdateAll
-          ? 'All future jobs updated successfully'
-          : 'Job updated successfully'
-        setJobConfirmationMessage(message)
-        setShowJobConfirmation(true)
-        setTimeout(() => setShowJobConfirmation(false), 3000)
+    if (editingJob) {
+      const updatePayload = { ...data, id: editingJob.id, updateAll: editUpdateAll }
+      const timesChanged =
+        (data.startTime != null && editingJob.startTime != null && data.startTime !== editingJob.startTime) ||
+        (data.endTime != null && editingJob.endTime != null && data.endTime !== editingJob.endTime)
+      if (timesChanged) {
+        setPendingUpdatePayload(updatePayload)
+        setShowNotifyClientModal(true)
+      } else {
+        await performJobUpdate(updatePayload)
       }
-    } catch (error: any) {
-      // Error will be displayed in the modal via jobsError
-      // Keep the modal open so user can fix the issue
     }
   }
 
@@ -1548,6 +1562,24 @@ const SchedulingPage = () => {
           // Don't use simplified form for Schedule Job button - show all fields
         />
       </Modal>
+
+      <NotifyClientModal
+        isOpen={showNotifyClientModal}
+        onClose={() => {
+          if (pendingUpdatePayload) {
+            performJobUpdate({ ...pendingUpdatePayload, notifyClient: false })
+          }
+          setShowNotifyClientModal(false)
+          setPendingUpdatePayload(null)
+        }}
+        onNotify={(notify) => {
+          if (pendingUpdatePayload) {
+            performJobUpdate({ ...pendingUpdatePayload, notifyClient: notify })
+          }
+          setShowNotifyClientModal(false)
+          setPendingUpdatePayload(null)
+        }}
+      />
 
       {/* Job Detail Modal */}
       {selectedJob && (

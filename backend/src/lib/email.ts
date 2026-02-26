@@ -606,6 +606,182 @@ If you need to cancel or reschedule, please contact us as soon as possible.
 }
 
 /**
+ * Email template: Client reschedule notification
+ */
+export function buildClientRescheduleEmail(data: {
+  clientName: string
+  serviceName: string
+  startTime: Date
+  endTime: Date
+  location?: string
+  tenantName?: string
+  breaks?: Array<{ startTime: string; endTime: string; reason?: string }>
+  timezoneOffset?: number
+  companyName?: string
+  logoUrl?: string | null
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
+}): EmailPayload {
+  const { clientName, serviceName, startTime, endTime, location, tenantName, breaks, timezoneOffset = -8, companyName, logoUrl, settings } = data
+
+  const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
+  const endLocal = getLocalTimeComponents(endTime, timezoneOffset)
+  const durationMs = endTime.getTime() - startTime.getTime()
+  const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
+
+  const dateStr = formatDateLong(startLocal.year, startLocal.month, startLocal.day)
+  const endDateStr = formatDateLong(endLocal.year, endLocal.month, endLocal.day)
+  const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
+  const endTimeStr = formatTime12Hour(endLocal.hours, endLocal.minutes)
+
+  const subject = `Your appointment has been rescheduled - ${serviceName}`
+
+  let breaksHtml = ''
+  if (breaks && breaks.length > 0) {
+    const breaksList = breaks
+      .map(b => {
+        const bStartUTC = new Date(b.startTime)
+        const bEndUTC = new Date(b.endTime)
+        const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
+        const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
+        const reason = b.reason ? ` (${b.reason})` : ''
+        if (isMultiDay) {
+          return `<li style="margin: 5px 0;">${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}</li>`
+        } else {
+          return `<li style="margin: 5px 0;">${formatTime12Hour(bStartLocal.hours, bStartLocal.minutes)} – ${formatTime12Hour(bEndLocal.hours, bEndLocal.minutes)}${reason}</li>`
+        }
+      })
+      .join('')
+    breaksHtml = `
+      <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+        <p style="margin: 5px 0 10px 0;"><strong>📅 Schedule Notes:</strong></p>
+        <p style="margin: 5px 0;">This job includes planned pauses:</p>
+        <ul style="margin: 10px 0; padding-left: 20px;">${breaksList}</ul>
+      </div>
+    `
+  }
+
+  const displayCompanyName = companyName || tenantName || 'JobDock'
+
+  const bookingDetailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Service</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${serviceName}</p>
+              </td>
+            </tr>
+            ${isMultiDay ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">New Date</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr} through ${endDateStr}</p>
+              </td>
+            </tr>
+            ` : `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">New Date</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dateStr}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">New Time</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${startTimeStr} - ${endTimeStr}</p>
+              </td>
+            </tr>
+            `}
+            ${location ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Location</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${location}</p>
+              </td>
+            </tr>
+            ` : ''}
+            ${tenantName ? `
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Provider</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${tenantName}</p>
+              </td>
+            </tr>
+            ` : ''}
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Your appointment has been rescheduled. Here are the updated details:</p>
+    ${bookingDetailsCard}
+    ${breaksHtml}
+    <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">We look forward to seeing you at the new time!</p>
+    <p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">If you need to cancel or reschedule, please contact us as soon as possible.</p>
+  `
+
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Appointment Rescheduled',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
+
+  let breaksText = ''
+  if (breaks && breaks.length > 0) {
+    const breaksList = breaks
+      .map(b => {
+        const bStartUTC = new Date(b.startTime)
+        const bEndUTC = new Date(b.endTime)
+        const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
+        const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
+        const reason = b.reason ? ` (${b.reason})` : ''
+        if (isMultiDay) {
+          return `  - ${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}`
+        } else {
+          return `  - ${formatTime12Hour(bStartLocal.hours, bStartLocal.minutes)} – ${formatTime12Hour(bEndLocal.hours, bEndLocal.minutes)}${reason}`
+        }
+      })
+      .join('\n')
+    breaksText = `\nSchedule Notes:\nThis job includes planned pauses:\n${breaksList}\n`
+  }
+
+  const textBody = `
+Appointment Rescheduled
+
+Hi ${clientName},
+
+Your appointment has been rescheduled. Here are the updated details:
+
+Service: ${serviceName}
+${isMultiDay ? `New Date: ${dateStr} through ${endDateStr}` : `New Date: ${dateStr}\nNew Time: ${startTimeStr} - ${endTimeStr}`}
+${location ? `Location: ${location}` : ''}
+${tenantName ? `Provider: ${tenantName}` : ''}
+${breaksText}
+
+We look forward to seeing you at the new time!
+
+If you need to cancel or reschedule, please contact us as soon as possible.
+  `.trim()
+
+  return {
+    to: '',
+    subject,
+    htmlBody,
+    textBody,
+  }
+}
+
+/**
  * Email template: Client booking pending confirmation
  */
 export function buildClientPendingEmail(data: {
