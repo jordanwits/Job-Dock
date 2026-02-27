@@ -39,8 +39,8 @@ function ScrollToTop() {
 const ALL_SIDEBAR_ITEMS = [
   { label: 'Dashboard', href: '/app' },
   { label: 'Contacts', href: '/app/crm' },
-  { label: 'Jobs', href: '/app/job-logs' },
   { label: 'Quotes', href: '/app/quotes' },
+  { label: 'Jobs', href: '/app/job-logs' },
   { label: 'Invoices', href: '/app/invoices' },
   { label: 'Calendar', href: '/app/scheduling' },
   { label: 'Reports', href: '/app/reports' },
