@@ -126,9 +126,12 @@ const Modal = ({
     <div
       className={cn(
         // Safe-area padding for iOS standalone - do NOT extend wrapper (keeps modal on-screen for scrolling)
+        // Backdrop on wrapper prevents body (#0B132B) from showing as blue bar in Safari standalone/PWA on iPhone
         'fixed inset-0 z-50 flex overscroll-contain',
+        transparentBackdrop ? 'bg-black/20' : 'bg-black/50',
         'pt-[max(0.5rem,env(safe-area-inset-top,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]',
         'pb-0 pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
+        'min-h-[100dvh] max-sm:pb-[env(safe-area-inset-bottom,0px)]', // Extend into safe area on iOS standalone to prevent blue bar
         'sm:pt-4 sm:pr-4 sm:pb-4 sm:pl-4',
         'lg:pl-64', // Offset for sidebar so modal centers on main content area
         mobilePosition === 'bottom'
