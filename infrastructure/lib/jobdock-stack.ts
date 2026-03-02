@@ -40,8 +40,6 @@ export class JobDockStack extends cdk.Stack {
     // ============================================
     // 1. VPC & Networking
     // ============================================
-    const useNatInstance = config.network.natStrategy === 'instance'
-
     // IMPORTANT:
     // We must not create our own duplicate `0.0.0.0/0` routes for private subnets.
     // The `ec2.Vpc` construct already creates and owns the private subnet DefaultRoute
@@ -404,7 +402,7 @@ export class JobDockStack extends cdk.Stack {
     const commonBundlingOptions: lambdaNodejs.NodejsFunctionProps['bundling'] = {
       minify: true,
       sourceMap: true,
-      externalModules: ['aws-sdk'],
+      // Backend uses @aws-sdk/* v3; no need to external aws-sdk v2 (not in Node 18+ Lambda runtime)
       tsconfig: path.resolve(backendDir, 'tsconfig.json'),
       commandHooks: {
         beforeBundling(_inputDir: string, outputDir: string) {
@@ -420,7 +418,7 @@ export class JobDockStack extends cdk.Stack {
     }
 
     const authLambda = new lambdaNodejs.NodejsFunction(this, 'AuthLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.resolve(backendDir, 'src', 'functions', 'auth', 'handler.ts'),
       handler: 'handler',
       bundling: commonBundlingOptions,
@@ -499,7 +497,7 @@ export class JobDockStack extends cdk.Stack {
 
     // Data API lambda (temporary mock-backed implementation)
     const dataLambda = new lambdaNodejs.NodejsFunction(this, 'DataLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.resolve(backendDir, 'src', 'functions', 'data', 'handler.ts'),
       handler: 'handler',
       bundling: commonBundlingOptions,
@@ -561,8 +559,12 @@ export class JobDockStack extends cdk.Stack {
     const dataIntegration = lambdaAwsProxyIntegration(dataLambda)
 
     // Migration lambda for running database migrations
+    const migrationLogGroup = new logs.LogGroup(this, 'MigrationLambdaLogGroup', {
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: config.env !== 'prod' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN,
+    })
     const migrationLambda = new lambdaNodejs.NodejsFunction(this, 'MigrationLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.resolve(backendDir, 'src', 'functions', 'migrate', 'handler.ts'),
       handler: 'handler',
       bundling: commonBundlingOptions,
@@ -585,7 +587,7 @@ export class JobDockStack extends cdk.Stack {
         ENV: config.env,
         ENVIRONMENT: config.env,
       },
-      logRetention: logs.RetentionDays.ONE_WEEK,
+      logGroup: migrationLogGroup,
       description: 'Runs Prisma database migrations',
     })
 
@@ -594,8 +596,12 @@ export class JobDockStack extends cdk.Stack {
     this.database.grantConnect(migrationLambda, 'jobdock')
 
     // Job Cleanup Lambda - Archives old jobs to S3
+    const cleanupLogGroup = new logs.LogGroup(this, 'CleanupJobsLambdaLogGroup', {
+      retention: logs.RetentionDays.ONE_MONTH, // Keep logs longer for audit trail
+      removalPolicy: config.env !== 'prod' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN,
+    })
     const cleanupLambda = new lambdaNodejs.NodejsFunction(this, 'CleanupJobsLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.resolve(backendDir, 'src', 'functions', 'cleanup-jobs', 'handler.ts'),
       handler: 'handler',
       bundling: commonBundlingOptions,
@@ -620,7 +626,7 @@ export class JobDockStack extends cdk.Stack {
         FILES_BUCKET: this.filesBucket.bucketName,
         ENVIRONMENT: config.env,
       },
-      logRetention: logs.RetentionDays.ONE_MONTH, // Keep logs longer for audit trail
+      logGroup: cleanupLogGroup,
       description: 'Archives jobs older than 1 year to S3 and cleans up database',
     })
 
