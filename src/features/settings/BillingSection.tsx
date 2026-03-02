@@ -234,18 +234,18 @@ export const BillingSection = () => {
               )}>
                 Current plan: <span className="text-primary-gold">{displayTierName}</span>
               </p>
-              <p className={cn(
-                "text-sm mt-1",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                {hasActiveSubscription
-                  ? isTeam
+              {((hasActiveSubscription || tier) && (isTeam || tier === 'single')) && (
+                <p className={cn(
+                  "text-sm mt-1",
+                  theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                )}>
+                  {isTeam
                     ? status.canInviteMore !== false
                       ? `You can invite team members.${status.teamMemberCount != null && status.teamMemberLimit ? ` (${status.teamMemberCount}/${status.teamMemberLimit})` : status.teamMemberCount != null ? ` (${status.teamMemberCount} member${status.teamMemberCount !== 1 ? 's' : ''})` : ''}`
                       : `Team limit reached (${status.teamMemberCount}/5). Upgrade to Team+ to add more.`
-                    : 'Upgrade to Team to invite team members.'
-                  : 'No active subscription.'}
-              </p>
+                    : 'Upgrade to Team to invite team members.'}
+                </p>
+              )}
               {tier === 'team-plus' && !status.canDowngradeToTeam && status.teamMemberCount != null && status.teamMemberCount > 5 && (
                 <p className="text-sm text-amber-400/90 mt-1">
                   Remove team members (down to 5 or fewer) before downgrading to Team plan.
