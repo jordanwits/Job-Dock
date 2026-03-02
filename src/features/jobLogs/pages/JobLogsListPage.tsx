@@ -89,7 +89,8 @@ const JobLogsListPage = () => {
         isOpen={showCreateForm}
         onClose={() => setShowCreateForm(false)}
         title="New Job"
-        size="2xl"
+        size="xl"
+        fitContentOnMobile
       >
         <JobLogForm
           onSubmit={handleCreate}

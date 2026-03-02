@@ -415,14 +415,16 @@ const SchedulingPage = () => {
   useEffect(() => {
     if (openCreateJob) {
       // Parse assignedTo from JSON if present
-      let assignedTo: Array<{
-        userId: string
-        roleId?: string
-        role: string
-        price?: number | null
-        payType?: 'job' | 'hourly'
-        hourlyRate?: number | null
-      }> | undefined
+      let assignedTo:
+        | Array<{
+            userId: string
+            roleId?: string
+            role: string
+            price?: number | null
+            payType?: 'job' | 'hourly'
+            hourlyRate?: number | null
+          }>
+        | undefined
       const assignedToParam = searchParams.get('assignedTo')
       if (assignedToParam) {
         try {
@@ -446,9 +448,7 @@ const SchedulingPage = () => {
         description: searchParams.get('description')
           ? decodeURIComponent(searchParams.get('description')!)
           : undefined,
-        price: searchParams.get('price')
-          ? parseFloat(searchParams.get('price')!)
-          : undefined,
+        price: searchParams.get('price') ? parseFloat(searchParams.get('price')!) : undefined,
         serviceId: searchParams.get('serviceId') || undefined,
         assignedTo,
       })
@@ -533,9 +533,7 @@ const SchedulingPage = () => {
     try {
       await updateJob(payload)
       // Force refetch when toggling to To Be Scheduled or when scheduling so UI updates (calendar vs list)
-      const needsRefetch =
-        payload.toBeScheduled === true ||
-        (payload.startTime && payload.endTime)
+      const needsRefetch = payload.toBeScheduled === true || (payload.startTime && payload.endTime)
       if (needsRefetch) {
         const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
         const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
@@ -570,7 +568,9 @@ const SchedulingPage = () => {
     if (editingJob) {
       const updatePayload = { ...data, id: editingJob.id, updateAll: editUpdateAll }
       const timesChanged =
-        (data.startTime != null && editingJob.startTime != null && data.startTime !== editingJob.startTime) ||
+        (data.startTime != null &&
+          editingJob.startTime != null &&
+          data.startTime !== editingJob.startTime) ||
         (data.endTime != null && editingJob.endTime != null && data.endTime !== editingJob.endTime)
       // Also show notification prompt when scheduling a to-be-scheduled job (adding times)
       const isSchedulingUnscheduled =
@@ -943,7 +943,13 @@ const SchedulingPage = () => {
     const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
 
     // Build payload and show notification prompt before scheduling
-    const updatePayload: { id: string; toBeScheduled: boolean; startTime: string; endTime: string; bookingId?: string } = {
+    const updatePayload: {
+      id: string
+      toBeScheduled: boolean
+      startTime: string
+      endTime: string
+      bookingId?: string
+    } = {
       id: jobId,
       toBeScheduled: false,
       startTime: startTime.toISOString(),
@@ -958,9 +964,11 @@ const SchedulingPage = () => {
 
   // Get the job being dragged for the ghost overlay
   const draggedJob = externalDragState.jobId
-    ? (externalDragState.bookingId
-        ? jobs.find(j => j.id === externalDragState.jobId && j.bookingId === externalDragState.bookingId)
-        : jobs.find(j => j.id === externalDragState.jobId))
+    ? externalDragState.bookingId
+      ? jobs.find(
+          j => j.id === externalDragState.jobId && j.bookingId === externalDragState.bookingId
+        )
+      : jobs.find(j => j.id === externalDragState.jobId)
     : null
 
   return (
@@ -1003,16 +1011,20 @@ const SchedulingPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
         <div className="space-y-1">
-          <h1 className={cn(
-            "text-2xl md:text-3xl font-bold tracking-tight",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
+          <h1
+            className={cn(
+              'text-2xl md:text-3xl font-bold tracking-tight',
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}
+          >
             <span className="text-primary-gold">Scheduling</span>
           </h1>
-          <p className={cn(
-            "text-sm md:text-base",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
+          <p
+            className={cn(
+              'text-sm md:text-base',
+              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+            )}
+          >
             Manage your calendar, jobs, and services
           </p>
         </div>
@@ -1151,7 +1163,7 @@ const SchedulingPage = () => {
       {/* Tabs - no horizontal scroll or wrap, fit within viewport via responsive sizing. Negative margin extends into container padding for more room. */}
       <div
         className={cn(
-          "flex items-center gap-1 sm:gap-2 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6",
+          'flex items-center gap-1 sm:gap-2 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6',
           theme === 'dark' ? 'border-white/10' : 'border-gray-200'
         )}
         style={{ touchAction: 'none', overscrollBehavior: 'none' }}
@@ -1164,7 +1176,7 @@ const SchedulingPage = () => {
             setSearchParams(params, { replace: true })
           }}
           className={cn(
-            "px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
             activeTab === 'calendar'
               ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
               : theme === 'dark'
@@ -1182,7 +1194,7 @@ const SchedulingPage = () => {
             setSearchParams(params, { replace: true })
           }}
           className={cn(
-            "px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
             activeTab === 'upcoming-bookings'
               ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
               : theme === 'dark'
@@ -1201,7 +1213,7 @@ const SchedulingPage = () => {
             setSearchParams(params, { replace: true })
           }}
           className={cn(
-            "px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
             activeTab === 'services'
               ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
               : theme === 'dark'
@@ -1219,7 +1231,7 @@ const SchedulingPage = () => {
             setSearchParams(params, { replace: true })
           }}
           className={cn(
-            "px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
             activeTab === 'archived'
               ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
               : theme === 'dark'
@@ -1249,17 +1261,21 @@ const SchedulingPage = () => {
           <div className="h-full flex flex-col min-w-0">
             {/* To Be Scheduled List (inline at top when visible) */}
             {toBeScheduledJobs.length > 0 && (
-              <div ref={toBeScheduledInlineRef} className={cn(
-                "border-b p-4",
-                theme === 'dark' ? 'border-white/10' : 'border-gray-200'
-              )}>
+              <div
+                ref={toBeScheduledInlineRef}
+                className={cn(
+                  'border-b p-4',
+                  theme === 'dark' ? 'border-white/10' : 'border-gray-200'
+                )}
+              >
                 <h3 className="text-sm font-semibold text-primary-gold mb-3">
                   To Be Scheduled ({toBeScheduledJobs.length})
                 </h3>
                 <div className="flex gap-2 flex-wrap">
                   {toBeScheduledJobs.map(job => {
                     const isDragging =
-                      (externalDragState.jobId === job.id && (externalDragState.bookingId === job.bookingId || !job.bookingId)) &&
+                      externalDragState.jobId === job.id &&
+                      (externalDragState.bookingId === job.bookingId || !job.bookingId) &&
                       externalDragState.isDragging
                     return (
                       <div
@@ -1343,12 +1359,14 @@ const SchedulingPage = () => {
                     maxWidth: floatingToBeScheduledPos.maxWidth,
                   }}
                 >
-                  <div className={cn(
-                    "rounded-xl border border-amber-500/30 backdrop-blur-md shadow-lg ring-1",
-                    theme === 'dark' 
-                      ? 'bg-primary-dark/95 ring-black/20' 
-                      : 'bg-white/95 ring-gray-200/50'
-                  )}>
+                  <div
+                    className={cn(
+                      'rounded-xl border border-amber-500/30 backdrop-blur-md shadow-lg ring-1',
+                      theme === 'dark'
+                        ? 'bg-primary-dark/95 ring-black/20'
+                        : 'bg-white/95 ring-gray-200/50'
+                    )}
+                  >
                     <button
                       type="button"
                       onClick={() => setToBeScheduledOverlayOpen(v => !v)}
@@ -1374,17 +1392,25 @@ const SchedulingPage = () => {
                         <span className="text-sm font-semibold text-primary-gold truncate">
                           To Be Scheduled
                         </span>
-                        <span className={cn(
-                          "text-xs flex-shrink-0",
-                          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                        )}>
+                        <span
+                          className={cn(
+                            'text-xs flex-shrink-0',
+                            theme === 'dark'
+                              ? 'text-primary-light/60'
+                              : 'text-primary-lightTextSecondary'
+                          )}
+                        >
                           ({toBeScheduledJobs.length})
                         </span>
                       </div>
-                      <span className={cn(
-                        "flex-shrink-0",
-                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                      )}>
+                      <span
+                        className={cn(
+                          'flex-shrink-0',
+                          theme === 'dark'
+                            ? 'text-primary-light/60'
+                            : 'text-primary-lightTextSecondary'
+                        )}
+                      >
                         {toBeScheduledOverlayOpen ? 'Hide' : 'Show'}
                       </span>
                     </button>
@@ -1394,7 +1420,8 @@ const SchedulingPage = () => {
                         <div className="flex gap-2 flex-wrap max-h-40 overflow-auto pr-1">
                           {toBeScheduledJobs.map(job => {
                             const isDragging =
-                              (externalDragState.jobId === job.id && (externalDragState.bookingId === job.bookingId || !job.bookingId)) &&
+                              externalDragState.jobId === job.id &&
+                              (externalDragState.bookingId === job.bookingId || !job.bookingId) &&
                               externalDragState.isDragging
                             return (
                               <div
@@ -1529,7 +1556,8 @@ const SchedulingPage = () => {
         title={
           editingJob?.toBeScheduled ? 'Schedule Job' : editingJob ? 'Edit Job' : 'Schedule New Job'
         }
-        size="2xl"
+        size="xl"
+        fitContentOnMobile
       >
         <JobForm
           key={
@@ -1537,24 +1565,28 @@ const SchedulingPage = () => {
             `new-${createJobDefaults.contactId || 'default'}-${linkExistingJobId || 'none'}`
           } // Force remount when switching between edit/new or when defaults change
           job={editingJob || undefined}
-          onSubmit={editingJob ? handleUpdateJob : async (data, existingJobId) => {
-            if (existingJobId) {
-              // Update existing job instead of creating new one
-              try {
-                await updateJob({ id: existingJobId, ...data })
-                setShowJobForm(false)
-                clearJobsError()
-                setJobConfirmationMessage('Job scheduled successfully')
-                setShowJobConfirmation(true)
-                setTimeout(() => setShowJobConfirmation(false), 3000)
-              } catch (error: any) {
-                // Error will be displayed in the modal via jobsError
-                // Keep the modal open so user can fix the issue
-              }
-            } else {
-              await handleCreateJob(data)
-            }
-          }}
+          onSubmit={
+            editingJob
+              ? handleUpdateJob
+              : async (data, existingJobId) => {
+                  if (existingJobId) {
+                    // Update existing job instead of creating new one
+                    try {
+                      await updateJob({ id: existingJobId, ...data })
+                      setShowJobForm(false)
+                      clearJobsError()
+                      setJobConfirmationMessage('Job scheduled successfully')
+                      setShowJobConfirmation(true)
+                      setTimeout(() => setShowJobConfirmation(false), 3000)
+                    } catch (error: any) {
+                      // Error will be displayed in the modal via jobsError
+                      // Keep the modal open so user can fix the issue
+                    }
+                  } else {
+                    await handleCreateJob(data)
+                  }
+                }
+          }
           onCancel={() => {
             setShowJobForm(false)
             setEditingJob(null)
@@ -1588,7 +1620,7 @@ const SchedulingPage = () => {
           setShowNotifyClientModal(false)
           setPendingUpdatePayload(null)
         }}
-        onNotify={(notify) => {
+        onNotify={notify => {
           if (pendingUpdatePayload) {
             performJobUpdate({ ...pendingUpdatePayload, notifyClient: notify })
           }
@@ -1667,33 +1699,37 @@ const SchedulingPage = () => {
         title="Decline Booking"
         size="md"
       >
-          <div className="space-y-4">
-            <p className={cn(
-              "text-sm",
+        <div className="space-y-4">
+          <p
+            className={cn(
+              'text-sm',
               theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
-              Are you sure you want to decline this booking? The client will be notified via email.
-            </p>
-            <div>
-              <label className={cn(
-                "block text-sm font-medium mb-2",
+            )}
+          >
+            Are you sure you want to decline this booking? The client will be notified via email.
+          </p>
+          <div>
+            <label
+              className={cn(
+                'block text-sm font-medium mb-2',
                 theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                Reason (Optional)
-              </label>
-              <textarea
-                value={declineReason}
-                onChange={e => setDeclineReason(e.target.value)}
-                rows={3}
-                className={cn(
-                  "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
-                  theme === 'dark'
-                    ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-                    : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-                )}
-                placeholder="Let the client know why you can't accommodate this booking..."
-              />
-            </div>
+              )}
+            >
+              Reason (Optional)
+            </label>
+            <textarea
+              value={declineReason}
+              onChange={e => setDeclineReason(e.target.value)}
+              rows={3}
+              className={cn(
+                'w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
+                theme === 'dark'
+                  ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+                  : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
+              )}
+              placeholder="Let the client know why you can't accommodate this booking..."
+            />
+          </div>
           <div className="flex gap-3 justify-end">
             <Button
               variant="ghost"
@@ -1796,8 +1832,10 @@ const SchedulingPage = () => {
           }}
           title={
             selectedJob?.bookingId
-              ? (selectedJob?.toBeScheduled || !selectedJob?.startTime ? "Delete Booking?" : "Archive Job?")
-              : "Delete Job?"
+              ? selectedJob?.toBeScheduled || !selectedJob?.startTime
+                ? 'Delete Booking?'
+                : 'Archive Job?'
+              : 'Delete Job?'
           }
           message={
             <div className="space-y-3">
@@ -1809,18 +1847,18 @@ const SchedulingPage = () => {
                     </p>
                     <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
                       <p className="text-sm text-primary-light/70 mb-2">
-                        <strong className="text-primary-light">Important:</strong> This will only delete the booking, not the job itself.
+                        <strong className="text-primary-light">Important:</strong> This will only
+                        delete the booking, not the job itself.
                       </p>
                       <p className="text-sm text-primary-light/70">
-                        The job "{selectedJob?.title}" will remain in your jobs list and can be scheduled again later.
+                        The job "{selectedJob?.title}" will remain in your jobs list and can be
+                        scheduled again later.
                       </p>
                     </div>
                   </>
                 ) : (
                   <>
-                    <p className="text-primary-light">
-                      Are you sure you want to archive this job?
-                    </p>
+                    <p className="text-primary-light">Are you sure you want to archive this job?</p>
                     <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
                       <p className="text-sm text-primary-light/70">
                         <strong className="text-primary-light">Job:</strong> {selectedJob?.title}
@@ -1833,12 +1871,11 @@ const SchedulingPage = () => {
                 )
               ) : (
                 <>
-                  <p className="text-primary-light">
-                    This job has no booking. Delete the job?
-                  </p>
+                  <p className="text-primary-light">This job has no booking. Delete the job?</p>
                   <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
                     <p className="text-sm text-primary-light/70">
-                      This will permanently remove "{selectedJob?.title}" from your Jobs list and Scheduling.
+                      This will permanently remove "{selectedJob?.title}" from your Jobs list and
+                      Scheduling.
                     </p>
                   </div>
                 </>
@@ -1847,8 +1884,10 @@ const SchedulingPage = () => {
           }
           confirmText={
             selectedJob?.bookingId
-              ? (selectedJob?.toBeScheduled || !selectedJob?.startTime ? "Delete Booking" : "Archive")
-              : "Delete Job"
+              ? selectedJob?.toBeScheduled || !selectedJob?.startTime
+                ? 'Delete Booking'
+                : 'Archive'
+              : 'Delete Job'
           }
           confirmVariant="danger"
         />
@@ -1911,25 +1950,27 @@ const SchedulingPage = () => {
         title="Booking Link"
         size="md"
       >
-          <div className="space-y-4">
-            <p className={cn(
-              "text-sm",
+        <div className="space-y-4">
+          <p
+            className={cn(
+              'text-sm',
               theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
-              Share this link with clients so they can view all your services and book appointments:
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={bookingLink}
-                readOnly
-                className={cn(
-                  "flex-1 rounded-lg border px-3 py-2 text-sm",
-                  theme === 'dark'
-                    ? 'border-primary-blue bg-primary-dark-secondary text-primary-light'
-                    : 'border-gray-200 bg-white text-primary-lightText'
-                )}
-              />
+            )}
+          >
+            Share this link with clients so they can view all your services and book appointments:
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={bookingLink}
+              readOnly
+              className={cn(
+                'flex-1 rounded-lg border px-3 py-2 text-sm',
+                theme === 'dark'
+                  ? 'border-primary-blue bg-primary-dark-secondary text-primary-light'
+                  : 'border-gray-200 bg-white text-primary-lightText'
+              )}
+            />
             <Button
               size="sm"
               onClick={() => {
@@ -1961,10 +2002,12 @@ const SchedulingPage = () => {
               )}
             </Button>
           </div>
-          <p className={cn(
-            "text-xs",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
+          <p
+            className={cn(
+              'text-xs',
+              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+            )}
+          >
             Clients can select a time and book without logging in.
           </p>
         </div>
@@ -1995,14 +2038,20 @@ const SchedulingPage = () => {
                 />
               </svg>
             </div>
-            <h2 className={cn(
-              "text-xl font-semibold mb-2",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>No Services Set Up</h2>
-            <p className={cn(
-              "text-sm",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
+            <h2
+              className={cn(
+                'text-xl font-semibold mb-2',
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}
+            >
+              No Services Set Up
+            </h2>
+            <p
+              className={cn(
+                'text-sm',
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}
+            >
               Oops! You haven't set up any services. Set up service now.
             </p>
           </div>
