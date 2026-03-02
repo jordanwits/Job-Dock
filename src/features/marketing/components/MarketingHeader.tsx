@@ -51,7 +51,7 @@ const MarketingHeader = () => {
 
   return (
     <header
-      className={`fixed top-0 z-50 w-full transition-all duration-300 ${
+      className={`fixed top-0 z-50 w-full transition-all duration-300 pt-[env(safe-area-inset-top,0px)] ${
         isScrolled ? 'bg-white backdrop-blur-sm shadow-md' : 'bg-transparent'
       }`}
     >

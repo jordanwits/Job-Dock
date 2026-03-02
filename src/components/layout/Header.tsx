@@ -31,7 +31,7 @@ const Header = ({
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 w-full border-b backdrop-blur",
+      "sticky top-0 z-40 w-full border-b backdrop-blur pt-[env(safe-area-inset-top,0px)]",
       theme === 'dark'
         ? 'border-primary-blue bg-primary-dark-secondary/95 supports-[backdrop-filter]:bg-primary-dark-secondary/60'
         : 'border-gray-200 bg-white/95 supports-[backdrop-filter]:bg-white/60'
