@@ -132,7 +132,7 @@ const Modal = ({
         transparentBackdrop ? 'bg-black/20' : 'max-sm:bg-black sm:bg-black/50',
         'pt-[max(0.5rem,env(safe-area-inset-top,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]',
         'pb-0 pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
-        'min-h-[100dvh] max-sm:pb-[env(safe-area-inset-bottom,0px)]', // Extend into safe area on iOS standalone to prevent blue bar
+        'min-h-[100dvh]',
         'sm:pt-4 sm:pr-4 sm:pb-4 sm:pl-4',
         'lg:pl-64', // Offset for sidebar so modal centers on main content area
         mobilePosition === 'bottom'
