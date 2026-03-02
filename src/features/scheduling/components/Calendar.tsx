@@ -2367,12 +2367,12 @@ const Calendar = ({
       {/* Toolbar - min-w-0 prevents overflow, overflow-x-hidden ensures no horizontal scroll */}
       <div
         className={cn(
-          "flex flex-row items-center justify-between gap-2 sm:gap-3 p-3 sm:p-3 md:p-4 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0",
+          "flex flex-row items-center justify-between gap-1.5 sm:gap-3 p-2.5 sm:p-3 md:p-4 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0",
           theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
         )}
         style={{ touchAction: 'none', overscrollBehavior: 'none' }}
       >
-        <div className="flex items-center gap-2 flex-shrink-0 min-h-0 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 min-h-0 min-w-0">
           <button
             onClick={() => navigateDate('prev')}
             className={cn(
@@ -2399,7 +2399,7 @@ const Calendar = ({
           </button>
           <button
             onClick={goToToday}
-            className="px-3 sm:px-3 md:px-4 py-2 rounded-lg bg-primary-gold/20 hover:bg-primary-gold/30 text-primary-gold font-medium transition-colors text-sm md:text-base whitespace-nowrap flex-shrink-0 min-h-[2.25rem] sm:min-h-0"
+            className="px-2.5 sm:px-3 md:px-4 py-2 rounded-lg bg-primary-gold/20 hover:bg-primary-gold/30 text-primary-gold font-medium transition-colors text-sm md:text-base whitespace-nowrap flex-shrink-0 min-h-[2.25rem] sm:min-h-0"
           >
             Today
           </button>
@@ -2424,12 +2424,12 @@ const Calendar = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink min-w-0 min-h-0">
-          <div className="flex items-center gap-2 flex-shrink-0 min-h-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink min-w-0 min-h-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 min-h-0">
             <button
               onClick={() => onViewModeChange('day')}
               className={cn(
-                'px-3 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-colors text-sm whitespace-nowrap min-h-[2.25rem] sm:min-h-0 flex-shrink-0',
+                'px-2.5 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-colors text-sm whitespace-nowrap min-h-[2.25rem] sm:min-h-0 flex-shrink-0',
                 viewMode === 'day'
                   ? 'bg-primary-gold text-primary-dark'
                   : theme === 'dark'
@@ -2442,7 +2442,7 @@ const Calendar = ({
             <button
               onClick={() => onViewModeChange('week')}
               className={cn(
-                'px-3 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-colors text-sm whitespace-nowrap min-h-[2.25rem] sm:min-h-0 flex-shrink-0',
+                'px-2.5 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-colors text-sm whitespace-nowrap min-h-[2.25rem] sm:min-h-0 flex-shrink-0',
                 viewMode === 'week'
                   ? 'bg-primary-gold text-primary-dark'
                   : theme === 'dark'
@@ -2455,7 +2455,7 @@ const Calendar = ({
             <button
               onClick={() => onViewModeChange('month')}
               className={cn(
-                'px-3 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-colors text-sm whitespace-nowrap min-h-[2.25rem] sm:min-h-0 flex-shrink-0',
+                'px-2.5 sm:px-3 md:px-4 py-2 rounded-lg font-medium transition-colors text-sm whitespace-nowrap min-h-[2.25rem] sm:min-h-0 flex-shrink-0',
                 viewMode === 'month'
                   ? 'bg-primary-gold text-primary-dark'
                   : theme === 'dark'

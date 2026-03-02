@@ -1136,7 +1136,7 @@ const SchedulingPage = () => {
       {/* Tabs - no horizontal scroll or wrap, fit within viewport via responsive sizing. Negative margin extends into container padding for more room. */}
       <div
         className={cn(
-          "flex items-center gap-1.5 sm:gap-2 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6",
+          "flex items-center gap-1 sm:gap-2 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6",
           theme === 'dark' ? 'border-white/10' : 'border-gray-200'
         )}
         style={{ touchAction: 'none', overscrollBehavior: 'none' }}
@@ -1149,7 +1149,7 @@ const SchedulingPage = () => {
             setSearchParams(params, { replace: true })
           }}
           className={cn(
-            "px-3 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            "px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
             activeTab === 'calendar'
               ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
               : theme === 'dark'
@@ -1167,7 +1167,7 @@ const SchedulingPage = () => {
             setSearchParams(params, { replace: true })
           }}
           className={cn(
-            "px-3 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            "px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
             activeTab === 'upcoming-bookings'
               ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
               : theme === 'dark'
@@ -1186,7 +1186,7 @@ const SchedulingPage = () => {
             setSearchParams(params, { replace: true })
           }}
           className={cn(
-            "px-3 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            "px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
             activeTab === 'services'
               ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
               : theme === 'dark'
@@ -1204,7 +1204,7 @@ const SchedulingPage = () => {
             setSearchParams(params, { replace: true })
           }}
           className={cn(
-            "px-3 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
+            "px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0",
             activeTab === 'archived'
               ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
               : theme === 'dark'
