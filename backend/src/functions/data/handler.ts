@@ -393,6 +393,11 @@ We look forward to working with you!',
         return successResponse(result)
       }
 
+      if (billingAction === 'cancel-and-schedule-deletion' && event.httpMethod === 'POST') {
+        const result = await dataServices.billing.cancelAndScheduleDeletion(tenantId)
+        return successResponse(result)
+      }
+
       return errorResponse('Billing route not found', 404)
     }
 

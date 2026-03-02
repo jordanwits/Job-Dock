@@ -3741,6 +3741,7 @@ export const dataServices = {
           trialEndsAt: true,
           currentPeriodEndsAt: true,
           cancelAtPeriodEnd: true,
+          deleteAccountAtPeriodEnd: true,
           subscriptionTier: true,
         },
       })
@@ -3771,6 +3772,7 @@ export const dataServices = {
         trialEndsAt: tenant.trialEndsAt?.toISOString(),
         currentPeriodEndsAt: tenant.currentPeriodEndsAt?.toISOString(),
         cancelAtPeriodEnd: tenant.cancelAtPeriodEnd || false,
+        deleteAccountAtPeriodEnd: tenant.deleteAccountAtPeriodEnd || false,
         subscriptionTier,
         canInviteTeamMembers,
         canDowngrade,
@@ -3939,6 +3941,66 @@ export const dataServices = {
         url: session.url,
       }
     },
+    cancelSubscription: async (tenantId: string, cancelAtPeriodEnd = true) => {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { stripeSubscriptionId: true },
+      })
+      if (!tenant?.stripeSubscriptionId) {
+        throw new ApiError('No active subscription to cancel', 400)
+      }
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2025-02-24.acacia',
+      })
+      if (cancelAtPeriodEnd) {
+        await stripe.subscriptions.update(tenant.stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        })
+        await prisma.tenant.update({
+          where: { id: tenantId },
+          data: { cancelAtPeriodEnd: true },
+        })
+        return { cancelAtPeriodEnd: true }
+      } else {
+        await stripe.subscriptions.cancel(tenant.stripeSubscriptionId)
+        await prisma.tenant.update({
+          where: { id: tenantId },
+          data: {
+            stripeSubscriptionStatus: 'canceled',
+            stripeSubscriptionId: null,
+            stripePriceId: null,
+            subscriptionTier: null,
+            cancelAtPeriodEnd: false,
+          },
+        })
+        return { cancelAtPeriodEnd: false }
+      }
+    },
+    cancelAndScheduleDeletion: async (tenantId: string) => {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { stripeSubscriptionId: true, currentPeriodEndsAt: true },
+      })
+      if (!tenant?.stripeSubscriptionId) {
+        throw new ApiError('No active subscription to cancel', 400)
+      }
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2025-02-24.acacia',
+      })
+      await stripe.subscriptions.update(tenant.stripeSubscriptionId, {
+        cancel_at_period_end: true,
+      })
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { cancelAtPeriodEnd: true, deleteAccountAtPeriodEnd: true },
+      })
+      return {
+        cancelAtPeriodEnd: true,
+        currentPeriodEndsAt: tenant.currentPeriodEndsAt?.toISOString() ?? null,
+      }
+    },
     handleWebhook: async (rawBody: string, signature: string) => {
       const Stripe = (await import('stripe')).default
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -4038,13 +4100,26 @@ export const dataServices = {
           const tenantId = subscription.metadata?.tenantId
 
           if (tenantId) {
-            await prisma.tenant.update({
+            const tenant = await prisma.tenant.findUnique({
               where: { id: tenantId },
-              data: {
-                stripeSubscriptionStatus: 'canceled',
-              },
+              select: { deleteAccountAtPeriodEnd: true },
             })
-            console.log(`Subscription canceled for tenant ${tenantId}`)
+            if (tenant?.deleteAccountAtPeriodEnd) {
+              console.log(`Executing scheduled account deletion for tenant ${tenantId}`)
+              await executeAccountDeletion(tenantId)
+            } else {
+              await prisma.tenant.update({
+                where: { id: tenantId },
+                data: {
+                  stripeSubscriptionStatus: 'canceled',
+                  stripeSubscriptionId: null,
+                  stripePriceId: null,
+                  subscriptionTier: null,
+                  cancelAtPeriodEnd: false,
+                },
+              })
+              console.log(`Subscription canceled for tenant ${tenantId}`)
+            }
           }
           break
         }
@@ -5148,4 +5223,64 @@ export const dataServices = {
       return { success: true }
     },
   },
+  account: {
+    deleteAccount: async (tenantId: string) => {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { stripeSubscriptionId: true },
+      })
+      if (!tenant) {
+        throw new ApiError('Tenant not found', 404)
+      }
+      if (tenant.stripeSubscriptionId) {
+        try {
+          const Stripe = (await import('stripe')).default
+          const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+            apiVersion: '2025-02-24.acacia',
+          })
+          await stripe.subscriptions.cancel(tenant.stripeSubscriptionId)
+        } catch (stripeErr) {
+          console.error('Failed to cancel Stripe subscription:', stripeErr)
+        }
+      }
+      await executeAccountDeletion(tenantId)
+      return { success: true }
+    },
+  },
+}
+
+async function executeAccountDeletion(tenantId: string): Promise<void> {
+  const { CognitoIdentityProviderClient, AdminDeleteUserCommand } = await import(
+    '@aws-sdk/client-cognito-identity-provider'
+  )
+  const cognitoClient = new CognitoIdentityProviderClient({
+    region: process.env.AWS_REGION || 'us-east-1',
+  })
+  const USER_POOL_ID = process.env.USER_POOL_ID
+  if (!USER_POOL_ID) {
+    throw new ApiError('User pool not configured', 500)
+  }
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { users: { select: { email: true } } },
+  })
+  if (!tenant) return
+  for (const { email } of tenant.users) {
+    try {
+      await cognitoClient.send(
+        new AdminDeleteUserCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: email,
+        })
+      )
+    } catch (cognitoErr: any) {
+      if (cognitoErr?.name === 'UserNotFoundException') {
+        // User already deleted, continue
+      } else {
+        console.error(`Failed to delete Cognito user ${email}:`, cognitoErr)
+        throw new ApiError(`Failed to delete user account: ${cognitoErr.message}`, 500)
+      }
+    }
+  }
+  await prisma.tenant.delete({ where: { id: tenantId } })
 }

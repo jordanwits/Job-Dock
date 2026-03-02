@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Button, Card } from '@/components/ui'
+import { Button, Card, Modal } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -10,11 +10,14 @@ interface BillingStatus {
   trialEndsAt: string | null
   currentPeriodEndsAt: string | null
   cancelAtPeriodEnd: boolean
+  deleteAccountAtPeriodEnd?: boolean
   subscriptionTier?: string
   canInviteTeamMembers?: boolean
   canDowngrade?: boolean
   teamMemberCount?: number
 }
+
+const CANCEL_CONFIRM_PHRASE = 'cancel my account'
 
 type PlanTier = 'single' | 'team'
 
@@ -60,20 +63,43 @@ export const BillingSection = () => {
   const [upgrading, setUpgrading] = useState(false)
   const [manageLoading, setManageLoading] = useState(false)
   const [changingPlan, setChangingPlan] = useState<PlanTier | null>(null)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelConfirmText, setCancelConfirmText] = useState('')
+  const [cancelLoading, setCancelLoading] = useState(false)
+
+  const loadStatus = async () => {
+    try {
+      const data = await services.billing.getStatus()
+      setStatus(data)
+    } catch (err) {
+      console.error('Failed to load billing status:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await services.billing.getStatus()
-        setStatus(data)
-      } catch (err) {
-        console.error('Failed to load billing status:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    loadStatus()
   }, [])
+
+  const handleCancelAndScheduleDeletion = async () => {
+    if (cancelConfirmText.toLowerCase().trim() !== CANCEL_CONFIRM_PHRASE) {
+      alert(`Please type "${CANCEL_CONFIRM_PHRASE}" exactly to confirm.`)
+      return
+    }
+    try {
+      setCancelLoading(true)
+      await services.billing.cancelAndScheduleDeletion()
+      await loadStatus()
+      setShowCancelModal(false)
+      setCancelConfirmText('')
+    } catch (err: any) {
+      console.error('Failed to cancel:', err)
+      alert(err.response?.data?.message || 'Failed to cancel. Please try again.')
+    } finally {
+      setCancelLoading(false)
+    }
+  }
 
   const handleUpgradeToTeam = async () => {
     try {
@@ -185,17 +211,44 @@ export const BillingSection = () => {
               )}
             </div>
             {hasActiveSubscription && (
-              <Button
-                variant="secondary"
-                onClick={handleManageBilling}
-                disabled={manageLoading}
-                className="w-full sm:w-auto"
-              >
-                {manageLoading ? 'Opening...' : 'Manage billing'}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={handleManageBilling}
+                  disabled={manageLoading}
+                  className="w-full sm:w-auto"
+                >
+                  {manageLoading ? 'Opening...' : 'Manage billing'}
+                </Button>
+                {!status.deleteAccountAtPeriodEnd && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCancelModal(true)}
+                    disabled={cancelLoading}
+                    className="w-full sm:w-auto border-amber-500/50 text-amber-600 dark:text-amber-400"
+                  >
+                    Cancel Subscription
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </Card>
+
+        {/* Scheduled cancellation notice */}
+        {hasActiveSubscription && status.deleteAccountAtPeriodEnd && (
+          <Card className="p-4 border-amber-500/30">
+            <p className={cn(
+              "text-sm",
+              theme === 'dark' ? 'text-amber-400/90' : 'text-amber-600'
+            )}>
+              Your subscription is cancelled and your account will be deleted at the end of the billing period.
+              {status.currentPeriodEndsAt && (
+                <> You have full access until <strong>{new Date(status.currentPeriodEndsAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</strong>.</>
+              )}
+            </p>
+          </Card>
+        )}
 
         {/* Plan Selection */}
         <div>
@@ -298,6 +351,71 @@ export const BillingSection = () => {
           </div>
         </div>
       </div>
+
+      {/* Cancel Subscription modal */}
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => {
+          setShowCancelModal(false)
+          setCancelConfirmText('')
+        }}
+        title="Cancel Subscription"
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowCancelModal(false)
+                setCancelConfirmText('')
+              }}
+              disabled={cancelLoading}
+            >
+              Keep Subscription
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleCancelAndScheduleDeletion}
+              isLoading={cancelLoading}
+              disabled={cancelConfirmText.toLowerCase().trim() !== CANCEL_CONFIRM_PHRASE}
+            >
+              Cancel Subscription
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+          )}>
+            This will cancel your active subscription and delete your account at the end of this billing period.
+            {status?.currentPeriodEndsAt && (
+              <span className="block mt-2 font-medium text-primary-gold">
+                Your account will be deleted on {new Date(status.currentPeriodEndsAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}. You will retain full access until this date.
+              </span>
+            )}
+          </p>
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
+            Type <strong>{CANCEL_CONFIRM_PHRASE}</strong> to confirm:
+          </p>
+          <input
+            type="text"
+            value={cancelConfirmText}
+            onChange={e => setCancelConfirmText(e.target.value)}
+            placeholder={CANCEL_CONFIRM_PHRASE}
+            className={cn(
+              "w-full px-3 py-2 rounded-lg border text-sm",
+              theme === 'dark'
+                ? 'bg-primary-dark border-white/20 text-primary-light placeholder:text-primary-light/40'
+                : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-500'
+            )}
+            autoComplete="off"
+          />
+        </div>
+      </Modal>
     </div>
   )
 }
