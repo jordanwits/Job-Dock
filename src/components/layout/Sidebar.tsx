@@ -26,7 +26,7 @@ const Sidebar = ({ items, isOpen = true, onClose }: SidebarProps) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 h-full w-64 transform border-r transition-transform duration-300 lg:translate-x-0',
+          'fixed left-0 top-0 z-50 h-full w-64 transform border-r transition-transform duration-300 pt-[env(safe-area-inset-top,0px)] sm:pt-0 lg:translate-x-0',
           theme === 'dark'
             ? 'border-primary-blue bg-primary-dark-secondary'
             : 'border-gray-200 bg-white',
