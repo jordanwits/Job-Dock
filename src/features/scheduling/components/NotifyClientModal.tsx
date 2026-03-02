@@ -56,7 +56,7 @@ const NotifyClientModal = ({
       closeOnOverlayClick={!isLoading}
     >
       <p className="text-primary-light">
-        The date or time has changed. Would you like to notify the client about this update?
+        Would you like to notify the client about this schedule update?
       </p>
     </Modal>
   )

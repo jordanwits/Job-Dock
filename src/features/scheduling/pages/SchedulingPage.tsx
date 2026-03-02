@@ -261,7 +261,7 @@ const SchedulingPage = () => {
             const dropDate = new Date(dropDateStr)
             const dropHour = dropHourStr ? parseInt(dropHourStr, 10) : undefined
 
-            await handleUnscheduledDrop(
+            handleUnscheduledDrop(
               externalDragState.jobId,
               dropDate,
               dropHour,
@@ -271,8 +271,9 @@ const SchedulingPage = () => {
         }
       }
 
-      // Clear drag state
-      externalDragRef.current = false
+      // Defer clearing externalDragRef when we were dragging so the subsequent click event
+      // still sees we were dragging (click fires after pointerup; if we clear now, onClick opens detail)
+      const wasDragging = externalDragState.isDragging || externalDragState.hasMoved
       setExternalDragGhost(null)
       setExternalDragState({
         jobId: null,
@@ -281,6 +282,13 @@ const SchedulingPage = () => {
         isDragging: false,
         hasMoved: false,
       })
+      if (wasDragging) {
+        setTimeout(() => {
+          externalDragRef.current = false
+        }, 0)
+      } else {
+        externalDragRef.current = false
+      }
     }
 
     window.addEventListener('pointermove', handlePointerMove)
@@ -524,8 +532,11 @@ const SchedulingPage = () => {
   const performJobUpdate = async (payload: any) => {
     try {
       await updateJob(payload)
-      // Force refetch when toggling to To Be Scheduled so UI updates (calendar vs list)
-      if (payload.toBeScheduled === true) {
+      // Force refetch when toggling to To Be Scheduled or when scheduling so UI updates (calendar vs list)
+      const needsRefetch =
+        payload.toBeScheduled === true ||
+        (payload.startTime && payload.endTime)
+      if (needsRefetch) {
         const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
         const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
         await fetchJobs(startDate, endDate)
@@ -561,7 +572,12 @@ const SchedulingPage = () => {
       const timesChanged =
         (data.startTime != null && editingJob.startTime != null && data.startTime !== editingJob.startTime) ||
         (data.endTime != null && editingJob.endTime != null && data.endTime !== editingJob.endTime)
-      if (timesChanged) {
+      // Also show notification prompt when scheduling a to-be-scheduled job (adding times)
+      const isSchedulingUnscheduled =
+        (editingJob.toBeScheduled || !editingJob.startTime) &&
+        data.startTime != null &&
+        data.endTime != null
+      if (timesChanged || isSchedulingUnscheduled) {
         setPendingUpdatePayload(updatePayload)
         setShowNotifyClientModal(true)
       } else {
@@ -891,63 +907,51 @@ const SchedulingPage = () => {
     }
   }
 
-  const handleUnscheduledDrop = async (
+  const handleUnscheduledDrop = (
     jobId: string,
     targetDate: Date,
     targetHour?: number,
     bookingId?: string
   ) => {
-    try {
-      const job = bookingId
-        ? jobs.find(j => j.id === jobId && j.bookingId === bookingId)
-        : jobs.find(j => j.id === jobId)
-      if (!job) return
+    const job = bookingId
+      ? jobs.find(j => j.id === jobId && j.bookingId === bookingId)
+      : jobs.find(j => j.id === jobId)
+    if (!job) return
 
-      // Determine duration (in minutes)
-      let durationMinutes = 60 // default
-      if (job.serviceId) {
-        const service = services.find(s => s.id === job.serviceId)
-        if (service) {
-          durationMinutes = service.duration
-        }
+    // Determine duration (in minutes)
+    let durationMinutes = 60 // default
+    if (job.serviceId) {
+      const service = services.find(s => s.id === job.serviceId)
+      if (service) {
+        durationMinutes = service.duration
       }
-
-      // Compute startTime
-      let startTime: Date
-      if (targetHour !== undefined) {
-        // Day/week view - use the specific hour
-        startTime = new Date(targetDate)
-        startTime.setHours(targetHour, 0, 0, 0)
-      } else {
-        // Month view - default to 9 AM
-        startTime = new Date(targetDate)
-        startTime.setHours(9, 0, 0, 0)
-      }
-
-      // Compute endTime
-      const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
-
-      // Update the specific booking (bookingId) so we don't create a new one
-      const updatePayload: { id: string; toBeScheduled: boolean; startTime: string; endTime: string; bookingId?: string } = {
-        id: jobId,
-        toBeScheduled: false,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-      }
-      if (bookingId) updatePayload.bookingId = bookingId
-      await updateJob(updatePayload)
-
-      // Force refetch to ensure UI updates (To Be Scheduled list, calendar placement)
-      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
-      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
-      await fetchJobs(startDate, endDate)
-
-      setJobConfirmationMessage('Job scheduled successfully')
-      setShowJobConfirmation(true)
-      setTimeout(() => setShowJobConfirmation(false), 3000)
-    } catch (error) {
-      console.error('Failed to schedule job:', error)
     }
+
+    // Compute startTime
+    let startTime: Date
+    if (targetHour !== undefined) {
+      // Day/week view - use the specific hour
+      startTime = new Date(targetDate)
+      startTime.setHours(targetHour, 0, 0, 0)
+    } else {
+      // Month view - default to 9 AM
+      startTime = new Date(targetDate)
+      startTime.setHours(9, 0, 0, 0)
+    }
+
+    // Compute endTime
+    const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
+
+    // Build payload and show notification prompt before scheduling
+    const updatePayload: { id: string; toBeScheduled: boolean; startTime: string; endTime: string; bookingId?: string } = {
+      id: jobId,
+      toBeScheduled: false,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    }
+    if (bookingId) updatePayload.bookingId = bookingId
+    setPendingUpdatePayload(updatePayload)
+    setShowNotifyClientModal(true)
   }
 
   const error = jobsError || servicesError
