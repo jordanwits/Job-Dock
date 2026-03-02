@@ -121,10 +121,10 @@ const Modal = ({
   const modalContent = (
     <div
       className={cn(
-        // Safe-area padding for iOS standalone (no browser bars) - no bottom inset so content reaches edge
+        // Safe-area padding for iOS standalone (no browser bars) - pb-0 on mobile removes dark bar at bottom
         'fixed inset-0 z-50 flex overscroll-contain',
         'pt-[max(0.5rem,env(safe-area-inset-top,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]',
-        'pb-2 pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
+        'pb-0 pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
         'sm:pt-4 sm:pr-4 sm:pb-4 sm:pl-4',
         'lg:pl-64', // Offset for sidebar so modal centers on main content area
         mobilePosition === 'bottom'

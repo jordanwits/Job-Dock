@@ -94,12 +94,13 @@ input:-webkit-autofill {
     -moz-appearance: textfield;
   }
 
-  /* Prevent iOS zoom on input focus (mobile) - 16px minimum avoids auto-zoom when tapping a field */
+  /* Prevent iOS zoom on input focus (mobile) - 16px minimum avoids auto-zoom when tapping a field.
+     !important overrides Tailwind text-sm (14px) which triggers zoom */
   @media (max-width: 768px) {
     input,
     textarea,
     select {
-      font-size: 16px;
+      font-size: 16px !important;
     }
   }
 }
