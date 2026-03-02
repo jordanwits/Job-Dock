@@ -263,6 +263,11 @@ input:-webkit-autofill {
     height: 92svh;
     height: 92dvh;
   }
+  /* Shorter for detail modals (lg) on mobile */
+  .h-viewport-mobile-lg {
+    height: 85svh;
+    height: 85dvh;
+  }
   .max-h-viewport-mobile {
     max-height: 55svh;
     max-height: 55dvh;

@@ -126,9 +126,10 @@ const Modal = ({
     <div
       className={cn(
         // Safe-area padding for iOS standalone - do NOT extend wrapper (keeps modal on-screen for scrolling)
-        // Backdrop on wrapper prevents body (#0B132B) from showing as blue bar in Safari standalone/PWA on iPhone
+        // Backdrop on wrapper prevents body (#0B132B) from showing as blue bar in Safari standalone/PWA on iPhone.
+        // Opaque on mobile to fully block body bleed; semi-transparent on desktop.
         'fixed inset-0 z-50 flex overscroll-contain',
-        transparentBackdrop ? 'bg-black/20' : 'bg-black/50',
+        transparentBackdrop ? 'bg-black/20' : 'max-sm:bg-black sm:bg-black/50',
         'pt-[max(0.5rem,env(safe-area-inset-top,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]',
         'pb-0 pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
         'min-h-[100dvh] max-sm:pb-[env(safe-area-inset-bottom,0px)]', // Extend into safe area on iOS standalone to prevent blue bar
@@ -152,14 +153,18 @@ const Modal = ({
           theme === 'dark'
             ? 'bg-primary-dark-secondary border border-primary-blue'
             : 'bg-white border border-gray-200',
-          // Slightly under viewport for margin; svh fallback for older browsers
+          // Slightly under viewport for margin; lg/xl use same shorter height on mobile
           mobilePosition === 'bottom'
             ? (size === 'xs' || size === 'sm')
               ? 'max-h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
-              : 'h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
+              : (size === 'lg' || size === 'xl')
+                ? 'h-viewport-mobile-lg sm:h-auto sm:max-h-[85vh] sm:my-auto'
+                : 'h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
             : (size === 'xs' || size === 'sm')
               ? 'my-auto max-h-viewport-mobile sm:h-auto sm:max-h-[85vh]'
-              : 'my-auto h-viewport-mobile sm:h-auto sm:max-h-[85vh]',
+              : (size === 'lg' || size === 'xl')
+                ? 'my-auto h-viewport-mobile-lg sm:h-auto sm:max-h-[85vh]'
+                : 'my-auto h-viewport-mobile sm:h-auto sm:max-h-[85vh]',
           sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}
@@ -239,12 +244,12 @@ const Modal = ({
         )}
       </div>
 
-      {/* Overlay - extends past bottom to cover iOS home indicator (prevents dark blue bar in standalone) */}
+      {/* Overlay - extends past bottom to cover iOS home indicator (prevents blue bar in standalone) */}
       <div
         className={cn(
           'fixed -z-10 inset-0',
-          'max-sm:bottom-[calc(-1*env(safe-area-inset-bottom,0px)-2rem)]',
-          transparentBackdrop ? 'bg-black/20' : 'bg-black/50 backdrop-blur-sm'
+          'max-sm:bottom-[calc(-1*env(safe-area-inset-bottom,0px)-4rem)]',
+          transparentBackdrop ? 'bg-black/20' : 'max-sm:bg-black sm:bg-black/50 sm:backdrop-blur-sm'
         )}
         onMouseDown={closeOnOverlayClick ? onClose : undefined}
       />
