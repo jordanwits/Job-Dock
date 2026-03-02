@@ -41,14 +41,16 @@ const Modal = ({
 
   useEffect(() => {
     if (isOpen) {
-      // Prevent background scrolling on mobile (especially iOS Safari).
+      // Prevent background scrolling on mobile (especially iOS Safari/standalone).
       // Using position: fixed is more reliable than overflow: hidden alone.
+      // Height: 100% prevents layout jump in iOS standalone (no browser bars).
       scrollYRef.current = window.scrollY
       document.body.style.position = 'fixed'
       document.body.style.top = `-${scrollYRef.current}px`
       document.body.style.left = '0'
       document.body.style.right = '0'
       document.body.style.width = '100%'
+      document.body.style.height = '100%'
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.position = ''
@@ -56,6 +58,7 @@ const Modal = ({
       document.body.style.left = ''
       document.body.style.right = ''
       document.body.style.width = ''
+      document.body.style.height = ''
       document.body.style.overflow = 'unset'
       window.scrollTo(0, scrollYRef.current)
     }
@@ -65,6 +68,7 @@ const Modal = ({
       document.body.style.left = ''
       document.body.style.right = ''
       document.body.style.width = ''
+      document.body.style.height = ''
       document.body.style.overflow = 'unset'
       window.scrollTo(0, scrollYRef.current)
     }
@@ -117,7 +121,11 @@ const Modal = ({
   const modalContent = (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex p-2 sm:p-4 overscroll-contain',
+        // Safe-area padding for iOS standalone (Add to Home Screen) - no browser bars = different viewport
+        'fixed inset-0 z-50 flex overscroll-contain',
+        'pt-[max(0.5rem,env(safe-area-inset-top,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]',
+        'pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
+        'sm:pt-4 sm:pr-4 sm:pb-4 sm:pl-4',
         'lg:pl-64', // Offset for sidebar so modal centers on main content area
         mobilePosition === 'bottom'
           ? 'items-end sm:items-center justify-center'
@@ -137,13 +145,14 @@ const Modal = ({
           theme === 'dark'
             ? 'bg-primary-dark-secondary border border-primary-blue'
             : 'bg-white border border-gray-200',
+          // 100dvh reliable in iOS standalone (no browser bars); svh fallback for older browsers
           mobilePosition === 'bottom'
             ? size === 'sm'
-              ? 'max-h-[60vh] sm:h-auto sm:max-h-[90vh] sm:my-auto'
-              : 'h-[calc(100svh-1rem)] sm:h-auto sm:max-h-[90vh] sm:my-auto'
+              ? 'max-h-viewport-mobile sm:h-auto sm:max-h-[90vh] sm:my-auto'
+              : 'h-viewport-mobile sm:h-auto sm:max-h-[90vh] sm:my-auto'
             : size === 'sm'
-              ? 'my-auto max-h-[60vh] sm:h-auto sm:max-h-[90vh]'
-              : 'my-auto h-[calc(100svh-1rem)] sm:h-auto sm:max-h-[90vh]',
+              ? 'my-auto max-h-viewport-mobile sm:h-auto sm:max-h-[90vh]'
+              : 'my-auto h-viewport-mobile sm:h-auto sm:max-h-[90vh]',
           sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}
@@ -214,7 +223,7 @@ const Modal = ({
         )}
       </div>
 
-      {/* Overlay */}
+      {/* Overlay - inset-0 with viewport-fit=cover extends under notch for full coverage in iOS standalone */}
       <div
         className={cn(
           'fixed inset-0 -z-10',
