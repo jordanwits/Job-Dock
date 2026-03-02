@@ -116,7 +116,6 @@ export const AppTourOverlay = () => {
       size="md"
       closeOnOverlayClick={false}
       transparentBackdrop={true}
-      mobilePosition="bottom"
       footer={
         <>
           <div className={cn(

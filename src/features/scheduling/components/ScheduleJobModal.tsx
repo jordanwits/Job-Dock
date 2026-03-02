@@ -100,7 +100,6 @@ const ScheduleJobModal = ({
         onClose={handleCancel}
         title="Schedule Job"
         size="xl"
-        mobilePosition="bottom"
       >
         <JobForm
           onSubmit={handleSubmit}

@@ -46,16 +46,20 @@ const Modal = ({
     if (isOpen) {
       // Prevent background scrolling on mobile (especially iOS Safari/standalone).
       // Using position: fixed is more reliable than overflow: hidden alone.
-      // Height: 100% prevents layout jump in iOS standalone (no browser bars).
+      // Use 100vh to avoid iOS standalone/PWA bottom gaps when body is fixed.
       scrollYRef.current = window.scrollY
+      document.documentElement.style.height = '100vh'
+      document.documentElement.style.overflow = 'hidden'
       document.body.style.position = 'fixed'
       document.body.style.top = `-${scrollYRef.current}px`
       document.body.style.left = '0'
       document.body.style.right = '0'
       document.body.style.width = '100%'
-      document.body.style.height = '100%'
+      document.body.style.height = '100vh'
       document.body.style.overflow = 'hidden'
     } else {
+      document.documentElement.style.height = ''
+      document.documentElement.style.overflow = ''
       document.body.style.position = ''
       document.body.style.top = ''
       document.body.style.left = ''
@@ -66,6 +70,8 @@ const Modal = ({
       window.scrollTo(0, scrollYRef.current)
     }
     return () => {
+      document.documentElement.style.height = ''
+      document.documentElement.style.overflow = ''
       document.body.style.position = ''
       document.body.style.top = ''
       document.body.style.left = ''
@@ -133,16 +139,18 @@ const Modal = ({
         transparentBackdrop
           ? 'bg-black/20'
           : theme === 'dark'
-            ? 'max-sm:bg-black sm:bg-black/50'
+            ? 'max-sm:bg-black/60 sm:bg-black/50'
             : 'max-sm:bg-black/40 sm:bg-black/30',
-        'pt-[max(0.5rem,env(safe-area-inset-top,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]',
-        'pb-0 pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
+        // Use symmetric vertical padding so centering is visually centered on iPhones
+        // (safe-area-inset-top is larger than bottom, which otherwise shifts the "center" down).
+        'py-[max(0.75rem,env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px))]',
+        'pr-[max(0.75rem,env(safe-area-inset-right,0px))] pl-[max(0.75rem,env(safe-area-inset-left,0px))]',
         'min-h-[100dvh]',
         'sm:pt-4 sm:pr-4 sm:pb-4 sm:pl-4',
         'lg:pl-64', // Offset for sidebar so modal centers on main content area
         mobilePosition === 'bottom'
           ? 'items-end sm:items-center justify-center'
-          : 'items-center justify-center sm:overflow-y-auto'
+          : 'items-center justify-center overflow-y-auto'
       )}
       onMouseDown={
         closeOnOverlayClick
@@ -257,7 +265,7 @@ const Modal = ({
           transparentBackdrop
             ? 'bg-black/20'
             : theme === 'dark'
-              ? 'max-sm:bg-black sm:bg-black/50 sm:backdrop-blur-sm'
+              ? 'max-sm:bg-black/60 sm:bg-black/50 sm:backdrop-blur-sm'
               : 'max-sm:bg-black/40 sm:bg-black/30 sm:backdrop-blur-sm'
         )}
         onMouseDown={closeOnOverlayClick ? onClose : undefined}
