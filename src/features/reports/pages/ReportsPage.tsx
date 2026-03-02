@@ -91,12 +91,10 @@ export const ReportsPage = () => {
 
         // Fetch billing status to check if team account
         const billingStatus = await services.billing.getStatus()
-        // Check both subscriptionTier and canInviteTeamMembers for team accounts
-        // Also check if we have more than 1 user (fallback for team detection)
+        // Check subscriptionTier and canInviteTeamMembers for team accounts only
         const isTeam =
-          billingStatus.subscriptionTier === 'team' ||
-          billingStatus.canInviteTeamMembers === true ||
-          usersData.length > 1
+          (billingStatus.subscriptionTier === 'team' || billingStatus.subscriptionTier === 'team-plus') ||
+          billingStatus.canInviteTeamMembers === true
         setIsTeamAccount(isTeam)
         console.log('Billing status:', billingStatus)
         console.log(
@@ -225,15 +223,17 @@ export const ReportsPage = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Employee Hours Report */}
-          <EmployeeHoursReport
-            startDate={dateRange.start}
-            endDate={dateRange.end}
-            timeEntries={timeEntries}
-            jobLogs={jobLogs}
-            users={users}
-            isTeamAccount={isTeamAccount}
-          />
+          {/* Employee Hours Report - only for team accounts */}
+          {isTeamAccount && (
+            <EmployeeHoursReport
+              startDate={dateRange.start}
+              endDate={dateRange.end}
+              timeEntries={timeEntries}
+              jobLogs={jobLogs}
+              users={users}
+              isTeamAccount={isTeamAccount}
+            />
+          )}
 
           {/* Quotes Report */}
           <QuotesReport startDate={dateRange.start} endDate={dateRange.end} quotes={quotes} />

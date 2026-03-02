@@ -250,10 +250,11 @@ const JobForm = ({
           apiServices.jobRoles.getAll().catch(() => []), // Gracefully handle if job roles don't exist yet
         ])
         const hasTeamTier =
-          !!billingData?.canInviteTeamMembers || billingData?.subscriptionTier === 'team'
-        const hasTeamMembers = Array.isArray(usersData) && usersData.length > 0
-        setCanShowAssignee(hasTeamTier || hasTeamMembers)
-        if (hasTeamTier || hasTeamMembers) {
+          !!billingData?.canInviteTeamMembers ||
+          billingData?.subscriptionTier === 'team' ||
+          billingData?.subscriptionTier === 'team-plus'
+        setCanShowAssignee(hasTeamTier)
+        if (hasTeamTier) {
           setTeamMembers(
             (usersData || []).map((m: { id: string; name: string; email?: string }) => ({
               id: m.id,

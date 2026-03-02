@@ -374,6 +374,18 @@ We look forward to working with you!',
         return successResponse(result)
       }
 
+      if (billingAction === 'checkout-redirect' && event.httpMethod === 'POST') {
+        const body = parseBody(event)
+        const options = body?.plan ? { plan: body.plan } : undefined
+        const result = await dataServices.billing.createCheckoutRedirectUrl(
+          tenantId,
+          userId,
+          userEmail,
+          options
+        )
+        return successResponse(result)
+      }
+
       if (billingAction === 'portal-session' && event.httpMethod === 'POST') {
         const result = await dataServices.billing.createPortalSession(tenantId)
         return successResponse(result)
@@ -381,14 +393,15 @@ We look forward to working with you!',
 
       if (billingAction === 'upgrade-to-team' && event.httpMethod === 'POST') {
         const body = parseBody(event)
-        if (body?.plan !== 'team') {
-          return errorResponse('Invalid plan', 400)
+        const plan = body?.plan === 'team-plus' ? 'team-plus' : body?.plan === 'team' ? 'team' : null
+        if (!plan) {
+          return errorResponse('Invalid plan. Use "team" or "team-plus"', 400)
         }
         const result = await dataServices.billing.createUpgradeCheckoutUrl(
           tenantId,
           userId,
           userEmail,
-          'team'
+          plan
         )
         return successResponse(result)
       }
@@ -451,8 +464,15 @@ We look forward to working with you!',
           return errorResponse('Only owners and admins can invite team members', 403)
         }
         const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
-        if (tenant?.subscriptionTier !== 'team' && !teamTestingSkipStripe) {
+        const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
+        if (!isTeamTier && !teamTestingSkipStripe) {
           return errorResponse('Team subscription required to invite members', 403)
+        }
+        if (tenant?.subscriptionTier === 'team' && !teamTestingSkipStripe) {
+          const userCount = await prisma.user.count({ where: { tenantId } })
+          if (userCount >= 5) {
+            return errorResponse('Team plan is limited to 5 users. Upgrade to Team+ to add more.', 403)
+          }
         }
         const body = parseBody(event)
         const { email, name, role: inviteRole } = body || {}
@@ -1080,7 +1100,8 @@ We look forward to working with you!',
             select: { subscriptionTier: true },
           })
           const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
-          if (tenant?.subscriptionTier !== 'team' && !teamTestingSkipStripe) {
+          const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
+          if (!isTeamTier && !teamTestingSkipStripe) {
             return errorResponse('Team subscription required to assign jobs to team members', 403)
           }
         }
@@ -1640,7 +1661,8 @@ async function handlePost(
           select: { subscriptionTier: true },
         })
         const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
-        if (tenant?.subscriptionTier !== 'team' && !teamTestingSkipStripe) {
+        const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
+        if (!isTeamTier && !teamTestingSkipStripe) {
           throw new ApiError('Team subscription required to assign jobs to team members', 403)
         }
       }

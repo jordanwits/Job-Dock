@@ -13,13 +13,17 @@ interface BillingStatus {
   deleteAccountAtPeriodEnd?: boolean
   subscriptionTier?: string
   canInviteTeamMembers?: boolean
+  canInviteMore?: boolean
+  teamMemberLimit?: number | null
   canDowngrade?: boolean
+  canDowngradeToTeam?: boolean
+  canDowngradeToSingle?: boolean
   teamMemberCount?: number
 }
 
 const CANCEL_CONFIRM_PHRASE = 'cancel my account'
 
-type PlanTier = 'single' | 'team'
+type PlanTier = 'single' | 'team' | 'team-plus'
 
 interface Plan {
   id: PlanTier
@@ -45,13 +49,24 @@ const PLANS: Plan[] = [
   {
     id: 'team',
     name: 'Team',
-    description: 'Collaborate with your team',
+    description: 'Up to 5 users',
     features: [
       'Everything in Single',
-      'Invite team members',
+      'Up to 5 team members',
       'Team time tracking',
       'Shared calendar',
       'Role-based permissions',
+    ],
+  },
+  {
+    id: 'team-plus',
+    name: 'Team+',
+    description: '5+ users, unlimited',
+    features: [
+      'Everything in Team',
+      'Unlimited team members',
+      'No user cap',
+      'Best for growing crews',
     ],
   },
 ]
@@ -63,6 +78,7 @@ export const BillingSection = () => {
   const [upgrading, setUpgrading] = useState(false)
   const [manageLoading, setManageLoading] = useState(false)
   const [changingPlan, setChangingPlan] = useState<PlanTier | null>(null)
+  const [subscribing, setSubscribing] = useState<PlanTier | null>(null)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelConfirmText, setCancelConfirmText] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
@@ -101,10 +117,10 @@ export const BillingSection = () => {
     }
   }
 
-  const handleUpgradeToTeam = async () => {
+  const handleUpgrade = async (plan: 'team' | 'team-plus') => {
     try {
       setUpgrading(true)
-      const { url } = await services.billing.createUpgradeCheckoutUrl('team')
+      const { url } = await services.billing.createUpgradeCheckoutUrl(plan)
       if (url) {
         window.location.href = url
       }
@@ -131,6 +147,20 @@ export const BillingSection = () => {
     }
   }
 
+  const handleSubscribe = async (plan: PlanTier) => {
+    try {
+      setSubscribing(plan)
+      const { url } = await services.billing.createCheckoutRedirectUrl({ plan })
+      if (url) {
+        window.location.href = url
+      }
+    } catch (err: any) {
+      console.error('Subscribe failed:', err)
+      alert(err.response?.data?.message || 'Failed to start subscription. Please try again.')
+      setSubscribing(null)
+    }
+  }
+
   const handleChangePlan = async (newPlan: PlanTier) => {
     const currentTier = status?.subscriptionTier || 'single'
     
@@ -138,22 +168,28 @@ export const BillingSection = () => {
       return // Already on this plan
     }
 
-    // Check if downgrading and if allowed
-    if (currentTier === 'team' && newPlan === 'single') {
-      if (!status?.canDowngrade) {
-        alert('You must remove team members before downgrading to Single plan.')
+    // Downgrade: open Stripe portal to change plan
+    if (
+      (currentTier === 'team-plus' && (newPlan === 'team' || newPlan === 'single')) ||
+      (currentTier === 'team' && newPlan === 'single')
+    ) {
+      if (newPlan === 'team' && currentTier === 'team-plus' && !status?.canDowngradeToTeam) {
+        alert('You must remove team members (down to 5 or fewer) before downgrading to Team plan.')
         return
       }
+      try {
+        setChangingPlan(newPlan)
+        await handleManageBilling()
+      } finally {
+        setChangingPlan(null)
+      }
+      return
     }
 
-    setChangingPlan(newPlan)
-    
-    // TODO: Integrate with Stripe when configured
-    // For now, just show a message
-    setTimeout(() => {
-      alert(`Plan change to ${newPlan === 'team' ? 'Team' : 'Single'} will be processed once Stripe is configured.`)
-      setChangingPlan(null)
-    }, 500)
+    // Upgrade
+    if (newPlan === 'team' || newPlan === 'team-plus') {
+      await handleUpgrade(newPlan)
+    }
   }
 
   if (loading || !status) {
@@ -171,10 +207,11 @@ export const BillingSection = () => {
     )
   }
 
-  const tier = status.subscriptionTier || 'single'
-  const isTeam = tier === 'team'
   const hasActiveSubscription =
     status.status === 'active' || status.status === 'trialing'
+  const tier = status.subscriptionTier || (hasActiveSubscription ? 'single' : null)
+  const isTeam = tier === 'team' || tier === 'team-plus'
+  const displayTierName = tier === 'team-plus' ? 'Team+' : tier === 'team' ? 'Team' : tier === 'single' ? 'Single' : 'No subscription'
 
   return (
     <div className="space-y-6">
@@ -192,7 +229,7 @@ export const BillingSection = () => {
                 "font-medium",
                 theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
               )}>
-                Current plan: <span className="text-primary-gold">{isTeam ? 'Team' : 'Single'}</span>
+                Current plan: <span className="text-primary-gold">{displayTierName}</span>
               </p>
               <p className={cn(
                 "text-sm mt-1",
@@ -200,13 +237,15 @@ export const BillingSection = () => {
               )}>
                 {hasActiveSubscription
                   ? isTeam
-                    ? `You can invite team members.${status.teamMemberCount != null ? ` (${status.teamMemberCount} member${status.teamMemberCount !== 1 ? 's' : ''})` : ''}`
+                    ? status.canInviteMore !== false
+                      ? `You can invite team members.${status.teamMemberCount != null && status.teamMemberLimit ? ` (${status.teamMemberCount}/${status.teamMemberLimit})` : status.teamMemberCount != null ? ` (${status.teamMemberCount} member${status.teamMemberCount !== 1 ? 's' : ''})` : ''}`
+                      : `Team limit reached (${status.teamMemberCount}/5). Upgrade to Team+ to add more.`
                     : 'Upgrade to Team to invite team members.'
                   : 'No active subscription.'}
               </p>
-              {isTeam && !status.canDowngrade && status.teamMemberCount != null && status.teamMemberCount > 1 && (
+              {tier === 'team-plus' && !status.canDowngradeToTeam && status.teamMemberCount != null && status.teamMemberCount > 5 && (
                 <p className="text-sm text-amber-400/90 mt-1">
-                  Remove team members before downgrading to Single plan.
+                  Remove team members (down to 5 or fewer) before downgrading to Team plan.
                 </p>
               )}
             </div>
@@ -256,13 +295,23 @@ export const BillingSection = () => {
             "text-lg font-medium mb-4",
             theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
           )}>Change Subscription Plan</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {PLANS.map((plan) => {
               const isCurrentPlan = tier === plan.id
               const isChanging = changingPlan === plan.id
-              const canSelect = hasActiveSubscription && (
-                plan.id === 'team' || (plan.id === 'single' && status.canDowngrade)
-              )
+              const canSelect =
+                hasActiveSubscription &&
+                (plan.id === 'single'
+                  ? tier === 'team' || tier === 'team-plus' // Allow downgrade; team members auto-removed
+                  : plan.id === 'team'
+                    ? tier === 'single' || (tier === 'team-plus' && status.canDowngradeToTeam)
+                    : (plan.id === 'team-plus' && (tier === 'single' || tier === 'team')) || false)
+
+              const getUpgradeLabel = () => {
+                if (plan.id === 'single') return 'Downgrade to Single'
+                if (plan.id === 'team') return tier === 'team-plus' ? 'Downgrade to Team' : 'Upgrade to Team'
+                return 'Upgrade to Team+'
+              }
 
               return (
                 <Card
@@ -322,25 +371,32 @@ export const BillingSection = () => {
                           Current Plan
                         </Button>
                       ) : !hasActiveSubscription ? (
-                        <Button variant="secondary" disabled className="w-full">
-                          Subscribe to change plans
+                        <Button
+                          variant={plan.id !== 'single' ? 'primary' : 'outline'}
+                          onClick={() => handleSubscribe(plan.id)}
+                          disabled={subscribing !== null}
+                          className="w-full"
+                        >
+                          {subscribing === plan.id
+                            ? 'Redirecting...'
+                            : (tier === 'team' || tier === 'team-plus') && plan.id === 'single'
+                              ? 'Switch to Single'
+                              : 'Subscribe'}
                         </Button>
                       ) : !canSelect ? (
                         <Button variant="secondary" disabled className="w-full">
-                          {plan.id === 'single' ? 'Remove team members first' : 'Unavailable'}
+                          {plan.id === 'team' && tier === 'team-plus'
+                            ? 'Remove team members first'
+                            : 'Unavailable'}
                         </Button>
                       ) : (
                         <Button
-                          variant={plan.id === 'team' ? 'primary' : 'outline'}
+                          variant={plan.id === 'team-plus' || (plan.id === 'team' && tier === 'single') ? 'primary' : 'outline'}
                           onClick={() => handleChangePlan(plan.id)}
                           disabled={isChanging || changingPlan !== null}
                           className="w-full"
                         >
-                          {isChanging
-                            ? 'Processing...'
-                            : plan.id === 'team'
-                            ? 'Upgrade to Team'
-                            : 'Downgrade to Single'}
+                          {isChanging ? 'Processing...' : getUpgradeLabel()}
                         </Button>
                       )}
                     </div>

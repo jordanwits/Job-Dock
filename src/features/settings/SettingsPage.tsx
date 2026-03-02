@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card, Button } from '@/components/ui'
 import { settingsApi, TenantSettings } from '@/lib/api/settings'
+import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 import { CompanyBrandingSection } from './CompanyBrandingSection'
 import { EmailTemplatesSection } from './EmailTemplatesSection'
@@ -20,12 +22,16 @@ interface TabConfig {
   component: React.ReactNode
   roles?: ('owner' | 'admin' | 'employee')[]
   emailCheck?: (email: string) => boolean
+  /** Hide this tab for single (non-team) accounts */
+  hideForSingle?: boolean
 }
 
 export const SettingsPage = () => {
   const { theme } = useTheme()
   const { user } = useAuthStore()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [settings, setSettings] = useState<TenantSettings | null>(null)
+  const [billingStatus, setBillingStatus] = useState<{ canInviteTeamMembers?: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -47,10 +53,25 @@ export const SettingsPage = () => {
     loadSettings()
   }, [])
 
+  // Handle return from Stripe checkout - switch to billing tab and clear query params
+  useEffect(() => {
+    const subscribed = searchParams.get('subscribed')
+    const upgraded = searchParams.get('upgraded')
+    const canceled = searchParams.get('canceled')
+    if (subscribed === '1' || upgraded === '1' || canceled === '1') {
+      setActiveTab('billing')
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
   const loadSettings = async () => {
     try {
       setLoading(true)
-      const data = await settingsApi.getSettings()
+      const [data, billing] = await Promise.all([
+        settingsApi.getSettings(),
+        services.billing.getStatus().catch(() => ({ canInviteTeamMembers: false })),
+      ])
+      setBillingStatus(billing)
       setSettings(data)
       setFormData({
         companyDisplayName: data.companyDisplayName || '',
@@ -137,6 +158,7 @@ export const SettingsPage = () => {
         label: 'Team Members',
         component: <TeamMembersSection />,
         roles: ['owner', 'admin'],
+        hideForSingle: true,
       },
       {
         id: 'billing',
@@ -189,7 +211,7 @@ export const SettingsPage = () => {
     ]
   )
 
-  // Filter tabs based on user role and email
+  // Filter tabs based on user role, email, and team plan
   const visibleTabs = useMemo(
     () =>
       allTabs.filter(tab => {
@@ -199,9 +221,12 @@ export const SettingsPage = () => {
         if (tab.emailCheck && user?.email && !tab.emailCheck(user.email)) {
           return false
         }
+        if (tab.hideForSingle && billingStatus && !billingStatus.canInviteTeamMembers) {
+          return false
+        }
         return true
       }),
-    [allTabs, user?.role, user?.email]
+    [allTabs, user?.role, user?.email, billingStatus]
   )
 
   // Set default tab on mount or when visible tabs change (desktop only)

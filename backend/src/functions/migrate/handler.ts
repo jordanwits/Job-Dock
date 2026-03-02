@@ -851,6 +851,13 @@ WHERE "assignedTo" IS NOT NULL
     ],
     description: 'Add short_links table for SMS URL shortening',
   },
+  {
+    name: '20260302000000_add_delete_account_at_period_end',
+    statements: [
+      `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "deleteAccountAtPeriodEnd" BOOLEAN NOT NULL DEFAULT false`,
+    ],
+    description: 'Add deleteAccountAtPeriodEnd to tenants for scheduled account deletion',
+  },
 ]
 
 export const handler = async (

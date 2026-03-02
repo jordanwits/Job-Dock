@@ -94,10 +94,19 @@ export const TeamMembersSection = () => {
     }
   }, [editingColorUserId])
 
+  const [teamLimitReached, setTeamLimitReached] = useState(false)
+
   const loadMembers = async () => {
     try {
-      const data = await services.users.getAll()
-      setMembers(data)
+      const [usersData, billingData] = await Promise.all([
+        services.users.getAll(),
+        services.billing.getStatus(),
+      ])
+      setMembers(usersData)
+      const canInviteMembers = !!billingData.canInviteTeamMembers
+      const canInviteMore = billingData.canInviteMore !== false
+      setCanInvite(canInviteMembers && canInviteMore)
+      setTeamLimitReached(canInviteMembers && !canInviteMore)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load team members')
     }
@@ -106,12 +115,7 @@ export const TeamMembersSection = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [usersData, billingData] = await Promise.all([
-          services.users.getAll(),
-          services.billing.getStatus(),
-        ])
-        setMembers(usersData)
-        setCanInvite(!!billingData.canInviteTeamMembers)
+        await loadMembers()
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to load')
       } finally {
@@ -291,7 +295,9 @@ export const TeamMembersSection = () => {
             "text-sm",
             theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
           )}>
-            Upgrade to the Team plan to invite team members. Admins have full access; employees can track hours and add notes on jobs.
+            {teamLimitReached
+              ? 'Team plan limit reached (5 users). Upgrade to Team+ in Billing to add more members.'
+              : 'Upgrade to the Team or Team+ plan to invite team members. Admins have full access; employees can track hours and add notes on jobs.'}
           </p>
         ) : (
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">

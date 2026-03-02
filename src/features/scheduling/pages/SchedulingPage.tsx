@@ -31,7 +31,7 @@ const SchedulingPage = () => {
     const checkTeam = async () => {
       try {
         const status = await services.billing.getStatus()
-        setIsTeamAccount(status.subscriptionTier === 'team')
+        setIsTeamAccount(status.subscriptionTier === 'team' || status.subscriptionTier === 'team-plus')
       } catch {
         setIsTeamAccount(false)
       }

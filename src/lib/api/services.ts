@@ -480,7 +480,12 @@ const realBillingService = {
     return response.data
   },
 
-  createUpgradeCheckoutUrl: async (plan: 'team') => {
+  createCheckoutRedirectUrl: async (options?: { plan?: 'single' | 'team' | 'team-plus' }) => {
+    const response = await apiClient.post('/billing/checkout-redirect', options ?? {})
+    return response.data
+  },
+
+  createUpgradeCheckoutUrl: async (plan: 'team' | 'team-plus') => {
     const response = await apiClient.post('/billing/upgrade-to-team', { plan })
     return response.data
   },

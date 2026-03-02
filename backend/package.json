@@ -15,7 +15,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma migrate deploy",
+    "enroll-stripe": "tsx scripts/enroll-tenants-stripe.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.490.0",

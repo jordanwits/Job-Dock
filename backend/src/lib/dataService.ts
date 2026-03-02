@@ -3752,22 +3752,38 @@ export const dataServices = {
 
       const singlePriceId = process.env.STRIPE_PRICE_ID
       const teamPriceId = process.env.STRIPE_TEAM_PRICE_ID
-      const isTeamPrice =
-        tenant.stripePriceId === teamPriceId ||
-        (tenant.subscriptionTier === 'team')
-      const subscriptionTier =
-        tenant.subscriptionTier || (isTeamPrice ? 'team' : 'single')
+      const teamPlusPriceId = process.env.STRIPE_TEAM_PLUS_PRICE_ID
+      const hasSubscription = !!tenant.stripeSubscriptionId
+      const isTeamPrice = tenant.stripePriceId === teamPriceId || tenant.subscriptionTier === 'team'
+      const isTeamPlusPrice = tenant.stripePriceId === teamPlusPriceId || tenant.subscriptionTier === 'team-plus'
+      // Only report a paid tier when there's an active subscription; otherwise treat as no plan
+      const subscriptionTier = hasSubscription
+        ? (tenant.subscriptionTier ||
+            (isTeamPlusPrice ? 'team-plus' : isTeamPrice ? 'team' : 'single'))
+        : null
 
-      const userCount = await prisma.user.count({ where: { tenantId } })
-      const canDowngrade =
-        subscriptionTier !== 'team' || userCount <= 1
+      let userCount = await prisma.user.count({ where: { tenantId } })
+      const isTeamTier = subscriptionTier === 'team' || subscriptionTier === 'team-plus'
+      // Sync cleanup: if single tier (or no subscription) but multiple users, remove non-owners
+      if (!isTeamTier && userCount > 1) {
+        try {
+          await removeNonOwnerUsers(tenantId)
+          userCount = 1
+        } catch (err) {
+          console.error('Failed to remove non-owner users during getStatus:', err)
+        }
+      }
+      const teamMemberLimit = subscriptionTier === 'team' ? 5 : subscriptionTier === 'team-plus' ? null : null
+      const canInviteMore = !teamMemberLimit || userCount < teamMemberLimit
+      const canDowngradeToTeam = subscriptionTier === 'team-plus' && userCount <= 5
+      const canDowngradeToSingle = (subscriptionTier === 'team' || subscriptionTier === 'team-plus') && userCount <= 1
 
       const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
       const canInviteTeamMembers =
-        subscriptionTier === 'team' || teamTestingSkipStripe
+        (isTeamTier && hasSubscription) || teamTestingSkipStripe
 
       return {
-        hasSubscription: !!tenant.stripeSubscriptionId,
+        hasSubscription,
         status: tenant.stripeSubscriptionStatus || 'none',
         trialEndsAt: tenant.trialEndsAt?.toISOString(),
         currentPeriodEndsAt: tenant.currentPeriodEndsAt?.toISOString(),
@@ -3775,7 +3791,11 @@ export const dataServices = {
         deleteAccountAtPeriodEnd: tenant.deleteAccountAtPeriodEnd || false,
         subscriptionTier,
         canInviteTeamMembers,
-        canDowngrade,
+        canInviteMore,
+        teamMemberLimit,
+        canDowngradeToTeam,
+        canDowngradeToSingle,
+        canDowngrade: canDowngradeToSingle || canDowngradeToTeam,
         teamMemberCount: userCount,
       }
     },
@@ -3783,7 +3803,7 @@ export const dataServices = {
       tenantId: string,
       userId: string,
       userEmail: string,
-      options?: { priceId?: string; plan?: 'single' | 'team' }
+      options?: { priceId?: string; plan?: 'single' | 'team' | 'team-plus' }
     ) => {
       const Stripe = (await import('stripe')).default
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -3822,6 +3842,9 @@ export const dataServices = {
       }
 
       let priceId = options?.priceId
+      if (!priceId && options?.plan === 'team-plus') {
+        priceId = process.env.STRIPE_TEAM_PLUS_PRICE_ID || undefined
+      }
       if (!priceId && options?.plan === 'team') {
         priceId = process.env.STRIPE_TEAM_PRICE_ID || undefined
       }
@@ -3840,6 +3863,7 @@ export const dataServices = {
         ui_mode: 'embedded',
         mode: 'subscription',
         customer: customerId,
+        allow_promotion_codes: true,
         line_items: [
           {
             price: priceId,
@@ -3870,11 +3894,76 @@ export const dataServices = {
         clientSecret: session.client_secret,
       }
     },
+    createCheckoutRedirectUrl: async (
+      tenantId: string,
+      userId: string,
+      userEmail: string,
+      options?: { plan?: 'single' | 'team' | 'team-plus' }
+    ) => {
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2025-02-24.acacia',
+      })
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { stripeCustomerId: true, name: true },
+      })
+
+      if (!tenant) {
+        throw new ApiError('Tenant not found', 404)
+      }
+
+      let customerId = tenant.stripeCustomerId
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: userEmail,
+          metadata: {
+            tenantId,
+            ownerUserId: userId,
+          },
+        })
+        customerId = customer.id
+        await prisma.tenant.update({
+          where: { id: tenantId },
+          data: { stripeCustomerId: customerId },
+        })
+      }
+
+      let priceId =
+        options?.plan === 'team-plus'
+          ? process.env.STRIPE_TEAM_PLUS_PRICE_ID
+          : options?.plan === 'team'
+            ? process.env.STRIPE_TEAM_PRICE_ID
+            : process.env.STRIPE_PRICE_ID
+      if (!priceId) {
+        throw new ApiError('STRIPE_PRICE_ID not configured', 500)
+      }
+
+      const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173'
+      const returnUrl = `${baseUrl}/app/settings`
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        customer: customerId,
+        allow_promotion_codes: true,
+        line_items: [{ price: priceId, quantity: 1 }],
+        subscription_data: {
+          trial_period_days: 14,
+          metadata: { tenantId, ownerUserId: userId },
+        },
+        payment_method_collection: 'always',
+        success_url: `${returnUrl}?subscribed=1`,
+        cancel_url: `${returnUrl}?canceled=1`,
+        metadata: { tenantId, ownerUserId: userId },
+      })
+
+      return { url: session.url }
+    },
     createUpgradeCheckoutUrl: async (
       tenantId: string,
       userId: string,
       userEmail: string,
-      plan: 'team'
+      plan: 'team' | 'team-plus'
     ) => {
       const Stripe = (await import('stripe')).default
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -3891,7 +3980,11 @@ export const dataServices = {
       }
 
       const priceId =
-        plan === 'team' ? process.env.STRIPE_TEAM_PRICE_ID : process.env.STRIPE_PRICE_ID
+        plan === 'team-plus'
+          ? process.env.STRIPE_TEAM_PLUS_PRICE_ID
+          : plan === 'team'
+            ? process.env.STRIPE_TEAM_PRICE_ID
+            : process.env.STRIPE_PRICE_ID
       if (!priceId) {
         throw new ApiError('Stripe price not configured for this plan', 500)
       }
@@ -3903,6 +3996,7 @@ export const dataServices = {
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         customer: tenant.stripeCustomerId,
+        allow_promotion_codes: true,
         line_items: [{ price: priceId, quantity: 1 }],
         metadata: { tenantId, ownerUserId: userId },
         success_url: `${returnUrl}?upgraded=1`,
@@ -4035,7 +4129,9 @@ export const dataServices = {
         if (!priceId) return null
         const singlePriceId = process.env.STRIPE_PRICE_ID
         const teamPriceId = process.env.STRIPE_TEAM_PRICE_ID
+        const teamPlusPriceId = process.env.STRIPE_TEAM_PLUS_PRICE_ID
         if (priceId === singlePriceId) return 'single'
+        if (priceId === teamPlusPriceId) return 'team-plus'
         if (priceId === teamPriceId) return 'team'
         return 'single' // default for unknown price
       }
@@ -4091,6 +4187,11 @@ export const dataServices = {
               data: updateData,
             })
             console.log(`Updated tenant ${tenantId} subscription status to ${subscription.status}, tier ${subscriptionTier}`)
+
+            // When downgrading to Single, auto-remove all team members except the owner
+            if (subscriptionTier === 'single') {
+              await removeNonOwnerUsers(tenantId)
+            }
           }
           break
         }
@@ -5247,6 +5348,45 @@ export const dataServices = {
       return { success: true }
     },
   },
+}
+
+/** Remove all users except the owner (for Single-tier downgrade). Also deletes from Cognito. */
+async function removeNonOwnerUsers(tenantId: string): Promise<void> {
+  const { CognitoIdentityProviderClient, AdminDeleteUserCommand } = await import(
+    '@aws-sdk/client-cognito-identity-provider'
+  )
+  const cognitoClient = new CognitoIdentityProviderClient({
+    region: process.env.AWS_REGION || 'us-east-1',
+  })
+  const USER_POOL_ID = process.env.USER_POOL_ID
+  if (!USER_POOL_ID) {
+    console.error('USER_POOL_ID not configured, skipping Cognito deletion')
+  }
+  const users = await prisma.user.findMany({
+    where: { tenantId },
+    orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+  })
+  const owner = users.find((u) => u.role === 'owner') ?? users[0]
+  if (!owner) return
+  const toRemove = users.filter((u) => u.id !== owner.id)
+  for (const u of toRemove) {
+    if (USER_POOL_ID) {
+      try {
+        await cognitoClient.send(
+          new AdminDeleteUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: u.email,
+          })
+        )
+      } catch (cognitoErr: any) {
+        if (cognitoErr?.name !== 'UserNotFoundException') {
+          console.error(`Failed to delete Cognito user ${u.email}:`, cognitoErr)
+        }
+      }
+    }
+    await prisma.user.delete({ where: { id: u.id } })
+    console.log(`Removed user ${u.id} (${u.email}) after downgrade to Single`)
+  }
 }
 
 async function executeAccountDeletion(tenantId: string): Promise<void> {
