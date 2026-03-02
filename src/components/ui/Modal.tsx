@@ -127,9 +127,13 @@ const Modal = ({
       className={cn(
         // Safe-area padding for iOS standalone - do NOT extend wrapper (keeps modal on-screen for scrolling)
         // Backdrop on wrapper prevents body (#0B132B) from showing as blue bar in Safari standalone/PWA on iPhone.
-        // Opaque on mobile to fully block body bleed; semi-transparent on desktop.
+        // Opaque on mobile to fully block body bleed; semi-transparent on desktop. Theme-aware for light mode.
         'fixed inset-0 z-50 flex overscroll-contain',
-        transparentBackdrop ? 'bg-black/20' : 'max-sm:bg-black sm:bg-black/50',
+        transparentBackdrop
+          ? 'bg-black/20'
+          : theme === 'dark'
+            ? 'max-sm:bg-black sm:bg-black/50'
+            : 'max-sm:bg-black/40 sm:bg-black/30',
         'pt-[max(0.5rem,env(safe-area-inset-top,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]',
         'pb-0 pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
         'min-h-[100dvh]',
@@ -249,7 +253,11 @@ const Modal = ({
         className={cn(
           'fixed -z-10 inset-0',
           'max-sm:bottom-[calc(-1*env(safe-area-inset-bottom,0px)-4rem)]',
-          transparentBackdrop ? 'bg-black/20' : 'max-sm:bg-black sm:bg-black/50 sm:backdrop-blur-sm'
+          transparentBackdrop
+            ? 'bg-black/20'
+            : theme === 'dark'
+              ? 'max-sm:bg-black sm:bg-black/50 sm:backdrop-blur-sm'
+              : 'max-sm:bg-black/40 sm:bg-black/30 sm:backdrop-blur-sm'
         )}
         onMouseDown={closeOnOverlayClick ? onClose : undefined}
       />
