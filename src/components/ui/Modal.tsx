@@ -11,10 +11,12 @@ export interface ModalProps {
   headerRight?: ReactNode
   children: ReactNode
   footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   closeOnOverlayClick?: boolean
   transparentBackdrop?: boolean
   mobilePosition?: 'center' | 'bottom'
+  /** Reduce padding on mobile for compact modals (e.g. simple confirmations) */
+  compactOnMobile?: boolean
 }
 
 const Modal = ({
@@ -28,6 +30,7 @@ const Modal = ({
   closeOnOverlayClick = true,
   transparentBackdrop = false,
   mobilePosition = 'center',
+  compactOnMobile = false,
 }: ModalProps) => {
   const { theme } = useTheme()
   const scrollYRef = useRef(0)
@@ -109,6 +112,7 @@ const Modal = ({
   if (!isOpen) return null
 
   const sizes: Record<string, string> = {
+    xs: 'max-w-[min(95vw,18rem)] sm:max-w-md',
     sm: 'max-w-md',
     md: 'max-w-lg',
     lg: 'max-w-2xl',
@@ -147,10 +151,10 @@ const Modal = ({
             : 'bg-white border border-gray-200',
           // Slightly under viewport for margin; svh fallback for older browsers
           mobilePosition === 'bottom'
-            ? size === 'sm'
+            ? (size === 'xs' || size === 'sm')
               ? 'max-h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
               : 'h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
-            : size === 'sm'
+            : (size === 'xs' || size === 'sm')
               ? 'my-auto max-h-viewport-mobile sm:h-auto sm:max-h-[85vh]'
               : 'my-auto h-viewport-mobile sm:h-auto sm:max-h-[85vh]',
           sizeClass
@@ -160,13 +164,15 @@ const Modal = ({
         {/* Header */}
         {(title || headerRight || closeOnOverlayClick) && (
           <div className={cn(
-            "flex items-center justify-between gap-2 p-4 sm:p-6 border-b flex-shrink-0 relative z-20 pointer-events-auto",
+            "flex items-center justify-between gap-2 border-b flex-shrink-0 relative z-20 pointer-events-auto",
+            compactOnMobile ? "p-3 sm:p-6" : "p-4 sm:p-6",
             theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
           )}>
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {title && (
                 <h2 className={cn(
-                  "text-lg sm:text-xl font-semibold shrink-0",
+                  "font-semibold shrink-0",
+                  compactOnMobile ? "text-base sm:text-xl" : "text-lg sm:text-xl",
                   theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
                 )}>
                   {title}
@@ -209,7 +215,10 @@ const Modal = ({
 
         {/* Content - Scrollable. pb-8 on mobile ensures last items can scroll into view; touch for iOS */}
         <div
-          className="p-4 sm:p-6 pb-8 sm:pb-6 overflow-y-auto overflow-x-hidden flex-1 min-h-0 custom-scrollbar touch-pan-y"
+          className={cn(
+            "overflow-y-auto overflow-x-hidden flex-1 min-h-0 custom-scrollbar touch-pan-y",
+            compactOnMobile ? "p-3 pb-6 sm:p-6 sm:pb-6" : "p-4 sm:p-6 pb-8 sm:pb-6"
+          )}
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {children}
@@ -218,7 +227,8 @@ const Modal = ({
         {/* Footer */}
         {footer && (
           <div className={cn(
-            "flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-4 sm:py-5 border-t flex-shrink-0 overflow-visible",
+            "flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 border-t flex-shrink-0 overflow-visible",
+            compactOnMobile ? "px-3 py-3 sm:px-6 sm:py-5" : "px-4 sm:px-6 py-4 sm:py-5",
             theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
           )}>
             {footer}

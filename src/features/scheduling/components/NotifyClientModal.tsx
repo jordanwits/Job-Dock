@@ -52,10 +52,11 @@ const NotifyClientModal = ({
       onClose={onClose}
       title="Notify the client?"
       footer={footer}
-      size="md"
+      size="xs"
+      compactOnMobile
       closeOnOverlayClick={!isLoading}
     >
-      <p className="text-primary-light">
+      <p className="text-primary-light text-sm sm:text-base">
         Would you like to notify the client about this schedule update?
       </p>
     </Modal>
