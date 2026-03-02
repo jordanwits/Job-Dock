@@ -131,23 +131,17 @@ const Modal = ({
   const modalContent = (
     <div
       className={cn(
-        // Safe-area padding for iOS standalone - do NOT extend wrapper (keeps modal on-screen for scrolling)
-        // Backdrop on wrapper prevents body (#0B132B) from showing as blue bar in Safari standalone/PWA on iPhone.
-        // On mobile, extend bottom past viewport to cover iOS standalone gap (100dvh can leave strip at bottom).
+        // Full viewport - no bottom extension on wrapper so flex center is true viewport center
         'fixed inset-0 z-50 flex overscroll-contain',
-        'max-sm:bottom-[calc(-1*env(safe-area-inset-bottom,0px)-4rem)]',
         transparentBackdrop
           ? 'bg-black/20'
           : theme === 'dark'
             ? 'max-sm:bg-black/60 sm:bg-black/50'
             : 'max-sm:bg-black/40 sm:bg-black/30',
-        // Use symmetric vertical padding so centering is visually centered on iPhones
-        // (safe-area-inset-top is larger than bottom, which otherwise shifts the "center" down).
+        // Symmetric vertical padding so center is true viewport center (including nav bar area)
         'py-[max(0.75rem,env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px))]',
-        'pr-[max(0.75rem,env(safe-area-inset-right,0px))] pl-[max(0.75rem,env(safe-area-inset-left,0px))]',
-        'min-h-[100dvh]',
-        'sm:pt-4 sm:pr-4 sm:pb-4 sm:pl-4',
-        'lg:pl-64', // Offset for sidebar so modal centers on main content area
+        'px-[max(0.75rem,env(safe-area-inset-right,0px),env(safe-area-inset-left,0px))]',
+        'sm:p-4',
         mobilePosition === 'bottom'
           ? 'items-end sm:items-center justify-center'
           : 'items-center justify-center overflow-y-auto'
