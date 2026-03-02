@@ -1133,13 +1133,13 @@ const SchedulingPage = () => {
         </Card>
       )}
 
-      {/* Tabs - horizontal scroll when needed, vertical locked. Negative margin extends into container padding for more room. */}
+      {/* Tabs - no horizontal scroll, wrap or fit within viewport. Negative margin extends into container padding for more room. */}
       <div
         className={cn(
-          "flex items-center gap-1 md:gap-2 border-b overflow-x-auto overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6",
+          "flex flex-wrap items-center gap-1 md:gap-2 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6",
           theme === 'dark' ? 'border-white/10' : 'border-gray-200'
         )}
-        style={{ touchAction: 'pan-x', overscrollBehaviorY: 'none' }}
+        style={{ touchAction: 'none', overscrollBehavior: 'none' }}
       >
         <button
           onClick={() => {
