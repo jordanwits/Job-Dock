@@ -127,8 +127,9 @@ const Modal = ({
       className={cn(
         // Safe-area padding for iOS standalone - do NOT extend wrapper (keeps modal on-screen for scrolling)
         // Backdrop on wrapper prevents body (#0B132B) from showing as blue bar in Safari standalone/PWA on iPhone.
-        // Opaque on mobile to fully block body bleed; semi-transparent on desktop. Theme-aware for light mode.
+        // On mobile, extend bottom past viewport to cover iOS standalone gap (100dvh can leave strip at bottom).
         'fixed inset-0 z-50 flex overscroll-contain',
+        'max-sm:bottom-[calc(-1*env(safe-area-inset-bottom,0px)-4rem)]',
         transparentBackdrop
           ? 'bg-black/20'
           : theme === 'dark'
