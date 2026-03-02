@@ -2518,24 +2518,9 @@ export const dataServices = {
           return existingStart === newStart && existingEnd === newEnd
         })
         
-        // If adding a new to-be-scheduled booking (link to existing job + toBeScheduled), create new booking
-        const isAddingToBeScheduled =
-          bookingUpdateData.toBeScheduled === true &&
-          (bookingUpdateData.startTime === null || bookingUpdateData.startTime === undefined) &&
-          existingJob.bookings.length > 0
-        if (isAddingToBeScheduled) {
-          await prisma.booking.create({
-            data: {
-              tenantId,
-              jobId: id,
-              ...bookingUpdateData,
-              toBeScheduled: true,
-              startTime: null,
-              endTime: null,
-              status: bookingUpdateData.status ?? 'active',
-            },
-          })
-        } else if (hasNewScheduledTimes && hasScheduledBookings && !matchesExistingBooking) {
+        // When converting a scheduled job to to-be-scheduled: UPDATE the existing booking (don't create a duplicate).
+        // Only create new when adding scheduled times that don't match an existing booking.
+        if (hasNewScheduledTimes && hasScheduledBookings && !matchesExistingBooking) {
           // Create a new scheduled booking instead of updating the existing one
           await prisma.booking.create({
             data: {

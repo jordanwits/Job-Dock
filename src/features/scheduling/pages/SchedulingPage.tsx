@@ -524,6 +524,12 @@ const SchedulingPage = () => {
   const performJobUpdate = async (payload: any) => {
     try {
       await updateJob(payload)
+      // Force refetch when toggling to To Be Scheduled so UI updates (calendar vs list)
+      if (payload.toBeScheduled === true) {
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+        await fetchJobs(startDate, endDate)
+      }
       setEditingJob(null)
       setEditUpdateAll(false)
       setShowJobForm(false)
@@ -930,6 +936,11 @@ const SchedulingPage = () => {
       }
       if (bookingId) updatePayload.bookingId = bookingId
       await updateJob(updatePayload)
+
+      // Force refetch to ensure UI updates (To Be Scheduled list, calendar placement)
+      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+      await fetchJobs(startDate, endDate)
 
       setJobConfirmationMessage('Job scheduled successfully')
       setShowJobConfirmation(true)
