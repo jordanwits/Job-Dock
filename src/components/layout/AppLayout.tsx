@@ -62,6 +62,8 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
         onLogout={onLogout}
         onMenuClick={() => setSidebarOpen(!sidebarOpen)}
       />
+      {/* Spacer for fixed header on mobile - prevents content from sliding under nav */}
+      <div className="h-[calc(env(safe-area-inset-top,0px)+4rem)] max-sm:block sm:hidden flex-shrink-0" aria-hidden="true" />
       <div className="flex">
         {sidebarItems.length > 0 && (
           <Sidebar
