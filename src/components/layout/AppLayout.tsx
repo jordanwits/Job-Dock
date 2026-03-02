@@ -22,7 +22,7 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>()
   const [companyDisplayName, setCompanyDisplayName] = useState<string | undefined>()
   const { theme } = useTheme()
-  
+
   // Debug: log theme changes
   useEffect(() => {
     console.log('AppLayout theme changed to:', theme)
@@ -63,7 +63,10 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
         onMenuClick={() => setSidebarOpen(!sidebarOpen)}
       />
       {/* Spacer for fixed header on mobile - prevents content from sliding under nav */}
-      <div className="h-[calc(env(safe-area-inset-top,0px)+4rem)] max-sm:block sm:hidden flex-shrink-0" aria-hidden="true" />
+      <div
+        className="h-[calc(env(safe-area-inset-top,0px)+4rem)] max-sm:block sm:hidden flex-shrink-0"
+        aria-hidden="true"
+      />
       <div className="flex">
         {sidebarItems.length > 0 && (
           <Sidebar

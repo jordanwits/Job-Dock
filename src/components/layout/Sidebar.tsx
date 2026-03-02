@@ -35,10 +35,12 @@ const Sidebar = ({ items, isOpen = true, onClose }: SidebarProps) => {
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className={cn(
-            "flex h-16 items-center border-b px-6",
-            theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
-          )}>
+          <div
+            className={cn(
+              'flex h-16 items-center border-b px-6',
+              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
+            )}
+          >
             <span className="text-xl font-bold text-primary-gold">JobDock</span>
           </div>
 

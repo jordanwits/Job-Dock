@@ -121,7 +121,7 @@ const Modal = ({
   const modalContent = (
     <div
       className={cn(
-        // Safe-area padding for iOS standalone (no browser bars) - pb-0 on mobile removes dark bar at bottom
+        // Safe-area padding for iOS standalone - do NOT extend wrapper (keeps modal on-screen for scrolling)
         'fixed inset-0 z-50 flex overscroll-contain',
         'pt-[max(0.5rem,env(safe-area-inset-top,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]',
         'pb-0 pl-[max(0.5rem,env(safe-area-inset-left,0px))]',
@@ -145,14 +145,14 @@ const Modal = ({
           theme === 'dark'
             ? 'bg-primary-dark-secondary border border-primary-blue'
             : 'bg-white border border-gray-200',
-          // 100dvh reliable in iOS standalone (no browser bars); svh fallback for older browsers
+          // Slightly under viewport for margin; svh fallback for older browsers
           mobilePosition === 'bottom'
             ? size === 'sm'
-              ? 'max-h-viewport-mobile sm:h-auto sm:max-h-[90vh] sm:my-auto'
-              : 'h-viewport-mobile sm:h-auto sm:max-h-[90vh] sm:my-auto'
+              ? 'max-h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
+              : 'h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
             : size === 'sm'
-              ? 'my-auto max-h-viewport-mobile sm:h-auto sm:max-h-[90vh]'
-              : 'my-auto h-viewport-mobile sm:h-auto sm:max-h-[90vh]',
+              ? 'my-auto max-h-viewport-mobile sm:h-auto sm:max-h-[85vh]'
+              : 'my-auto h-viewport-mobile sm:h-auto sm:max-h-[85vh]',
           sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}
@@ -207,8 +207,11 @@ const Modal = ({
           </div>
         )}
 
-        {/* Content - Scrollable */}
-        <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden overscroll-contain flex-1 min-h-0 custom-scrollbar">
+        {/* Content - Scrollable. pb-8 on mobile ensures last items can scroll into view; touch for iOS */}
+        <div
+          className="p-4 sm:p-6 pb-8 sm:pb-6 overflow-y-auto overflow-x-hidden flex-1 min-h-0 custom-scrollbar touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {children}
         </div>
 
@@ -223,10 +226,11 @@ const Modal = ({
         )}
       </div>
 
-      {/* Overlay - inset-0 with viewport-fit=cover extends under notch for full coverage in iOS standalone */}
+      {/* Overlay - extends past bottom to cover iOS home indicator (prevents dark blue bar in standalone) */}
       <div
         className={cn(
-          'fixed inset-0 -z-10',
+          'fixed -z-10 inset-0',
+          'max-sm:bottom-[calc(-1*env(safe-area-inset-bottom,0px)-2rem)]',
           transparentBackdrop ? 'bg-black/20' : 'bg-black/50 backdrop-blur-sm'
         )}
         onMouseDown={closeOnOverlayClick ? onClose : undefined}

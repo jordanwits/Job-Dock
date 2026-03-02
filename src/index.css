@@ -258,13 +258,13 @@ input:-webkit-autofill {
     padding-right: env(safe-area-inset-right);
   }
 
-  /* Viewport height for iOS standalone (Add to Home Screen) - 100dvh adapts when no browser bars */
+  /* Viewport height for iOS standalone - slightly under full screen for margin */
   .h-viewport-mobile {
-    height: 100svh;
-    height: 100dvh;
+    height: 92svh;
+    height: 92dvh;
   }
   .max-h-viewport-mobile {
-    max-height: 60svh;
-    max-height: 60dvh;
+    max-height: 55svh;
+    max-height: 55dvh;
   }
 }
