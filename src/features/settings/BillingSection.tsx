@@ -38,6 +38,7 @@ const PLANS: Plan[] = [
     id: 'single',
     name: 'Single',
     description: 'Perfect for solo operators',
+    price: '$29/mo',
     features: [
       'Unlimited jobs and contacts',
       'Invoice and quote generation',
@@ -50,6 +51,7 @@ const PLANS: Plan[] = [
     id: 'team',
     name: 'Team',
     description: 'Up to 5 users',
+    price: '$59/mo',
     features: [
       'Everything in Single',
       'Up to 5 team members',
@@ -62,6 +64,7 @@ const PLANS: Plan[] = [
     id: 'team-plus',
     name: 'Team+',
     description: '5+ users, unlimited',
+    price: '$99.99/mo',
     features: [
       'Everything in Team',
       'Unlimited team members',
@@ -334,7 +337,12 @@ export const BillingSection = () => {
                       <h4 className={cn(
                         "text-xl font-semibold",
                         theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>{plan.name}</h4>
+                      )}>
+                        {plan.name}
+                        {plan.price && (
+                          <span className="text-primary-gold font-semibold ml-2">{plan.price}</span>
+                        )}
+                      </h4>
                       <p className={cn(
                         "text-sm mt-1",
                         theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
