@@ -2448,6 +2448,87 @@ export const dataServices = {
           contactName: jobWithContact.contact ? `${jobWithContact.contact.firstName ?? ''} ${jobWithContact.contact.lastName ?? ''}`.trim() || undefined : undefined,
         }).catch((e) => console.error('Failed to send assignment notification:', e))
       }
+
+      // Client notification: when notifyClient is true on manual create
+      if (payload.notifyClient === true && job.contact) {
+        try {
+          const contact = job.contact as (Contact & { notificationPreference?: string; email?: string; phone?: string }) | null
+          const pref = contact?.notificationPreference ?? 'both'
+          const wantsEmail = shouldSendEmail(pref) && contact?.email?.trim()
+          const wantsSms = shouldSendSms(pref) && contact?.phone?.trim()
+          if (wantsEmail || wantsSms) {
+            const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } })
+            let logoUrl: string | null = null
+            if (settings?.logoUrl) {
+              try {
+                const { getFileUrl } = await import('./fileUpload')
+                logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+              } catch (e) {
+                console.error('Error fetching logo URL for confirmation email:', e)
+              }
+            }
+            const companyName = settings?.companyDisplayName || 'JobDock'
+            const timezoneOffset = (settings?.timezoneOffset as number) ?? -8
+            const serviceName = (booking as any)?.service?.name || job.title || 'Appointment'
+            const clientName = contact
+              ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || 'there'
+              : 'there'
+            const rescheduleToken = generateApprovalToken('job', job.id, tenantId)
+            let smsRescheduleUrl: string | undefined
+            if (wantsSms) {
+              try {
+                const { createShortLink } = await import('./shortLinks')
+                const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+                const rescheduleFullUrl = `${publicAppUrl}/public/booking/${job.id}/reschedule?token=${rescheduleToken}`
+                smsRescheduleUrl = await createShortLink(rescheduleFullUrl)
+              } catch (e) {
+                console.warn('Could not create short link for confirmation SMS:', e)
+              }
+            }
+            if (wantsEmail) {
+              console.log(`📧 Sending manual booking confirmation email to ${contact!.email}`)
+              const emailPayload = buildClientConfirmationEmail({
+                clientName,
+                serviceName,
+                startTime: startTime!,
+                endTime: endTime!,
+                location: job.location ?? undefined,
+                timezoneOffset,
+                companyName,
+                logoUrl,
+                settings: {
+                  companySupportEmail: settings?.companySupportEmail || null,
+                  companyPhone: settings?.companyPhone || null,
+                },
+                jobId: job.id,
+                rescheduleToken,
+              })
+              await sendEmail({
+                ...emailPayload,
+                to: contact!.email!,
+                fromName: companyName,
+                replyTo: settings?.companySupportEmail || undefined,
+              })
+              console.log('✅ Manual booking confirmation email sent successfully')
+            }
+            if (wantsSms) {
+              console.log(`📱 Sending manual booking confirmation SMS to ${contact!.phone}`)
+              const smsBody = buildBookingConfirmationSms({
+                serviceName,
+                startTime: startTime!,
+                companyName,
+                timezoneOffset,
+                rescheduleUrl: smsRescheduleUrl,
+              })
+              await sendSms(contact!.phone!, smsBody)
+              console.log('✅ Manual booking confirmation SMS sent successfully')
+            }
+          }
+        } catch (clientNotifyError) {
+          console.error('❌ Failed to send client notification for manual booking:', clientNotifyError)
+        }
+      }
+
       return {
         ...job,
         ...booking,

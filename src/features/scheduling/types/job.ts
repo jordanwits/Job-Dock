@@ -73,6 +73,7 @@ export interface CreateJobData {
   startTime?: string
   endTime?: string
   toBeScheduled?: boolean
+  notifyClient?: boolean // When true, send confirmation email/SMS to client for manual bookings
   status?:
     | 'active'
     | 'scheduled'

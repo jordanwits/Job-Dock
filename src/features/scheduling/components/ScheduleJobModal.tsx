@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Modal } from '@/components/ui'
 import { useJobStore } from '../store/jobStore'
 import JobForm from './JobForm'
+import NotifyClientModal from './NotifyClientModal'
 import { CreateJobData, Job } from '../types/job'
 
 interface ScheduleJobModalProps {
@@ -43,11 +45,13 @@ const ScheduleJobModal = ({
   existingJobId,
 }: ScheduleJobModalProps) => {
   const { createJob, updateJob, isLoading, error, clearError } = useJobStore()
+  const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
+  const [pendingCreatePayload, setPendingCreatePayload] = useState<{ data: CreateJobData; existingJobIdParam?: string } | null>(null)
 
   const handleSubmit = async (data: CreateJobData, existingJobIdParam?: string) => {
+    const jobIdToUpdate = existingJobIdParam || existingJobId
+
     try {
-      const jobIdToUpdate = existingJobIdParam || existingJobId
-      
       if (jobIdToUpdate) {
         // Update existing job instead of creating new one
         const jobData = {
@@ -68,7 +72,13 @@ const ScheduleJobModal = ({
           onSuccess(updatedJob)
         }
       } else {
-        // Create new job
+        // Create new job - ask about notifying client if it's a scheduled appointment
+        const isScheduledCreate = data.startTime && data.endTime && !data.toBeScheduled
+        if (isScheduledCreate) {
+          setPendingCreatePayload({ data, existingJobIdParam })
+          setShowNotifyClientModal(true)
+          return
+        }
         const jobData = {
           ...data,
           ...(quoteId && { quoteId }),
@@ -77,7 +87,6 @@ const ScheduleJobModal = ({
         const created = await createJob(jobData)
         clearError()
         onClose()
-        // Call onSuccess which should show confirmation in parent component
         if (onSuccess) {
           onSuccess(created)
         }
@@ -88,6 +97,28 @@ const ScheduleJobModal = ({
     }
   }
 
+  const performCreateWithNotify = async (notifyClient: boolean) => {
+    if (!pendingCreatePayload) return
+    try {
+      const jobData = {
+        ...pendingCreatePayload.data,
+        notifyClient,
+        ...(quoteId && { quoteId }),
+        ...(invoiceId && { invoiceId }),
+      }
+      const created = await createJob(jobData)
+      clearError()
+      setShowNotifyClientModal(false)
+      setPendingCreatePayload(null)
+      onClose()
+      if (onSuccess) {
+        onSuccess(created)
+      }
+    } catch (error: any) {
+      // Keep modal open on error
+    }
+  }
+
   const handleCancel = () => {
     clearError()
     onClose()
@@ -95,6 +126,16 @@ const ScheduleJobModal = ({
 
   return (
     <>
+      <NotifyClientModal
+        isOpen={showNotifyClientModal}
+        message="Would you like to notify the client about this appointment?"
+        onClose={() => {
+          performCreateWithNotify(false)
+        }}
+        onNotify={notify => {
+          performCreateWithNotify(notify)
+        }}
+      />
       <Modal
         isOpen={isOpen}
         onClose={handleCancel}

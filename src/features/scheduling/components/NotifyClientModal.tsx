@@ -5,6 +5,8 @@ interface NotifyClientModalProps {
   onClose: () => void
   onNotify: (notify: boolean) => void
   isLoading?: boolean
+  /** Custom message - e.g. for create vs update flows */
+  message?: string
 }
 
 const NotifyClientModal = ({
@@ -12,15 +14,16 @@ const NotifyClientModal = ({
   onClose,
   onNotify,
   isLoading = false,
+  message = 'Would you like to notify the client about this schedule update?',
 }: NotifyClientModalProps) => {
   const handleYes = () => {
     onNotify(true)
-    onClose()
+    // Parent handles closing in onNotify callback
   }
 
   const handleNo = () => {
     onNotify(false)
-    onClose()
+    // Parent handles closing in onNotify callback
   }
 
   const footer = (
@@ -57,7 +60,7 @@ const NotifyClientModal = ({
       closeOnOverlayClick={!isLoading}
     >
       <p className="text-primary-light text-sm sm:text-base">
-        Would you like to notify the client about this schedule update?
+        {message}
       </p>
     </Modal>
   )

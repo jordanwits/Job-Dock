@@ -145,6 +145,7 @@ const SchedulingPage = () => {
   const [editUpdateAll, setEditUpdateAll] = useState(false)
   const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<any>(null)
+  const [pendingCreatePayload, setPendingCreatePayload] = useState<any>(null)
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [jobConfirmationMessage, setJobConfirmationMessage] = useState('')
 
@@ -512,9 +513,35 @@ const SchedulingPage = () => {
   }, [showJobForm, showServiceForm, selectedJob, selectedService, activeTab, user?.role])
 
   const handleCreateJob = async (data: any) => {
+    const isScheduledCreate = data.startTime && data.endTime && !data.toBeScheduled
+    if (isScheduledCreate) {
+      setPendingCreatePayload(data)
+      setShowNotifyClientModal(true)
+      return
+    }
     try {
       await createJob(data)
       setShowJobForm(false)
+      clearJobsError()
+      if (returnTo && returnTo.startsWith('/app')) {
+        navigate(returnTo)
+      } else {
+        setJobConfirmationMessage('Job created successfully')
+        setShowJobConfirmation(true)
+        setTimeout(() => setShowJobConfirmation(false), 3000)
+      }
+    } catch (error: any) {
+      // Error will be displayed in the modal via jobsError
+      // Keep the modal open so user can fix the issue
+    }
+  }
+
+  const performCreateJob = async (payload: any, notifyClient: boolean) => {
+    try {
+      await createJob({ ...payload, notifyClient })
+      setShowJobForm(false)
+      setPendingCreatePayload(null)
+      setShowNotifyClientModal(false)
       clearJobsError()
       if (returnTo && returnTo.startsWith('/app')) {
         navigate(returnTo)
@@ -1614,18 +1641,29 @@ const SchedulingPage = () => {
 
       <NotifyClientModal
         isOpen={showNotifyClientModal}
+        message={
+          pendingCreatePayload
+            ? 'Would you like to notify the client about this appointment?'
+            : 'Would you like to notify the client about this schedule update?'
+        }
         onClose={() => {
-          if (pendingUpdatePayload) {
+          if (pendingCreatePayload) {
+            performCreateJob(pendingCreatePayload, false)
+          } else if (pendingUpdatePayload) {
             performJobUpdate({ ...pendingUpdatePayload, notifyClient: false })
           }
           setShowNotifyClientModal(false)
+          setPendingCreatePayload(null)
           setPendingUpdatePayload(null)
         }}
         onNotify={notify => {
-          if (pendingUpdatePayload) {
+          if (pendingCreatePayload) {
+            performCreateJob(pendingCreatePayload, notify)
+          } else if (pendingUpdatePayload) {
             performJobUpdate({ ...pendingUpdatePayload, notifyClient: notify })
           }
           setShowNotifyClientModal(false)
+          setPendingCreatePayload(null)
           setPendingUpdatePayload(null)
         }}
       />
