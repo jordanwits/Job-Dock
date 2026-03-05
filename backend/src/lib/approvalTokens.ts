@@ -1,11 +1,11 @@
 import { createHmac } from 'crypto'
 
 /**
- * Generate a secure approval token for quote/invoice approval links
+ * Generate a secure approval token for quote/invoice/job approval links
  * The token is an HMAC of the resource type, ID, and tenant ID
  */
 export function generateApprovalToken(
-  resource: 'quote' | 'invoice',
+  resource: 'quote' | 'invoice' | 'job',
   id: string,
   tenantId: string
 ): string {
@@ -25,7 +25,7 @@ export function generateApprovalToken(
  * Verify an approval token matches the expected value
  */
 export function verifyApprovalToken(
-  resource: 'quote' | 'invoice',
+  resource: 'quote' | 'invoice' | 'job',
   id: string,
   tenantId: string,
   token: string

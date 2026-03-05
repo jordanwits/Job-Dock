@@ -78,14 +78,16 @@ export async function sendSms(to: string, body: string): Promise<string | null> 
 
 /**
  * Build a short booking confirmation SMS.
+ * Include rescheduleUrl for a reschedule link (use short link for SMS).
  */
 export function buildBookingConfirmationSms(params: {
   serviceName: string
   startTime: Date
   companyName: string
   timezoneOffset?: number
+  rescheduleUrl?: string
 }): string {
-  const { serviceName, startTime, companyName, timezoneOffset = -8 } = params
+  const { serviceName, startTime, companyName, timezoneOffset = -8, rescheduleUrl } = params
   const localHours = startTime.getUTCHours() + timezoneOffset
   const localMinutes = startTime.getUTCMinutes()
   const period = localHours >= 12 ? 'PM' : 'AM'
@@ -97,19 +99,25 @@ export function buildBookingConfirmationSms(params: {
     month: 'short',
     day: 'numeric',
   })
-  return `${companyName}: ${serviceName} confirmed for ${dateStr} at ${timeStr}.`
+  let msg = `${companyName}: ${serviceName} confirmed for ${dateStr} at ${timeStr}.`
+  if (rescheduleUrl) {
+    msg += ` Reschedule: ${rescheduleUrl}`
+  }
+  return msg
 }
 
 /**
  * Build a short booking pending (awaiting confirmation) SMS.
+ * Include rescheduleUrl for a reschedule link (use short link for SMS).
  */
 export function buildBookingPendingSms(params: {
   serviceName: string
   startTime: Date
   companyName: string
   timezoneOffset?: number
+  rescheduleUrl?: string
 }): string {
-  const { serviceName, startTime, companyName, timezoneOffset = -8 } = params
+  const { serviceName, startTime, companyName, timezoneOffset = -8, rescheduleUrl } = params
   const localHours = startTime.getUTCHours() + timezoneOffset
   const localMinutes = startTime.getUTCMinutes()
   const period = localHours >= 12 ? 'PM' : 'AM'
@@ -121,7 +129,11 @@ export function buildBookingPendingSms(params: {
     month: 'short',
     day: 'numeric',
   })
-  return `${companyName}: ${serviceName} request for ${dateStr} at ${timeStr} pending. We'll confirm soon.`
+  let msg = `${companyName}: ${serviceName} request for ${dateStr} at ${timeStr} pending. We'll confirm soon.`
+  if (rescheduleUrl) {
+    msg += ` Reschedule: ${rescheduleUrl}`
+  }
+  return msg
 }
 
 /**

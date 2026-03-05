@@ -2938,6 +2938,20 @@ export const dataServices = {
           }
         }
 
+        // Generate reschedule token and short link for client emails/SMS
+        const rescheduleToken = generateApprovalToken('job', id, tenantId)
+        let smsRescheduleUrl: string | undefined
+        if (wantsSms) {
+          try {
+            const { createShortLink } = await import('./shortLinks')
+            const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+            const rescheduleFullUrl = `${publicAppUrl}/public/booking/${id}/reschedule?token=${rescheduleToken}`
+            smsRescheduleUrl = await createShortLink(rescheduleFullUrl)
+          } catch (e) {
+            console.warn('Could not create short link for reschedule SMS:', e)
+          }
+        }
+
         if (wantsEmail) {
           console.log(`📧 Sending confirmation email to ${job.contact.email}`)
           const emailPayload = buildClientBookingConfirmedEmail({
@@ -2953,10 +2967,12 @@ export const dataServices = {
               companySupportEmail: settings?.companySupportEmail || null,
               companyPhone: settings?.companyPhone || null,
             },
+            jobId: id,
+            rescheduleToken,
           })
           await sendEmail({
             ...emailPayload,
-            to: job.contact.email,
+            to: job.contact!.email!,
             fromName: companyName,
             replyTo: settings?.companySupportEmail || undefined,
           })
@@ -2968,6 +2984,7 @@ export const dataServices = {
             startTime: b?.startTime ? new Date(b.startTime) : new Date(),
             companyName,
             timezoneOffset,
+            rescheduleUrl: smsRescheduleUrl,
           })
           await sendSms(job.contact!.phone!, smsBody)
         }
@@ -3040,7 +3057,7 @@ export const dataServices = {
           })
           await sendEmail({
             ...emailPayload,
-            to: job.contact!.email,
+            to: job.contact!.email!,
             fromName: companyName,
             replyTo: settings?.companySupportEmail || undefined,
           })
@@ -3065,6 +3082,271 @@ export const dataServices = {
         startTime: b?.startTime?.toISOString() ?? null,
         endTime: b?.endTime?.toISOString() ?? null,
         status: 'cancelled',
+      }
+    },
+    rescheduleInfo: async (tenantId: string, id: string, token: string) => {
+      const { verifyApprovalToken } = await import('./approvalTokens')
+      if (!verifyApprovalToken('job', id, tenantId, token)) {
+        throw new ApiError('Invalid or expired reschedule token', 403)
+      }
+      const job = await prisma.job.findFirst({
+        where: { id, tenantId },
+        include: {
+          contact: true,
+          bookings: {
+            include: { service: true },
+            orderBy: { startTime: 'asc' },
+          },
+        },
+      })
+      if (!job) throw new ApiError('Job not found', 404)
+      const primaryBooking = (job as any).bookings?.[0]
+      if (!primaryBooking) throw new ApiError('Booking not found', 404)
+
+      const service = (primaryBooking as any)?.service
+      const bookingSettings = (service?.bookingSettings as any) || {}
+      const requireConfirmation = bookingSettings?.requireConfirmation ?? false
+
+      return {
+        jobId: job.id,
+        tenantId: job.tenantId,
+        serviceId: primaryBooking.serviceId,
+        serviceName: service?.name || 'Service',
+        startTime: primaryBooking.startTime?.toISOString() ?? null,
+        endTime: primaryBooking.endTime?.toISOString() ?? null,
+        location: primaryBooking.location ?? job.location ?? null,
+        requireConfirmation,
+        contact: job.contact
+          ? {
+              firstName: job.contact.firstName,
+              lastName: job.contact.lastName,
+            }
+          : null,
+      }
+    },
+    reschedulePublic: async (tenantId: string, id: string, token: string, payload: { startTime: string }) => {
+      const { verifyApprovalToken } = await import('./approvalTokens')
+      if (!verifyApprovalToken('job', id, tenantId, token)) {
+        throw new ApiError('Invalid or expired reschedule token', 403)
+      }
+
+      const job = await prisma.job.findFirst({
+        where: { id, tenantId },
+        include: {
+          contact: true,
+          bookings: {
+            include: { service: true },
+            orderBy: { startTime: 'asc' },
+          },
+        },
+      })
+      if (!job) throw new ApiError('Job not found', 404)
+      const primaryBooking = (job as any).bookings?.[0]
+      if (!primaryBooking) throw new ApiError('Booking not found', 404)
+
+      const service = (primaryBooking as any)?.service
+      if (!service) throw new ApiError('Service not found', 404)
+
+      const newStartTime = parseValidDate(payload.startTime)
+      if (!newStartTime) throw new ApiError('Invalid startTime format', 400)
+
+      const duration = (service as any).duration || 60
+      const newEndTime = new Date(newStartTime.getTime() + duration * 60 * 1000)
+
+      const bookingSettings = (service.bookingSettings as any) || {}
+      const requireConfirmation = bookingSettings?.requireConfirmation ?? false
+
+      const availability = (service.availability as any) || {}
+      const timezoneOffset = availability?.timezoneOffset ?? -8
+
+      const dayOfWeek = newStartTime.getDay()
+      const workingHours = availability?.workingHours?.find((wh: any) => wh.dayOfWeek === dayOfWeek)
+      if (!workingHours || !workingHours.isWorking) {
+        throw new ApiError('Service is not available on this day', 400)
+      }
+
+      const now = new Date()
+      if (newStartTime < now) {
+        throw new ApiError('Cannot reschedule to a time in the past', 400)
+      }
+
+      const newStatus = requireConfirmation ? 'pending-confirmation' : 'active'
+      await prisma.booking.update({
+        where: { id: primaryBooking.id },
+        data: {
+          startTime: newStartTime,
+          endTime: newEndTime,
+          status: newStatus,
+        },
+      })
+
+      if (requireConfirmation) {
+        try {
+          const settings = await prisma.tenantSettings.findUnique({
+            where: { tenantId },
+          })
+          const companyName = settings?.companyDisplayName || 'JobDock'
+          const pref = (job.contact as any)?.notificationPreference ?? 'both'
+          const wantsEmail = shouldSendEmail(pref) && job.contact?.email
+          const wantsSms = shouldSendSms(pref) && job.contact?.phone?.trim()
+
+          if (wantsEmail) {
+            const emailPayload = buildClientPendingEmail({
+              clientName: `${job.contact!.firstName} ${job.contact!.lastName}`.trim(),
+              serviceName: service.name,
+              startTime: newStartTime,
+              endTime: newEndTime,
+              timezoneOffset,
+              companyName,
+              logoUrl: null,
+              settings: {
+                companySupportEmail: settings?.companySupportEmail || null,
+                companyPhone: settings?.companyPhone || null,
+              },
+              jobId: job.id,
+              rescheduleToken: token,
+            })
+            await sendEmail({
+              ...emailPayload,
+              to: job.contact!.email!,
+              fromName: companyName,
+              replyTo: settings?.companySupportEmail || undefined,
+            })
+          }
+          if (wantsSms) {
+            let smsRescheduleUrl: string | undefined
+            try {
+              const { createShortLink } = await import('./shortLinks')
+              const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+              smsRescheduleUrl = await createShortLink(`${publicAppUrl}/public/booking/${job.id}/reschedule?token=${token}`)
+            } catch {
+              /* ignore */
+            }
+            const smsBody = buildBookingPendingSms({
+              serviceName: service.name,
+              startTime: newStartTime,
+              companyName,
+              timezoneOffset,
+              rescheduleUrl: smsRescheduleUrl,
+            })
+            await sendSms(job.contact!.phone!, smsBody)
+          }
+
+          const ownerUser = await prisma.user.findFirst({
+            where: { tenantId, role: 'owner' },
+            select: { email: true },
+          })
+          const contractorEmail = ownerUser?.email ?? settings?.companySupportEmail ?? undefined
+          if (contractorEmail) {
+            const emailPayload = buildContractorNotificationEmail({
+              contractorName: 'Contractor',
+              serviceName: service.name,
+              clientName: `${job.contact!.firstName} ${job.contact!.lastName}`.trim(),
+              clientEmail: job.contact?.email ?? undefined,
+              clientPhone: job.contact?.phone ?? undefined,
+              startTime: newStartTime,
+              endTime: newEndTime,
+              location: primaryBooking.location ?? job.location ?? undefined,
+              isPending: true,
+              companyName,
+              logoUrl: null,
+              settings: {
+                companySupportEmail: settings?.companySupportEmail || null,
+                companyPhone: settings?.companyPhone || null,
+              },
+            })
+            await sendEmail({
+              ...emailPayload,
+              to: contractorEmail,
+              fromName: companyName,
+              replyTo: settings?.companySupportEmail || undefined,
+            })
+          }
+        } catch (e) {
+          console.error('Failed to send reschedule notification:', e)
+        }
+      } else {
+        try {
+          const settings = await prisma.tenantSettings.findUnique({
+            where: { tenantId },
+          })
+          const companyName = settings?.companyDisplayName || 'JobDock'
+          let logoUrl: string | null = null
+          if (settings?.logoUrl) {
+            try {
+              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+            } catch {
+              /* ignore */
+            }
+          }
+          const pref = (job.contact as any)?.notificationPreference ?? 'both'
+          const wantsEmail = shouldSendEmail(pref) && job.contact?.email
+          const wantsSms = shouldSendSms(pref) && job.contact?.phone?.trim()
+
+          const rescheduleToken = generateApprovalToken('job', job.id, tenantId)
+          let smsRescheduleUrl: string | undefined
+          if (wantsSms) {
+            try {
+              const { createShortLink } = await import('./shortLinks')
+              const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+              smsRescheduleUrl = await createShortLink(`${publicAppUrl}/public/booking/${job.id}/reschedule?token=${rescheduleToken}`)
+            } catch {
+              /* ignore */
+            }
+          }
+
+          if (wantsEmail) {
+            const emailPayload = buildClientConfirmationEmail({
+              clientName: `${job.contact!.firstName} ${job.contact!.lastName}`.trim(),
+              serviceName: service.name,
+              startTime: newStartTime,
+              endTime: newEndTime,
+              location: primaryBooking.location ?? job.location ?? undefined,
+              timezoneOffset,
+              companyName,
+              logoUrl,
+              settings: {
+                companySupportEmail: settings?.companySupportEmail || null,
+                companyPhone: settings?.companyPhone || null,
+              },
+              jobId: job.id,
+              rescheduleToken,
+            })
+            await sendEmail({
+              ...emailPayload,
+              to: job.contact!.email!,
+              fromName: companyName,
+              replyTo: settings?.companySupportEmail || undefined,
+            })
+          }
+          if (wantsSms) {
+            const smsBody = buildBookingConfirmationSms({
+              serviceName: service.name,
+              startTime: newStartTime,
+              companyName,
+              timezoneOffset,
+              rescheduleUrl: smsRescheduleUrl,
+            })
+            await sendSms(job.contact!.phone!, smsBody)
+          }
+        } catch (e) {
+          console.error('Failed to send reschedule confirmation:', e)
+        }
+      }
+
+      const updatedJob = await prisma.job.findFirst({
+        where: { id },
+        include: { contact: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } } },
+      })
+      const b = (updatedJob as any)?.bookings?.[0]
+      return {
+        ...updatedJob,
+        serviceId: b?.serviceId,
+        service: (b as any)?.service,
+        startTime: b?.startTime?.toISOString() ?? null,
+        endTime: b?.endTime?.toISOString() ?? null,
+        status: b?.status ?? 'active',
+        requireConfirmation,
       }
     },
   },
@@ -3736,6 +4018,20 @@ export const dataServices = {
           const wantsEmail = shouldSendEmail(pref) && clientEmail
           const wantsSms = shouldSendSms(pref) && phoneForSms
 
+          // Generate reschedule token and short link for client emails/SMS
+          const rescheduleToken = generateApprovalToken('job', job.id, actualTenantId)
+          const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+          const rescheduleFullUrl = `${publicAppUrl}/public/booking/${job.id}/reschedule?token=${rescheduleToken}`
+          let smsRescheduleUrl: string | undefined
+          if (wantsSms) {
+            try {
+              const { createShortLink } = await import('./shortLinks')
+              smsRescheduleUrl = await createShortLink(rescheduleFullUrl)
+            } catch (e) {
+              console.warn('Could not create short link for reschedule SMS:', e)
+            }
+          }
+
           if (wantsEmail || wantsSms) {
             if (requireConfirmation) {
               if (wantsEmail) {
@@ -3752,6 +4048,8 @@ export const dataServices = {
                     companySupportEmail: settings?.companySupportEmail || null,
                     companyPhone: settings?.companyPhone || null,
                   },
+                  jobId: job.id,
+                  rescheduleToken,
                 })
                 await sendEmail({
                   ...emailPayload,
@@ -3768,6 +4066,7 @@ export const dataServices = {
                   startTime,
                   companyName,
                   timezoneOffset,
+                  rescheduleUrl: smsRescheduleUrl,
                 })
                 await sendSms(phoneForSms, smsBody)
               }
@@ -3787,6 +4086,8 @@ export const dataServices = {
                     companySupportEmail: settings?.companySupportEmail || null,
                     companyPhone: settings?.companyPhone || null,
                   },
+                  jobId: job.id,
+                  rescheduleToken,
                 })
                 await sendEmail({
                   ...emailPayload,
@@ -3803,6 +4104,7 @@ export const dataServices = {
                   startTime,
                   companyName,
                   timezoneOffset,
+                  rescheduleUrl: smsRescheduleUrl,
                 })
                 await sendSms(phoneForSms, smsBody)
               }

@@ -428,8 +428,10 @@ export function buildClientConfirmationEmail(data: {
     companySupportEmail?: string | null
     companyPhone?: string | null
   }
+  jobId?: string
+  rescheduleToken?: string
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location, tenantName, breaks, timezoneOffset = -8, companyName, logoUrl, settings } = data
+  const { clientName, serviceName, startTime, endTime, location, tenantName, breaks, timezoneOffset = -8, companyName, logoUrl, settings, jobId, rescheduleToken } = data
 
   // Get local time components
   const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
@@ -532,13 +534,21 @@ export function buildClientConfirmationEmail(data: {
     </table>
   `
   
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const rescheduleUrl = jobId && rescheduleToken ? `${publicAppUrl}/public/booking/${jobId}/reschedule?token=${rescheduleToken}` : null
+
   const content = `
     <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
     <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Your booking has been confirmed! Here are the details:</p>
     ${bookingDetailsCard}
     ${breaksHtml}
     <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">We look forward to seeing you!</p>
-    <p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">If you need to cancel or reschedule, please contact us as soon as possible.</p>
+    ${rescheduleUrl ? `
+    <p style="margin: 20px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">
+      <a href="${rescheduleUrl}" style="display: inline-block; padding: 12px 24px; background-color: #D4AF37; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; border-radius: 6px;">Reschedule</a>
+    </p>
+    <p style="margin: 12px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">Need to change your appointment? Use the button above to pick a new time.</p>
+    ` : '<p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">If you need to cancel or reschedule, please contact us as soon as possible.</p>'}
   `
   
   const htmlBody = buildModernEmailTemplate({
@@ -593,8 +603,7 @@ ${tenantName ? `Provider: ${tenantName}` : ''}
 ${breaksText}
 
 We look forward to seeing you!
-
-If you need to cancel or reschedule, please contact us as soon as possible.
+${rescheduleUrl ? '\n\nNeed to change your appointment? Reschedule here: ' + rescheduleUrl : '\n\nIf you need to cancel or reschedule, please contact us as soon as possible.'}
   `.trim()
 
   return {
@@ -796,8 +805,10 @@ export function buildClientPendingEmail(data: {
     companySupportEmail?: string | null
     companyPhone?: string | null
   }
+  jobId?: string
+  rescheduleToken?: string
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, timezoneOffset = -8, companyName, logoUrl, settings } = data
+  const { clientName, serviceName, startTime, endTime, timezoneOffset = -8, companyName, logoUrl, settings, jobId, rescheduleToken } = data
 
   // Get local time components
   const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
@@ -839,11 +850,20 @@ export function buildClientPendingEmail(data: {
     </table>
   `
   
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const rescheduleUrl = jobId && rescheduleToken ? `${publicAppUrl}/public/booking/${jobId}/reschedule?token=${rescheduleToken}` : null
+
   const content = `
     <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
     <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">We've received your booking request for:</p>
     ${bookingDetailsCard}
     <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">Your request is pending confirmation. We'll send you another email once it's confirmed.</p>
+    ${rescheduleUrl ? `
+    <p style="margin: 20px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">
+      <a href="${rescheduleUrl}" style="display: inline-block; padding: 12px 24px; background-color: #D4AF37; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; border-radius: 6px;">Reschedule</a>
+    </p>
+    <p style="margin: 12px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">Need a different time? Use the button above to request a new slot.</p>
+    ` : ''}
     <p style="margin: 20px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">Thank you for your patience!</p>
   `
   
@@ -867,6 +887,9 @@ Date: ${dateStr}
 Time: ${startTimeStr}
 
 Your request is pending confirmation. We'll send you another email once it's confirmed.
+${rescheduleUrl ? `
+
+Need a different time? Reschedule here: ${rescheduleUrl}` : ''}
 
 Thank you for your patience!
   `.trim()
@@ -1210,8 +1233,10 @@ export function buildClientBookingConfirmedEmail(data: {
     companySupportEmail?: string | null
     companyPhone?: string | null
   }
+  jobId?: string
+  rescheduleToken?: string
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location, breaks, timezoneOffset = -8, companyName, logoUrl, settings } = data
+  const { clientName, serviceName, startTime, endTime, location, breaks, timezoneOffset = -8, companyName, logoUrl, settings, jobId, rescheduleToken } = data
 
   // Get local time components
   const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
@@ -1306,12 +1331,21 @@ export function buildClientBookingConfirmedEmail(data: {
     </table>
   `
   
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const rescheduleUrl = jobId && rescheduleToken ? `${publicAppUrl}/public/booking/${jobId}/reschedule?token=${rescheduleToken}` : null
+
   const content = `
     <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
     <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Great news! Your booking request has been confirmed.</p>
     ${bookingDetailsCard}
     ${breaksHtml}
     <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">We look forward to seeing you!</p>
+    ${rescheduleUrl ? `
+    <p style="margin: 20px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">
+      <a href="${rescheduleUrl}" style="display: inline-block; padding: 12px 24px; background-color: #D4AF37; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; border-radius: 6px;">Reschedule</a>
+    </p>
+    <p style="margin: 12px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">Need to change your appointment? Use the button above to pick a new time.</p>
+    ` : ''}
   `
   
   const htmlBody = buildModernEmailTemplate({
@@ -1365,6 +1399,9 @@ ${location ? `Location: ${location}` : ''}
 ${breaksText}
 
 We look forward to seeing you!
+${rescheduleUrl ? `
+
+Need to change your appointment? Reschedule here: ${rescheduleUrl}` : ''}
   `.trim()
 
   return {

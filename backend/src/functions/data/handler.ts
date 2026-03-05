@@ -919,6 +919,18 @@ We look forward to working with you!',
       ((resource === 'quotes' && action === 'public-pdf') ||
         (resource === 'invoices' && action === 'public-pdf'))
 
+    // Check if this is a public reschedule endpoint (booking reschedule from confirmation links)
+    const isPublicRescheduleInfoEndpoint =
+      event.httpMethod === 'GET' &&
+      resource === 'jobs' &&
+      id &&
+      action === 'reschedule-info'
+    const isPublicRescheduleEndpoint =
+      event.httpMethod === 'POST' &&
+      resource === 'jobs' &&
+      id &&
+      action === 'reschedule-public'
+
     // For public endpoints, determine tenant ID from the resource itself
     let tenantId: string
     if (isPublicBookingEndpoint) {
@@ -926,11 +938,13 @@ We look forward to working with you!',
     } else if ((isPublicApprovalEndpoint || isPublicApprovalInfoEndpoint || isPublicPdfEndpoint) && id) {
       // For approval endpoints, look up the tenantId from the quote/invoice record
       tenantId = await getTenantIdFromResource(resource as 'quotes' | 'invoices', id)
+    } else if ((isPublicRescheduleInfoEndpoint || isPublicRescheduleEndpoint) && id) {
+      tenantId = await getTenantIdFromResource('jobs', id)
     } else {
       tenantId = await resolveTenantId(event)
     }
 
-    if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint) {
+    if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint && !isPublicRescheduleInfoEndpoint && !isPublicRescheduleEndpoint) {
       await ensureTenantExists(tenantId)
     }
 
@@ -942,7 +956,7 @@ We look forward to working with you!',
     const enforceSubscription = process.env.STRIPE_ENFORCE_SUBSCRIPTION === 'true'
     if (enforceSubscription && resource !== 'billing') {
       // Always allow public endpoints
-      if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint) {
+      if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint && !isPublicRescheduleInfoEndpoint && !isPublicRescheduleEndpoint) {
         // Check subscription status
         const { default: prisma } = await import('../../lib/db')
         const tenant = await prisma.tenant.findUnique({
@@ -1004,6 +1018,8 @@ We look forward to working with you!',
       authHeader &&
       !isPublicBookingEndpoint &&
       !isPublicApprovalEndpoint &&
+      !isPublicRescheduleInfoEndpoint &&
+      !isPublicRescheduleEndpoint &&
       resource !== 'billing'
     ) {
       const { default: prisma } = await import('../../lib/db')
@@ -1248,6 +1264,15 @@ async function handleGet(
       throw new ApiError('Session ID required', 400)
     }
     return (service as typeof dataServices.contacts).importStatus(tenantId, sessionId)
+  }
+
+  // Get reschedule info for public reschedule page
+  if (resource === 'jobs' && id && action === 'reschedule-info') {
+    const token = event.queryStringParameters?.token
+    if (!token) {
+      throw new ApiError('Reschedule token required', 400)
+    }
+    return (service as typeof dataServices.jobs).rescheduleInfo(tenantId, id, token)
   }
 
   // Get approval info (tenantId and branding) for public approval pages
@@ -1561,6 +1586,24 @@ async function handlePost(
     return (service as typeof dataServices.invoices).setApprovalStatus(tenantId, id, 'declined')
   }
 
+  // Public reschedule action - verify token first
+  if (resource === 'jobs' && id && action === 'reschedule-public') {
+    const token = event.queryStringParameters?.token
+    if (!token) {
+      throw new ApiError('Reschedule token required', 400)
+    }
+    if (!verifyApprovalToken('job', id, tenantId, token)) {
+      throw new ApiError('Invalid or expired reschedule token', 403)
+    }
+    const payload = parseBody(event)
+    if (!payload?.startTime) {
+      throw new ApiError('startTime is required', 400)
+    }
+    return (service as typeof dataServices.jobs).reschedulePublic(tenantId, id, token, {
+      startTime: payload.startTime,
+    })
+  }
+
   // Job log photo upload: get presigned URL
   if (resource === 'job-logs' && id && action === 'get-upload-url') {
     const payload = parseBody(event)
@@ -1829,22 +1872,27 @@ function normalizePath(event: APIGatewayProxyEvent) {
 }
 
 /**
- * Look up tenant ID from a quote or invoice record
- * Used for public approval endpoints where we need the tenant ID to verify the approval token
+ * Look up tenant ID from a quote, invoice, or job record
+ * Used for public endpoints where we need the tenant ID to verify the token
  */
 async function getTenantIdFromResource(
-  resource: 'quotes' | 'invoices',
+  resource: 'quotes' | 'invoices' | 'jobs',
   id: string
 ): Promise<string> {
   const { default: prisma } = await import('../../lib/db')
 
-  const record =
-    resource === 'quotes'
-      ? await prisma.quote.findUnique({ where: { id }, select: { tenantId: true } })
-      : await prisma.invoice.findUnique({ where: { id }, select: { tenantId: true } })
+  let record: { tenantId: string } | null = null
+  if (resource === 'quotes') {
+    record = await prisma.quote.findUnique({ where: { id }, select: { tenantId: true } })
+  } else if (resource === 'invoices') {
+    record = await prisma.invoice.findUnique({ where: { id }, select: { tenantId: true } })
+  } else if (resource === 'jobs') {
+    record = await prisma.job.findUnique({ where: { id }, select: { tenantId: true } })
+  }
 
   if (!record) {
-    throw new ApiError(`${resource === 'quotes' ? 'Quote' : 'Invoice'} not found`, 404)
+    const label = resource === 'quotes' ? 'Quote' : resource === 'invoices' ? 'Invoice' : 'Job'
+    throw new ApiError(`${label} not found`, 404)
   }
 
   return record.tenantId

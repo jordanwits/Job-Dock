@@ -10,7 +10,7 @@ import { QuotesPage } from '@/features/quotes'
 import { InvoicesPage } from '@/features/invoices'
 import { SchedulingPage } from '@/features/scheduling'
 import { JobLogsListPage, JobLogDetailPage } from '@/features/jobLogs'
-import { PublicBookingPage } from '@/features/booking'
+import { PublicBookingPage, PublicReschedulePage } from '@/features/booking'
 import { SettingsPage, ProfileSettingsPage } from '@/features/settings'
 import { QuoteApprovalPage, InvoiceApprovalPage, QuoteViewPage, InvoiceViewPage, ShortLinkRedirect } from '@/features/publicApproval'
 import { ReportsPage } from '@/features/reports'
@@ -85,6 +85,9 @@ function App() {
         {/* Public Booking Routes - No authentication required */}
         <Route path="/book" element={<PublicBookingPage />} />
         <Route path="/book/:serviceId" element={<PublicBookingPage />} />
+
+        {/* Public Reschedule - token-secured from confirmation email/SMS */}
+        <Route path="/public/booking/:jobId/reschedule" element={<PublicReschedulePage />} />
 
         {/* Short link redirect (for SMS) */}
 

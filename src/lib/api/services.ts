@@ -352,6 +352,21 @@ const realServicesService = {
     const response = await publicApiClient.post(`/services/${id}/book`, payload)
     return response.data
   },
+
+  // Public reschedule endpoints (token from confirmation email/SMS)
+  getRescheduleInfo: async (jobId: string, token: string) => {
+    const response = await publicApiClient.get(`/jobs/${jobId}/reschedule-info`, {
+      params: { token },
+    })
+    return response.data
+  },
+
+  submitReschedule: async (jobId: string, token: string, startTime: string) => {
+    const response = await publicApiClient.post(`/jobs/${jobId}/reschedule-public`, { startTime }, {
+      params: { token },
+    })
+    return response.data
+  },
 }
 
 const realJobLogsService = {
