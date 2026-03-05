@@ -98,7 +98,19 @@ const Calendar = ({
   }, [useTeamColors])
 
   // Helper function to get job colors based on user role
+  // Always use pending-confirmation styling when applicable so admins/owners can spot jobs needing confirmation
   const getJobColors = (job: Job) => {
+    if (job.status === 'pending-confirmation') {
+      const textFor = (dark: string, light: string) =>
+        theme === 'dark' ? dark : light
+      return {
+        bg: 'bg-orange-500/20',
+        border: 'border-orange-500',
+        text: textFor('text-orange-300', 'text-orange-700'),
+        isMultiAssignment: false,
+        memberCount: 0,
+      }
+    }
     if (useTeamColors) {
       return getTeamMemberColors(job.assignedToName, userColorMap, theme)
     }
@@ -1034,6 +1046,12 @@ const Calendar = ({
                         "text-sm font-medium",
                         theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
                       )}>{job.title}</div>
+                      {job.status === 'pending-confirmation' && (
+                        <div className={cn(
+                          "text-[10px] font-medium uppercase tracking-wide mt-0.5",
+                          theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
+                        )}>Needs confirmation</div>
+                      )}
                       <div className={cn(
                         "text-xs",
                         theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
@@ -1190,6 +1208,12 @@ const Calendar = ({
                           )}>
                             {job.title}
                           </div>
+                          {job.status === 'pending-confirmation' && (
+                            <div className={cn(
+                              "text-[10px] font-medium uppercase tracking-wide pointer-events-none",
+                              theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
+                            )}>Needs confirmation</div>
+                          )}
                           <div className={cn(
                             "text-xs pointer-events-none",
                             theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
@@ -1727,6 +1751,12 @@ const Calendar = ({
                                     )}>
                                       {job.title}
                                     </div>
+                                    {job.status === 'pending-confirmation' && (
+                                      <div className={cn(
+                                        "text-[10px] font-medium uppercase tracking-wide truncate pointer-events-none",
+                                        theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
+                                      )}>Needs confirmation</div>
+                                    )}
                                     <div className={cn(
                                       "truncate pointer-events-none",
                                       theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'

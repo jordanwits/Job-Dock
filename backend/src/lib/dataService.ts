@@ -2992,7 +2992,24 @@ export const dataServices = {
         console.error('❌ Failed to send confirmation email:', emailError)
       }
 
-      return updatedJob
+      // Return flattened job format (same as getById) so frontend receives startTime, endTime, toBeScheduled
+      // and the confirmed job stays in its correct calendar slot instead of appearing in "To Be Scheduled"
+      const b = updatedJob!.bookings[0]
+      const assignedToName = await getAssignedToName(tenantId, b?.assignedTo ?? updatedJob!.assignedTo)
+      const contact = updatedJob!.contact as { firstName?: string; lastName?: string; email?: string } | null
+      return {
+        ...updatedJob,
+        contactName: contact ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() : undefined,
+        assignedToName,
+        bookingId: b?.id ?? undefined,
+        serviceId: b?.serviceId ?? null,
+        serviceName: (b as any)?.service?.name ?? null,
+        startTime: b?.startTime?.toISOString() ?? null,
+        endTime: b?.endTime?.toISOString() ?? null,
+        toBeScheduled: b ? (b.toBeScheduled ?? false) : false,
+        status: b?.status ?? updatedJob!.status,
+        price: b?.price != null ? Number(b.price) : (updatedJob as any).price != null ? Number((updatedJob as any).price) : null,
+      }
     },
     decline: async (tenantId: string, id: string, reason?: string) => {
       const job = await prisma.job.findFirst({
