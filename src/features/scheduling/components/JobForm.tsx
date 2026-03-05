@@ -163,7 +163,9 @@ const JobForm = ({
     if (durationMinutes < 60) {
       return { unit: 'minutes', value: durationMinutes }
     } else if (durationHours < 24) {
-      return { unit: 'hours', value: Math.round(durationHours) }
+      // Use decimal hours when not a whole number (e.g. 1.5 not 2) to preserve user's intent
+      const value = durationHours % 1 === 0 ? durationHours : Math.round(durationHours * 10) / 10
+      return { unit: 'hours', value }
     } else if (durationDays < 14) {
       return { unit: 'days', value: Math.ceil(durationDays) }
     } else {
@@ -820,6 +822,7 @@ const JobForm = ({
           interval,
           count: occurrenceCount,
           daysOfWeek: frequency === 'custom' ? customDays : undefined,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }
         console.log('✅ JobForm: Recurrence added (never ends)', formData.recurrence)
       } else if (endRepeatMode === 'on-date' && endRepeatDate) {
@@ -856,6 +859,7 @@ const JobForm = ({
           interval,
           count: count,
           daysOfWeek: frequency === 'custom' ? customDays : undefined,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }
         console.log('✅ JobForm: Recurrence added (ends on date)', formData.recurrence)
       }
@@ -1862,12 +1866,23 @@ const JobForm = ({
         )}
       </div>
 
-      {/* Recurrence Section */}
+      {/* Recurrence Section - hidden when editing an existing recurring job to avoid accidental changes */}
       {!toBeScheduled && (
         <div className={cn(
           "border-t pt-4",
           theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
         )}>
+          {job?.recurrenceId ? (
+            <div className={cn(
+              "rounded-lg p-3 text-sm",
+              theme === 'dark'
+                ? 'bg-primary-blue/10 border border-primary-blue text-primary-light'
+                : 'bg-blue-50 border border-blue-200 text-primary-lightText'
+            )}>
+              This job is part of a recurring series. Changes to time or duration will apply to all future occurrences when you select &quot;All Future Jobs&quot;.
+            </div>
+          ) : (
+          <div>
           <label className={cn(
             "block text-sm font-medium mb-2",
             theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
@@ -2001,6 +2016,8 @@ const JobForm = ({
               )}
             </div>
           )}
+          </div>
+          )}
         </div>
       )}
 
@@ -2040,8 +2057,6 @@ const JobForm = ({
           placeholder="Add notes..."
         />
       </div>
-        </>
-      )}
 
       <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
         {submitError && (
@@ -2062,6 +2077,8 @@ const JobForm = ({
           {isLoading ? 'Saving...' : job ? 'Update Job' : 'Create Job'}
         </Button>
       </div>
+        </>
+      )}
 
       <PayChangeEffectiveDateModal
         isOpen={showPayChangeModal}

@@ -6,6 +6,7 @@ export interface RecurrencePayload {
   count?: number
   untilDate?: string
   daysOfWeek?: number[] // 0 = Sunday, 1 = Monday, etc. (for custom weekly patterns)
+  timezone?: string // IANA e.g. 'America/New_York' - preserves local time across DST
 }
 
 export interface JobBreak {

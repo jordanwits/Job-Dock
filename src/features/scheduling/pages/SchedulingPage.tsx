@@ -566,7 +566,8 @@ const SchedulingPage = () => {
       recurrenceData: data.recurrence,
     })
     if (editingJob) {
-      const updatePayload = { ...data, id: editingJob.id, updateAll: editUpdateAll }
+      const updatePayload: any = { ...data, id: editingJob.id, updateAll: editUpdateAll }
+      if (editingJob.bookingId) updatePayload.bookingId = editingJob.bookingId
       const timesChanged =
         (data.startTime != null &&
           editingJob.startTime != null &&

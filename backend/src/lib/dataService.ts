@@ -45,6 +45,8 @@ import {
   getImportSessionData,
   parseCSVPreview,
 } from './csvImport'
+import { addDays, addWeeks, addMonths } from 'date-fns'
+import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 
 // Recurrence types
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -55,6 +57,7 @@ export interface RecurrencePayload {
   count?: number
   untilDate?: string
   daysOfWeek?: number[]
+  timezone?: string // IANA timezone e.g. 'America/New_York' - preserves local time across DST
 }
 
 const toNumber = (value: Prisma.Decimal | number | null | undefined) => (value ? Number(value) : 0)
@@ -549,6 +552,8 @@ function generateRecurrenceInstances(params: {
   )
   // #endregion
 
+  const tz = recurrence.timezone || undefined
+
   let currentStart = new Date(startTime)
   let currentEnd = new Date(endTime)
 
@@ -560,21 +565,37 @@ function generateRecurrenceInstances(params: {
       endTime: new Date(currentEnd),
     })
 
-    // Calculate next occurrence based on frequency
-    // Use normalized freq for comparison
-    if (freq === 'daily') {
-      currentStart = new Date(currentStart.getTime() + interval * 24 * 60 * 60 * 1000)
-    } else if (freq === 'weekly') {
-      currentStart = new Date(currentStart.getTime() + interval * 7 * 24 * 60 * 60 * 1000)
-    } else if (freq === 'monthly') {
-      const newStart = new Date(currentStart)
-      newStart.setMonth(newStart.getMonth() + interval)
-      currentStart = newStart
+    // Calculate next occurrence. When timezone is provided, use toZonedTime/add/fromZonedTime
+    // to preserve local clock time across DST (e.g. "9am" stays 9am when crossing spring DST).
+    // Without timezone, use native date arithmetic (works when server TZ matches user).
+    if (tz) {
+      const zonedStart = toZonedTime(currentStart, tz)
+      let nextZoned: Date
+      if (freq === 'daily') {
+        nextZoned = addDays(zonedStart, interval)
+      } else if (freq === 'weekly') {
+        nextZoned = addWeeks(zonedStart, interval)
+      } else if (freq === 'monthly') {
+        nextZoned = addMonths(zonedStart, interval)
+      } else {
+        nextZoned = addDays(zonedStart, interval)
+      }
+      currentStart = fromZonedTime(nextZoned, tz)
     } else {
-      // Fallback: if frequency doesn't match any pattern, default to daily
-      // This ensures dates always increment
-      console.log('[DEBUG] Unknown frequency, defaulting to daily:', freq)
-      currentStart = new Date(currentStart.getTime() + interval * 24 * 60 * 60 * 1000)
+      if (freq === 'daily') {
+        currentStart = new Date(currentStart)
+        currentStart.setDate(currentStart.getDate() + interval)
+      } else if (freq === 'weekly') {
+        currentStart = new Date(currentStart)
+        currentStart.setDate(currentStart.getDate() + interval * 7)
+      } else if (freq === 'monthly') {
+        const newStart = new Date(currentStart)
+        newStart.setMonth(newStart.getMonth() + interval)
+        currentStart = newStart
+      } else {
+        currentStart = new Date(currentStart)
+        currentStart.setDate(currentStart.getDate() + interval)
+      }
     }
 
     currentEnd = new Date(currentStart.getTime() + duration)
@@ -2528,22 +2549,41 @@ export const dataServices = {
 
       // Update all future bookings in recurrence
       if (payload.updateAll && primaryBooking?.recurrenceId) {
+        // Use the edited occurrence (payload.bookingId) for time delta - not primaryBooking.
+        // When user edits a later occurrence, primaryBooking is the first; using it would
+        // compute wrong timeDelta and collapse all dates to the same day when timeDelta was 0.
+        const editedBooking = payload.bookingId
+          ? existingJob.bookings.find((b: { id: string }) => b.id === payload.bookingId)
+          : primaryBooking
+        const baseBooking = editedBooking ?? primaryBooking
+
         const futureBookings = await prisma.booking.findMany({
           where: {
             recurrenceId: primaryBooking.recurrenceId,
             tenantId,
-            ...(primaryBooking.startTime ? { startTime: { gte: primaryBooking.startTime } } : {}),
+            ...(baseBooking?.startTime ? { startTime: { gte: baseBooking.startTime } } : {}),
           },
+          orderBy: { startTime: 'asc' },
         })
-        let timeDelta = 0
-        if (payload.startTime !== undefined && primaryBooking.startTime) {
-          timeDelta = new Date(payload.startTime).getTime() - new Date(primaryBooking.startTime).getTime()
-        }
+
+        const timeDelta =
+          payload.startTime !== undefined && baseBooking?.startTime
+            ? new Date(payload.startTime).getTime() - new Date(baseBooking.startTime).getTime()
+            : 0
+        const newDurationMs =
+          payload.startTime !== undefined && payload.endTime !== undefined
+            ? new Date(payload.endTime).getTime() - new Date(payload.startTime).getTime()
+            : null
+
         for (const b of futureBookings) {
           const data: any = { ...bookingUpdateData }
-          if (timeDelta !== 0 && b.startTime && b.endTime) {
-            data.startTime = new Date(new Date(b.startTime).getTime() + timeDelta)
-            data.endTime = new Date(new Date(b.endTime).getTime() + timeDelta)
+          if (b.startTime && b.endTime) {
+            const newStart = new Date(new Date(b.startTime).getTime() + timeDelta)
+            data.startTime = newStart
+            data.endTime =
+              newDurationMs != null
+                ? new Date(newStart.getTime() + newDurationMs)
+                : new Date(new Date(b.endTime).getTime() + timeDelta)
           }
           if (Object.keys(data).length > 0) {
             await prisma.booking.update({ where: { id: b.id }, data })
