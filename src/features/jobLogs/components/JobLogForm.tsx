@@ -9,6 +9,30 @@ import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import { PayChangeEffectiveDateModal } from './PayChangeEffectiveDateModal'
+
+function hasPayChangeWithTimeEntries(
+  oldAssignments: JobAssignment[] | undefined,
+  newAssignments: JobAssignment[] | null,
+  timeEntries: { userId?: string }[] | undefined
+): boolean {
+  if (!newAssignments || newAssignments.length === 0) return false
+  const entriesByUser = new Set((timeEntries ?? []).map(e => e.userId).filter(Boolean))
+  if (entriesByUser.size === 0) return false
+  const oldByUser = new Map<string, JobAssignment>()
+  for (const a of oldAssignments ?? []) {
+    if (a?.userId) oldByUser.set(a.userId, a)
+  }
+  for (const newA of newAssignments) {
+    const userId = newA?.userId
+    if (!userId || !entriesByUser.has(userId)) continue
+    const oldA = oldByUser.get(userId)
+    const oldRate = oldA?.payType === 'hourly' ? oldA.hourlyRate : oldA?.price
+    const newRate = newA?.payType === 'hourly' ? newA.hourlyRate : newA?.price
+    if (oldRate !== newRate) return true
+  }
+  return false
+}
 
 interface TeamMemberOption {
   id: string
@@ -42,6 +66,8 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
   const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [assignments, setAssignments] = useState<JobAssignment[]>([])
   const [selectedContactId, setSelectedContactId] = useState<string>(jobLog?.contactId ?? '')
+  const [showPayChangeModal, setShowPayChangeModal] = useState(false)
+  const [pendingFormData, setPendingFormData] = useState<any>(null)
   const [selectedStatus, setSelectedStatus] = useState<string>(
     jobLog?.status && ['active', 'completed', 'inactive', 'archived'].includes(jobLog.status)
       ? jobLog.status === 'archived'
@@ -252,31 +278,28 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
   const handleFormSubmit = async (data: JobLogFormData) => {
     // Convert empty/undefined assignedTo to null so backend clears it
     // Ensure price is explicitly included and properly normalized
+    const normalizedAssignedTo =
+      Array.isArray(data.assignedTo) && data.assignedTo.length > 0
+        ? data.assignedTo
+            .filter(a => a.userId && a.userId.trim() !== '')
+            .map(a => {
+              const normalizedA = {
+                ...a,
+                roleId: a.roleId === 'custom' ? undefined : a.roleId,
+              }
+              if (!normalizedA.roleId && normalizedA.role && jobRoles.length > 0) {
+                const match = jobRoles.find(r => r.title === normalizedA.role)
+                if (match) normalizedA.roleId = match.id
+              }
+              return normalizedA
+            })
+        : null
+
     const formData: any = {
       ...data,
-      assignedTo:
-        Array.isArray(data.assignedTo) && data.assignedTo.length > 0
-          ? data.assignedTo
-              .filter(a => a.userId && a.userId.trim() !== '')
-              .map(a => {
-                const normalizedA = {
-                  ...a,
-                  // Convert roleId: 'custom' to undefined before submission
-                  roleId: a.roleId === 'custom' ? undefined : a.roleId,
-                }
-                // If roleId is missing but role title matches an existing JobRole, attach roleId.
-                if (!normalizedA.roleId && normalizedA.role && jobRoles.length > 0) {
-                  const match = jobRoles.find(r => r.title === normalizedA.role)
-                  if (match) {
-                    normalizedA.roleId = match.id
-                  }
-                }
-                return normalizedA
-              })
-          : null,
+      assignedTo: normalizedAssignedTo,
     }
 
-    // Only include job price if user has permission.
     if (canSeeJobPrices) {
       formData.price =
         data.price === '' || data.price === null || data.price === undefined
@@ -288,7 +311,35 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
       delete formData.price
     }
 
+    const oldAssignments = (() => {
+      if (!jobLog?.assignedTo) return []
+      const a = jobLog.assignedTo
+      if (Array.isArray(a) && a.length > 0 && typeof a[0] === 'object' && a[0] !== null && 'userId' in a[0]) {
+        return a as JobAssignment[]
+      }
+      return []
+    })()
+
+    const needsEffectiveDate =
+      jobLog &&
+      canSeeJobPrices &&
+      hasPayChangeWithTimeEntries(oldAssignments, normalizedAssignedTo, jobLog.timeEntries)
+
+    if (needsEffectiveDate) {
+      setPendingFormData(formData)
+      setShowPayChangeModal(true)
+      return
+    }
+
     await onSubmit(formData)
+  }
+
+  const handlePayChangeModalConfirm = async (effectiveDate: string) => {
+    if (!pendingFormData) return
+    const dataWithEffective = { ...pendingFormData, payChangeEffectiveDate: effectiveDate }
+    setShowPayChangeModal(false)
+    setPendingFormData(null)
+    await onSubmit(dataWithEffective)
   }
 
   // Determine if we should show simplified form (simple create mode and not editing)
@@ -766,6 +817,16 @@ const JobLogForm = ({ jobLog, onSubmit, onCancel, isLoading, isSimpleCreate = fa
           Cancel
         </Button>
       </div>
+
+      <PayChangeEffectiveDateModal
+        isOpen={showPayChangeModal}
+        onClose={() => {
+          setShowPayChangeModal(false)
+          setPendingFormData(null)
+        }}
+        onConfirm={handlePayChangeModalConfirm}
+        isLoading={isLoading}
+      />
     </form>
   )
 }

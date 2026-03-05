@@ -16,6 +16,7 @@ export interface TimeEntry {
   endTime: string
   breakMinutes?: number
   notes?: string
+  hourlyRate?: number | null
   createdAt?: string
   updatedAt?: string
 }

@@ -3,6 +3,33 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState, useMemo } from 'react'
 import { jobSchema, type JobFormData } from '../schemas/jobSchemas'
 import { Job, RecurrenceFrequency, JobBreak, JobAssignment } from '../types/job'
+import { PayChangeEffectiveDateModal } from '@/features/jobLogs/components/PayChangeEffectiveDateModal'
+
+function hasPayChangeWithTimeEntries(
+  oldAssignments: JobAssignment[] | string | undefined,
+  newAssignments: JobAssignment[] | null,
+  timeEntries: { userId?: string }[] | undefined
+): boolean {
+  if (!newAssignments || newAssignments.length === 0) return false
+  const entriesByUser = new Set((timeEntries ?? []).map(e => e.userId).filter(Boolean))
+  if (entriesByUser.size === 0) return false
+  const oldByUser = new Map<string, JobAssignment>()
+  const oldArr = Array.isArray(oldAssignments) && oldAssignments.length > 0 && typeof oldAssignments[0] === 'object'
+    ? (oldAssignments as JobAssignment[])
+    : []
+  for (const a of oldArr) {
+    if (a?.userId) oldByUser.set(a.userId, a)
+  }
+  for (const newA of newAssignments) {
+    const userId = newA?.userId
+    if (!userId || !entriesByUser.has(userId)) continue
+    const oldA = oldByUser.get(userId)
+    const oldRate = oldA?.payType === 'hourly' ? oldA.hourlyRate : oldA?.price
+    const newRate = newA?.payType === 'hourly' ? newA.hourlyRate : newA?.price
+    if (oldRate !== newRate) return true
+  }
+  return false
+}
 import { Input, Button, Select, DatePicker, TimePicker } from '@/components/ui'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useContactStore } from '@/features/crm/store/contactStore'
@@ -43,6 +70,7 @@ interface JobFormProps {
   isSimpleCreate?: boolean // When true and not editing, show only title, description, location, contact
   allowLinkExistingJob?: boolean // When true, show option to link to existing job
   existingJobId?: string // Pre-selected existing job ID
+  timeEntries?: Array<{ userId?: string }> // When provided and pay changes, show effective-date modal
 }
 
 interface TeamMemberOption {
@@ -70,6 +98,7 @@ const JobForm = ({
   isSimpleCreate = false,
   allowLinkExistingJob = false,
   existingJobId: propExistingJobId,
+  timeEntries: propTimeEntries,
 }: JobFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { services, fetchServices } = useServiceStore()
@@ -102,6 +131,8 @@ const JobForm = ({
   )
   const [scheduleDateError, setScheduleDateError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [showPayChangeModal, setShowPayChangeModal] = useState(false)
+  const [pendingSubmit, setPendingSubmit] = useState<{ formData: any; existingJobId?: string } | null>(null)
   const [startTime, setStartTime] = useState(
     job && job.startTime ? format(new Date(job.startTime), 'HH:mm') : '09:00'
   )
@@ -694,8 +725,17 @@ const JobForm = ({
         // Don't include job price if user doesn't have permission
         price: shouldIncludeJobPrice ? convertPrice(dataWithoutTimes.price) : undefined,
       }
-      // Pass existingJobId if linking to existing job
       const existingJobId = jobSelectionMode === 'existing' ? selectedExistingJobId : undefined
+      const needsEffectiveDate =
+        job &&
+        propTimeEntries &&
+        canSeeJobPrices &&
+        hasPayChangeWithTimeEntries(job.assignedTo, normalizedAssignments, propTimeEntries)
+      if (needsEffectiveDate) {
+        setPendingSubmit({ formData, existingJobId })
+        setShowPayChangeModal(true)
+        return
+      }
       await onSubmit(formData, existingJobId)
       return
     }
@@ -828,9 +868,26 @@ const JobForm = ({
       recurrence: formData.recurrence ? 'yes' : 'no',
       recurrenceDetails: formData.recurrence,
     })
-    // Pass existingJobId if linking to existing job
     const existingJobId = jobSelectionMode === 'existing' ? selectedExistingJobId : undefined
+    const needsEffectiveDate =
+      job &&
+      propTimeEntries &&
+      canSeeJobPrices &&
+      hasPayChangeWithTimeEntries(job.assignedTo, normalizedAssignments, propTimeEntries)
+    if (needsEffectiveDate) {
+      setPendingSubmit({ formData, existingJobId })
+      setShowPayChangeModal(true)
+      return
+    }
     await onSubmit(formData, existingJobId)
+  }
+
+  const handlePayChangeModalConfirm = async (effectiveDate: string) => {
+    if (!pendingSubmit) return
+    const { formData, existingJobId } = pendingSubmit
+    setShowPayChangeModal(false)
+    setPendingSubmit(null)
+    await onSubmit({ ...formData, payChangeEffectiveDate: effectiveDate }, existingJobId)
   }
 
   const handleInvalidSubmit = (invalid: any) => {
@@ -2005,6 +2062,16 @@ const JobForm = ({
           {isLoading ? 'Saving...' : job ? 'Update Job' : 'Create Job'}
         </Button>
       </div>
+
+      <PayChangeEffectiveDateModal
+        isOpen={showPayChangeModal}
+        onClose={() => {
+          setShowPayChangeModal(false)
+          setPendingSubmit(null)
+        }}
+        onConfirm={handlePayChangeModalConfirm}
+        isLoading={isLoading}
+      />
     </form>
   )
 }

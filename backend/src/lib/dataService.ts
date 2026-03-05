@@ -216,7 +216,7 @@ async function validateAssignedTo(tenantId: string, assignedTo: any): Promise<vo
   if (invalidIds.length > 0) {
     throw new ApiError(`Assigned user(s) must be members of your team. Invalid IDs: ${invalidIds.join(', ')}`, 400)
   }
-  
+
   // Validate roles are strings and roleId exists if provided
   const roleIds = normalized
     .map(a => {
@@ -235,10 +235,10 @@ async function validateAssignedTo(tenantId: string, assignedTo: any): Promise<vo
       },
       select: { id: true },
     })
-    
+
     const foundRoleIds = new Set(jobRoles.map(r => r.id))
     const invalidRoleIds = roleIds.filter(id => !foundRoleIds.has(id))
-    
+
     if (invalidRoleIds.length > 0) {
       throw new ApiError(`Invalid job role ID(s): ${invalidRoleIds.join(', ')}`, 400)
     }
@@ -249,10 +249,70 @@ async function validateAssignedTo(tenantId: string, assignedTo: any): Promise<vo
       if (typeof assignment.role !== 'string' || assignment.role.trim() === '') {
         throw new ApiError('All assignments must have a valid role (non-empty string)', 400)
       }
-      
+
       // Validate prices are numbers if provided
       if (assignment.price !== null && assignment.price !== undefined && typeof assignment.price !== 'number') {
         throw new ApiError('Price must be a number if provided', 400)
+      }
+    }
+  }
+}
+
+// Apply effective-date logic when pay (hourly rate) changes on a job with time entries.
+// effectiveDate: ISO date string (YYYY-MM-DD) or Date. When today/future: preserve old rate on existing entries.
+// When past: entries on/after that date get new rate; entries before get old rate.
+async function applyPayChangeEffectiveDate(
+  tenantId: string,
+  jobId: string,
+  oldAssignedTo: any,
+  newAssignedTo: JobAssignment[] | null,
+  effectiveDateRaw: string | Date
+): Promise<void> {
+  if (!newAssignedTo || newAssignedTo.length === 0) return
+  const oldNorm = normalizeAssignedTo(oldAssignedTo) ?? []
+  const oldByUser = new Map<string, JobAssignment>()
+  for (const a of oldNorm) {
+    if (a && typeof a === 'object' && 'userId' in a && a.userId) oldByUser.set(a.userId, a)
+  }
+  const effectiveDate = typeof effectiveDateRaw === 'string'
+    ? new Date(effectiveDateRaw + 'T12:00:00Z') // noon UTC to avoid timezone edge cases
+    : new Date(effectiveDateRaw)
+  const effectiveDateStart = new Date(Date.UTC(effectiveDate.getUTCFullYear(), effectiveDate.getUTCMonth(), effectiveDate.getUTCDate()))
+  const now = new Date()
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const isEffectiveTodayOrFuture = effectiveDateStart >= todayStart
+
+  const timeEntries = await prisma.timeEntry.findMany({
+    where: { jobId, tenantId },
+    select: { id: true, userId: true, startTime: true, hourlyRate: true },
+  })
+
+  for (const newA of newAssignedTo) {
+    const userId = newA?.userId
+    if (!userId || typeof userId !== 'string') continue
+    const oldA = oldByUser.get(userId)
+    const oldRate = oldA?.payType === 'hourly' && typeof oldA.hourlyRate === 'number' ? oldA.hourlyRate : null
+    const newRate = newA?.payType === 'hourly' && typeof newA.hourlyRate === 'number' ? newA.hourlyRate : null
+    const rateChanged = oldRate !== newRate
+    if (!rateChanged) continue
+
+    const userEntries = timeEntries.filter(e => e.userId === userId)
+    if (userEntries.length === 0) continue
+
+    if (isEffectiveTodayOrFuture) {
+      await prisma.timeEntry.updateMany({
+        where: { id: { in: userEntries.map(e => e.id) } },
+        data: { hourlyRate: oldRate != null ? new Prisma.Decimal(oldRate) : null },
+      })
+    } else {
+      for (const e of userEntries) {
+        const entryDate = new Date(e.startTime)
+        const entryDateStart = new Date(Date.UTC(entryDate.getUTCFullYear(), entryDate.getUTCMonth(), entryDate.getUTCDate()))
+        const rate = entryDateStart >= effectiveDateStart ? newRate : oldRate
+        await prisma.timeEntry.update({
+          where: { id: e.id },
+          data: { hourlyRate: rate != null ? new Prisma.Decimal(rate) : null },
+        })
       }
     }
   }
@@ -2187,6 +2247,7 @@ export const dataServices = {
           endTime: te.endTime.toISOString(),
           userId: te.userId ?? undefined,
           userName: te.user?.name ?? undefined,
+          hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
         })),
       }
     },
@@ -2557,6 +2618,22 @@ export const dataServices = {
             },
           })
         }
+      }
+
+      // Effective-date pay change: update time entries before updating job
+      const effectiveDate = payload.effectiveDate ?? payload.payChangeEffectiveDate
+      if (
+        effectiveDate &&
+        jobUpdateData.assignedTo &&
+        JSON.stringify(jobUpdateData.assignedTo) !== JSON.stringify(existingJob.assignedTo)
+      ) {
+        await applyPayChangeEffectiveDate(
+          tenantId,
+          id,
+          existingJob.assignedTo,
+          jobUpdateData.assignedTo as JobAssignment[],
+          effectiveDate
+        )
       }
 
       if (Object.keys(jobUpdateData).length > 0) {
@@ -4360,6 +4437,7 @@ export const dataServices = {
               notes: te.notes,
               userId: te.userId ?? undefined,
               userName: te.user?.name ?? undefined,
+              hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
             })),
             photos,
           }
@@ -4466,6 +4544,7 @@ export const dataServices = {
           endTime: te.endTime.toISOString(),
           breakMinutes: te.breakMinutes,
           notes: te.notes,
+          hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
           createdAt: te.createdAt.toISOString(),
           updatedAt: te.updatedAt.toISOString(),
           userId: te.userId ?? undefined,
@@ -4569,6 +4648,22 @@ export const dataServices = {
       const contactId = payload.contactId !== undefined ? (payload.contactId && payload.contactId.trim() ? payload.contactId : null) : undefined
       const normalizedAssignedTo = payload.assignedTo !== undefined ? normalizeAssignedTo(payload.assignedTo) : undefined
       if (normalizedAssignedTo !== undefined && normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
+
+      // Effective-date pay change: update time entries before updating job
+      const effectiveDate = payload.effectiveDate ?? payload.payChangeEffectiveDate
+      if (
+        effectiveDate &&
+        normalizedAssignedTo &&
+        JSON.stringify(normalizedAssignedTo) !== JSON.stringify(existing.assignedTo)
+      ) {
+        await applyPayChangeEffectiveDate(
+          tenantId,
+          id,
+          existing.assignedTo,
+          normalizedAssignedTo,
+          effectiveDate
+        )
+      }
 
       // Update primary booking fields (price/service) when provided
       const primaryBooking = existing.bookings[0]
@@ -4909,6 +5004,7 @@ export const dataServices = {
         endTime: te.endTime.toISOString(),
         userId: te.userId ?? undefined,
         userName: te.user?.name ?? undefined,
+        hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
       }))
     },
     getById: async (tenantId: string, id: string) => {
@@ -4933,6 +5029,7 @@ export const dataServices = {
         endTime: te.endTime.toISOString(),
         userId: te.userId ?? undefined,
         userName: te.user?.name ?? undefined,
+        hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
       }
     },
     create: async (

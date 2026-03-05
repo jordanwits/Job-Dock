@@ -132,14 +132,16 @@ export const JobsReport = ({
           if (
             assignment &&
             assignment.payType === 'hourly' &&
-            assignment.hourlyRate &&
             entry.userId
           ) {
-            const start = new Date(entry.startTime).getTime()
-            const end = new Date(entry.endTime).getTime()
-            const breakMinutes = entry.breakMinutes || 0
-            const hours = ((end - start) / 60000 - breakMinutes) / 60
-            totalCost += hours * assignment.hourlyRate
+            const rate = (entry as any).hourlyRate ?? assignment.hourlyRate
+            if (rate != null && !isNaN(rate)) {
+              const start = new Date(entry.startTime).getTime()
+              const end = new Date(entry.endTime).getTime()
+              const breakMinutes = entry.breakMinutes || 0
+              const hours = ((end - start) / 60000 - breakMinutes) / 60
+              totalCost += hours * rate
+            }
           } else if (assignment && assignment.payType === 'job' && assignment.price) {
             // For job-based pay, we'd need to track which jobs have been paid
             // For now, we'll skip to avoid double-counting

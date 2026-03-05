@@ -59,6 +59,7 @@ const JobLogDetailPage = () => {
     serviceId?: string
     assignedTo?: import('../types/jobLog').JobAssignment[]
     status?: string
+    payChangeEffectiveDate?: string
   }) => {
     if (!editingJobLogId) return
     await updateJobLog(editingJobLogId, data)

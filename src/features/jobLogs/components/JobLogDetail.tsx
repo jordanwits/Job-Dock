@@ -815,6 +815,22 @@ const JobLogDetail = ({
                     }, 0)
                   }
 
+                  const getTotalEarnedForUser = (userId: string, assignmentHourlyRate: number | null | undefined): number | null => {
+                    const entries = (jobLog.timeEntries ?? []).filter(te => te.userId === userId)
+                    if (entries.length === 0) return null
+                    let total = 0
+                    for (const te of entries) {
+                      const rate = te.hourlyRate ?? assignmentHourlyRate
+                      if (rate == null || isNaN(rate)) continue
+                      const start = new Date(te.startTime).getTime()
+                      const end = new Date(te.endTime).getTime()
+                      const breakMin = (te.breakMinutes ?? 0) * 60 * 1000
+                      const hours = (end - start - breakMin) / 3600000
+                      total += hours * rate
+                    }
+                    return total > 0 ? total : null
+                  }
+
                   const assignments = parsedAssignments
                   const currentUserId = user?.id
                   const canSeePrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
@@ -852,8 +868,8 @@ const JobLogDetail = ({
                             const totalMinutes = getTotalMinutesForUser(assignment.userId)
                             const totalHours = totalMinutes / 60
                             const totalEarned =
-                              payType === 'hourly' && hourlyRate != null && !isNaN(hourlyRate)
-                                ? totalHours * hourlyRate
+                              payType === 'hourly'
+                                ? getTotalEarnedForUser(assignment.userId, hourlyRate ?? null)
                                 : null
 
                             const hasJobPrice =

@@ -1228,12 +1228,21 @@ const TimeTracker = ({
             const userId = group.userId
             const assignment = userId ? assignedTo?.find(a => a.userId === userId) : undefined
             const payType = assignment?.payType || 'job'
-            const hourlyRate = assignment?.hourlyRate
-            const totalHours = memberTotalSeconds / 3600
-            const earned =
-              payType === 'hourly' && hourlyRate != null && !isNaN(hourlyRate)
-                ? totalHours * hourlyRate
-                : null
+            const fallbackRate = assignment?.hourlyRate
+            const earned = (() => {
+              if (payType !== 'hourly') return null
+              let total = 0
+              for (const te of group.entries) {
+                const rate = te.hourlyRate ?? fallbackRate
+                if (rate == null || isNaN(rate)) continue
+                const start = new Date(te.startTime).getTime()
+                const end = new Date(te.endTime).getTime()
+                const breakMin = (te.breakMinutes ?? 0) * 60 * 1000
+                const hours = (end - start - breakMin) / 3600000
+                total += hours * rate
+              }
+              return total > 0 ? total : null
+            })()
             return (
               <div key={groupIndex} className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-primary-blue/30 pb-2">

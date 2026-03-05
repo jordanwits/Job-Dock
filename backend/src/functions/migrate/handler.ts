@@ -858,6 +858,13 @@ WHERE "assignedTo" IS NOT NULL
     ],
     description: 'Add deleteAccountAtPeriodEnd to tenants for scheduled account deletion',
   },
+  {
+    name: '20260305000000_add_time_entry_hourly_rate',
+    statements: [
+      `ALTER TABLE "time_entries" ADD COLUMN IF NOT EXISTS "hourlyRate" DECIMAL(10,2)`,
+    ],
+    description: 'Add hourlyRate to time_entries for effective-date pay changes',
+  },
 ]
 
 export const handler = async (

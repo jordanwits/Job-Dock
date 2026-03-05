@@ -232,8 +232,9 @@ export const EmployeeHoursReport = ({
             const payType = assignment.payType || 'job'
             let pay = 0
 
-            if (payType === 'hourly' && assignment.hourlyRate) {
-              pay = hours * assignment.hourlyRate
+            if (payType === 'hourly') {
+              const rate = (entry as any).hourlyRate ?? assignment.hourlyRate
+              if (rate != null && !isNaN(rate)) pay = hours * rate
               userData.totalPay += pay
             } else if (payType === 'job' && assignment.price) {
               // For job-based pay, we'd need to track which jobs have been paid
