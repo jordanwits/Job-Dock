@@ -965,7 +965,7 @@ const JobLogDetail = ({
                 })()}
               {showCreatedBy && jobLog.job?.createdByName && (
                 <span className={cn(
-                  "inline-block px-2 py-1 rounded text-xs font-medium border break-words",
+                  "inline-block w-fit px-2 py-1 rounded text-xs font-medium border break-words",
                   theme === 'dark'
                     ? 'bg-primary-blue/20 text-primary-light/90 border-primary-blue/30'
                     : 'bg-blue-100 text-blue-700 border-blue-300'

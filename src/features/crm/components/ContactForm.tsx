@@ -83,7 +83,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
       state: data.state || undefined,
       zipCode: data.zipCode || undefined,
       country: data.country || undefined,
-      notes: data.notes || undefined,
+      notes: data.notes ?? '',
       notificationPreference: data.notificationPreference || 'both',
     }
     await onSubmit(cleanedData, scheduleJobAfterCreate)

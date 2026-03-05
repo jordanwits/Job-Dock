@@ -2396,7 +2396,7 @@ export const dataServices = {
       if (payload.status !== undefined) jobUpdateData.status = payload.status
       if (payload.location !== undefined) jobUpdateData.location = payload.location
       if (payload.notes !== undefined) jobUpdateData.notes = payload.notes
-      if (payload.assignedTo !== undefined) jobUpdateData.assignedTo = (normalizeAssignedTo(payload.assignedTo) ?? undefined) as unknown as Prisma.InputJsonValue
+      if (payload.assignedTo !== undefined) jobUpdateData.assignedTo = (normalizeAssignedTo(payload.assignedTo) ?? null) as unknown as Prisma.InputJsonValue
 
       const bookingUpdateData: any = {}
       if (payload.serviceId !== undefined) {
@@ -4597,7 +4597,7 @@ export const dataServices = {
           contactId,
           serviceId: payload.serviceId !== undefined ? (payload.serviceId || null) : undefined,
           price: payload.price !== undefined ? normalizePrice(payload.price) : undefined,
-          assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+          assignedTo: (normalizedAssignedTo ?? null) as unknown as Prisma.InputJsonValue,
           status: payload.status ?? undefined,
         },
         include: { contact: true, service: true, bookings: { include: { service: true }, orderBy: { startTime: 'asc' } }, timeEntries: true },

@@ -267,7 +267,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                 {statusLabels[job.status]}
               </span>
               {showCreatedBy && job.createdByName && (
-                <span className="inline-block px-3 py-1 rounded text-sm font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
+                <span className="inline-block w-fit px-3 py-1 rounded text-sm font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
                   Created by {job.createdByName}
                 </span>
               )}
