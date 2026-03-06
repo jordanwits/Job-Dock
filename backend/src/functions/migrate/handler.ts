@@ -865,6 +865,14 @@ WHERE "assignedTo" IS NOT NULL
     ],
     description: 'Add hourlyRate to time_entries for effective-date pay changes',
   },
+  {
+    name: '20260306000000_contact_status_remove_active',
+    statements: [
+      `UPDATE "contacts" SET "status" = 'customer' WHERE "status" = 'active'`,
+      `ALTER TABLE "contacts" ALTER COLUMN "status" SET DEFAULT 'lead'`,
+    ],
+    description: 'Remove active as contact status: migrate existing to customer, default to lead',
+  },
 ]
 
 export const handler = async (

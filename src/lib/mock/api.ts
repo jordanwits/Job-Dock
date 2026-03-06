@@ -208,7 +208,7 @@ export const mockContactsService = {
       country: data.country || '',
       tags: data.tags || [],
       notes: data.notes || '',
-      status: data.status || 'active',
+      status: data.status || 'customer',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -908,7 +908,7 @@ export const mockServicesService = {
         email: payload.contact?.email || '',
         phone: payload.contact?.phone || '',
         company: payload.contact?.company || '',
-        status: 'active',
+        status: 'customer',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }

@@ -84,7 +84,7 @@ model Contact {
   country        String          @default("USA")
   tags                    String[]        @default([])
   notes                   String?
-  status                  String          @default("active")
+  status                  String          @default("lead")
   notificationPreference  String          @default("both") // 'email' | 'sms' | 'both'
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
