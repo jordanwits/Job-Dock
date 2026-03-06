@@ -621,21 +621,6 @@ const ContactDetail = ({
                         <button
                           type="button"
                           onClick={() => {
-                            setShowCreateInvoice(true)
-                            setShowDropdown(false)
-                          }}
-                          className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
-                            theme === 'dark'
-                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
-                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
-                          )}
-                        >
-                          Create Invoice
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
                             setShowCreateJob(true)
                             setShowDropdown(false)
                           }}
@@ -647,6 +632,21 @@ const ContactDetail = ({
                           )}
                         >
                           Create Job
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCreateInvoice(true)
+                            setShowDropdown(false)
+                          }}
+                          className={cn(
+                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
+                            theme === 'dark'
+                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
+                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
+                          )}
+                        >
+                          Create Invoice
                         </button>
                         <button
                           type="button"
