@@ -35,7 +35,12 @@ const ContactDetail = ({
   const { theme } = useTheme()
   const { updateContact, deleteContact, isLoading } = useContactStore()
   const { createQuote, sendQuote, isLoading: quoteLoading } = useQuoteStore()
-  const { createJob, isLoading: jobLoading, error: jobError, clearError: clearJobError } = useJobStore()
+  const {
+    createJob,
+    isLoading: jobLoading,
+    error: jobError,
+    clearError: clearJobError,
+  } = useJobStore()
   const { createInvoice, sendInvoice, isLoading: invoiceLoading } = useInvoiceStore()
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -72,21 +77,26 @@ const ContactDetail = ({
   }
 
   const statusColors = {
-    customer: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-    lead: theme === 'dark'
-      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    prospect: theme === 'dark'
-      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    inactive: theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      : 'bg-gray-200 text-gray-700 border-gray-400',
-    contact: theme === 'dark'
-      ? 'bg-primary-gold/20 text-primary-gold border-primary-gold/30'
-      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    customer:
+      theme === 'dark'
+        ? 'bg-green-500/20 text-green-400 border-green-500/30'
+        : 'bg-green-100 text-green-700 border-green-300',
+    lead:
+      theme === 'dark'
+        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+        : 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    prospect:
+      theme === 'dark'
+        ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+        : 'bg-blue-100 text-blue-700 border-blue-300',
+    inactive:
+      theme === 'dark'
+        ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+        : 'bg-gray-200 text-gray-700 border-gray-400',
+    contact:
+      theme === 'dark'
+        ? 'bg-primary-gold/20 text-primary-gold border-primary-gold/30'
+        : 'bg-yellow-100 text-yellow-700 border-yellow-300',
   }
 
   const statusOptions = [
@@ -110,7 +120,7 @@ const ContactDetail = ({
       const newQuote = await createQuote(data)
       setShowCreateQuote(false)
       onClose()
-      
+
       // Resolve the correct quote ID by polling the quotes list API
       // (similar to jobs - the create response ID may not match the detail page ID)
       const expected = {
@@ -135,7 +145,8 @@ const ContactDetail = ({
             // 2) Match by contactId + quoteNumber (most reliable)
             if (expected.quoteNumber) {
               const byQuoteNumber = candidates.find(
-                (q: any) => q?.contactId === expected.contactId && q?.quoteNumber === expected.quoteNumber
+                (q: any) =>
+                  q?.contactId === expected.contactId && q?.quoteNumber === expected.quoteNumber
               )
               if (byQuoteNumber?.id) return byQuoteNumber.id
             }
@@ -154,7 +165,8 @@ const ContactDetail = ({
             })
             if (strongMatches.length > 0) {
               strongMatches.sort(
-                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
               )
               return strongMatches[0].id
             }
@@ -163,7 +175,7 @@ const ContactDetail = ({
           }
 
           // backoff
-          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+          await new Promise(r => setTimeout(r, baseDelayMs * (attempt + 1)))
         }
         return undefined
       }
@@ -190,7 +202,7 @@ const ContactDetail = ({
       }
       setShowCreateQuote(false)
       onClose()
-      
+
       // Resolve the correct quote ID by polling the quotes list API
       const expected = {
         contactId: contact.id,
@@ -214,7 +226,8 @@ const ContactDetail = ({
             // 2) Match by contactId + quoteNumber (most reliable)
             if (expected.quoteNumber) {
               const byQuoteNumber = candidates.find(
-                (q: any) => q?.contactId === expected.contactId && q?.quoteNumber === expected.quoteNumber
+                (q: any) =>
+                  q?.contactId === expected.contactId && q?.quoteNumber === expected.quoteNumber
               )
               if (byQuoteNumber?.id) return byQuoteNumber.id
             }
@@ -233,7 +246,8 @@ const ContactDetail = ({
             })
             if (strongMatches.length > 0) {
               strongMatches.sort(
-                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
               )
               return strongMatches[0].id
             }
@@ -242,7 +256,7 @@ const ContactDetail = ({
           }
 
           // backoff
-          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+          await new Promise(r => setTimeout(r, baseDelayMs * (attempt + 1)))
         }
         return undefined
       }
@@ -312,7 +326,8 @@ const ContactDetail = ({
             })
             if (strongMatches.length > 0) {
               strongMatches.sort(
-                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
               )
               return strongMatches[0].id
             }
@@ -322,11 +337,13 @@ const ContactDetail = ({
               .filter((j: any) => {
                 const sameContact = j.contactId === expected.contactId
                 const sameTitle = (j.title ?? '').trim() === (expected.title ?? '').trim()
-                const sameDesc = (j.description ?? '').trim() === (expected.description ?? '').trim()
+                const sameDesc =
+                  (j.description ?? '').trim() === (expected.description ?? '').trim()
                 return j?.id && sameContact && sameTitle && sameDesc
               })
               .sort(
-                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
               )[0]
             if (fallback?.id) return fallback.id
           } catch {
@@ -334,7 +351,7 @@ const ContactDetail = ({
           }
 
           // backoff
-          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+          await new Promise(r => setTimeout(r, baseDelayMs * (attempt + 1)))
         }
         return undefined
       }
@@ -356,7 +373,7 @@ const ContactDetail = ({
       const newInvoice = await createInvoice(data)
       setShowCreateInvoice(false)
       onClose()
-      
+
       // Resolve the correct invoice ID by polling the invoices list API
       const expected = {
         contactId: contact.id,
@@ -380,7 +397,8 @@ const ContactDetail = ({
             // 2) Match by contactId + invoiceNumber (most reliable)
             if (expected.invoiceNumber) {
               const byInvoiceNumber = candidates.find(
-                (i: any) => i?.contactId === expected.contactId && i?.invoiceNumber === expected.invoiceNumber
+                (i: any) =>
+                  i?.contactId === expected.contactId && i?.invoiceNumber === expected.invoiceNumber
               )
               if (byInvoiceNumber?.id) return byInvoiceNumber.id
             }
@@ -399,7 +417,8 @@ const ContactDetail = ({
             })
             if (strongMatches.length > 0) {
               strongMatches.sort(
-                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
               )
               return strongMatches[0].id
             }
@@ -408,7 +427,7 @@ const ContactDetail = ({
           }
 
           // backoff
-          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+          await new Promise(r => setTimeout(r, baseDelayMs * (attempt + 1)))
         }
         return undefined
       }
@@ -435,7 +454,7 @@ const ContactDetail = ({
       }
       setShowCreateInvoice(false)
       onClose()
-      
+
       // Resolve the correct invoice ID by polling the invoices list API
       const expected = {
         contactId: contact.id,
@@ -459,7 +478,8 @@ const ContactDetail = ({
             // 2) Match by contactId + invoiceNumber (most reliable)
             if (expected.invoiceNumber) {
               const byInvoiceNumber = candidates.find(
-                (i: any) => i?.contactId === expected.contactId && i?.invoiceNumber === expected.invoiceNumber
+                (i: any) =>
+                  i?.contactId === expected.contactId && i?.invoiceNumber === expected.invoiceNumber
               )
               if (byInvoiceNumber?.id) return byInvoiceNumber.id
             }
@@ -478,7 +498,8 @@ const ContactDetail = ({
             })
             if (strongMatches.length > 0) {
               strongMatches.sort(
-                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
               )
               return strongMatches[0].id
             }
@@ -487,7 +508,7 @@ const ContactDetail = ({
           }
 
           // backoff
-          await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)))
+          await new Promise(r => setTimeout(r, baseDelayMs * (attempt + 1)))
         }
         return undefined
       }
@@ -563,7 +584,7 @@ const ContactDetail = ({
                 <Button
                   onClick={() => setShowDropdown(!showDropdown)}
                   className={cn(
-                    "w-full sm:w-10 h-10 p-0 text-2xl sm:text-xl font-semibold",
+                    'w-full sm:w-10 h-10 p-0 text-2xl sm:text-xl font-semibold',
                     theme === 'dark'
                       ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
                       : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
@@ -573,12 +594,14 @@ const ContactDetail = ({
                 </Button>
                 {showDropdown && (
                   <>
-                    <div className={cn(
-                      "absolute z-40 mt-2 w-full sm:min-w-[160px] sm:w-auto left-0 right-0 sm:left-auto sm:right-auto rounded-lg border shadow-xl",
-                      theme === 'dark'
-                        ? 'border-primary-blue bg-primary-dark-secondary'
-                        : 'border-gray-200 bg-white'
-                    )}>
+                    <div
+                      className={cn(
+                        'absolute z-40 mt-2 w-full sm:min-w-[160px] sm:w-auto left-0 right-0 sm:left-auto sm:right-auto rounded-lg border shadow-xl',
+                        theme === 'dark'
+                          ? 'border-primary-blue bg-primary-dark-secondary'
+                          : 'border-gray-200 bg-white'
+                      )}
+                    >
                       <div className="p-2 space-y-2">
                         <button
                           type="button"
@@ -638,7 +661,7 @@ const ContactDetail = ({
                               : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
                           )}
                         >
-                          Schedule Job
+                          Schedule Appointment
                         </button>
                       </div>
                     </div>
@@ -658,17 +681,23 @@ const ContactDetail = ({
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className={cn(
-                "text-2xl font-bold",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
+              <h2
+                className={cn(
+                  'text-2xl font-bold',
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}
+              >
                 {contact.firstName} {contact.lastName}
               </h2>
               {contact.company && (
-                <p className={cn(
-                  "mt-1",
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>{contact.company}</p>
+                <p
+                  className={cn(
+                    'mt-1',
+                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                  )}
+                >
+                  {contact.company}
+                </p>
               )}
             </div>
             <StatusBadgeSelect
@@ -688,7 +717,7 @@ const ContactDetail = ({
                 <span
                   key={index}
                   className={cn(
-                    "px-2 py-1 text-xs rounded",
+                    'px-2 py-1 text-xs rounded',
                     theme === 'dark'
                       ? 'bg-primary-blue/20 text-primary-blue'
                       : 'bg-blue-100 text-blue-700'
@@ -703,18 +732,26 @@ const ContactDetail = ({
           {/* Contact Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className={cn(
-                "text-sm font-medium mb-3",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>
+              <h3
+                className={cn(
+                  'text-sm font-medium mb-3',
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}
+              >
                 Contact Information
               </h3>
               <div className="space-y-2 text-sm">
                 {contact.email && (
                   <div>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Email: </span>
+                    <span
+                      className={cn(
+                        theme === 'dark'
+                          ? 'text-primary-light/70'
+                          : 'text-primary-lightTextSecondary'
+                      )}
+                    >
+                      Email:{' '}
+                    </span>
                     <a
                       href={`mailto:${contact.email}`}
                       className="text-primary-gold hover:underline"
@@ -725,12 +762,21 @@ const ContactDetail = ({
                 )}
                 {contact.phone && (
                   <div>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Phone: </span>
-                    <a href={`tel:${contact.phone}`} className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
+                    <span
+                      className={cn(
+                        theme === 'dark'
+                          ? 'text-primary-light/70'
+                          : 'text-primary-lightTextSecondary'
+                      )}
+                    >
+                      Phone:{' '}
+                    </span>
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className={cn(
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}
+                    >
                       {contact.phone}
                     </a>
                   </div>
@@ -739,31 +785,53 @@ const ContactDetail = ({
             </div>
 
             <div>
-              <h3 className={cn(
-                "text-sm font-medium mb-3",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>
+              <h3
+                className={cn(
+                  'text-sm font-medium mb-3',
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}
+              >
                 Company Information
               </h3>
               <div className="space-y-2 text-sm">
                 {contact.company && (
                   <div>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Company: </span>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>{contact.company}</span>
+                    <span
+                      className={cn(
+                        theme === 'dark'
+                          ? 'text-primary-light/70'
+                          : 'text-primary-lightTextSecondary'
+                      )}
+                    >
+                      Company:{' '}
+                    </span>
+                    <span
+                      className={cn(
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}
+                    >
+                      {contact.company}
+                    </span>
                   </div>
                 )}
                 {contact.jobTitle && (
                   <div>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Job Title: </span>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>{contact.jobTitle}</span>
+                    <span
+                      className={cn(
+                        theme === 'dark'
+                          ? 'text-primary-light/70'
+                          : 'text-primary-lightTextSecondary'
+                      )}
+                    >
+                      Job Title:{' '}
+                    </span>
+                    <span
+                      className={cn(
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}
+                    >
+                      {contact.jobTitle}
+                    </span>
                   </div>
                 )}
               </div>
@@ -773,14 +841,20 @@ const ContactDetail = ({
           {/* Address */}
           {(contact.address || contact.city || contact.state) && (
             <div>
-              <h3 className={cn(
-                "text-sm font-medium mb-3",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>Address</h3>
-              <div className={cn(
-                "text-sm",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
+              <h3
+                className={cn(
+                  'text-sm font-medium mb-3',
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}
+              >
+                Address
+              </h3>
+              <div
+                className={cn(
+                  'text-sm',
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}
+              >
                 {contact.address && <div>{contact.address}</div>}
                 {(contact.city || contact.state || contact.zipCode) && (
                   <div>
@@ -797,24 +871,34 @@ const ContactDetail = ({
           {/* Notes */}
           {contact.notes && (
             <div>
-              <h3 className={cn(
-                "text-sm font-medium mb-3",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>Notes</h3>
-              <p className={cn(
-                "text-sm whitespace-pre-wrap",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>{contact.notes}</p>
+              <h3
+                className={cn(
+                  'text-sm font-medium mb-3',
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}
+              >
+                Notes
+              </h3>
+              <p
+                className={cn(
+                  'text-sm whitespace-pre-wrap',
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}
+              >
+                {contact.notes}
+              </p>
             </div>
           )}
 
           {/* Metadata */}
-          <div className={cn(
-            "pt-4 border-t text-xs",
-            theme === 'dark'
-              ? 'border-primary-blue text-primary-light/50'
-              : 'border-gray-200/20 text-primary-lightTextSecondary'
-          )}>
+          <div
+            className={cn(
+              'pt-4 border-t text-xs',
+              theme === 'dark'
+                ? 'border-primary-blue text-primary-light/50'
+                : 'border-gray-200/20 text-primary-lightTextSecondary'
+            )}
+          >
             <div>Created: {new Date(contact.createdAt).toLocaleDateString()}</div>
             {contact.updatedAt !== contact.createdAt && (
               <div>Updated: {new Date(contact.updatedAt).toLocaleDateString()}</div>
@@ -857,10 +941,12 @@ const ContactDetail = ({
           </>
         }
       >
-        <div className={cn(
-          "space-y-3 text-sm",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
+        <div
+          className={cn(
+            'space-y-3 text-sm',
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}
+        >
           <p>
             Deleting{' '}
             <strong>
@@ -883,7 +969,7 @@ const ContactDetail = ({
         defaultContactId={contact.id}
         defaultTitle={`${contact.firstName} ${contact.lastName}`}
         sourceContext="contact"
-        onSuccess={(createdJob) => {
+        onSuccess={createdJob => {
           setShowScheduleJob(false)
           onClose()
           if (onJobCreated) {

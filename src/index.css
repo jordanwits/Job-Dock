@@ -47,6 +47,10 @@ input:-webkit-autofill {
   * {
     box-sizing: border-box;
   }
+
+  button {
+    white-space: nowrap;
+  }
 }
 
 @layer components {

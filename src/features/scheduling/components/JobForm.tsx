@@ -2058,7 +2058,11 @@ const JobForm = ({
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
+        </>
+      )}
+
+      {/* Save / Cancel - always shown */}
+      <div className="flex flex-col sm:flex-row justify-start gap-3 pt-4">
         {submitError && (
           <div className="w-full sm:flex-1 sm:mr-auto">
             <p className="text-red-500 text-xs">{submitError}</p>
@@ -2077,8 +2081,6 @@ const JobForm = ({
           {isLoading ? 'Saving...' : job ? 'Update Job' : 'Create Job'}
         </Button>
       </div>
-        </>
-      )}
 
       <PayChangeEffectiveDateModal
         isOpen={showPayChangeModal}
