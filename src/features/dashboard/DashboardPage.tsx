@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 const DashboardPage = () => {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isAuthenticated, refreshAccessToken } = useAuthStore()
   const { theme } = useTheme()
   const { jobs, fetchJobs, isLoading: jobsLoading } = useJobStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
@@ -24,9 +24,13 @@ const DashboardPage = () => {
   }, [])
 
   const isEmployee = user?.role === 'employee'
+  const lastFetchAtRef = useRef<number>(0)
+  const inFlightRef = useRef<boolean>(false)
+  const STALE_AFTER_MS = 2 * 60 * 1000
 
   // Fetch all data function - memoized to avoid recreating on every render
   const fetchAllData = useCallback(() => {
+    if (!isAuthenticated || !user) return
     const now = new Date()
     const startDate = startOfMonth(now)
     const endDate = endOfMonth(addDays(now, 30)) // Fetch current and next month
@@ -36,6 +40,7 @@ const DashboardPage = () => {
       fetchQuotes()
       fetchInvoices()
     }
+    lastFetchAtRef.current = Date.now()
   }, [fetchJobs, fetchJobLogs, fetchQuotes, fetchInvoices, isEmployee])
 
   // Fetch all data on mount - force refresh to get updated overdue statuses
@@ -44,20 +49,62 @@ const DashboardPage = () => {
     fetchAllData()
   }, [fetchAllData])
 
-  // Refetch data when page becomes visible again (handles mobile app idle time)
+  const refreshAndFetchIfStale = useCallback(
+    async (reason: 'visibility' | 'focus' | 'pageshow') => {
+      if (!isAuthenticated || !user) return
+      if (inFlightRef.current) return
+
+      const last = lastFetchAtRef.current
+      const now = Date.now()
+      const isStale = !last || now - last >= STALE_AFTER_MS
+      if (!isStale) return
+
+      inFlightRef.current = true
+      try {
+        // After long idle, the access token may be expired; refresh first so fetches succeed.
+        await refreshAccessToken()
+      } catch {
+        // If refresh fails, auth store clears session / redirects elsewhere.
+      } finally {
+        inFlightRef.current = false
+      }
+
+      // Only fetch if we're still authenticated after attempting refresh.
+      if (useAuthStore.getState().isAuthenticated) {
+        fetchAllData()
+      }
+    },
+    [fetchAllData, isAuthenticated, refreshAccessToken, user]
+  )
+
+  // Refetch data when page becomes visible/focused again (handles mobile app idle time)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Page became visible again, refetch data to ensure it's fresh
-        fetchAllData()
+        void refreshAndFetchIfStale('visibility')
+      }
+    }
+
+    const handleFocus = () => {
+      void refreshAndFetchIfStale('focus')
+    }
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      // `pageshow` covers bfcache restores in some environments.
+      if (e.persisted || document.visibilityState === 'visible') {
+        void refreshAndFetchIfStale('pageshow')
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('pageshow', handlePageShow)
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('pageshow', handlePageShow)
     }
-  }, [fetchAllData])
+  }, [refreshAndFetchIfStale])
 
   // Get upcoming appointments (next 7 days) - limit for compact display
   const upcomingJobsLimit = 5
