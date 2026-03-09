@@ -16,59 +16,46 @@ const LandingPage = () => {
 
   return (
     <MarketingLayout>
-      {/* Hero Section */}
-      <MarketingSection variant="gradient-dark" className="pt-36 pb-16 md:pt-44 md:pb-24">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-blueprint-grid"></div>
-        </div>
-        <div className="container mx-auto px-4 md:px-6 relative">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              {/* Left Column - Content */}
-              <div className="text-center lg:text-left animate-fade-in-up">
-                <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-primary-light mb-6 leading-tight">
-                  {landingPageContent.hero.title.line1}
-                  <br />
-                  <span className="text-primary-gold">{landingPageContent.hero.title.line2}</span>
-                </h1>
-                <p className="text-lg md:text-xl lg:text-2xl text-primary-light/90 mb-6 leading-relaxed">
-                  {landingPageContent.hero.subtitle}
-                </p>
-                <p className="text-base md:text-lg text-primary-light/80 mb-8 leading-relaxed">
-                  {landingPageContent.hero.description}
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <MarketingButton to="/request-access" variant="primary" size="lg" withArrow>
-                    {landingPageContent.hero.primaryCta}
-                  </MarketingButton>
-                  <MarketingButton
-                    onClick={() => scrollToSection('how-it-works')}
-                    variant="outline"
-                    size="lg"
-                  >
-                    {landingPageContent.hero.secondaryCta}
-                  </MarketingButton>
-                </div>
-              </div>
-
-              {/* Right Column - Image */}
-              <div className="relative animate-fade-in-up animation-delay-200">
-                <div className="relative rounded-3xl overflow-hidden border-2 border-primary-gold/20 shadow-2xl">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary-dark/20 via-transparent to-primary-blue/10 z-10 pointer-events-none"></div>
-                  <img
-                    src="/marketing/hero-contractor.svg"
-                    alt={landingPageContent.hero.imageAlt}
-                    className="w-full h-auto"
-                    loading="eager"
-                  />
-                </div>
-                <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-primary-gold/20 rounded-full blur-3xl"></div>
-                <div className="absolute -top-4 -left-4 w-32 h-32 bg-primary-blue/20 rounded-full blur-3xl"></div>
-              </div>
+      {/* Hero Section - Centered with gradient (matches Core Features) */}
+      <section className="relative min-h-[58vh] flex items-center pt-24 pb-12 lg:pt-28 lg:pb-16 overflow-hidden bg-gradient-to-br from-primary-dark via-primary-dark-secondary to-primary-blue">
+        <div className="container mx-auto px-4 md:px-6 relative z-10">
+          <div className="max-w-4xl mx-auto text-center animate-fade-in-up">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-primary-gold text-sm font-semibold tracking-wide mb-8 hover:bg-white/10 transition-colors cursor-default">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-gold opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-gold"></span>
+              </span>
+              Now accepting early access
+            </div>
+            
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-6 tracking-tight leading-[1.1]">
+              {landingPageContent.hero.title.line1}
+              <br />
+              <span className="text-primary-gold">
+                {landingPageContent.hero.title.line2}
+              </span>
+            </h1>
+            
+            <p className="text-lg md:text-xl lg:text-2xl text-white/70 mb-10 leading-relaxed max-w-3xl mx-auto font-light">
+              {landingPageContent.hero.subtitle}
+            </p>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <MarketingButton to="/request-access" variant="primary" size="lg" className="w-full sm:w-auto min-w-[220px]" withArrow>
+                {landingPageContent.hero.primaryCta}
+              </MarketingButton>
+              <MarketingButton
+                onClick={() => scrollToSection('how-it-works')}
+                variant="outline"
+                size="lg"
+                className="w-full sm:w-auto min-w-[220px]"
+              >
+                {landingPageContent.hero.secondaryCta}
+              </MarketingButton>
             </div>
           </div>
         </div>
-      </MarketingSection>
+      </section>
 
       {/* Trust Bar */}
       <MarketingSection variant="white" className="py-8 md:py-12 border-b border-primary-blue/10">
