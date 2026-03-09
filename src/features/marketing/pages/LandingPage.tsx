@@ -27,21 +27,25 @@ const LandingPage = () => {
               </span>
               Now accepting early access
             </div>
-            
+
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-6 tracking-tight leading-[1.1]">
               {landingPageContent.hero.title.line1}
               <br />
-              <span className="text-primary-gold">
-                {landingPageContent.hero.title.line2}
-              </span>
+              <span className="text-primary-gold">{landingPageContent.hero.title.line2}</span>
             </h1>
-            
+
             <p className="text-lg md:text-xl lg:text-2xl text-white/70 mb-10 leading-relaxed max-w-3xl mx-auto font-light">
               {landingPageContent.hero.subtitle}
             </p>
-            
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <MarketingButton to="/request-access" variant="primary" size="lg" className="w-full sm:w-auto min-w-[220px]" withArrow>
+              <MarketingButton
+                to="/request-access"
+                variant="primary"
+                size="lg"
+                className="w-full sm:w-auto min-w-[220px]"
+                withArrow
+              >
                 {landingPageContent.hero.primaryCta}
               </MarketingButton>
               <MarketingButton
@@ -144,14 +148,20 @@ const LandingPage = () => {
       </MarketingSection>
 
       {/* Problem Section */}
-      <MarketingSection variant="white">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-8 text-center leading-tight">
+      <MarketingSection variant="white" className="relative overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: 'url(/IMG_0547.jpeg)' }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-black/30" aria-hidden />
+        <div className="container mx-auto px-4 md:px-6 relative z-10">
+          <div className="max-w-4xl mx-auto rounded-3xl border border-white/20 bg-black/25 backdrop-blur-xl p-8 md:p-12 shadow-2xl shadow-black/20">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-8 text-center leading-tight">
               Running your business shouldn't feel{' '}
               <span className="text-primary-gold">this complicated</span>
             </h2>
-            <p className="text-lg md:text-xl text-primary-dark/70 mb-8 text-center">
+            <p className="text-lg md:text-xl text-white/90 mb-8 text-center">
               {landingPageContent.problem.subtitle}
             </p>
             <div className="space-y-4 mb-8 max-w-2xl mx-auto">
@@ -160,18 +170,18 @@ const LandingPage = () => {
                   key={index}
                   className={`flex items-start gap-3 animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}
                 >
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-gold/20 flex items-center justify-center mt-1">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-gold/30 flex items-center justify-center mt-1">
                     <div className="w-2 h-2 rounded-full bg-primary-gold"></div>
                   </div>
-                  <p className="text-lg text-primary-dark/80">{problem}</p>
+                  <p className="text-lg text-white/90">{problem}</p>
                 </div>
               ))}
             </div>
-            <div className="text-center max-w-2xl mx-auto space-y-4 pt-8 border-t-2 border-primary-gold/20">
-              <p className="text-xl text-primary-dark/80 font-bold">
+            <div className="text-center max-w-2xl mx-auto space-y-4 pt-8 border-t-2 border-primary-gold/40">
+              <p className="text-xl text-white font-bold">
                 {landingPageContent.problem.conclusion.headline}
               </p>
-              <p className="text-lg text-primary-dark/70">
+              <p className="text-lg text-white/90">
                 {landingPageContent.problem.conclusion.description}
               </p>
             </div>
