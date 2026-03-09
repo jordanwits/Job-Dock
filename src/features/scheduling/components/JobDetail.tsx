@@ -28,6 +28,9 @@ interface JobDetailProps {
 const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, onRestore, onConfirm, onDecline, onScheduleFollowup, onScheduleJob, showCreatedBy }: JobDetailProps) => {
   const { theme } = useTheme()
   const navigate = useNavigate()
+  const textMain = theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+  const textMuted = theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+  const textSubtle = theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
   const { user } = useAuthStore()
@@ -243,7 +246,16 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                   </div>
                 )}
                 {onEdit && !isArchived && canEditJobs && (
-                  <Button variant="ghost" onClick={onEdit} className="bg-primary-light/10 text-primary-light hover:bg-primary-light/20 sm:bg-transparent sm:hover:bg-primary-light/5 w-full sm:w-auto justify-center">
+                  <Button
+                    variant="ghost"
+                    onClick={onEdit}
+                    className={cn(
+                      'w-full sm:w-auto justify-center',
+                      theme === 'dark'
+                        ? 'bg-primary-light/10 text-primary-light hover:bg-primary-light/20 sm:bg-transparent sm:hover:bg-primary-light/5'
+                        : 'bg-gray-100 text-primary-lightText hover:bg-gray-200 sm:bg-transparent sm:hover:bg-gray-100'
+                    )}
+                  >
                     Edit
                   </Button>
                 )}
@@ -256,7 +268,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
       <div className="space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-primary-light mb-2">{job.title}</h2>
+            <h2 className={cn('text-2xl font-bold mb-2', textMain)}>{job.title}</h2>
             <div className="flex gap-2 flex-wrap items-center">
               <span
                 className={cn(
@@ -267,7 +279,12 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                 {statusLabels[job.status]}
               </span>
               {showCreatedBy && job.createdByName && (
-                <span className="inline-block w-fit px-3 py-1 rounded text-sm font-medium bg-primary-blue/20 text-primary-light/90 border border-primary-blue/30">
+                <span
+                className={cn(
+                  'inline-block w-fit px-3 py-1 rounded text-sm font-medium border border-primary-blue/30',
+                  theme === 'dark' ? 'bg-primary-blue/20 text-primary-light/90' : 'bg-blue-100 text-primary-lightText'
+                )}
+              >
                   Created by {job.createdByName}
                 </span>
               )}
@@ -282,43 +299,43 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
 
         {job.description && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Description</h3>
-            <p className="text-primary-light">{job.description}</p>
+            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Description</h3>
+            <p className={textMain}>{job.description}</p>
           </Card>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {isUnscheduled ? (
             <Card className="sm:col-span-2">
-              <h3 className="text-sm font-medium text-primary-light/70 mb-2">Schedule</h3>
-              <p className="text-amber-400 text-lg flex items-center gap-2">
+              <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Schedule</h3>
+              <p className={cn('text-lg flex items-center gap-2', theme === 'dark' ? 'text-amber-400' : 'text-amber-700')}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 To Be Scheduled
               </p>
-              <p className="text-sm text-primary-light/50 mt-1">Drag to calendar to schedule</p>
+              <p className={cn('text-sm mt-1', textSubtle)}>Drag to calendar to schedule</p>
             </Card>
           ) : isMultiDay ? (
             <Card className="sm:col-span-2">
-              <h3 className="text-sm font-medium text-primary-light/70 mb-2">Schedule</h3>
-              <p className="text-primary-light text-lg">
+              <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Schedule</h3>
+              <p className={cn('text-lg', textMain)}>
                 {format(startTime!, 'MMM d, yyyy')} – {format(endTime!, 'MMM d, yyyy')}
               </p>
-              <p className="text-sm text-primary-light/50 mt-1">All-day job</p>
+              <p className={cn('text-sm mt-1', textSubtle)}>All-day job</p>
             </Card>
           ) : (
             <>
               <Card>
-                <h3 className="text-sm font-medium text-primary-light/70 mb-2">Start Time</h3>
-                <p className="text-primary-light">
+                <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Start Time</h3>
+                <p className={textMain}>
                   {format(startTime!, 'MMM d, yyyy h:mm a')}
                 </p>
               </Card>
 
               <Card>
-                <h3 className="text-sm font-medium text-primary-light/70 mb-2">End Time</h3>
-                <p className="text-primary-light">
+                <h3 className={cn('text-sm font-medium mb-2', textMuted)}>End Time</h3>
+                <p className={textMain}>
                   {format(endTime!, 'MMM d, yyyy h:mm a')}
                 </p>
               </Card>
@@ -327,27 +344,27 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
         </div>
 
         <Card>
-          <h3 className="text-sm font-medium text-primary-light/70 mb-2">Contact</h3>
+          <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Contact</h3>
           <div className="space-y-1">
             {job.contactName ? (
               <>
-                <p className="text-primary-light font-medium">{job.contactName}</p>
+                <p className={cn('font-medium', textMain)}>{job.contactName}</p>
                 {job.contactEmail && (
-                  <p className="text-sm text-primary-light/70">{job.contactEmail}</p>
+                  <p className={cn('text-sm', textMuted)}>{job.contactEmail}</p>
                 )}
                 {job.contactPhone && (
-                  <p className="text-sm text-primary-light/70">{job.contactPhone}</p>
+                  <p className={cn('text-sm', textMuted)}>{job.contactPhone}</p>
                 )}
               </>
             ) : (
-              <p className="text-sm text-primary-light/50 italic">Contact information not available</p>
+              <p className={cn('text-sm italic', textSubtle)}>Contact information not available</p>
             )}
           </div>
         </Card>
 
         {assignments.length > 0 && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-3">Assigned to</h3>
+            <h3 className={cn('text-sm font-medium mb-3', textMuted)}>Assigned to</h3>
             <div className="space-y-2 max-w-md">
               {assignments.map((assignment, index) => {
                 // Find name from assignedToName by index (approximate match)
@@ -368,16 +385,19 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                   <div
                     key={assignment.userId || index}
                     className={cn(
-                      "items-center rounded-md bg-primary-dark-secondary/50 border border-primary-blue/30",
+                      "items-center rounded-md border",
+                      theme === 'dark'
+                        ? "bg-primary-dark-secondary/50 border-primary-blue/30"
+                        : "bg-gray-50 border-gray-200",
                       hasPayInfo 
                         ? "flex justify-between gap-3 p-2" 
                         : "inline-flex px-2 py-1"
                     )}
                   >
                     <div className="min-w-0 flex-shrink">
-                      <span className="text-primary-light font-medium">{displayName}</span>
+                      <span className={cn('font-medium', textMain)}>{displayName}</span>
                       {assignment.role && assignment.role !== 'Team Member' && (
-                        <span className="text-primary-light/60 ml-2">({assignment.role})</span>
+                        <span className={cn('ml-2', theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary')}>({assignment.role})</span>
                       )}
                     </div>
                     {hasPayInfo && (
@@ -394,15 +414,15 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
 
         {job.serviceName && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Service</h3>
-            <p className="text-primary-light">{job.serviceName}</p>
+            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Service</h3>
+            <p className={textMain}>{job.serviceName}</p>
           </Card>
         )}
 
         {/* Linked Quote or Invoice */}
         {(linkedQuote || linkedInvoice) && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Linked Document</h3>
+            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Linked Document</h3>
             {linkedQuote && (
               <button
                 onClick={() => {
@@ -431,15 +451,15 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
 
         {job.location && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Location</h3>
-            <p className="text-primary-light">{job.location}</p>
+            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Location</h3>
+            <p className={textMain}>{job.location}</p>
           </Card>
         )}
 
         {job.price && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Price</h3>
-            <p className="text-primary-light text-lg font-semibold">
+            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Price</h3>
+            <p className={cn('text-lg font-semibold', textMain)}>
               ${job.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </Card>
@@ -448,7 +468,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
         {/* Job Timeline with Breaks */}
         {job.breaks && job.breaks.length > 0 && !isUnscheduled && startTime && endTime && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-3">Job Timeline</h3>
+            <h3 className={cn('text-sm font-medium mb-3', textMuted)}>Job Timeline</h3>
             <div className="space-y-3">
               {(() => {
                 // Build timeline segments
@@ -487,10 +507,10 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                     <div className="flex-1">
                       {segment.type === 'work' ? (
                         <div>
-                          <p className="text-sm text-primary-light font-medium">
+                          <p className={cn('text-sm font-medium', textMain)}>
                             {index === 0 ? 'Work starts' : 'Work resumes'}
                           </p>
-                          <p className="text-xs text-primary-light/70">
+                          <p className={cn('text-xs', textMuted)}>
                             {isMultiDay 
                               ? `${format(segment.start, 'MMM d, yyyy')} – ${format(segment.end, 'MMM d, yyyy')}`
                               : `${format(segment.start, 'MMM d, h:mm a')} – ${format(segment.end, 'h:mm a')}`
@@ -499,17 +519,17 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                         </div>
                       ) : (
                         <div>
-                          <p className="text-sm text-orange-400 font-medium">
-                            Paused{segment.reason && `: ${segment.reason}`}
-                          </p>
-                          <p className="text-xs text-primary-light/70">
+<p className={cn('text-sm font-medium', theme === 'dark' ? 'text-orange-400' : 'text-orange-600')}>
+                          Paused{segment.reason && `: ${segment.reason}`}
+                        </p>
+                          <p className={cn('text-xs', textMuted)}>
                             {isMultiDay
                               ? `${format(segment.start, 'MMM d')} – ${format(segment.end, 'MMM d, yyyy')}`
                               : `${format(segment.start, 'MMM d, h:mm a')} – ${format(segment.end, 'h:mm a')}`
                             }
                           </p>
                           {index === segments.length - 2 && (
-                            <p className="text-xs text-green-400 mt-1 font-medium">
+                            <p className={cn('text-xs mt-1 font-medium', theme === 'dark' ? 'text-green-400' : 'text-green-600')}>
                               → Returns {isMultiDay ? format(segment.end, 'MMM d, yyyy') : format(segment.end, 'MMM d, h:mm a')}
                             </p>
                           )}
@@ -525,8 +545,8 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
 
         {job.notes && (
           <Card>
-            <h3 className="text-sm font-medium text-primary-light/70 mb-2">Notes</h3>
-            <p className="text-primary-light whitespace-pre-wrap">{job.notes}</p>
+            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Notes</h3>
+            <p className={cn('whitespace-pre-wrap', textMain)}>{job.notes}</p>
           </Card>
         )}
       </div>

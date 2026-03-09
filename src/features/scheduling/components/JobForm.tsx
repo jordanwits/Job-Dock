@@ -774,9 +774,11 @@ const JobForm = ({
         endDateTime = new Date(startDateTime.getTime() + durationValue * 60 * 60000)
       } else {
         // For day/week jobs, use a fixed time (9 AM) and compute end date
+        // N days = start of day 1 through end of day N (inclusive)
         startDateTime = new Date(`${startDate}T09:00:00`)
         const totalDays = durationUnit === 'days' ? durationValue : durationValue * 7
-        endDateTime = new Date(startDateTime.getTime() + totalDays * 24 * 60 * 60 * 1000)
+        endDateTime = new Date(startDateTime.getTime() + (totalDays - 1) * 24 * 60 * 60 * 1000)
+        endDateTime.setHours(23, 59, 59, 999)
       }
     }
 
@@ -1604,12 +1606,14 @@ const JobForm = ({
                     <p>
                       End date:{' '}
                       {format(
-                        new Date(`${startDate}T09:00:00`).getTime() +
-                          (durationUnit === 'days' ? durationValue : durationValue * 7) *
-                            24 *
-                            60 *
-                            60 *
-                            1000,
+                        new Date(
+                          new Date(`${startDate}T09:00:00`).getTime() +
+                            ((durationUnit === 'days' ? durationValue : durationValue * 7) - 1) *
+                              24 *
+                              60 *
+                              60 *
+                              1000
+                        ),
                         'MMM d, yyyy'
                       )}{' '}
                       (All-day job)

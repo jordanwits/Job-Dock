@@ -1,4 +1,6 @@
 import { Modal, Button } from '@/components/ui'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface NotifyClientModalProps {
   isOpen: boolean
@@ -16,6 +18,7 @@ const NotifyClientModal = ({
   isLoading = false,
   message = 'Would you like to notify the client about this schedule update?',
 }: NotifyClientModalProps) => {
+  const { theme } = useTheme()
   const handleYes = () => {
     onNotify(true)
     // Parent handles closing in onNotify callback
@@ -59,7 +62,12 @@ const NotifyClientModal = ({
       compactOnMobile
       closeOnOverlayClick={!isLoading}
     >
-      <p className="text-primary-light text-sm sm:text-base">
+      <p
+        className={cn(
+          'text-sm sm:text-base',
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}
+      >
         {message}
       </p>
     </Modal>

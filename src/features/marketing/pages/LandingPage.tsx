@@ -40,7 +40,7 @@ const LandingPage = () => {
               <span className="text-primary-gold">{landingPageContent.hero.title.line2}</span>
             </h1>
 
-            <p className="text-lg md:text-xl lg:text-2xl text-white/70 mb-10 leading-relaxed max-w-3xl mx-auto font-light">
+            <p className="text-lg md:text-xl lg:text-2xl text-white/90 mb-10 leading-relaxed max-w-3xl mx-auto font-light">
               {landingPageContent.hero.subtitle}
             </p>
 
