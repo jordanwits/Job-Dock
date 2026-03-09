@@ -4,7 +4,7 @@ export const landingPageContent = {
       line1: "Stop Juggling Tools.",
       line2: "Run Your Jobs in One Place.",
     },
-    subtitle: "Quotes, invoices, scheduling, and client info — organized in a simple system built for service businesses.",
+    subtitle: "Everything a small contractor needs to run their business starting at $29/month.",
     description: "The Job Dock helps trades and service professionals stay focused on the work — not the admin.",
     primaryCta: "Get Early Access",
     secondaryCta: "See How It Works",

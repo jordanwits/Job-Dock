@@ -16,11 +16,17 @@ const LandingPage = () => {
 
   return (
     <MarketingLayout>
-      {/* Hero Section - Centered with gradient (matches Core Features) */}
-      <section className="relative min-h-[58vh] flex items-center pt-24 pb-12 lg:pt-28 lg:pb-16 overflow-hidden bg-gradient-to-br from-primary-dark via-primary-dark-secondary to-primary-blue">
+      {/* Hero Section - Image background with overlay and liquid glass card */}
+      <section className="relative min-h-[75vh] flex items-center pt-24 pb-12 lg:pt-28 lg:pb-16 overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-no-repeat bg-[center_65%]"
+          style={{ backgroundImage: 'url(/IMG_0547.jpeg)' }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-black/25" aria-hidden />
         <div className="container mx-auto px-4 md:px-6 relative z-10">
-          <div className="max-w-4xl mx-auto text-center animate-fade-in-up">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-primary-gold text-sm font-semibold tracking-wide mb-8 hover:bg-white/10 transition-colors cursor-default">
+          <div className="max-w-4xl mx-auto rounded-3xl border border-white/30 bg-black/20 backdrop-blur-md p-8 md:p-12 shadow-2xl shadow-black/10 text-center animate-fade-in-up">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/15 border border-white/20 text-primary-gold text-sm font-semibold tracking-wide mb-8 hover:bg-black/25 transition-colors cursor-default">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-gold opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-gold"></span>
@@ -28,7 +34,7 @@ const LandingPage = () => {
               Now accepting early access
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-6 tracking-tight leading-[1.1]">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 tracking-tight leading-[1.1]">
               {landingPageContent.hero.title.line1}
               <br />
               <span className="text-primary-gold">{landingPageContent.hero.title.line2}</span>
@@ -148,20 +154,14 @@ const LandingPage = () => {
       </MarketingSection>
 
       {/* Problem Section */}
-      <MarketingSection variant="white" className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: 'url(/IMG_0547.jpeg)' }}
-          aria-hidden
-        />
-        <div className="absolute inset-0 bg-black/30" aria-hidden />
-        <div className="container mx-auto px-4 md:px-6 relative z-10">
-          <div className="max-w-4xl mx-auto rounded-3xl border border-white/20 bg-black/25 backdrop-blur-xl p-8 md:p-12 shadow-2xl shadow-black/20">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-8 text-center leading-tight">
+      <MarketingSection variant="white" className="py-12 md:py-16">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-8 text-center leading-tight">
               Running your business shouldn't feel{' '}
               <span className="text-primary-gold">this complicated</span>
             </h2>
-            <p className="text-lg md:text-xl text-white/90 mb-8 text-center">
+            <p className="text-lg md:text-xl text-primary-dark/70 mb-8 text-center">
               {landingPageContent.problem.subtitle}
             </p>
             <div className="space-y-4 mb-8 max-w-2xl mx-auto">
@@ -173,15 +173,15 @@ const LandingPage = () => {
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-gold/30 flex items-center justify-center mt-1">
                     <div className="w-2 h-2 rounded-full bg-primary-gold"></div>
                   </div>
-                  <p className="text-lg text-white/90">{problem}</p>
+                  <p className="text-lg text-primary-dark/70">{problem}</p>
                 </div>
               ))}
             </div>
             <div className="text-center max-w-2xl mx-auto space-y-4 pt-8 border-t-2 border-primary-gold/40">
-              <p className="text-xl text-white font-bold">
+              <p className="text-xl text-primary-dark font-bold">
                 {landingPageContent.problem.conclusion.headline}
               </p>
-              <p className="text-lg text-white/90">
+              <p className="text-lg text-primary-dark/70">
                 {landingPageContent.problem.conclusion.description}
               </p>
             </div>
@@ -190,10 +190,16 @@ const LandingPage = () => {
       </MarketingSection>
 
       {/* Features Grid */}
-      <MarketingSection id="features" variant="gradient-dark">
-        <div className="container mx-auto px-4 md:px-6">
+      <MarketingSection id="features" variant="gradient-dark" className="relative">
+        <div
+          className="absolute inset-0 bg-cover bg-no-repeat bg-[center_55%]"
+          style={{ backgroundImage: 'url(/kings.construction-029-web.jpeg)' }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-black/25" aria-hidden />
+        <div className="container mx-auto px-4 md:px-6 relative z-10">
           <div className="text-center mb-12 md:mb-16">
-            <div className="inline-block px-4 py-1.5 bg-primary-gold/10 text-primary-gold text-sm font-bold tracking-wider rounded-full mb-4 uppercase">
+            <div className="inline-block px-4 py-1.5 rounded-full border border-white/30 bg-black/30 backdrop-blur-md text-primary-gold text-sm font-bold tracking-wider mb-4 uppercase">
               {landingPageContent.features.eyebrow}
             </div>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
@@ -205,7 +211,7 @@ const LandingPage = () => {
           </div>
           <div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             <FeatureCard
-              variant="elevated"
+              variant="glass"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -225,10 +231,10 @@ const LandingPage = () => {
               description="Create and send polished quotes in minutes. No design skills needed."
             />
             <FeatureCard
-              variant="elevated"
+              variant="glass"
               icon={
                 <svg
-                  className="w-6 h-6 text-primary-blue"
+                  className="w-6 h-6 text-primary-gold"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -245,7 +251,7 @@ const LandingPage = () => {
               description="Turn completed jobs into accurate invoices with one click."
             />
             <FeatureCard
-              variant="elevated"
+              variant="glass"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -265,10 +271,10 @@ const LandingPage = () => {
               description="Manage bookings without double-booking. See your week at a glance."
             />
             <FeatureCard
-              variant="elevated"
+              variant="glass"
               icon={
                 <svg
-                  className="w-6 h-6 text-primary-blue"
+                  className="w-6 h-6 text-primary-gold"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -285,7 +291,7 @@ const LandingPage = () => {
               description="Keep all contact details, job history, and notes in one place."
             />
             <FeatureCard
-              variant="elevated"
+              variant="glass"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -305,10 +311,10 @@ const LandingPage = () => {
               description="Send quotes and invoices automatically. Professional and fast."
             />
             <FeatureCard
-              variant="elevated"
+              variant="glass"
               icon={
                 <svg
-                  className="w-6 h-6 text-primary-blue"
+                  className="w-6 h-6 text-primary-gold"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
