@@ -1448,13 +1448,13 @@ const JobForm = ({
         </div>
       )}
 
-      {/* Job Time */}
+      {/* Job Duration */}
       {!isAllDay && !toBeScheduled && (
         <div>
           <label className={cn(
             "block text-sm font-medium mb-2",
             theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>Job Time *</label>
+          )}>Job Duration *</label>
           <div className="flex gap-2">
             <input
               type="number"
