@@ -706,6 +706,20 @@ const SchedulingPage = () => {
     }
   }
 
+  const handleRequestPermanentDelete = (job?: typeof selectedJob) => {
+    const jobToDelete = job || selectedJob
+    if (jobToDelete) {
+      if (jobToDelete !== selectedJob) {
+        setSelectedJob(jobToDelete)
+      }
+      if (jobToDelete.recurrenceId && (jobToDelete.occurrenceCount ?? 0) > 1) {
+        setShowPermanentDeleteRecurringModal(true)
+      } else {
+        setShowPermanentDeleteConfirm(true)
+      }
+    }
+  }
+
   const handlePermanentDeleteJob = async (job?: typeof selectedJob) => {
     const jobToDelete = job || selectedJob
     if (jobToDelete) {
@@ -1547,7 +1561,7 @@ const SchedulingPage = () => {
                 setShowJobDetail(true)
               }}
               onPermanentDelete={job => {
-                handlePermanentDeleteJob(job)
+                handleRequestPermanentDelete(job)
               }}
               deletedJobId={deletedJobId}
               deletedRecurrenceId={deletedRecurrenceId}
@@ -1690,7 +1704,7 @@ const SchedulingPage = () => {
           }
           onPermanentDelete={
             user?.role !== 'employee' || selectedJob.createdById === user?.id
-              ? () => handlePermanentDeleteJob()
+              ? () => handleRequestPermanentDelete()
               : undefined
           }
           onRestore={
@@ -1881,15 +1895,15 @@ const SchedulingPage = () => {
               {selectedJob?.bookingId ? (
                 selectedJob?.toBeScheduled || !selectedJob?.startTime ? (
                   <>
-                    <p className="text-primary-light">
+                    <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
                       Are you sure you want to delete this booking?
                     </p>
                     <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                      <p className="text-sm text-primary-light/70 mb-2">
-                        <strong className="text-primary-light">Important:</strong> This will only
+                      <p className={cn('text-sm mb-2', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
+                        <strong className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>Important:</strong> This will only
                         delete the booking, not the job itself.
                       </p>
-                      <p className="text-sm text-primary-light/70">
+                      <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
                         The job "{selectedJob?.title}" will remain in your jobs list and can be
                         scheduled again later.
                       </p>
@@ -1897,12 +1911,12 @@ const SchedulingPage = () => {
                   </>
                 ) : (
                   <>
-                    <p className="text-primary-light">Are you sure you want to archive this job?</p>
+                    <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>Are you sure you want to archive this job?</p>
                     <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                      <p className="text-sm text-primary-light/70">
-                        <strong className="text-primary-light">Job:</strong> {selectedJob?.title}
+                      <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
+                        <strong className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>Job:</strong> {selectedJob?.title}
                       </p>
-                      <p className="text-sm text-primary-light/70 mt-1">
+                      <p className={cn('text-sm mt-1', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
                         Archived jobs can be restored later from the Archived tab.
                       </p>
                     </div>
@@ -1910,9 +1924,9 @@ const SchedulingPage = () => {
                 )
               ) : (
                 <>
-                  <p className="text-primary-light">This job has no booking. Delete the job?</p>
+                  <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>This job has no booking. Delete the job?</p>
                   <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                    <p className="text-sm text-primary-light/70">
+                    <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
                       This will permanently remove "{selectedJob?.title}" from your Jobs list and
                       Scheduling.
                     </p>
@@ -1941,22 +1955,22 @@ const SchedulingPage = () => {
           title="⚠️ Permanently Delete Job?"
           message={
             <div className="space-y-3">
-              <p className="text-primary-light">
+              <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
                 Are you sure you want to <strong className="text-red-400">PERMANENTLY</strong>{' '}
                 delete this job?
               </p>
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                <p className="text-sm text-red-400 font-semibold mb-1">
+                <p className={cn('text-sm font-semibold mb-1', theme === 'dark' ? 'text-red-400' : 'text-red-600')}>
                   ⚠️ This action cannot be undone!
                 </p>
-                <p className="text-sm text-primary-light/70">
+                <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
                   The job will be removed from the database
                   {selectedJob.archivedAt ? ' and S3 archive' : ''}.
                 </p>
               </div>
               <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                <p className="text-sm text-primary-light/70">
-                  <strong className="text-primary-light">Job:</strong> {selectedJob.title}
+                <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
+                  <strong className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>Job:</strong> {selectedJob.title}
                 </p>
               </div>
             </div>

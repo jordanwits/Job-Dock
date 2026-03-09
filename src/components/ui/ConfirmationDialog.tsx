@@ -1,6 +1,8 @@
 import { ReactNode, useState } from 'react'
 import Modal from './Modal'
 import Button from './Button'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface ConfirmationDialogProps {
   isOpen: boolean
@@ -25,6 +27,7 @@ const ConfirmationDialog = ({
   confirmVariant = 'primary',
   isLoading = false,
 }: ConfirmationDialogProps) => {
+  const { theme } = useTheme()
   const [isConfirming, setIsConfirming] = useState(false)
   const loading = isLoading || isConfirming
 
@@ -72,7 +75,13 @@ const ConfirmationDialog = ({
       size="md"
       closeOnOverlayClick={!loading}
     >
-      <div className="text-primary-light">{message}</div>
+      <div
+        className={cn(
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}
+      >
+        {message}
+      </div>
     </Modal>
   )
 }
