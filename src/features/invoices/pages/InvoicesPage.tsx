@@ -19,6 +19,7 @@ const InvoicesPage = () => {
     contactId?: string
     title?: string
     notes?: string
+    price?: number
   }>({})
   const {
     selectedInvoice,
@@ -90,6 +91,8 @@ const InvoicesPage = () => {
   // Open create form when arriving with openCreateInvoice=1 (e.g. from job detail)
   useEffect(() => {
     if (openCreateInvoice) {
+      const priceParam = searchParams.get('price')
+      const priceNum = priceParam ? parseFloat(priceParam) : NaN
       setCreateInvoiceDefaults({
         contactId: searchParams.get('contactId') || undefined,
         title: searchParams.get('title')
@@ -98,6 +101,7 @@ const InvoicesPage = () => {
         notes: searchParams.get('notes')
           ? decodeURIComponent(searchParams.get('notes')!)
           : undefined,
+        price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
       })
       setShowCreateForm(true)
       const params = new URLSearchParams(searchParams)
@@ -105,6 +109,7 @@ const InvoicesPage = () => {
       params.delete('contactId')
       params.delete('title')
       params.delete('notes')
+      params.delete('price')
       setSearchParams(params, { replace: true })
     }
   }, [openCreateInvoice, searchParams, setSearchParams])
@@ -200,6 +205,7 @@ const InvoicesPage = () => {
           defaultContactId={createInvoiceDefaults.contactId}
           defaultTitle={createInvoiceDefaults.title}
           defaultNotes={createInvoiceDefaults.notes}
+          defaultPrice={createInvoiceDefaults.price}
         />
       </Modal>
 

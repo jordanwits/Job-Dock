@@ -404,7 +404,7 @@ const QuoteDetail = ({
                 )}>Tax ({quote.taxRate * 100}%)</span>
                 <span className={cn(
                   theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>{formatCurrency(quote.taxAmount)}</span>
+                )}>{formatCurrency(quote.taxAmount ?? quote.subtotal * (quote.taxRate || 0))}</span>
               </div>
               {quote.discount > 0 && (
                 <>

@@ -142,16 +142,109 @@ const ConvertQuoteToInvoiceModal = ({
             ? 'border-primary-blue bg-primary-dark-secondary'
             : 'border-gray-200 bg-white'
         )}>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
+          <div className="space-y-3 text-sm">
+            {quote.lineItems && quote.lineItems.length > 0 && (
+              <div>
+                <div className={cn(
+                  "font-medium mb-2",
+                  theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+                )}>Line Items</div>
+                <div className="space-y-1.5">
+                  {quote.lineItems.map((item, i) => (
+                    <div
+                      key={item.id || i}
+                      className={cn(
+                        "flex justify-between gap-4 text-xs",
+                        theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.description ?? '-'}
+                        <span className={cn(
+                          "ml-1",
+                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                        )}>
+                          ({Number(item.quantity) || 0} × {new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                            minimumFractionDigits: 2,
+                          }).format(Number(item.unitPrice) || 0)})
+                        </span>
+                      </span>
+                      {item.total != null && !isNaN(Number(item.total)) && (
+                        <span className="shrink-0 font-medium">
+                          {new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                            minimumFractionDigits: 2,
+                          }).format(Number(item.total))}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {quote.subtotal != null && !isNaN(Number(quote.subtotal)) && (
+              <div className="flex justify-between">
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>Subtotal</span>
+                <span className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
+                  {new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                  }).format(Number(quote.subtotal))}
+                </span>
+              </div>
+            )}
+            {quote.taxRate != null && Number(quote.taxRate) > 0 && (
+              <div className="flex justify-between">
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>
+                  Tax ({((Number(quote.taxRate) * 100).toFixed(1))}%)
+                </span>
+                <span className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
+                  {new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                  }).format(Number(quote.taxAmount) || Number(quote.subtotal) * Number(quote.taxRate) || 0)}
+                </span>
+              </div>
+            )}
+            {quote.discount != null && Number(quote.discount) > 0 && (
+              <div className="flex justify-between">
+                <span className={cn(
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}>
+                  Discount{quote.discountReason ? ` (${quote.discountReason})` : ''}
+                </span>
+                <span className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
+                  -{new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                  }).format(Number(quote.discount))}
+                </span>
+              </div>
+            )}
+            <div className={cn(
+              "flex justify-between pt-2 border-t",
+              theme === 'dark' ? 'border-primary-blue/20' : 'border-gray-200'
+            )}>
               <span className={cn(
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>Quote Total</span>
+                "font-medium",
+                theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+              )}>Total</span>
               <span className="text-lg font-bold text-primary-gold">
                 {new Intl.NumberFormat('en-US', {
                   style: 'currency',
                   currency: 'USD',
-                }).format(quote.total)}
+                  minimumFractionDigits: 2,
+                }).format(Number(quote.total))}
               </span>
             </div>
           </div>

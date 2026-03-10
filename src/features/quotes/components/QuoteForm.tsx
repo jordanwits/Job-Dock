@@ -18,6 +18,7 @@ interface QuoteFormProps {
   defaultContactId?: string
   defaultTitle?: string
   defaultNotes?: string
+  defaultPrice?: number
 }
 
 const QuoteForm = ({
@@ -29,6 +30,7 @@ const QuoteForm = ({
   defaultContactId,
   defaultTitle,
   defaultNotes,
+  defaultPrice,
 }: QuoteFormProps) => {
   const { theme } = useTheme()
   const { contacts, fetchContacts, createContact } = useContactStore()
@@ -58,7 +60,10 @@ const QuoteForm = ({
         description: item.description,
         quantity: item.quantity > 0 ? item.quantity : '',
         unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
-      })) || [{ description: '', quantity: 1, unitPrice: '' }],
+      })) ||
+        (defaultPrice != null
+          ? [{ description: defaultTitle || 'Services', quantity: 1, unitPrice: defaultPrice }]
+          : [{ description: '', quantity: 1, unitPrice: '' }]),
       taxRate: quote ? (quote.taxRate > 0 ? quote.taxRate * 100 : '') : '',
       discount: quote?.discount && quote.discount > 0 ? quote.discount : '',
       discountReason: quote?.discountReason || '',

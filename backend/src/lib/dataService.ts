@@ -1439,6 +1439,12 @@ export const dataServices = {
         : undefined
       const taxRate = payload.taxRate
       const discount = payload.discount
+      const taxAmount =
+        subtotal !== undefined && taxRate !== undefined ? subtotal * taxRate : undefined
+      const total =
+        subtotal !== undefined && taxRate !== undefined && discount !== undefined
+          ? subtotal + subtotal * taxRate - discount
+          : undefined
 
       await prisma.$transaction(async tx => {
         if (lineItems) {
@@ -1464,13 +1470,11 @@ export const dataServices = {
             validUntil: updateData.validUntil ? new Date(updateData.validUntil) : undefined,
             subtotal: subtotal ?? undefined,
             taxRate: taxRate ?? undefined,
+            taxAmount: taxAmount ?? undefined,
             discount: discount ?? undefined,
             discountReason:
               payload.discountReason !== undefined ? payload.discountReason || null : undefined,
-            total:
-              subtotal !== undefined && taxRate !== undefined && discount !== undefined
-                ? subtotal + subtotal * taxRate - discount
-                : undefined,
+            total,
           },
         })
       })

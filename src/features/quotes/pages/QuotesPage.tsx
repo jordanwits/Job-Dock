@@ -7,6 +7,7 @@ import QuoteDetail from '../components/QuoteDetail'
 import { Button, Modal, Card } from '@/components/ui'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import { services } from '@/lib/api/services'
 
 const QuotesPage = () => {
   const { theme } = useTheme()
@@ -19,7 +20,9 @@ const QuotesPage = () => {
     contactId?: string
     title?: string
     notes?: string
+    price?: number
   }>({})
+  const [linkJobId, setLinkJobId] = useState<string | null>(null)
   const {
     selectedQuote,
     createQuote,
@@ -42,7 +45,11 @@ const QuotesPage = () => {
 
   const handleCreate = async (data: any) => {
     try {
-      await createQuote(data)
+      const newQuote = await createQuote(data)
+      if (newQuote && linkJobId) {
+        await services.jobs.update(linkJobId, { quoteId: newQuote.id })
+        setLinkJobId(null)
+      }
       setShowCreateForm(false)
       if (returnTo) {
         safeNavigateBack()
@@ -58,9 +65,11 @@ const QuotesPage = () => {
 
   const handleCreateAndSend = async (data: any) => {
     try {
-      // Create the quote first
       const newQuote = await createQuote(data)
-      // Send the quote
+      if (newQuote && linkJobId) {
+        await services.jobs.update(linkJobId, { quoteId: newQuote.id })
+        setLinkJobId(null)
+      }
       if (newQuote) {
         await sendQuote(newQuote.id)
       }
@@ -90,21 +99,28 @@ const QuotesPage = () => {
   // Open create form when arriving with openCreateQuote=1 (e.g. from job detail)
   useEffect(() => {
     if (openCreateQuote) {
+      const jobIdParam = searchParams.get('jobId')
+      const priceParam = searchParams.get('price')
+      const priceNum = priceParam ? parseFloat(priceParam) : NaN
       setCreateQuoteDefaults({
         contactId: searchParams.get('contactId') || undefined,
         title: searchParams.get('title')
-          ? decodeURIComponent(searchParams.get('title'))
+          ? decodeURIComponent(searchParams.get('title')!)
           : undefined,
         notes: searchParams.get('notes')
-          ? decodeURIComponent(searchParams.get('notes'))
+          ? decodeURIComponent(searchParams.get('notes')!)
           : undefined,
+        price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
       })
+      if (jobIdParam) setLinkJobId(jobIdParam)
       setShowCreateForm(true)
       const params = new URLSearchParams(searchParams)
       params.delete('openCreateQuote')
+      params.delete('jobId')
       params.delete('contactId')
       params.delete('title')
       params.delete('notes')
+      params.delete('price')
       setSearchParams(params, { replace: true })
     }
   }, [openCreateQuote, searchParams, setSearchParams])
@@ -193,12 +209,15 @@ const QuotesPage = () => {
           onSaveAndSend={handleCreateAndSend}
           onCancel={() => {
             setShowCreateForm(false)
+            setCreateQuoteDefaults({})
+            setLinkJobId(null)
             clearError()
           }}
           isLoading={isLoading}
           defaultContactId={createQuoteDefaults.contactId}
           defaultTitle={createQuoteDefaults.title}
           defaultNotes={createQuoteDefaults.notes}
+          defaultPrice={createQuoteDefaults.price}
         />
       </Modal>
 

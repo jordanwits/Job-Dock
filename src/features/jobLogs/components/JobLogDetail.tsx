@@ -11,7 +11,10 @@ import JobLogForm from './JobLogForm'
 import TimeTracker from './TimeTracker'
 import PhotoCapture from './PhotoCapture'
 import JobLogNotes from './JobLogNotes'
+import ConvertQuoteToInvoiceModal from '@/features/quotes/components/ConvertQuoteToInvoiceModal'
 import { useJobLogStore } from '../store/jobLogStore'
+import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
+import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const TIMER_STORAGE_KEY = 'joblog-active-timer'
@@ -74,7 +77,12 @@ const JobLogDetail = ({
   const statusColors = getStatusColors(theme)
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { createTimeEntry, updateTimeEntry } = useJobLogStore()
+  const { createTimeEntry, updateTimeEntry, getJobLogById } = useJobLogStore()
+  const { convertQuoteToInvoice, setSelectedInvoice } = useInvoiceStore()
+  const { updateQuote } = useQuoteStore()
+  const [showConvertModal, setShowConvertModal] = useState(false)
+  const [quoteForConvert, setQuoteForConvert] = useState<import('@/features/quotes/types/quote').Quote | null>(null)
+  const [isConverting, setIsConverting] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('notes')
   const [showMenu, setShowMenu] = useState(false)
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
@@ -542,21 +550,71 @@ const JobLogDetail = ({
     const params = new URLSearchParams()
     params.set('returnTo', '/app/job-logs/' + jobLog.id)
     params.set('openCreateQuote', '1')
+    params.set('jobId', jobLog.id)
     if (jobLog.contactId) params.set('contactId', jobLog.contactId)
-    if (jobLog.title) params.set('title', jobLog.title)
-    if (jobLog.notes) params.set('notes', jobLog.notes)
+    if (jobLog.title) params.set('title', encodeURIComponent(jobLog.title))
+    if (jobLog.notes) params.set('notes', encodeURIComponent(jobLog.notes))
+    const price =
+      jobLog.price ??
+      jobLog.job?.price ??
+      (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.price : null)
+    if (price != null) params.set('price', String(price))
     navigate('/app/quotes?' + params.toString())
   }
 
-  const handleCreateInvoice = () => {
+  const handleConvertToInvoice = async () => {
     setShowMenu(false)
+    const quoteId =
+      jobLog.quoteId ??
+      (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.quoteId : null)
+    if (quoteId) {
+      try {
+        const quote = await services.quotes.getById(quoteId)
+        setQuoteForConvert(quote)
+        setShowConvertModal(true)
+      } catch {
+        // Quote not found - fall through to create new invoice
+        navigateToCreateInvoice()
+      }
+    } else {
+      navigateToCreateInvoice()
+    }
+  }
+
+  const navigateToCreateInvoice = () => {
     const params = new URLSearchParams()
     params.set('returnTo', '/app/job-logs/' + jobLog.id)
     params.set('openCreateInvoice', '1')
     if (jobLog.contactId) params.set('contactId', jobLog.contactId)
     if (jobLog.title) params.set('title', encodeURIComponent(jobLog.title))
     if (jobLog.notes) params.set('notes', encodeURIComponent(jobLog.notes))
+    const price =
+      jobLog.price ??
+      jobLog.job?.price ??
+      (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.price : null)
+    if (price != null) params.set('price', String(price))
     navigate('/app/invoices?' + params.toString())
+  }
+
+  const handleConvertQuoteToInvoice = async (options: {
+    paymentTerms: string
+    dueDate: string
+  }) => {
+    if (!quoteForConvert) return
+    setIsConverting(true)
+    try {
+      const invoice = await convertQuoteToInvoice(quoteForConvert, options)
+      await updateQuote({ id: quoteForConvert.id, status: 'accepted' })
+      setShowConvertModal(false)
+      setQuoteForConvert(null)
+      setSelectedInvoice(invoice)
+      navigate('/app/invoices')
+      getJobLogById(jobLog.id)
+    } catch {
+      // Error handled by store
+    } finally {
+      setIsConverting(false)
+    }
   }
 
   const handleScheduleAppointment = () => {
@@ -698,7 +756,7 @@ const JobLogDetail = ({
                       Create Quote
                     </button>
                     <button
-                      onClick={handleCreateInvoice}
+                      onClick={handleConvertToInvoice}
                       className={cn(
                         "w-full text-left px-4 py-2.5 text-sm transition-colors",
                         theme === 'dark'
@@ -706,7 +764,7 @@ const JobLogDetail = ({
                           : 'text-primary-lightText hover:bg-gray-100'
                       )}
                     >
-                      Create Invoice
+                      Convert to Invoice
                     </button>
                   </>
                 )}
@@ -791,15 +849,6 @@ const JobLogDetail = ({
             )}>
               {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
             </span>
-            {primaryPrice != null && (
-              <span className="text-sm font-semibold text-primary-gold shrink-0">
-                $
-                {primaryPrice.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-            )}
           </div>
           {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
             <div className="flex flex-col gap-2 mt-2">
@@ -1098,8 +1147,8 @@ const JobLogDetail = ({
                 <Button variant="outline" size="sm" onClick={handleCreateQuote}>
                   Create Quote
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleCreateInvoice}>
-                  Create Invoice
+                <Button variant="outline" size="sm" onClick={handleConvertToInvoice}>
+                  Convert to Invoice
                 </Button>
               </>
             )}
@@ -1581,6 +1630,19 @@ const JobLogDetail = ({
           </div>
         </div>
       </Modal>
+
+      {quoteForConvert && (
+        <ConvertQuoteToInvoiceModal
+          quote={quoteForConvert}
+          isOpen={showConvertModal}
+          onClose={() => {
+            setShowConvertModal(false)
+            setQuoteForConvert(null)
+          }}
+          onConvert={handleConvertQuoteToInvoice}
+          isLoading={isConverting}
+        />
+      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ interface InvoiceFormProps {
   defaultContactId?: string
   defaultTitle?: string
   defaultNotes?: string
+  defaultPrice?: number
 }
 
 const InvoiceForm = ({
@@ -29,6 +30,7 @@ const InvoiceForm = ({
   defaultContactId,
   defaultTitle,
   defaultNotes,
+  defaultPrice,
 }: InvoiceFormProps) => {
   const { theme } = useTheme()
   const { contacts, fetchContacts, createContact } = useContactStore()
@@ -58,7 +60,10 @@ const InvoiceForm = ({
         description: item.description,
         quantity: item.quantity > 0 ? item.quantity : '',
         unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
-      })) || [{ description: '', quantity: 1, unitPrice: '' }],
+      })) ||
+        (defaultPrice != null
+          ? [{ description: defaultTitle || 'Services', quantity: 1, unitPrice: defaultPrice }]
+          : [{ description: '', quantity: 1, unitPrice: '' }]),
       taxRate: invoice ? (invoice.taxRate > 0 ? invoice.taxRate * 100 : '') : '',
       discount: invoice?.discount && invoice.discount > 0 ? invoice.discount : '',
       discountReason: invoice?.discountReason || '',

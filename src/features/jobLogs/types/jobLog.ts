@@ -59,6 +59,7 @@ export interface JobLogBooking {
   toBeScheduled?: boolean
   service?: { name: string } | null
   price?: number | null
+  quoteId?: string | null
 }
 
 export interface JobLog {
@@ -70,6 +71,7 @@ export interface JobLog {
   notes?: string
   jobId?: string
   contactId?: string
+  quoteId?: string | null
   // Flattened primary booking fields (so Jobs page can show what calendar sets)
   startTime?: string | null
   endTime?: string | null
