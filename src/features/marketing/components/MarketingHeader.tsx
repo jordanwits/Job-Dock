@@ -57,12 +57,12 @@ const MarketingHeader = () => {
     >
       <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 z-50">
+        <Link to="/" className="flex items-center gap-2 z-50 min-w-0 max-w-[140px] sm:max-w-[200px]">
           <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm">
             <img src="/TJD Icon transparent.png" alt="JobDock Logo" className="h-6 w-auto" />
           </div>
           <span
-            className={`text-xl font-bold transition-colors ${
+            className={`text-xl font-bold transition-colors truncate min-w-0 ${
               isScrolled ? 'text-primary-dark' : 'text-white'
             }`}
           >

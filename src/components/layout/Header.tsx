@@ -67,7 +67,7 @@ const Header = ({
                 <img
                   src={companyLogoUrl}
                   alt="Company logo"
-                  className="h-10 w-auto max-w-[220px] object-contain shrink-0"
+                  className="h-10 w-auto max-w-[220px] object-contain shrink-0 hidden md:block"
                   onError={() => setLogoFailed(true)}
                 />
               ) : companyDisplayName ? (
@@ -88,7 +88,7 @@ const Header = ({
                 <img
                   src={companyLogoUrl}
                   alt="Company logo"
-                  className="h-10 w-auto max-w-[180px] object-contain shrink-0"
+                  className="h-10 w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[220px] object-contain shrink-0"
                   onError={() => setLogoFailed(true)}
                 />
               ) : companyDisplayName ? (
