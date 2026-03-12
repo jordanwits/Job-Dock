@@ -79,7 +79,7 @@ const JobLogDetail = ({
   const { user } = useAuthStore()
   const { createTimeEntry, updateTimeEntry, getJobLogById } = useJobLogStore()
   const { convertQuoteToInvoice, setSelectedInvoice } = useInvoiceStore()
-  const { updateQuote } = useQuoteStore()
+  const { deleteQuote } = useQuoteStore()
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [quoteForConvert, setQuoteForConvert] = useState<import('@/features/quotes/types/quote').Quote | null>(null)
   const [isConverting, setIsConverting] = useState(false)
@@ -604,7 +604,7 @@ const JobLogDetail = ({
     setIsConverting(true)
     try {
       const invoice = await convertQuoteToInvoice(quoteForConvert, options)
-      await updateQuote({ id: quoteForConvert.id, status: 'accepted' })
+      await deleteQuote(quoteForConvert.id)
       setShowConvertModal(false)
       setQuoteForConvert(null)
       setSelectedInvoice(invoice)

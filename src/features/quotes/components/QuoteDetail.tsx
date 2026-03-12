@@ -65,8 +65,7 @@ const QuoteDetail = ({
   const handleConvertToInvoice = async (options: { paymentTerms: string; dueDate: string }) => {
     try {
       const invoice = await convertQuoteToInvoice(quote, options)
-      // Update quote status to accepted
-      await updateQuote({ id: quote.id, status: 'accepted' })
+      await deleteQuote(quote.id)
       setShowConvertModal(false)
       setConfirmationMessage('Quote Converted to Invoice')
       setShowConfirmation(true)

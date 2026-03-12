@@ -164,6 +164,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       }
 
       const invoiceData: CreateInvoiceData = {
+        title: quote.title?.trim() || quote.quoteNumber || 'Invoice',
         contactId: quote.contactId,
         lineItems: quote.lineItems.map(item => ({
           description: item.description,

@@ -1393,6 +1393,12 @@ export const dataServices = {
       const taxAmount = subtotal * taxRate
       const discount = payload.discount || 0
 
+      if (!payload.validUntil) {
+        throw new ApiError('Valid Until date is required', 400)
+      }
+      if (!payload.title?.trim()) {
+        throw new ApiError('Quote title is required', 400)
+      }
       const created = await prisma.quote.create({
         data: {
           tenantId,
@@ -1407,7 +1413,7 @@ export const dataServices = {
           total: subtotal + taxAmount - discount,
           status: payload.status || 'draft',
           notes: payload.notes,
-          validUntil: payload.validUntil ? new Date(payload.validUntil) : null,
+          validUntil: new Date(payload.validUntil),
           lineItems: {
             create: lineItems.map((item: any) => ({
               description: item.description,
@@ -1434,6 +1440,12 @@ export const dataServices = {
 
       // Destructure to separate lineItems from other fields
       const { lineItems, ...updateData } = payload
+      if ('validUntil' in payload && !payload.validUntil) {
+        throw new ApiError('Valid Until date is required', 400)
+      }
+      if ('title' in payload && !payload.title?.trim()) {
+        throw new ApiError('Quote title is required', 400)
+      }
       const subtotal = lineItems
         ? lineItems.reduce((sum: number, item: any) => sum + item.quantity * item.unitPrice, 0)
         : undefined
@@ -1760,6 +1772,10 @@ export const dataServices = {
       const paidAmount =
         paymentStatus === 'paid' ? total : paymentStatus === 'partial' ? payload.paidAmount || 0 : 0
 
+      if (!payload.title?.trim()) {
+        throw new ApiError('Invoice title is required', 400)
+      }
+
       const created = await prisma.invoice.create({
         data: {
           tenantId,
@@ -1805,6 +1821,9 @@ export const dataServices = {
       }
 
       const { lineItems, ...restPayload } = payload
+      if ('title' in payload && !payload.title?.trim()) {
+        throw new ApiError('Invoice title is required', 400)
+      }
 
       // Calculate totals from line items if provided
       const itemsToCalculate = lineItems || []

@@ -8,7 +8,7 @@ export const lineItemSchema = z.object({
 
 export const quoteSchema = z.object({
   contactId: z.string().min(1, 'Contact is required'),
-  title: z.string().optional(),
+  title: z.string().min(1, 'Quote title is required'),
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
   taxRate: z.preprocess(
     (val) => (val === '' || val === null || val === undefined || isNaN(Number(val)) ? 0 : Number(val)),
@@ -20,7 +20,7 @@ export const quoteSchema = z.object({
   ),
   discountReason: z.string().optional(),
   notes: z.string().optional(),
-  validUntil: z.string().optional(),
+  validUntil: z.string().min(1, 'Valid Until date is required'),
   status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'expired']).optional(),
 })
 

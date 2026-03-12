@@ -1549,6 +1549,8 @@ export async function sendQuoteEmail(data: {
     .replace(/\{\{quote_number\}\}/g, quoteData.quoteNumber)
     .replace(/\{\{customer_name\}\}/g, clientName)
 
+  const displayTitle = (quoteData.title && quoteData.title.trim()) ? quoteData.title.trim() : quoteData.quoteNumber
+
   const validUntilText = quoteData.validUntil
     ? new Date(quoteData.validUntil).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -1588,7 +1590,7 @@ export async function sendQuoteEmail(data: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>New Quote</title>
+  <title>${displayTitle}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f4f4f4;">
@@ -1615,9 +1617,7 @@ export async function sendQuoteEmail(data: {
           <!-- Content -->
           <tr>
             <td style="padding: 40px;">
-              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">New Quote</h2>
-              
-              <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">${displayTitle}</h2>
               
               ${bodyHtml}
               
@@ -1727,7 +1727,7 @@ export async function sendQuoteEmail(data: {
   `
 
   const textBody = `
-New Quote
+${displayTitle}
 
 Hi ${clientName},
 
@@ -2076,6 +2076,8 @@ export async function sendInvoiceEmail(data: {
   // Check tracking flags (default to true for backward compatibility)
   const trackResponse = invoiceData.trackResponse !== false
 
+  const displayTitle = (invoiceData.title && invoiceData.title.trim()) ? invoiceData.title.trim() : invoiceData.invoiceNumber
+
   // Convert body template newlines to HTML
   const bodyHtml = bodyTemplate
     .split('\n')
@@ -2109,7 +2111,7 @@ export async function sendInvoiceEmail(data: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>New Invoice</title>
+  <title>${displayTitle}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f4f4f4;">
@@ -2136,9 +2138,7 @@ export async function sendInvoiceEmail(data: {
           <!-- Content -->
           <tr>
             <td style="padding: 40px;">
-              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">New Invoice</h2>
-              
-              <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${clientName},</p>
+              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">${displayTitle}</h2>
               
               ${bodyHtml}
               
@@ -2258,7 +2258,7 @@ export async function sendInvoiceEmail(data: {
   `
 
   const textBody = `
-New Invoice
+${displayTitle}
 
 Hi ${clientName},
 

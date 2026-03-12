@@ -222,19 +222,10 @@ export async function generateQuotePDF(
   if (logoHeight === 0) {
     y -= 20
   } else {
-    // When logo exists, position subtitle below company name
-    y = height - 50 - (logoHeight / 2) - 8 // Position below company name
+    // When logo exists, position next content below company name
+    y = height - 50 - (logoHeight / 2) - 8
   }
   
-  // Subtitle - left aligned
-  page.drawText('Professional Services Quote', {
-    x: companyNameX,
-    y,
-    size: 10,
-    font: fontRegular,
-    color: mediumGray,
-  })
-
   // Add company contact info if available
   if (companyInfo?.email || companyInfo?.phone) {
     y -= 15
@@ -593,19 +584,10 @@ export async function generateInvoicePDF(
   if (logoHeight === 0) {
     y -= 20
   } else {
-    // When logo exists, position subtitle below company name
+    // When logo exists, position next content below company name
     y = height - 50 - (logoHeight / 2) - 8 // Position below company name
   }
   
-  // Subtitle - left aligned
-  page.drawText('Professional Services Invoice', {
-    x: companyNameX,
-    y,
-    size: 10,
-    font: fontRegular,
-    color: mediumGray,
-  })
-
   // Add company contact info if available
   if (companyInfo?.email || companyInfo?.phone) {
     y -= 15

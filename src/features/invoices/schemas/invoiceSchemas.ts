@@ -8,7 +8,7 @@ export const invoiceLineItemSchema = z.object({
 
 export const invoiceSchema = z.object({
   contactId: z.string().min(1, 'Contact is required'),
-  title: z.string().optional(),
+  title: z.string().min(1, 'Invoice title is required'),
   lineItems: z.array(invoiceLineItemSchema).min(1, 'At least one line item is required'),
   taxRate: z.preprocess(
     (val) => (val === '' || val === null || val === undefined || isNaN(Number(val)) ? 0 : Number(val)),

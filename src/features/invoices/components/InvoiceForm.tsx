@@ -209,12 +209,13 @@ const InvoiceForm = ({
           />
         </div>
 
-        {/* Project Title */}
+        {/* Invoice Title - pulled from project title when creating from a job */}
         <Input
-          label="Project Title"
-          placeholder="e.g., Kitchen Remodel, Office Renovation"
+          label="Invoice Title *"
+          placeholder="e.g., Kitchen Remodel, Office Renovation (pulled from project title)"
           error={errors.title?.message}
           {...register('title')}
+          helperText="Pulled from project title when creating from a job"
         />
 
         {/* Line Items */}

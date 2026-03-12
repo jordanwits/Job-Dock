@@ -33,7 +33,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     deleteInvoice,
     convertQuoteToInvoice,
   } = useInvoiceStore()
-  const { updateQuote } = useQuoteStore()
+  const { deleteQuote } = useQuoteStore()
 
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
     const saved = localStorage.getItem('invoices-display-mode')
@@ -240,8 +240,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     setIsConverting(true)
     try {
       const invoice = await convertQuoteToInvoice(selectedQuoteForConversion, options)
-      // Update quote status to accepted (if not already)
-      await updateQuote({ id: selectedQuoteForConversion.id, status: 'accepted' })
+      await deleteQuote(selectedQuoteForConversion.id)
       setSelectedQuoteForConversion(null)
       // Refresh both invoices and quotes
       await fetchInvoices()

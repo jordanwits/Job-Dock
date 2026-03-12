@@ -199,13 +199,13 @@ const QuoteForm = ({
           />
         </div>
 
-        {/* Project Title */}
+        {/* Quote Title - pulled from project title when creating from a job */}
         <Input
-          label="Project Title"
-          placeholder="e.g., Kitchen Remodel, Office Renovation"
+          label="Quote Title *"
+          placeholder="e.g., Kitchen Remodel, Office Renovation (pulled from project title)"
           error={errors.title?.message}
           {...register('title')}
-          helperText="Optional: Add a descriptive title for this quote"
+          helperText="Pulled from project title when creating from a job"
         />
 
         {/* Line Items */}
@@ -383,7 +383,7 @@ const QuoteForm = ({
 
         {/* Notes and Valid Until */}
         <DatePicker
-          label="Valid Until"
+          label="Valid Until *"
           value={watch('validUntil') || ''}
           onChange={date => setValue('validUntil', date)}
           error={errors.validUntil?.message}
