@@ -1535,7 +1535,7 @@ export async function sendQuoteEmail(data: {
   let subject = settings?.quoteEmailSubject || `Quote {{quote_number}} from {{company_name}}`
   let bodyTemplate =
     settings?.quoteEmailBody ||
-    `Hi {{customer_name}},\n\nPlease find attached quote {{quote_number}}.\n\nWe look forward to working with you!`
+    `Hi {{customer_name}}, please find your quote attached.`
 
   // Replace template variables
   const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
@@ -1621,34 +1621,6 @@ export async function sendQuoteEmail(data: {
               
               ${bodyHtml}
               
-              <!-- Quote Details Card -->
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                <tr>
-                  <td style="padding: 24px;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Quote Number</p>
-                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${quoteData.quoteNumber}</p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Total Amount</p>
-                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 24px; font-weight: 700; line-height: 1.4; color: #D4AF37;">$${quoteData.total.toFixed(2)}</p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Valid Until</p>
-                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${validUntilText}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              
               <!-- Action Buttons -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
                 <tr>
@@ -1683,8 +1655,6 @@ export async function sendQuoteEmail(data: {
                   </td>
                 </tr>
               </table>
-              
-              <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">We look forward to working with you!</p>
             </td>
           </tr>
           
@@ -1733,21 +1703,11 @@ Hi ${clientName},
 
 Please find your quote attached as a PDF document.
 
-Quote Number: ${quoteData.quoteNumber}
-Total Amount: $${quoteData.total.toFixed(2)}
-Valid Until: ${validUntilText}
-
 **PLEASE RESPOND TO THIS QUOTE:**
 
 View quote and respond: ${viewUrl}
 
 Quick decline: ${declineUrl}
-
-Please review the attached quote and let us know if you have any questions.
-
-We look forward to working with you!
-
-This quote is valid until ${validUntilText}. Please contact us if you would like to proceed.
   `.trim()
 
   // Generate PDF with company info
@@ -2051,7 +2011,7 @@ export async function sendInvoiceEmail(data: {
   let subject = settings?.invoiceEmailSubject || `Invoice {{invoice_number}} from {{company_name}}`
   let bodyTemplate =
     settings?.invoiceEmailBody ||
-    `Hi {{customer_name}},\n\nPlease find attached invoice {{invoice_number}}.\n\nThank you for your business!`
+    `Hi {{customer_name}}, please find your invoice attached.`
 
   // Replace template variables
   const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
@@ -2142,42 +2102,6 @@ export async function sendInvoiceEmail(data: {
               
               ${bodyHtml}
               
-              <!-- Invoice Details Card -->
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                <tr>
-                  <td style="padding: 24px;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Invoice Number</p>
-                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${invoiceData.invoiceNumber}</p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Total Amount</p>
-                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 24px; font-weight: 700; line-height: 1.4; color: #D4AF37;">$${invoiceData.total.toFixed(2)}</p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Due Date</p>
-                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${dueDateText}</p>
-                        </td>
-                      </tr>
-                      ${invoiceData.paymentTerms ? `
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Payment Terms</p>
-                          <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${invoiceData.paymentTerms}</p>
-                        </td>
-                      </tr>
-                      ` : ''}
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              
               ${trackResponse ? `
               <!-- Action Buttons -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
@@ -2214,8 +2138,6 @@ export async function sendInvoiceEmail(data: {
                 </tr>
               </table>
               ` : ''}
-              
-              <p style="margin: 30px 0 0 0; color: #333333; font-size: 16px; line-height: 1.6;">Thank you for your business!</p>
             </td>
           </tr>
           
@@ -2264,22 +2186,12 @@ Hi ${clientName},
 
 Please find your invoice attached as a PDF document.
 
-Invoice Number: ${invoiceData.invoiceNumber}
-Total Amount: $${invoiceData.total.toFixed(2)}
-Due Date: ${dueDateText}
-${invoiceData.paymentTerms ? `Payment Terms: ${invoiceData.paymentTerms}` : ''}
-
 ${trackResponse ? `**PLEASE CONFIRM RECEIPT:**
 
 View invoice and respond: ${viewUrl}
 
 Quick decline: ${declineUrl}
-
-` : ''}Please remit payment by the due date.
-
-If you have any questions about this invoice, please don't hesitate to contact us.
-
-Thank you for your business!
+` : ''}
   `.trim()
 
   // Generate PDF with company info

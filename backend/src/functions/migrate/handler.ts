@@ -873,6 +873,14 @@ WHERE "assignedTo" IS NOT NULL
     ],
     description: 'Remove active as contact status: migrate existing to customer, default to lead',
   },
+  {
+    name: '20260312000000_simplify_email_template_defaults',
+    statements: [
+      `UPDATE "tenant_settings" SET "quoteEmailBody" = 'Hi {{customer_name}}, please find your quote attached.' WHERE "quoteEmailBody" LIKE '%Please find attached quote {{quote_number}}%'`,
+      `UPDATE "tenant_settings" SET "invoiceEmailBody" = 'Hi {{customer_name}}, please find your invoice attached.' WHERE "invoiceEmailBody" LIKE '%Please find attached invoice {{invoice_number}}%'`,
+    ],
+    description: 'Simplify quote/invoice email templates to not include document number in default text',
+  },
 ]
 
 export const handler = async (

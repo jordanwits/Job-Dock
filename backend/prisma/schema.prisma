@@ -402,9 +402,9 @@ model TenantSettings {
   companyPhone           String?
   logoUrl                String?
   invoiceEmailSubject    String   @default("Your Invoice from {{company_name}}")
-  invoiceEmailBody       String   @default("Hi {{customer_name}},\n\nPlease find attached invoice {{invoice_number}}.\n\nThank you for your business!")
+  invoiceEmailBody       String   @default("Hi {{customer_name}}, please find your invoice attached.")
   quoteEmailSubject      String   @default("Your Quote from {{company_name}}")
-  quoteEmailBody         String   @default("Hi {{customer_name}},\n\nPlease find attached quote {{quote_number}}.\n\nWe look forward to working with you!")
+  quoteEmailBody         String   @default("Hi {{customer_name}}, please find your quote attached.")
   invoicePdfTemplateKey  String?
   quotePdfTemplateKey    String?
   updatedAt              DateTime @updatedAt

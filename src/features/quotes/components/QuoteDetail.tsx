@@ -7,7 +7,7 @@ import QuoteForm from './QuoteForm'
 import ConvertQuoteToInvoiceModal from './ConvertQuoteToInvoiceModal'
 import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
-import { ScheduleJobModal } from '@/features/scheduling'
+import CreateJobFromQuoteModal from './CreateJobFromQuoteModal'
 import { useTheme } from '@/contexts/ThemeContext'
 
 interface QuoteDetailProps {
@@ -32,7 +32,7 @@ const QuoteDetail = ({
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
-  const [showScheduleJob, setShowScheduleJob] = useState(false)
+  const [showCreateJob, setShowCreateJob] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
@@ -187,10 +187,10 @@ const QuoteDetail = ({
             </Button>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
               <Button
-                onClick={() => setShowScheduleJob(true)}
+                onClick={() => setShowCreateJob(true)}
                 className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto py-2 whitespace-nowrap"
               >
-                Schedule Job
+                Create Job
               </Button>
               <Button
                 onClick={handleSend}
@@ -512,32 +512,18 @@ const QuoteDetail = ({
         </div>
       </Modal>
 
-      {/* Schedule Job Modal */}
-      <ScheduleJobModal
-        isOpen={showScheduleJob}
-        onClose={() => setShowScheduleJob(false)}
-        defaultContactId={quote.contactId}
-        defaultTitle={(() => {
-          const title = quote.title || `Job for quote ${quote.quoteNumber}`
-          if (quote.contactName) {
-            const nameParts = quote.contactName.trim().split(/\s+/)
-            const lastName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : quote.contactName
-            return lastName ? `${lastName}-${title}` : title
-          }
-          return title
-        })()}
-        defaultPrice={quote.total}
-        sourceContext="quote"
-        quoteId={quote.id}
-        initialQuoteId={quote.id}
+      {/* Create Job from Quote Modal */}
+      <CreateJobFromQuoteModal
+        quote={quote}
+        isOpen={showCreateJob}
+        onClose={() => setShowCreateJob(false)}
         onSuccess={(createdJob) => {
-          setShowScheduleJob(false)
-          onClose()
-          if (onJobCreated) {
-            onJobCreated()
-          }
+          setShowCreateJob(false)
+          setShowJobConfirmation(true)
+          onJobCreated?.()
           if (createdJob?.id) {
-            navigate(`/app/scheduling?tab=calendar&jobId=${encodeURIComponent(createdJob.id)}`)
+            onClose()
+            navigate(`/app/job-logs/${encodeURIComponent(createdJob.id)}`)
           }
         }}
       />

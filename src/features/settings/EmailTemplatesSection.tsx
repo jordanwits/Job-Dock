@@ -92,7 +92,7 @@ export const EmailTemplatesSection = ({
             label="Body"
             value={formData.invoiceEmailBody}
             onChange={(e) => onFieldChange('invoiceEmailBody', e.target.value)}
-            placeholder="Hi {{customer_name}},&#10;&#10;Please find attached invoice {{invoice_number}}.&#10;&#10;Thank you for your business!"
+            placeholder="Hi {{customer_name}}, please find your invoice attached."
             rows={6}
           />
         </div>
@@ -117,7 +117,7 @@ export const EmailTemplatesSection = ({
             label="Body"
             value={formData.quoteEmailBody}
             onChange={(e) => onFieldChange('quoteEmailBody', e.target.value)}
-            placeholder="Hi {{customer_name}},&#10;&#10;Please find attached quote {{quote_number}}.&#10;&#10;We look forward to working with you!"
+            placeholder="Hi {{customer_name}}, please find your quote attached."
             rows={6}
           />
         </div>
