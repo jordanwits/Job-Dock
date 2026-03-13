@@ -22,6 +22,8 @@ import {
   buildJobAssignmentNotificationEmail,
   sendQuoteEmail,
   sendInvoiceEmail,
+  sendQuoteAcceptedNotificationToUsers,
+  sendInvoiceAcceptedNotificationToUsers,
 } from './email'
 import {
   sendSms,
@@ -1645,6 +1647,22 @@ export const dataServices = {
 
       console.log(`✅ Quote ${quote.quoteNumber} approved by client`)
 
+      // Notify JobDock users via email
+      try {
+        const contact = updatedQuote.contact
+        const clientName = contact
+          ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() || 'Client'
+          : 'Client'
+        await sendQuoteAcceptedNotificationToUsers({
+          tenantId,
+          quoteNumber: updatedQuote.quoteNumber,
+          clientName,
+          total: Number(updatedQuote.total),
+        })
+      } catch (err) {
+        console.error('Failed to send quote acceptance notifications:', err)
+      }
+
       return {
         ...serializeQuote(updatedQuote),
         tenantId,
@@ -2058,6 +2076,24 @@ export const dataServices = {
       })
 
       console.log(`✅ Invoice ${invoice.invoiceNumber} ${approvalStatus} by client`)
+
+      // Notify JobDock users via email when client accepts
+      if (approvalStatus === 'accepted') {
+        try {
+          const contact = updatedInvoice.contact
+          const clientName = contact
+            ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() || 'Client'
+            : 'Client'
+          await sendInvoiceAcceptedNotificationToUsers({
+            tenantId,
+            invoiceNumber: updatedInvoice.invoiceNumber,
+            clientName,
+            total: Number(updatedInvoice.total),
+          })
+        } catch (err) {
+          console.error('Failed to send invoice acceptance notifications:', err)
+        }
+      }
 
       return {
         ...serializeInvoice(updatedInvoice),
