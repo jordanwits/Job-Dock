@@ -4678,7 +4678,11 @@ export const dataServices = {
       tenantId: string,
       userId: string,
       userEmail: string,
-      options?: { plan?: 'single' | 'team' | 'team-plus' }
+      options?: {
+        plan?: 'single' | 'team' | 'team-plus'
+        successUrl?: string
+        cancelUrl?: string
+      }
     ) => {
       const Stripe = (await import('stripe')).default
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -4721,7 +4725,10 @@ export const dataServices = {
       }
 
       const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173'
-      const returnUrl = `${baseUrl}/app/settings`
+      const defaultReturnUrl = `${baseUrl}/app/settings`
+      const successUrl = options?.successUrl ?? `${defaultReturnUrl}?subscribed=1`
+      const cancelUrl = options?.cancelUrl ?? `${defaultReturnUrl}?canceled=1`
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         customer: customerId,
@@ -4729,15 +4736,85 @@ export const dataServices = {
         line_items: [{ price: priceId, quantity: 1 }],
         subscription_data: {
           trial_period_days: 14,
+          trial_settings: {
+            end_behavior: {
+              missing_payment_method: 'cancel',
+            },
+          },
           metadata: { tenantId, ownerUserId: userId },
         },
         payment_method_collection: 'always',
-        success_url: `${returnUrl}?subscribed=1`,
-        cancel_url: `${returnUrl}?canceled=1`,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
         metadata: { tenantId, ownerUserId: userId },
       })
 
       return { url: session.url }
+    },
+    /** Creates Stripe Checkout for new signups (no tenant yet). User completes payment first, then creates account. */
+    createSignupCheckoutSession: async (plan: 'single' | 'team' | 'team-plus') => {
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2025-02-24.acacia',
+      })
+
+      const priceId =
+        plan === 'team-plus'
+          ? process.env.STRIPE_TEAM_PLUS_PRICE_ID
+          : plan === 'team'
+            ? process.env.STRIPE_TEAM_PRICE_ID
+            : process.env.STRIPE_PRICE_ID
+      if (!priceId) {
+        throw new ApiError('STRIPE_PRICE_ID not configured', 500)
+      }
+
+      const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173'
+      const successUrl = `${baseUrl}/auth/signup/complete?session_id={CHECKOUT_SESSION_ID}`
+      const cancelUrl = `${baseUrl}/auth/signup?canceled=1`
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        customer_email: undefined,
+        customer_creation: 'always',
+        allow_promotion_codes: true,
+        line_items: [{ price: priceId, quantity: 1 }],
+        subscription_data: {
+          trial_period_days: 14,
+          trial_settings: {
+            end_behavior: {
+              missing_payment_method: 'cancel',
+            },
+          },
+          metadata: { plan },
+        },
+        payment_method_collection: 'always',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: { plan },
+      })
+
+      return { url: session.url }
+    },
+    getSignupSessionInfo: async (sessionId: string) => {
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2025-02-24.acacia',
+      })
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['subscription', 'customer'],
+      })
+      if (session.status !== 'complete' || !session.customer_details?.email) {
+        throw new ApiError('Invalid or incomplete checkout session', 400)
+      }
+      const plan = (session.metadata?.plan as 'single' | 'team' | 'team-plus') || 'single'
+      const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id
+      const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id
+      return {
+        email: session.customer_details.email,
+        customerId: customerId || null,
+        subscriptionId: subscriptionId || null,
+        plan,
+      }
     },
     createUpgradeCheckoutUrl: async (
       tenantId: string,

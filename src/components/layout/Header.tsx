@@ -264,7 +264,7 @@ const Header = ({
                       Login
                     </Button>
                   </Link>
-                  <Link to="/auth/register">
+                  <Link to="/auth/signup">
                     <Button variant="primary" size="sm">
                       Sign up
                     </Button>

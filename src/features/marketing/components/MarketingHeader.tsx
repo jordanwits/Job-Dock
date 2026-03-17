@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { publicSiteConfig } from '../content/publicSiteConfig'
 
 const MarketingHeader = () => {
+  const { pathname } = useLocation()
   const [isScrolled, setIsScrolled] = useState(false)
+  const alwaysFilled = pathname === '/auth/signup'
+  const isFilled = alwaysFilled || isScrolled
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -52,7 +55,7 @@ const MarketingHeader = () => {
   return (
     <header
       className={`fixed top-0 z-50 w-full transition-all duration-300 pt-[env(safe-area-inset-top,0px)] sm:pt-0 ${
-        isScrolled ? 'bg-white backdrop-blur-sm shadow-md' : 'bg-transparent'
+        isFilled ? 'bg-white backdrop-blur-sm shadow-md' : 'bg-transparent'
       }`}
     >
       <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
@@ -63,7 +66,7 @@ const MarketingHeader = () => {
           </div>
           <span
             className={`text-xl font-bold transition-colors truncate min-w-0 ${
-              isScrolled ? 'text-primary-dark' : 'text-white'
+              isFilled ? 'text-primary-dark' : 'text-white'
             }`}
           >
             {publicSiteConfig.companyName}
@@ -75,7 +78,7 @@ const MarketingHeader = () => {
           <button
             onClick={() => scrollToSection('features')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isScrolled
+              isFilled
                 ? 'text-primary-dark/70 hover:text-primary-dark'
                 : 'text-white/80 hover:text-white'
             }`}
@@ -86,7 +89,7 @@ const MarketingHeader = () => {
           <button
             onClick={() => scrollToSection('how-it-works')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isScrolled
+              isFilled
                 ? 'text-primary-dark/70 hover:text-primary-dark'
                 : 'text-white/80 hover:text-white'
             }`}
@@ -97,7 +100,7 @@ const MarketingHeader = () => {
           <button
             onClick={() => scrollToSection('benefits')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isScrolled
+              isFilled
                 ? 'text-primary-dark/70 hover:text-primary-dark'
                 : 'text-white/80 hover:text-white'
             }`}
@@ -108,7 +111,7 @@ const MarketingHeader = () => {
           <button
             onClick={() => scrollToSection('why-us')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isScrolled
+              isFilled
                 ? 'text-primary-dark/70 hover:text-primary-dark'
                 : 'text-white/80 hover:text-white'
             }`}
@@ -119,7 +122,7 @@ const MarketingHeader = () => {
           <Link to="/auth/login">
             <button
               className={`text-sm font-medium px-4 py-2 rounded-lg transition-all ${
-                isScrolled
+                isFilled
                   ? 'text-primary-dark hover:text-primary-blue hover:bg-primary-blue/5'
                   : 'text-white hover:bg-white/10'
               }`}
@@ -127,7 +130,7 @@ const MarketingHeader = () => {
               Login
             </button>
           </Link>
-          <Link to="/auth/register">
+          <Link to="/auth/signup">
             <button className="text-sm font-semibold text-primary-dark bg-primary-gold hover:bg-primary-gold/90 px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all hover:scale-105">
               Get Started
             </button>
@@ -139,7 +142,7 @@ const MarketingHeader = () => {
           <Link to="/auth/login">
             <button
               className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all ${
-                isScrolled
+                isFilled
                   ? 'text-primary-dark border border-primary-dark hover:bg-primary-blue/5'
                   : 'text-white border border-white hover:bg-white/10'
               }`}
@@ -150,7 +153,7 @@ const MarketingHeader = () => {
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className={`hamburger-button p-2 rounded-lg transition-colors ${
-              isScrolled
+              isFilled
                 ? 'text-primary-dark hover:bg-primary-blue/5'
                 : 'text-white hover:bg-white/10'
             }`}

@@ -13,6 +13,7 @@ import {
 import { registerUser, loginUser, refreshAccessToken, verifyToken, respondToNewPasswordChallenge } from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
 import prisma from '../../lib/db'
+import { dataServices } from '../../lib/dataService'
 import { randomUUID } from 'crypto'
 
 const cognitoClient = new CognitoIdentityProviderClient({
@@ -34,6 +35,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return successResponse({ status: 'ok' })
       case 'POST /auth/register':
         return await handleRegister(event)
+      case 'POST /auth/signup-checkout':
+        return await handleSignupCheckout(event)
+      case 'GET /auth/signup-session':
+        return await handleSignupSession(event)
+      case 'POST /auth/complete-signup':
+        return await handleCompleteSignup(event)
       case 'POST /auth/login':
         return await handleLogin(event)
       case 'POST /auth/respond-to-challenge':
@@ -76,10 +83,15 @@ function buildRouteKey(event: APIGatewayProxyEvent): string {
 
 async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}')
-  const { email, password, name, companyName } = body
+  const { email, password, name, companyName, plan } = body
 
   if (!email || !password || !name) {
     return errorResponse('Missing required fields', 400)
+  }
+
+  const validPlans = ['single', 'team', 'team-plus'] as const
+  if (!plan || !validPlans.includes(plan)) {
+    return errorResponse('Please select a plan to sign up. Choose Single, Team, or Team+.', 400)
   }
 
   try {
@@ -88,7 +100,6 @@ async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const cognitoId = cognitoResponse.UserSub!
 
     // 1.5. Auto-confirm the user so they can log in immediately
-    // This bypasses the email verification step for a better UX
     await cognitoClient.send(
       new AdminConfirmSignUpCommand({
         UserPoolId: USER_POOL_ID,
@@ -99,12 +110,10 @@ async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // 2. Create tenant and user in database
     const tenantId = randomUUID()
     const tenantName = companyName || `${name}'s Company`
-    // Make subdomain unique by appending first 8 chars of UUID
     const baseSubdomain = slugify(tenantName)
     const uniqueId = tenantId.substring(0, 8)
     const subdomain = `${baseSubdomain}-${uniqueId}`
 
-    // Create tenant
     const tenant = await prisma.tenant.create({
       data: {
         id: tenantId,
@@ -113,7 +122,6 @@ async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     })
 
-    // Create user linked to tenant
     const user = await prisma.user.create({
       data: {
         id: randomUUID(),
@@ -125,11 +133,131 @@ async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     })
 
-    // 3. Automatically log the user in
-    const tokens = await loginUser(email, password)
+    // 3. Create Stripe checkout session and return checkout URL (subscription required)
+    const appUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173'
+    const { url: checkoutUrl } = await dataServices.billing.createCheckoutRedirectUrl(
+      tenant.id,
+      user.id,
+      user.email,
+      {
+        plan,
+        successUrl: `${appUrl}/auth/login?from_checkout=1`,
+        cancelUrl: `${appUrl}/auth/signup?canceled=1`,
+      }
+    )
 
-    // 4. Return token and user info
-    // Use IdToken (not AccessToken) because it contains user claims like email, sub, etc
+    if (!checkoutUrl) {
+      throw new Error('Failed to create checkout session')
+    }
+
+    return successResponse({ checkoutUrl }, 201)
+  } catch (error: any) {
+    console.error('Registration error:', error)
+    return errorResponse(error.message || 'Registration failed', 500)
+  }
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-zA-Z0-9-]/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50)
+}
+
+/** Stripe-first signup: create checkout session, user pays, then creates account. */
+async function handleSignupCheckout(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const body = JSON.parse(event.body || '{}')
+  const { plan } = body
+  const validPlans = ['single', 'team', 'team-plus'] as const
+  if (!plan || !validPlans.includes(plan)) {
+    return errorResponse('Please select a plan. Choose Single, Team, or Team+.', 400)
+  }
+  try {
+    const { url: checkoutUrl } = await dataServices.billing.createSignupCheckoutSession(plan)
+    if (!checkoutUrl) throw new Error('Failed to create checkout session')
+    return successResponse({ checkoutUrl }, 200)
+  } catch (error: any) {
+    console.error('Signup checkout error:', error)
+    return errorResponse(error.message || 'Failed to start checkout', 500)
+  }
+}
+
+/** Get email and plan from completed Stripe session (for create-account form). */
+async function handleSignupSession(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const sessionId = event.queryStringParameters?.session_id
+  if (!sessionId) {
+    return errorResponse('session_id required', 400)
+  }
+  try {
+    const info = await dataServices.billing.getSignupSessionInfo(sessionId)
+    return successResponse({ email: info.email, plan: info.plan })
+  } catch (error: any) {
+    console.error('Signup session error:', error)
+    return errorResponse(error.message || 'Invalid or expired session', 400)
+  }
+}
+
+/** Complete signup after Stripe: create account and link subscription. */
+async function handleCompleteSignup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const body = JSON.parse(event.body || '{}')
+  const { session_id: sessionId, name, companyName, password } = body
+  if (!sessionId || !name || !password) {
+    return errorResponse('Missing required fields', 400)
+  }
+  try {
+    const info = await dataServices.billing.getSignupSessionInfo(sessionId)
+    const email = info.email
+    const plan = info.plan
+    const priceId =
+      plan === 'team-plus'
+        ? process.env.STRIPE_TEAM_PLUS_PRICE_ID
+        : plan === 'team'
+          ? process.env.STRIPE_TEAM_PRICE_ID
+          : process.env.STRIPE_PRICE_ID
+
+    const cognitoResponse = await registerUser(email, password, name)
+    const cognitoId = cognitoResponse.UserSub!
+
+    await cognitoClient.send(
+      new AdminConfirmSignUpCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+      })
+    )
+
+    const tenantId = randomUUID()
+    const tenantName = companyName || `${name}'s Company`
+    const baseSubdomain = slugify(tenantName)
+    const uniqueId = tenantId.substring(0, 8)
+    const subdomain = `${baseSubdomain}-${uniqueId}`
+
+    await prisma.tenant.create({
+      data: {
+        id: tenantId,
+        name: tenantName,
+        subdomain,
+        stripeCustomerId: info.customerId,
+        stripeSubscriptionId: info.subscriptionId,
+        stripePriceId: priceId || undefined,
+        stripeSubscriptionStatus: 'active',
+        subscriptionTier: plan,
+      },
+    })
+
+    const user = await prisma.user.create({
+      data: {
+        id: randomUUID(),
+        cognitoId,
+        email,
+        name,
+        tenantId,
+        role: 'owner',
+      },
+    })
+
+    const tokens = await loginUser(email, password)
     return successResponse(
       {
         token: tokens.IdToken,
@@ -146,18 +274,9 @@ async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       201
     )
   } catch (error: any) {
-    console.error('Registration error:', error)
-    return errorResponse(error.message || 'Registration failed', 500)
+    console.error('Complete signup error:', error)
+    return errorResponse(error.message || 'Failed to complete signup', 500)
   }
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-zA-Z0-9-]/g, '-')
-    .replace(/--+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 50)
 }
 
 async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

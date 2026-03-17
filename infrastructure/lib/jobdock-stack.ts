@@ -639,6 +639,9 @@ export class JobDockStack extends cdk.Stack {
 
     const authResource = this.api.root.addResource('auth')
     authResource.addResource('register').addMethod('POST', authIntegration)
+    authResource.addResource('signup-checkout').addMethod('POST', authIntegration)
+    authResource.addResource('signup-session').addMethod('GET', authIntegration)
+    authResource.addResource('complete-signup').addMethod('POST', authIntegration)
     authResource.addResource('login').addMethod('POST', authIntegration)
     authResource.addResource('respond-to-challenge').addMethod('POST', authIntegration)
     authResource.addResource('refresh').addMethod('POST', authIntegration)

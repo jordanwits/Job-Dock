@@ -40,6 +40,13 @@ interface AuthState {
     password: string
     name: string
     companyName: string
+    plan: 'single' | 'team' | 'team-plus'
+  }) => Promise<{ checkoutUrl?: string } | void>
+  completeSignup: (data: {
+    session_id: string
+    name: string
+    companyName?: string
+    password: string
   }) => Promise<void>
   refreshAccessToken: () => Promise<boolean>
   logout: () => Promise<void>
@@ -161,10 +168,40 @@ export const useAuthStore = create<AuthState>()(
 
       clearPendingChallenge: () => set({ pendingChallenge: null, error: null }),
 
+      completeSignup: async (data: { session_id: string; name: string; companyName?: string; password: string }) => {
+        set({ isLoading: true, error: null })
+        try {
+          const response = await authService.completeSignup(data)
+          set({
+            user: response.user as User,
+            token: response.token,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          })
+          localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('refresh_token', response.refreshToken)
+          localStorage.setItem('tenant_id', response.user.tenantId)
+        } catch (error: any) {
+          const friendlyMessage = getErrorMessage(error, 'Failed to create account. Please try again.')
+          set({
+            error: friendlyMessage,
+            isLoading: false,
+            isAuthenticated: false,
+          })
+          throw error
+        }
+      },
+
       register: async data => {
         set({ isLoading: true, error: null })
         try {
           const response = await authService.register(data)
+          if (response.checkoutUrl) {
+            set({ isLoading: false, error: null })
+            return { checkoutUrl: response.checkoutUrl }
+          }
           set({
             user: response.user,
             token: response.token,
@@ -173,12 +210,38 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           })
-          // Store token and tenant_id in localStorage for API client
           localStorage.setItem('auth_token', response.token)
           localStorage.setItem('refresh_token', response.refreshToken)
           localStorage.setItem('tenant_id', response.user.tenantId)
         } catch (error: any) {
           const friendlyMessage = getErrorMessage(error, 'Registration failed. Please try again.')
+          set({
+            error: friendlyMessage,
+            isLoading: false,
+            isAuthenticated: false,
+          })
+          throw error
+        }
+      },
+
+      completeSignup: async data => {
+        set({ isLoading: true, error: null })
+        try {
+          const response = await authService.completeSignup(data)
+          const user = response.user as User
+          set({
+            user,
+            token: response.token,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          })
+          localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('refresh_token', response.refreshToken)
+          localStorage.setItem('tenant_id', user.tenantId)
+        } catch (error: any) {
+          const friendlyMessage = getErrorMessage(error, 'Failed to create account. Please try again.')
           set({
             error: friendlyMessage,
             isLoading: false,

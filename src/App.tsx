@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { AppLayout, ProtectedRoute, AdminRoute } from '@/components'
 import { BillingGuard } from '@/components/billing'
 import SessionMonitor from '@/components/SessionMonitor'
-import { LoginPage, RegisterPage, ResetPasswordPage, useAuthStore } from '@/features/auth'
+import { LoginPage, RegisterPage, SignupPage, SignupCompletePage, ResetPasswordPage, useAuthStore } from '@/features/auth'
 import { DashboardPage } from '@/features/dashboard'
 import { CRMPage } from '@/features/crm'
 import { QuotesPage } from '@/features/quotes'
@@ -98,7 +98,9 @@ function App() {
 
         {/* Auth Routes - Always render, let pages handle redirect */}
         <Route path="/auth/login" element={<LoginPage />} />
-        <Route path="/auth/register" element={<RegisterPage />} />
+        <Route path="/auth/signup" element={<SignupPage />} />
+        <Route path="/auth/signup/complete" element={<SignupCompletePage />} />
+        <Route path="/auth/register" element={<Navigate to="/auth/signup" replace />} />
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 
         {/* Onboarding Route - Protected but no sidebar */}

@@ -46,7 +46,7 @@ const LandingPage = () => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <MarketingButton
-                to="/auth/register"
+                to="/auth/signup"
                 variant="primary"
                 size="lg"
                 className="w-full sm:w-auto min-w-[220px]"
@@ -739,7 +739,7 @@ const LandingPage = () => {
               heading="Ready to simplify your business?"
               subheading="Get started in minutes. Create your account and begin managing quotes, invoices, and schedules in one place."
             />
-            <MarketingButton to="/auth/register" variant="primary" size="lg" withArrow>
+            <MarketingButton to="/auth/signup" variant="primary" size="lg" withArrow>
               Get Started
             </MarketingButton>
           </div>

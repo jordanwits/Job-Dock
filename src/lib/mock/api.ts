@@ -166,6 +166,37 @@ export const mockAuthService = {
     }
   },
 
+  createSignupCheckoutUrl: async () => {
+    await delay(300)
+    return {
+      checkoutUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/signup/complete?session_id=mock-session`,
+    }
+  },
+
+  getSignupSession: async (sessionId: string) => {
+    await delay(300)
+    if (sessionId?.startsWith('mock')) {
+      return { email: 'mock@example.com', plan: 'single' }
+    }
+    throw new Error('Invalid session')
+  },
+
+  completeSignup: async (data: { session_id: string; name: string; companyName?: string; password: string }) => {
+    await delay(800)
+    return {
+      token: 'mock-jwt-token',
+      refreshToken: 'mock-refresh-token',
+      user: {
+        id: '2',
+        email: 'mock@example.com',
+        name: data.name,
+        tenantId: 'tenant-2',
+        role: 'owner',
+        onboardingCompletedAt: null,
+      },
+    }
+  },
+
   logout: async () => {
     await delay(200)
     return { success: true }

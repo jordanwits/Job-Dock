@@ -8,6 +8,7 @@ const LoginPage = () => {
   const [searchParams] = useSearchParams()
   const { isAuthenticated } = useAuthStore()
   const [sessionMessage, setSessionMessage] = useState<string | null>(null)
+  const [isFromCheckout, setIsFromCheckout] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -16,6 +17,15 @@ const LoginPage = () => {
   }, [isAuthenticated, navigate])
 
   useEffect(() => {
+    // Check for return from Stripe checkout (new signup)
+    const fromCheckout = searchParams.get('from_checkout')
+    if (fromCheckout === '1') {
+      setSessionMessage('Account created! Enter your password below to log in.')
+      setIsFromCheckout(true)
+      window.history.replaceState({}, '', '/auth/login')
+      return
+    }
+
     // Check for session timeout message
     const sessionExpired = searchParams.get('session')
     const message = searchParams.get('message')

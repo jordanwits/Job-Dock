@@ -46,7 +46,20 @@ export const newPasswordSchema = z
     path: ['confirmPassword'],
   })
 
+export const completeSignupSchema = z
+  .object({
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    companyName: z.string().min(2, 'Company name must be at least 2 characters'),
+    password: passwordValidation,
+    confirmPassword: z.string(),
+  })
+  .refine(data => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  })
+
 export type LoginFormData = z.infer<typeof loginSchema>
 export type RegisterFormData = z.infer<typeof registerSchema>
+export type CompleteSignupFormData = z.infer<typeof completeSignupSchema>
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
 export type NewPasswordFormData = z.infer<typeof newPasswordSchema>

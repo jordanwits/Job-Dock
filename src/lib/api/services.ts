@@ -44,10 +44,31 @@ const realAuthService = {
     password: string
     name: string
     companyName: string
+    plan: 'single' | 'team' | 'team-plus'
   }) => {
     // Use publicApiClient for register since we don't have auth token yet
     const response = await publicApiClient.post('/auth/register', data)
     return response.data
+  },
+
+  createSignupCheckoutUrl: async (plan: 'single' | 'team' | 'team-plus') => {
+    const response = await publicApiClient.post('/auth/signup-checkout', { plan })
+    return response.data as { checkoutUrl: string }
+  },
+
+  getSignupSession: async (sessionId: string) => {
+    const response = await publicApiClient.get(`/auth/signup-session?session_id=${encodeURIComponent(sessionId)}`)
+    return response.data as { email: string; plan: string }
+  },
+
+  completeSignup: async (data: {
+    session_id: string
+    name: string
+    companyName?: string
+    password: string
+  }) => {
+    const response = await publicApiClient.post('/auth/complete-signup', data)
+    return response.data as { token: string; refreshToken: string; user: { id: string; email: string; name: string; tenantId: string; role: string; onboardingCompletedAt: string | null } }
   },
 
   refresh: async (refreshToken: string) => {

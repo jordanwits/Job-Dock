@@ -6,11 +6,13 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
   helperText?: string
+  themeOverride?: 'light' | 'dark'
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, helperText, ...props }, ref) => {
-    const { theme } = useTheme()
+  ({ className, label, error, helperText, themeOverride, ...props }, ref) => {
+    const { theme: contextTheme } = useTheme()
+    const theme = themeOverride || contextTheme
     // Prevent scroll from changing number input values
     const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
       if (props.type === 'number') {

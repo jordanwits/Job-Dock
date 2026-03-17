@@ -38,7 +38,7 @@ const PLANS: Plan[] = [
     id: 'single',
     name: 'Single',
     description: 'Perfect for solo operators',
-    price: '$29/mo',
+    price: '$29.99/mo',
     features: [
       'Unlimited jobs and contacts',
       'Invoice and quote generation',
@@ -51,7 +51,7 @@ const PLANS: Plan[] = [
     id: 'team',
     name: 'Team',
     description: 'Up to 5 users',
-    price: '$59/mo',
+    price: '$59.99/mo',
     features: [
       'Everything in Single',
       'Up to 5 team members',
@@ -63,7 +63,7 @@ const PLANS: Plan[] = [
   {
     id: 'team-plus',
     name: 'Team+',
-    description: '5+ users, unlimited',
+    description: 'Unlimited users',
     price: '$99.99/mo',
     features: [
       'Everything in Team',

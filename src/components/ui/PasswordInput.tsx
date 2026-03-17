@@ -1,36 +1,45 @@
 import { useState, InputHTMLAttributes, forwardRef } from 'react'
 import { cn } from '@/lib/utils'
 import Input from './Input'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string
   error?: string
   helperText?: string
+  themeOverride?: 'light' | 'dark'
 }
 
 const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
-  ({ className, label, error, helperText, ...props }, ref) => {
+  ({ className, label, error, helperText, themeOverride, ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false)
+    const { theme: contextTheme } = useTheme()
+    const theme = themeOverride || contextTheme
 
-    return (
-      <div className="w-full">
-        {label && (
-          <label className="block text-sm font-medium text-primary-light mb-2">{label}</label>
-        )}
-        <div className="relative">
-          <input
-            type={showPassword ? 'text' : 'password'}
-            className={cn(
-              'flex h-10 w-full rounded-lg border border-primary-blue bg-primary-dark-secondary pl-3 pr-10 py-2 text-sm text-primary-light',
-              'placeholder:text-primary-light/50',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-              error && 'border-red-500 focus-visible:ring-red-500',
-              className
-            )}
-            ref={ref}
-            {...props}
-          />
+      return (
+        <div className="w-full">
+          {label && (
+            <label className={cn(
+              "block text-sm font-medium mb-2",
+              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+            )}>{label}</label>
+          )}
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              className={cn(
+                'flex h-10 w-full rounded-lg border pl-3 pr-10 py-2 text-sm',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                theme === 'dark'
+                  ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
+                  : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary',
+                error && 'border-red-500 focus-visible:ring-red-500',
+                className
+              )}
+              ref={ref}
+              {...props}
+            />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
@@ -78,7 +87,12 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           </button>
         </div>
         {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-        {helperText && !error && <p className="mt-1 text-sm text-primary-light/70">{helperText}</p>}
+        {helperText && !error && (
+          <p className={cn(
+            "mt-1 text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>{helperText}</p>
+        )}
       </div>
     )
   }
