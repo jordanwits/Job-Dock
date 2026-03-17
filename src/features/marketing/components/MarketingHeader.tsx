@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { publicSiteConfig } from '../content/publicSiteConfig'
 
 const MarketingHeader = () => {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const [isScrolled, setIsScrolled] = useState(false)
   const alwaysFilled = pathname === '/auth/signup'
   const isFilled = alwaysFilled || isScrolled
@@ -44,11 +45,15 @@ const MarketingHeader = () => {
     }
   }, [isMobileMenuOpen])
 
-  const scrollToSection = (id: string) => {
+  const handleSectionClick = (id: string) => {
     setIsMobileMenuOpen(false)
-    const element = document.getElementById(id)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (pathname === '/') {
+      const element = document.getElementById(id)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    } else {
+      navigate(`/#${id}`)
     }
   }
 
@@ -76,7 +81,7 @@ const MarketingHeader = () => {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
           <button
-            onClick={() => scrollToSection('features')}
+            onClick={() => handleSectionClick('features')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
               isFilled
                 ? 'text-primary-dark/70 hover:text-primary-dark'
@@ -87,7 +92,7 @@ const MarketingHeader = () => {
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
           </button>
           <button
-            onClick={() => scrollToSection('how-it-works')}
+            onClick={() => handleSectionClick('how-it-works')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
               isFilled
                 ? 'text-primary-dark/70 hover:text-primary-dark'
@@ -98,7 +103,7 @@ const MarketingHeader = () => {
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
           </button>
           <button
-            onClick={() => scrollToSection('benefits')}
+            onClick={() => handleSectionClick('benefits')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
               isFilled
                 ? 'text-primary-dark/70 hover:text-primary-dark'
@@ -109,7 +114,7 @@ const MarketingHeader = () => {
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
           </button>
           <button
-            onClick={() => scrollToSection('why-us')}
+            onClick={() => handleSectionClick('why-us')}
             className={`relative text-sm font-medium transition-colors pb-1 group ${
               isFilled
                 ? 'text-primary-dark/70 hover:text-primary-dark'
@@ -187,25 +192,25 @@ const MarketingHeader = () => {
         <div className="mobile-menu md:hidden fixed inset-x-0 top-20 bg-white shadow-2xl animate-slide-down border-t border-gray-200">
           <nav className="container mx-auto px-4 py-6 flex flex-col gap-4">
             <button
-              onClick={() => scrollToSection('features')}
+              onClick={() => handleSectionClick('features')}
               className="text-left px-4 py-3 text-base font-medium text-gray-900 hover:bg-primary-gold/10 rounded-lg transition-colors"
             >
               Features
             </button>
             <button
-              onClick={() => scrollToSection('how-it-works')}
+              onClick={() => handleSectionClick('how-it-works')}
               className="text-left px-4 py-3 text-base font-medium text-gray-900 hover:bg-primary-gold/10 rounded-lg transition-colors"
             >
               How It Works
             </button>
             <button
-              onClick={() => scrollToSection('benefits')}
+              onClick={() => handleSectionClick('benefits')}
               className="text-left px-4 py-3 text-base font-medium text-gray-900 hover:bg-primary-gold/10 rounded-lg transition-colors"
             >
               Benefits
             </button>
             <button
-              onClick={() => scrollToSection('why-us')}
+              onClick={() => handleSectionClick('why-us')}
               className="text-left px-4 py-3 text-base font-medium text-gray-900 hover:bg-primary-gold/10 rounded-lg transition-colors"
             >
               Why Us

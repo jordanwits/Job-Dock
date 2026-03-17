@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
 import SectionHeading from '../components/SectionHeading'
@@ -7,6 +8,20 @@ import MarketingButton from '../components/MarketingButton'
 import { landingPageContent } from '../content/landingPageContent'
 
 const LandingPage = () => {
+  // Scroll to section when navigating from another page with hash (e.g. /#features)
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (hash) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(hash)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id)
     if (element) {
