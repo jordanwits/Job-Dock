@@ -139,5 +139,14 @@ export const settingsApi = {
     })
     return response.data
   },
+
+  /**
+   * Submit feedback (report a problem or suggest a feature).
+   * Sends to jordan@westwavecreative.com for tester feedback.
+   */
+  submitFeedback: async (data: { category: 'problem' | 'suggestion'; message: string }) => {
+    const response = await apiClient.post('/settings/feedback', data)
+    return response.data
+  },
 }
 

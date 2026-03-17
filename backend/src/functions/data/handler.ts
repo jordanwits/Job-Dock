@@ -902,6 +902,8 @@ We look forward to working with you!',
       const isEmployee = role === 'employee'
 
       if (isEmployee && isAdminOnlyResource(resource)) {
+        // Allow all users (including employees) to submit feedback
+        const isFeedbackSubmit = resource === 'settings' && id === 'feedback' && event.httpMethod === 'POST'
         const isReadOnlyAllowed =
           isEmployeeReadOnlyResource(resource) && event.httpMethod === 'GET'
         const isJobAccessAllowed =
@@ -911,7 +913,7 @@ We look forward to working with you!',
             event.httpMethod === 'PUT' ||
             event.httpMethod === 'PATCH' ||
             event.httpMethod === 'DELETE')
-        if (!isReadOnlyAllowed && !isJobAccessAllowed) {
+        if (!isFeedbackSubmit && !isReadOnlyAllowed && !isJobAccessAllowed) {
           return errorResponse('Access denied. This feature requires admin privileges.', 403)
         }
       }
@@ -1339,6 +1341,20 @@ async function handlePost(
 
     if (id === 'confirm-upload') {
       return (service as typeof dataServices.settings).confirmUpload(tenantId, payload)
+    }
+
+    if (id === 'feedback') {
+      const context = await extractContext(event)
+      const { default: prisma } = await import('../../lib/db')
+      const user = await prisma.user.findUnique({
+        where: { cognitoId: context.userId },
+        select: { name: true },
+      })
+      return (service as typeof dataServices.settings).submitFeedback(tenantId, {
+        ...payload,
+        userEmail: context.userEmail,
+        userName: user?.name ?? undefined,
+      })
     }
 
     throw new ApiError('Invalid action for settings', 400)

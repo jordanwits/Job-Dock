@@ -10,10 +10,11 @@ import { PdfTemplatesSection } from './PdfTemplatesSection'
 import { BillingSection } from './BillingSection'
 import { TeamMembersSection } from './TeamMembersSection'
 import { HelpSection } from './HelpSection'
+import { FeedbackSection } from './FeedbackSection'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 
-type TabId = 'billing' | 'team' | 'company' | 'email' | 'pdf' | 'help'
+type TabId = 'billing' | 'team' | 'company' | 'email' | 'pdf' | 'help' | 'feedback'
 
 interface TabConfig {
   id: TabId
@@ -186,6 +187,11 @@ export const SettingsPage = () => {
             onQuotePdfUpload={handleQuotePdfUpload}
           />
         ),
+      },
+      {
+        id: 'feedback',
+        label: 'Feedback',
+        component: <FeedbackSection />,
       },
       {
         id: 'help',

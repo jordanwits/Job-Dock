@@ -955,6 +955,9 @@ const serializeInvoice = (
   trackPayment: (invoice as any).trackPayment ?? true,
   createdAt: invoice.createdAt.toISOString(),
   updatedAt: invoice.updatedAt.toISOString(),
+  convertedFromQuoteNumber: (invoice as any).convertedFromQuoteNumber ?? undefined,
+  convertedFromQuoteTotal: (invoice as any).convertedFromQuoteTotal != null ? toNumber((invoice as any).convertedFromQuoteTotal) : undefined,
+  convertedFromQuoteCreatedAt: (invoice as any).convertedFromQuoteCreatedAt?.toISOString(),
   ...withContactInfo(invoice.contact),
 })
 
@@ -1176,6 +1179,34 @@ export const dataServices = {
         ...(type === 'invoice-pdf' && { invoicePdfSignedUrl: signedUrl }),
         ...(type === 'quote-pdf' && { quotePdfSignedUrl: signedUrl }),
       }
+    },
+    submitFeedback: async (
+      _tenantId: string,
+      payload: {
+        category: 'problem' | 'suggestion'
+        message: string
+        userEmail?: string
+        userName?: string
+      }
+    ) => {
+      const { category, message, userEmail, userName } = payload
+      if (!category || !message?.trim()) {
+        throw new ApiError('Category and message are required', 400)
+      }
+      const categoryLabel = category === 'problem' ? 'Report a Problem' : 'Suggest a Change/Feature'
+      const subject = `[JobDock Feedback] ${categoryLabel} - ${userName || userEmail || 'Anonymous'}`
+      const textBody = `Category: ${categoryLabel}\n\nFrom: ${userName || 'Unknown'} (${userEmail || 'Unknown'})\n\nMessage:\n${message}`
+      const escapeHtml = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+      const htmlBody = `<pre style="font-family: sans-serif; white-space: pre-wrap;">${escapeHtml(textBody)}</pre>`
+      await sendEmail({
+        to: 'jordan@westwavecreative.com',
+        subject,
+        htmlBody,
+        textBody,
+        replyTo: userEmail || undefined,
+      })
+      return { success: true }
     },
   },
   contacts: {
@@ -1833,6 +1864,9 @@ export const dataServices = {
           paidAmount,
           trackResponse: payload.trackResponse !== undefined ? payload.trackResponse : true,
           trackPayment: payload.trackPayment !== undefined ? payload.trackPayment : true,
+          convertedFromQuoteNumber: payload.convertedFromQuoteNumber || null,
+          convertedFromQuoteTotal: payload.convertedFromQuoteTotal != null ? payload.convertedFromQuoteTotal : null,
+          convertedFromQuoteCreatedAt: payload.convertedFromQuoteCreatedAt ? new Date(payload.convertedFromQuoteCreatedAt) : null,
           lineItems: {
             create: lineItems.map((item: any) => ({
               description: item.description,
