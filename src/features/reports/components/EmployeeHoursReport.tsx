@@ -46,8 +46,7 @@ export const EmployeeHoursReport = ({
 }: EmployeeHoursReportProps) => {
   const { theme } = useTheme()
   const { user: currentUser } = useAuthStore()
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true)
 
   // Create a map of jobId -> job for quick lookup
   const jobMap = useMemo(() => {
@@ -77,25 +76,6 @@ export const EmployeeHoursReport = ({
 
   // Aggregate hours and pay by employee
   const employeeData = useMemo(() => {
-    console.log('EmployeeHoursReport - isTeamAccount:', isTeamAccount)
-    console.log(
-      'EmployeeHoursReport - users count:',
-      users.length,
-      'users:',
-      users.map(u => ({ id: u.id, name: u.name }))
-    )
-    console.log('EmployeeHoursReport - filteredEntries:', filteredEntries.length)
-    if (filteredEntries.length > 0) {
-      console.log('EmployeeHoursReport - sample entry:', filteredEntries[0])
-      console.log(
-        'EmployeeHoursReport - entries with userId:',
-        filteredEntries.filter(e => e.userId).length
-      )
-      console.log('EmployeeHoursReport - unique userIds:', [
-        ...new Set(filteredEntries.filter(e => e.userId).map(e => e.userId)),
-      ])
-    }
-
     const dataMap = new Map<string, EmployeeHoursData>()
 
     // Initialize data for all users (if team) or just current user (if single)
@@ -236,10 +216,18 @@ export const EmployeeHoursReport = ({
               const rate = (entry as any).hourlyRate ?? assignment.hourlyRate
               if (rate != null && !isNaN(rate)) pay = hours * rate
               userData.totalPay += pay
-            } else if (payType === 'job' && assignment.price) {
-              // For job-based pay, we'd need to track which jobs have been paid
-              // For now, just show the job price (but don't add multiple times for same job)
-              // This is a simplification - ideally we'd track per-job payment
+            } else if (payType === 'job') {
+              // Job-based: fixed price per job per employee (assignment.price or job price)
+              const jobPrice =
+                assignment.price ?? job.price ?? (job as { job?: { price?: number | null } }).job?.price ?? 0
+              if (jobPrice != null && !isNaN(jobPrice) && jobPrice > 0) {
+                const existingJob = userData.jobs.find(j => j.jobId === jobId)
+                if (!existingJob) {
+                  // Attribute job price once per job per user (not per time entry)
+                  pay = jobPrice
+                  userData.totalPay += pay
+                }
+              }
             }
 
             // Track job details
@@ -260,20 +248,6 @@ export const EmployeeHoursReport = ({
         }
       }
     })
-
-    console.log(
-      'Processed entries:',
-      processedCount,
-      'Skipped (no userId):',
-      skippedNoUserId,
-      'Skipped (single tier):',
-      skippedSingleTier
-    )
-    console.log('DataMap size:', dataMap.size)
-    console.log(
-      'DataMap entries:',
-      Array.from(dataMap.values()).map(d => ({ name: d.userName, entries: d.entryCount }))
-    )
 
     // Convert to array and sort by total hours (descending)
     // For team accounts, show all members (even with 0 hours)
@@ -475,44 +449,38 @@ export const EmployeeHoursReport = ({
                       )}>{formatNumber(emp.entryCount)}</span>
                     </div>
                     {emp.jobs.length > 0 && (
-                      <div className="mt-2">
-                        <button
-                          onClick={() =>
-                            setExpandedUserId(expandedUserId === emp.userId ? null : emp.userId)
-                          }
-                          className="text-sm text-primary-gold hover:text-primary-gold/80 transition-colors"
-                        >
-                          {expandedUserId === emp.userId ? 'Hide' : 'Show'} job details
-                        </button>
-                        {expandedUserId === emp.userId && (
-                          <div className="mt-2 space-y-2">
-                            {emp.jobs.map(job => (
-                              <div
-                                key={job.jobId}
-                                className={cn(
-                                  "p-2 rounded text-sm",
-                                  theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
-                                )}
-                              >
-                                <p className={cn(
-                                  "font-medium",
-                                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                                )}>{job.jobTitle}</p>
-                                <div className={cn(
-                                  "flex justify-between mt-1 gap-2 min-w-0",
-                                  theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                                )}>
-                                  <span className="break-words">{job.hours.toFixed(2)}h</span>
-                                  {job.pay > 0 && (
-                                    <span className="break-words text-right">
-                                      ${formatCurrency(job.pay)} ({job.payType})
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
+                      <div className="mt-2 space-y-2">
+                        <p className={cn(
+                          "text-xs font-medium uppercase tracking-wide",
+                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                        )}>Job-by-job breakdown</p>
+                        {emp.jobs.map(job => (
+                          <div
+                            key={job.jobId}
+                            className={cn(
+                              "p-2 rounded text-sm",
+                              theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
+                            )}
+                          >
+                            <p className={cn(
+                              "font-medium",
+                              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                            )}>{job.jobTitle}</p>
+                            <div className={cn(
+                              "flex justify-between mt-1 gap-2 min-w-0",
+                              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                            )}>
+                              <span className="break-words">{job.hours.toFixed(2)}h</span>
+                              <span className="break-words text-right">
+                                {job.pay > 0
+                                  ? `$${formatCurrency(job.pay)} (${job.payType})`
+                                  : job.payType === 'Job-based'
+                                    ? '—'
+                                    : `— (${job.payType})`}
+                              </span>
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>

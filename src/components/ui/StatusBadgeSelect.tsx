@@ -53,8 +53,8 @@ const StatusBadgeSelect = ({
     setIsOpen(false)
   }
 
-  const selectedOption = options.find(opt => opt.value === value)
-  const displayValue = selectedOption ? selectedOption.label : value
+  const selectedOption = options.find(opt => opt.value.toLowerCase() === (value ?? '').toLowerCase())
+  const displayValue = selectedOption ? selectedOption.label : (value?.toLowerCase() === 'pending' ? 'Unpaid' : value)
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs',

@@ -32,7 +32,7 @@ export const JobsReport = ({
   timeEntries,
 }: JobsReportProps) => {
   const { theme } = useTheme()
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true)
   // Filter jobs by date range (createdAt)
   const filteredJobs = useMemo(() => {
     return jobLogs.filter(job => {
@@ -110,6 +110,7 @@ export const JobsReport = ({
   // Calculate cost from time entries and job assignments
   const cost = useMemo(() => {
     let totalCost = 0
+    const jobPayCounted = new Set<string>() // jobId_userId to avoid double-counting job-based pay
 
     // Filter time entries by date range
     const filteredEntries = timeEntries.filter(entry => {
@@ -118,33 +119,60 @@ export const JobsReport = ({
     })
 
     filteredEntries.forEach(entry => {
-      const jobId = (entry as any).jobId || entry.jobLogId
-      if (jobId) {
+      let jobId = (entry as any).jobId || entry.jobLogId
+      let userId = entry.userId
+
+      // If userId is missing, try to infer from job assignment
+      if (!userId && jobId) {
         const job = jobLogs.find(j => j.id === jobId)
-        if (job && job.assignedTo) {
+        if (job?.assignedTo) {
           const assignments = Array.isArray(job.assignedTo)
             ? job.assignedTo
             : typeof job.assignedTo === 'string'
-              ? [{ userId: entry.userId || '', role: '', payType: 'job' as const }]
+              ? [{ userId: job.assignedTo, role: '', payType: 'job' as const }]
               : []
+          if (assignments.length > 0 && (assignments[0] as any).userId) {
+            userId = (assignments[0] as any).userId
+          }
+        }
+      }
 
-          const assignment = assignments.find((a: any) => a.userId === entry.userId)
-          if (
-            assignment &&
-            assignment.payType === 'hourly' &&
-            entry.userId
-          ) {
-            const rate = (entry as any).hourlyRate ?? assignment.hourlyRate
-            if (rate != null && !isNaN(rate)) {
-              const start = new Date(entry.startTime).getTime()
-              const end = new Date(entry.endTime).getTime()
-              const breakMinutes = entry.breakMinutes || 0
-              const hours = ((end - start) / 60000 - breakMinutes) / 60
-              totalCost += hours * rate
-            }
-          } else if (assignment && assignment.payType === 'job' && assignment.price) {
-            // For job-based pay, we'd need to track which jobs have been paid
-            // For now, we'll skip to avoid double-counting
+      if (!jobId || !userId) return
+
+      const job = jobLogs.find(j => j.id === jobId)
+      if (!job || !job.assignedTo) return
+
+      const assignments = Array.isArray(job.assignedTo)
+        ? job.assignedTo
+        : typeof job.assignedTo === 'string'
+          ? [{ userId, role: '', payType: 'job' as const }]
+          : []
+
+      const assignment = assignments.find((a: any) => a.userId === userId)
+      if (!assignment) return
+
+      const payType = assignment.payType || 'job'
+      if (payType === 'hourly') {
+        const rate = (entry as any).hourlyRate ?? assignment.hourlyRate
+        if (rate != null && !isNaN(rate)) {
+          const start = new Date(entry.startTime).getTime()
+          const end = new Date(entry.endTime).getTime()
+          const breakMinutes = entry.breakMinutes || 0
+          const hours = ((end - start) / 60000 - breakMinutes) / 60
+          totalCost += hours * rate
+        }
+      } else {
+        // Job-based: fixed price per job per employee (assignment.price or job price)
+        const jobPrice =
+          assignment.price ??
+          job.price ??
+          (job as { job?: { price?: number | null } }).job?.price ??
+          0
+        if (jobPrice != null && !isNaN(jobPrice) && jobPrice > 0) {
+          const key = `${jobId}_${userId}`
+          if (!jobPayCounted.has(key)) {
+            jobPayCounted.add(key)
+            totalCost += jobPrice
           }
         }
       }

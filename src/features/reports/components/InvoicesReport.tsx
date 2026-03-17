@@ -91,6 +91,9 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
     }
   }, [filteredInvoices, statusGroups, paymentGroups])
 
+  const paymentStatusLabel = (ps: string | undefined) =>
+    ps === 'pending' ? 'Unpaid' : ps === 'partial' ? 'Partially Paid' : ps === 'paid' ? 'Paid' : ps ?? ''
+
   const handleExport = () => {
     const exportData = filteredInvoices.map(invoice => ({
       'Invoice Number': invoice.invoiceNumber,
@@ -98,7 +101,7 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
       Contact: invoice.contactName || '',
       Company: invoice.contactCompany || '',
       Status: invoice.status,
-      'Payment Status': invoice.paymentStatus,
+      'Payment Status': paymentStatusLabel(invoice.paymentStatus),
       Subtotal: formatCurrency(invoice.subtotal),
       Tax: formatCurrency(invoice.taxAmount),
       Discount: formatCurrency(invoice.discount),
@@ -239,69 +242,79 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
 
           {/* Status Breakdown - Collapsible */}
           {isExpanded && (
-            <div className="space-y-3">
-              <h4 className={cn(
-                "text-sm font-semibold uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                By Status
-              </h4>
-              <div className="space-y-2">
-                {(['draft', 'sent', 'overdue', 'cancelled'] as const).map(status => {
-                const group = statusGroups[status]
-                if (group.length === 0) return null
+            <div className="space-y-6">
+              {/* By Payment Status */}
+              <div className="space-y-3">
+                <h4 className={cn(
+                  "text-sm font-semibold uppercase tracking-wide",
+                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                )}>
+                  By Payment Status
+                </h4>
+                <div className="space-y-2">
+                  {(['pending', 'partial', 'paid'] as const).map(paymentStatus => {
+                    const group = paymentGroups[paymentStatus]
+                    if (!group || group.length === 0) return null
 
-                const statusLabels: Record<string, string> = {
-                  draft: 'Draft',
-                  sent: 'Sent',
-                  overdue: 'Overdue',
-                  cancelled: 'Cancelled',
-                }
+                    const paymentLabels: Record<string, string> = {
+                      pending: 'Unpaid',
+                      partial: 'Partially Paid',
+                      paid: 'Paid',
+                    }
 
-                const statusColors: Record<string, string> = {
-                  draft: theme === 'dark' 
-                    ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' 
-                    : 'bg-gray-200 text-gray-600 border-gray-300',
-                  sent: theme === 'dark'
-                    ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                    : 'bg-blue-100 text-blue-700 border-blue-300',
-                  overdue: theme === 'dark'
-                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                    : 'bg-red-100 text-red-700 border-red-300',
-                  cancelled: theme === 'dark'
-                    ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                    : 'bg-gray-200 text-gray-600 border-gray-300',
-                }
+                    const paymentColors: Record<string, string> = {
+                      pending: theme === 'dark'
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                        : 'bg-amber-100 text-amber-700 border-amber-300',
+                      partial: theme === 'dark'
+                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                        : 'bg-blue-100 text-blue-700 border-blue-300',
+                      paid: theme === 'dark'
+                        ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                        : 'bg-green-100 text-green-700 border-green-300',
+                    }
 
-                const total = group.reduce((sum, i) => sum + i.total, 0)
+                    const total = group.reduce((sum, i) => sum + i.total, 0)
+                    const paidAmount = group.reduce((sum, i) => sum + i.paidAmount, 0)
 
-                return (
-                  <div
-                    key={status}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg gap-2 min-w-0",
-                      theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
-                    )}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${statusColors[status]}`}
+                    return (
+                      <div
+                        key={paymentStatus}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-lg gap-2 min-w-0",
+                          theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
+                        )}
                       >
-                        {statusLabels[status]}
-                      </span>
-                      <span className={cn(
-                        "text-xs md:text-sm truncate",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {formatNumber(group.length)} invoices
-                      </span>
-                    </div>
-                    <span className="text-xs md:text-sm font-semibold text-primary-gold shrink-0 break-words text-right">
-                      ${formatCurrency(total)}
-                    </span>
-                  </div>
-                )
-              })}
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${paymentColors[paymentStatus]}`}
+                          >
+                            {paymentLabels[paymentStatus]}
+                          </span>
+                          <span className={cn(
+                            "text-xs md:text-sm truncate",
+                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                          )}>
+                            {formatNumber(group.length)} invoices
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0 min-w-0">
+                          <span className="text-xs md:text-sm font-semibold text-primary-gold break-words block">
+                            ${formatCurrency(total)} total
+                          </span>
+                          {paymentStatus !== 'pending' && (
+                            <span className={cn(
+                              "text-xs break-words block",
+                              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                            )}>
+                              ${formatCurrency(paidAmount)} paid
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           )}
