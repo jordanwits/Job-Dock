@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
+import ScrollReveal from '../components/ScrollReveal'
 import SectionHeading from '../components/SectionHeading'
 import FeatureCard from '../components/FeatureCard'
 import StatCard from '../components/StatCard'
@@ -84,29 +85,28 @@ const LandingPage = () => {
 
       {/* Trust Bar */}
       <MarketingSection variant="white" className="py-8 md:py-12 border-b border-primary-blue/10">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
+        <ScrollReveal variant="left">
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="max-w-5xl mx-auto">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
               {landingPageContent.trustBar.map((item, index) => (
-                <div
-                  key={index}
-                  className={`animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}
-                >
+                <div key={index}>
                   <div className="text-3xl md:text-4xl font-bold text-primary-gold mb-2">
                     {item.value}
                   </div>
                   <div className="text-sm md:text-base text-primary-dark/70">{item.label}</div>
                 </div>
               ))}
+              </div>
             </div>
           </div>
-        </div>
+        </ScrollReveal>
       </MarketingSection>
 
       {/* Value Proposition */}
       <MarketingSection variant="gradient-blue" className="py-12 md:py-16">
         <div className="container mx-auto px-4 md:px-6">
-          <div className="max-w-6xl mx-auto">
+          <ScrollReveal variant="right" className="max-w-6xl mx-auto">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-4 leading-tight">
                 You don't need another <span className="text-primary-gold">bloated platform.</span>
@@ -164,14 +164,14 @@ const LandingPage = () => {
                 )
               })}
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </MarketingSection>
 
       {/* Problem Section */}
       <MarketingSection variant="white" className="py-12 md:py-16">
         <div className="container mx-auto px-4 md:px-6">
-          <div className="max-w-4xl mx-auto">
+          <ScrollReveal variant="up" className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-8 text-center leading-tight">
               Running your business shouldn't feel{' '}
               <span className="text-primary-gold">this complicated</span>
@@ -181,10 +181,7 @@ const LandingPage = () => {
             </p>
             <div className="space-y-4 mb-8 max-w-2xl mx-auto">
               {landingPageContent.problem.problems.map((problem, index) => (
-                <div
-                  key={index}
-                  className={`flex items-start gap-3 animate-fade-in-up ${index > 0 ? `animation-delay-${index}00` : ''}`}
-                >
+                <div key={index} className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-gold/30 flex items-center justify-center mt-1">
                     <div className="w-2 h-2 rounded-full bg-primary-gold"></div>
                   </div>
@@ -200,7 +197,7 @@ const LandingPage = () => {
                 {landingPageContent.problem.conclusion.description}
               </p>
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </MarketingSection>
 
@@ -213,6 +210,7 @@ const LandingPage = () => {
         />
         <div className="absolute inset-0 bg-black/25" aria-hidden />
         <div className="container mx-auto px-4 md:px-6 relative z-10">
+          <ScrollReveal variant="left">
           <div className="text-center mb-12 md:mb-16">
             <div className="inline-block px-4 py-1.5 rounded-full border border-white/30 bg-black/40 backdrop-blur-md text-primary-gold text-sm font-bold tracking-wider mb-4 uppercase">
               {landingPageContent.features.eyebrow}
@@ -346,12 +344,14 @@ const LandingPage = () => {
               description="Track progress from lead to completion. Never lose track of where you are."
             />
           </div>
+          </ScrollReveal>
         </div>
       </MarketingSection>
 
       {/* How It Works Section */}
       <MarketingSection id="how-it-works" variant="white" withTopDivider withBottomDivider>
         <div className="container mx-auto px-4 md:px-6">
+          <ScrollReveal variant="right">
           <SectionHeading
             eyebrow="How It Works"
             heading={
@@ -364,7 +364,7 @@ const LandingPage = () => {
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-4 gap-8">
               {/* Step 1 */}
-              <div className="text-center animate-fade-in-up">
+              <div className="text-center">
                 <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
                   <span className="text-3xl font-bold text-white">1</span>
                   <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
@@ -376,7 +376,7 @@ const LandingPage = () => {
               </div>
 
               {/* Step 2 */}
-              <div className="text-center animate-fade-in-up animation-delay-100">
+              <div className="text-center">
                 <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
                   <span className="text-3xl font-bold text-white">2</span>
                   <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
@@ -388,7 +388,7 @@ const LandingPage = () => {
               </div>
 
               {/* Step 3 */}
-              <div className="text-center animate-fade-in-up animation-delay-200">
+              <div className="text-center">
                 <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
                   <span className="text-3xl font-bold text-white">3</span>
                   <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
@@ -400,7 +400,7 @@ const LandingPage = () => {
               </div>
 
               {/* Step 4 */}
-              <div className="text-center animate-fade-in-up animation-delay-300">
+              <div className="text-center">
                 <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
                   <span className="text-3xl font-bold text-white">4</span>
                 </div>
@@ -421,12 +421,14 @@ const LandingPage = () => {
               </p>
             </div>
           </div>
+          </ScrollReveal>
         </div>
       </MarketingSection>
 
       {/* Stats Band */}
       <MarketingSection variant="gradient-dark">
         <div className="container mx-auto px-4 md:px-6">
+          <ScrollReveal variant="up">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
@@ -499,12 +501,14 @@ const LandingPage = () => {
               />
             </div>
           </div>
+          </ScrollReveal>
         </div>
       </MarketingSection>
 
       {/* Solution Section */}
       <MarketingSection id="benefits" variant="light">
         <div className="container mx-auto px-4 md:px-6">
+          <ScrollReveal variant="left">
           <div className="max-w-5xl mx-auto">
             <SectionHeading
               heading="The Job Dock brings it all together"
@@ -623,12 +627,14 @@ const LandingPage = () => {
               </p>
             </div>
           </div>
+          </ScrollReveal>
         </div>
       </MarketingSection>
 
       {/* Why Different Section */}
       <MarketingSection id="why-us" variant="white">
         <div className="container mx-auto px-4 md:px-6">
+          <ScrollReveal variant="right">
           <div className="max-w-7xl mx-auto">
             <div className="grid gap-4 items-center lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-16">
               {/* Left Column - Image */}
@@ -734,12 +740,14 @@ const LandingPage = () => {
               </div>
             </div>
           </div>
+          </ScrollReveal>
         </div>
       </MarketingSection>
 
       {/* Get Started Section */}
       <MarketingSection id="get-started" variant="light" withTopDivider>
         <div className="container mx-auto px-4 md:px-6">
+          <ScrollReveal variant="fade">
           <div className="max-w-4xl mx-auto text-center">
             <SectionHeading
               eyebrow="Get Started"
@@ -750,6 +758,7 @@ const LandingPage = () => {
               Get Started
             </MarketingButton>
           </div>
+          </ScrollReveal>
         </div>
       </MarketingSection>
     </MarketingLayout>
