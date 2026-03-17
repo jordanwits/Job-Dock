@@ -630,20 +630,15 @@ const LandingPage = () => {
       <MarketingSection id="why-us" variant="white">
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-7xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="grid lg:grid-cols-2 gap-4 lg:gap-4 items-center">
               {/* Left Column - Image */}
-              <div className="order-2 lg:order-1 relative">
-                <div className="relative rounded-3xl overflow-hidden border-2 border-primary-blue/20 shadow-2xl">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary-blue/10 via-transparent to-primary-dark/5 z-10 pointer-events-none"></div>
-                  <img
-                    src="/marketing/team-planning.svg"
-                    alt="Team of contractors collaborating and planning projects"
-                    className="w-full h-auto"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="absolute -top-6 -left-6 w-28 h-28 bg-primary-gold/10 rounded-full blur-3xl"></div>
-                <div className="absolute -bottom-6 -right-6 w-36 h-36 bg-primary-blue/10 rounded-full blur-3xl"></div>
+              <div className="order-2 lg:order-1 flex justify-center lg:justify-start">
+                <img
+                  src="/JDmock.png"
+                  alt="Job Dock product mockup"
+                  className="w-full max-w-sm h-auto"
+                  loading="lazy"
+                />
               </div>
 
               {/* Right Column - Content */}
