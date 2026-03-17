@@ -79,7 +79,7 @@ const SignupCompletePage = () => {
 
   if (fetchingSession) {
     return (
-      <MarketingLayout>
+      <MarketingLayout hideHeader hideFooter>
         <div className="container mx-auto px-4 md:px-6 pt-24 md:pt-32 pb-12">
           <div className="max-w-md mx-auto text-center">
             <p className="text-primary-dark/70">Verifying your checkout…</p>
@@ -91,7 +91,7 @@ const SignupCompletePage = () => {
 
   if (sessionError || !sessionEmail) {
     return (
-      <MarketingLayout>
+      <MarketingLayout hideHeader hideFooter>
         <div className="container mx-auto px-4 md:px-6 pt-24 md:pt-32 pb-12">
           <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg border border-primary-blue/10 p-8">
             <p className="text-red-600 mb-4">{sessionError || 'Invalid session'}</p>
@@ -105,7 +105,7 @@ const SignupCompletePage = () => {
   }
 
   return (
-    <MarketingLayout>
+    <MarketingLayout hideHeader hideFooter>
       <div className="container mx-auto px-4 md:px-6 pt-24 md:pt-32 pb-12 md:pb-16">
         <div className="max-w-md mx-auto">
           <div className="mb-10 text-center space-y-2">

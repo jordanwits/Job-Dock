@@ -2493,6 +2493,55 @@ export function buildTeamInviteEmail(data: {
 }
 
 /**
+ * Build signup completion email payload (sent after Stripe checkout for new signups).
+ * Used when user closes the create-account page before completing it - they get this
+ * email with a link to finish signup.
+ */
+export function buildSignupCompleteEmail(data: {
+  to: string
+  signupUrl: string
+}) {
+  const { to, signupUrl } = data
+
+  const subject = 'Complete your JobDock account setup'
+
+  const actionButton = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="background-color: #D4AF37; border-radius: 6px;">
+                <a href="${signupUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Complete signup</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Thanks for subscribing to JobDock!</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">You've completed payment. Click below to finish setting up your account:</p>
+    ${actionButton}
+    <p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">Or copy this link: <a href="${signupUrl}" style="color: #D4AF37; text-decoration: none;">${signupUrl}</a></p>
+  `
+
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Complete your JobDock account',
+    content,
+  })
+
+  return {
+    to,
+    subject,
+    htmlBody,
+    textBody: `Thanks for subscribing to JobDock! You've completed payment. Finish setting up your account: ${signupUrl}`,
+  }
+}
+
+/**
  * Build and send invoice email with PDF attachment
  */
 export async function sendInvoiceEmail(data: {

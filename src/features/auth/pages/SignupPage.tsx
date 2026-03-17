@@ -33,12 +33,13 @@ const SignupPage = () => {
     setSelectedPlan(planId)
   }
 
-  const onStartTrial = async () => {
-    if (!selectedPlan) return
+  const onStartTrial = async (planId?: PlanTier) => {
+    const plan = planId ?? selectedPlan
+    if (!plan) return
     setError(null)
     setIsLoading(true)
     try {
-      const { checkoutUrl } = await authService.createSignupCheckoutUrl(selectedPlan)
+      const { checkoutUrl } = await authService.createSignupCheckoutUrl(plan)
       if (checkoutUrl) {
         window.location.href = checkoutUrl
       }
@@ -81,12 +82,12 @@ const SignupPage = () => {
 
             <div className="grid gap-6 md:grid-cols-3 mb-10 min-w-0">
               {SIGNUP_PLANS.map(plan => (
-                <button
+                <div
                   key={plan.id}
-                  type="button"
+                  role="group"
                   onClick={() => onPlanSelect(plan.id)}
                   className={cn(
-                    'text-left p-6 md:p-8 rounded-2xl border-2 transition-all min-w-0 whitespace-normal flex flex-col',
+                    'text-left p-6 md:p-8 rounded-2xl border-2 transition-all min-w-0 whitespace-normal flex flex-col cursor-pointer',
                     selectedPlan === plan.id
                       ? 'border-primary-gold bg-primary-gold/5 shadow-md relative ring-1 ring-primary-gold'
                       : 'border-primary-blue/10 hover:border-primary-gold/40 bg-white'
@@ -105,7 +106,7 @@ const SignupPage = () => {
                       {plan.description}
                     </p>
                   </div>
-                  
+
                   <ul className="min-w-0 space-y-3.5 text-sm text-primary-dark/80 flex-1 w-full pt-6 border-t border-primary-blue/10">
                     {plan.features.map((f, i) => (
                       <li key={i} className="flex items-start gap-3 min-w-0">
@@ -126,7 +127,18 @@ const SignupPage = () => {
                       </li>
                     ))}
                   </ul>
-                </button>
+
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onStartTrial(plan.id)
+                    }}
+                    disabled={isLoading}
+                    className="mt-6 w-full block md:hidden"
+                  >
+                    {isLoading ? 'Redirecting...' : 'Start trial'}
+                  </Button>
+                </div>
               ))}
             </div>
 
@@ -139,13 +151,15 @@ const SignupPage = () => {
                   </Link>
                 </span>
               </div>
-              <Button
-                onClick={onStartTrial}
-                disabled={!selectedPlan || isLoading}
-                className="flex-1 order-1 sm:order-2"
-              >
-                {isLoading ? 'Redirecting...' : 'Start trial'}
-              </Button>
+              <div className="hidden md:flex flex-1 order-1 sm:order-2">
+                <Button
+                  onClick={() => onStartTrial()}
+                  disabled={!selectedPlan || isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? 'Redirecting...' : 'Start trial'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

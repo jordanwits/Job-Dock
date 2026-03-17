@@ -20,6 +20,7 @@ import {
   buildClientBookingConfirmedEmail,
   buildClientBookingDeclinedEmail,
   buildJobAssignmentNotificationEmail,
+  buildSignupCompleteEmail,
   sendQuoteEmail,
   sendInvoiceEmail,
   sendQuoteAcceptedNotificationToUsers,
@@ -4774,8 +4775,6 @@ export const dataServices = {
 
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
-        customer_email: undefined,
-        customer_creation: 'always',
         allow_promotion_codes: true,
         line_items: [{ price: priceId, quantity: 1 }],
         subscription_data: {
@@ -5000,6 +4999,7 @@ export const dataServices = {
         case 'checkout.session.completed': {
           const session = event.data.object
           const tenantId = session.metadata?.tenantId
+          const plan = session.metadata?.plan as string | undefined
 
           if (tenantId && session.subscription) {
             const sub = await stripe.subscriptions.retrieve(session.subscription as string)
@@ -5016,6 +5016,15 @@ export const dataServices = {
             console.log(
               `Updated tenant ${tenantId} with subscription ${session.subscription}, tier ${subscriptionTier}`
             )
+          } else if (plan && session.customer_details?.email) {
+            const baseUrl = (process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')
+            const signupUrl = `${baseUrl}/auth/signup/complete?session_id=${session.id}`
+            const payload = buildSignupCompleteEmail({
+              to: session.customer_details.email,
+              signupUrl,
+            })
+            await sendEmail(payload)
+            console.log(`Sent signup completion email to ${session.customer_details.email}`)
           }
           break
         }
