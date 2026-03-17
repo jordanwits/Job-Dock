@@ -30,10 +30,12 @@ const SectionHeading = ({
           {eyebrow}
         </div>
       )}
-      <h2 className={cn(
-        'text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-6 leading-tight',
-        headingClassName
-      )}>
+      <h2
+        className={cn(
+          'text-3xl md:text-4xl lg:text-5xl font-bold text-primary-dark mb-6 leading-tight',
+          headingClassName
+        )}
+      >
         {heading}
       </h2>
       {subheading && (
