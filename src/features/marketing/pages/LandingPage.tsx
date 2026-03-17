@@ -636,9 +636,9 @@ const LandingPage = () => {
         <div className="container mx-auto px-4 md:px-6">
           <ScrollReveal variant="right">
           <div className="max-w-7xl mx-auto">
-            <div className="grid gap-4 items-center lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-16">
+            <div className="grid gap-10 md:gap-12 items-center lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-16">
               {/* Left Column - Image */}
-              <div className="order-2 lg:order-1 flex justify-center lg:justify-start">
+              <div className="order-2 lg:order-1 mt-12 lg:mt-0 flex justify-center lg:justify-start">
                 <img
                   src="/JDmock.png"
                   alt="Job Dock product mockup"
@@ -766,4 +766,5 @@ const LandingPage = () => {
 }
 
 export default LandingPage
+
 
