@@ -7,6 +7,8 @@ import InvoiceForm from './InvoiceForm'
 import { cn } from '@/lib/utils'
 import { ScheduleJobModal } from '@/features/scheduling'
 import { useTheme } from '@/contexts/ThemeContext'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
+import { getSendValidationError } from '@/lib/utils/sendValidation'
 
 interface InvoiceDetailProps {
   invoice: Invoice
@@ -61,9 +63,19 @@ const InvoiceDetail = ({
   }
 
   const handleSend = async () => {
-    setIsSending(true)
     setSendError(null)
     setSendSuccess(false)
+    const validationError = getSendValidationError({
+      contactEmail: invoice.contactEmail,
+      contactPhone: invoice.contactPhone?.trim(),
+      contactNotificationPreference: invoice.contactNotificationPreference || 'both',
+    })
+    if (validationError) {
+      setSendError(validationError)
+      setTimeout(() => setSendError(null), 5000)
+      return
+    }
+    setIsSending(true)
     try {
       await sendInvoice(invoice.id)
       const updatedInvoice = useInvoiceStore.getState().selectedInvoice
@@ -80,8 +92,8 @@ const InvoiceDetail = ({
         setSendSuccess(true)
         setTimeout(() => setSendSuccess(false), 3000)
       }
-    } catch (error: any) {
-      setSendError(error.message || 'Failed to send invoice')
+    } catch (error: unknown) {
+      setSendError(getErrorMessage(error, 'Failed to send invoice'))
       setTimeout(() => setSendError(null), 5000)
     } finally {
       setIsSending(false)
@@ -244,23 +256,8 @@ const InvoiceDetail = ({
               </Button>
               <Button
                 onClick={handleSend}
-                disabled={
-                  isSending ||
-                  !(
-                    (['email', 'both'].includes(invoice.contactNotificationPreference || 'both') && invoice.contactEmail) ||
-                    (['sms', 'both'].includes(invoice.contactNotificationPreference || 'both') && invoice.contactPhone?.trim())
-                  )
-                }
+                disabled={isSending}
                 className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto whitespace-nowrap"
-                title={
-                  !invoice.contactEmail && !invoice.contactPhone?.trim()
-                    ? 'Contact needs email or phone to receive invoice'
-                    : (['email', 'both'].includes(invoice.contactNotificationPreference || 'both') && !invoice.contactEmail)
-                      ? 'Contact prefers email but has no email address'
-                      : (['sms', 'both'].includes(invoice.contactNotificationPreference || 'both') && !invoice.contactPhone?.trim())
-                        ? 'Contact prefers text but has no phone number'
-                        : undefined
-                }
               >
                 {isSending
                   ? 'Sending...'
@@ -337,6 +334,13 @@ const InvoiceDetail = ({
               )}
             </div>
           </div>
+
+          {/* Send Error - Prominent placement for visibility */}
+          {sendError && (
+            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
+            </div>
+          )}
 
           {/* Payment Info */}
           {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (

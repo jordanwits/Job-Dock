@@ -1,6 +1,6 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { invoiceSchema, type InvoiceFormData } from '../schemas/invoiceSchemas'
 import { Invoice } from '../types/invoice'
 import { Input, Button, DatePicker, Select, Modal, Checkbox } from '@/components/ui'
@@ -8,6 +8,7 @@ import { useContactStore } from '@/features/crm/store/contactStore'
 import ContactForm from '@/features/crm/components/ContactForm'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import { getSendValidationError } from '@/lib/utils/sendValidation'
 
 interface InvoiceFormProps {
   invoice?: Invoice
@@ -15,6 +16,7 @@ interface InvoiceFormProps {
   onSaveAndSend?: (data: InvoiceFormData) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
+  error?: string | null
   defaultContactId?: string
   defaultTitle?: string
   defaultNotes?: string
@@ -27,6 +29,7 @@ const InvoiceForm = ({
   onSaveAndSend,
   onCancel,
   isLoading,
+  error: formError,
   defaultContactId,
   defaultTitle,
   defaultNotes,
@@ -36,12 +39,23 @@ const InvoiceForm = ({
   const { contacts, fetchContacts, createContact } = useContactStore()
   const [showCreateContact, setShowCreateContact] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
+  const [saveAndSendError, setSaveAndSendError] = useState<string | null>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (contacts.length === 0) {
       fetchContacts()
     }
   }, [contacts.length, fetchContacts])
+
+  useEffect(() => {
+    if (formError || saveAndSendError) {
+      const id = requestAnimationFrame(() => {
+        errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+      return () => cancelAnimationFrame(id)
+    }
+  }, [formError, saveAndSendError])
 
   const {
     register,
@@ -149,6 +163,20 @@ const InvoiceForm = ({
     }
 
     if (shouldSend && onSaveAndSend) {
+      const selectedContact = contacts.find(c => c.id === data.contactId)
+      const validationError = selectedContact
+        ? getSendValidationError({
+            contactEmail: selectedContact.email,
+            contactPhone: selectedContact.phone?.trim(),
+            contactNotificationPreference: selectedContact.notificationPreference ?? 'both',
+          })
+        : 'Please select a contact.'
+      if (validationError) {
+        setSaveAndSendError(validationError)
+        setTimeout(() => setSaveAndSendError(null), 6000)
+        return
+      }
+      setSaveAndSendError(null)
       await onSaveAndSend(cleanedData)
     } else {
       await onSubmit(cleanedData)
@@ -184,6 +212,11 @@ const InvoiceForm = ({
   return (
     <>
       <form onSubmit={e => e.preventDefault()} className="space-y-6">
+        {(formError || saveAndSendError) && (
+          <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+            <p className="text-sm text-red-400 font-medium">✗ {formError || saveAndSendError}</p>
+          </div>
+        )}
         {/* Contact Selection */}
         <div>
           <Select
@@ -479,6 +512,13 @@ const InvoiceForm = ({
             />
           </div>
         </div>
+
+        {/* Save and Send error - shown near buttons so user sees feedback when they click */}
+        {(formError || saveAndSendError) && (
+          <div ref={errorRef} className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+            <p className="text-sm text-red-400 font-medium">✗ {formError || saveAndSendError}</p>
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 pt-4">
           <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>

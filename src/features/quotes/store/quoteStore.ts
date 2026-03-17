@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { quotesService } from '@/lib/api/services'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
 import type { Quote, CreateQuoteData, UpdateQuoteData } from '../types/quote'
 
 interface QuoteState {
@@ -66,9 +67,9 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
         isLoading: false,
       }))
       return newQuote
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.message || 'Failed to create quote',
+        error: getErrorMessage(error, 'Failed to create quote'),
         isLoading: false,
       })
       throw error
@@ -131,9 +132,9 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
             : state.selectedQuote,
         isLoading: false,
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.message || 'Failed to send quote',
+        error: getErrorMessage(error, 'Failed to send quote'),
         isLoading: false,
       })
       throw error

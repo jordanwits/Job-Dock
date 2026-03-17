@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { contactSchema, type ContactFormData } from '../schemas/contactSchemas'
@@ -20,6 +20,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
   
   const {
     register,
+    control,
     handleSubmit,
     watch,
     formState: { errors },
@@ -71,18 +72,18 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
   }, [contact, reset])
 
   const handleFormSubmit = async (data: ContactFormData) => {
-    // Clean up empty strings
+    // Use null for cleared optional fields so backend/Prisma can clear them (undefined gets stripped from JSON)
     const cleanedData = {
       ...data,
-      email: data.email || undefined,
-      phone: data.phone || undefined,
-      company: data.company || undefined,
-      jobTitle: data.jobTitle || undefined,
-      address: data.address || undefined,
-      city: data.city || undefined,
-      state: data.state || undefined,
-      zipCode: data.zipCode || undefined,
-      country: data.country || undefined,
+      email: (data.email?.trim() || null) as string | undefined,
+      phone: (data.phone?.trim() || null) as string | undefined,
+      company: (data.company?.trim() || null) as string | undefined,
+      jobTitle: (data.jobTitle?.trim() || null) as string | undefined,
+      address: (data.address?.trim() || null) as string | undefined,
+      city: (data.city?.trim() || null) as string | undefined,
+      state: (data.state?.trim() || null) as string | undefined,
+      zipCode: (data.zipCode?.trim() || null) as string | undefined,
+      country: (data.country?.trim() || null) as string | undefined,
       notes: data.notes ?? '',
       notificationPreference: data.notificationPreference || 'both',
     }
@@ -111,10 +112,17 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
           error={errors.email?.message}
           {...register('email')}
         />
-        <PhoneInput
-          label="Phone"
-          error={errors.phone?.message}
-          {...register('phone')}
+        <Controller
+          name="phone"
+          control={control}
+          render={({ field }) => (
+            <PhoneInput
+              label="Phone"
+              error={errors.phone?.message}
+              {...field}
+              value={field.value ?? ''}
+            />
+          )}
         />
       </div>
 

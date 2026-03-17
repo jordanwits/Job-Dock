@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import CreateJobFromQuoteModal from './CreateJobFromQuoteModal'
 import { useTheme } from '@/contexts/ThemeContext'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
+import { getSendValidationError } from '@/lib/utils/sendValidation'
 
 interface QuoteDetailProps {
   quote: Quote
@@ -84,9 +86,19 @@ const QuoteDetail = ({
   }
 
   const handleSend = async () => {
-    setIsSending(true)
     setSendError(null)
     setSendSuccess(false)
+    const validationError = getSendValidationError({
+      contactEmail: quote.contactEmail,
+      contactPhone: quote.contactPhone?.trim(),
+      contactNotificationPreference: quote.contactNotificationPreference || 'both',
+    })
+    if (validationError) {
+      setSendError(validationError)
+      setTimeout(() => setSendError(null), 5000)
+      return
+    }
+    setIsSending(true)
     try {
       await sendQuote(quote.id)
       const updatedQuote = useQuoteStore.getState().selectedQuote
@@ -103,8 +115,8 @@ const QuoteDetail = ({
         setSendSuccess(true)
         setTimeout(() => setSendSuccess(false), 3000)
       }
-    } catch (error: any) {
-      setSendError(error.message || 'Failed to send quote')
+    } catch (error: unknown) {
+      setSendError(getErrorMessage(error, 'Failed to send quote'))
       setTimeout(() => setSendError(null), 5000)
     } finally {
       setIsSending(false)
@@ -202,23 +214,8 @@ const QuoteDetail = ({
               </Button>
               <Button
                 onClick={handleSend}
-                disabled={
-                  isSending ||
-                  !(
-                    (['email', 'both'].includes(quote.contactNotificationPreference || 'both') && quote.contactEmail) ||
-                    (['sms', 'both'].includes(quote.contactNotificationPreference || 'both') && quote.contactPhone?.trim())
-                  )
-                }
+                disabled={isSending}
                 className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto py-2 whitespace-nowrap"
-                title={
-                  !quote.contactEmail && !quote.contactPhone?.trim()
-                    ? 'Contact needs email or phone to receive quote'
-                    : (['email', 'both'].includes(quote.contactNotificationPreference || 'both') && !quote.contactEmail)
-                      ? 'Contact prefers email but has no email address'
-                      : (['sms', 'both'].includes(quote.contactNotificationPreference || 'both') && !quote.contactPhone?.trim())
-                        ? 'Contact prefers text but has no phone number'
-                        : undefined
-                }
               >
                 {isSending ? 'Sending...' : quote.status === 'sent' ? 'Resend Quote' : 'Send Quote'}
               </Button>
@@ -274,6 +271,13 @@ const QuoteDetail = ({
               size="md"
             />
           </div>
+
+          {/* Send Error - Prominent placement for visibility */}
+          {sendError && (
+            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
+            </div>
+          )}
 
           {/* Line Items Table */}
           <div>
@@ -500,11 +504,6 @@ const QuoteDetail = ({
                     ? ' Email delivery failed. Check Resend configuration.'
                     : ' Check Twilio and email configuration.'}
               </p>
-            </div>
-          )}
-          {sendError && (
-            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
             </div>
           )}
           {showConfirmation && (

@@ -37,9 +37,16 @@ const QuotesPage = () => {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
 
-  const safeNavigateBack = () => {
+  const safeNavigateBack = (params?: Record<string, string>) => {
     if (returnTo && returnTo.startsWith('/app')) {
-      navigate(returnTo)
+      if (params && Object.keys(params).length > 0) {
+        const [path, existingQuery] = returnTo.split('?')
+        const sp = new URLSearchParams(existingQuery || '')
+        Object.entries(params).forEach(([k, v]) => sp.set(k, v))
+        navigate(path + '?' + sp.toString())
+      } else {
+        navigate(returnTo)
+      }
     }
   }
 
@@ -75,14 +82,17 @@ const QuotesPage = () => {
       }
       setShowCreateForm(false)
       if (returnTo) {
-        safeNavigateBack()
+        safeNavigateBack({ quoteSent: '1' })
       } else {
         setConfirmationMessage('Quote Sent')
         setShowConfirmation(true)
         setTimeout(() => setShowConfirmation(false), 3000)
       }
     } catch (error) {
-      // Error handled by store
+      if (returnTo && returnTo.startsWith('/app')) {
+        safeNavigateBack({ quoteFailed: '1' })
+      }
+      // Error also shown by store
     }
   }
 
@@ -214,6 +224,7 @@ const QuotesPage = () => {
             clearError()
           }}
           isLoading={isLoading}
+          error={error}
           defaultContactId={createQuoteDefaults.contactId}
           defaultTitle={createQuoteDefaults.title}
           defaultNotes={createQuoteDefaults.notes}

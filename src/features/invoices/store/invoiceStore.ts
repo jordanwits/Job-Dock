@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { invoicesService } from '@/lib/api/services'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
 import type { Invoice, CreateInvoiceData, UpdateInvoiceData } from '../types/invoice'
 import type { Quote } from '@/features/quotes/types/quote'
 
@@ -74,9 +75,9 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         isLoading: false,
       }))
       return newInvoice
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.message || 'Failed to create invoice',
+        error: getErrorMessage(error, 'Failed to create invoice'),
         isLoading: false,
       })
       throw error
@@ -129,9 +130,9 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         selectedInvoice: state.selectedInvoice?.id === id ? updatedInvoice : state.selectedInvoice,
         isLoading: false,
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.message || 'Failed to send invoice',
+        error: getErrorMessage(error, 'Failed to send invoice'),
         isLoading: false,
       })
       throw error

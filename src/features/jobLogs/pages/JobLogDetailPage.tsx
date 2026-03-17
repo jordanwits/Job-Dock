@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogDetail from '../components/JobLogDetail'
-import { ConfirmationDialog } from '@/components/ui'
+import { ConfirmationDialog, Card, Button } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
 
 const JobLogDetailPage = () => {
   const { theme } = useTheme()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [isTeamAccount, setIsTeamAccount] = useState(false)
 
   useEffect(() => {
@@ -35,6 +36,40 @@ const JobLogDetailPage = () => {
 
   const [editingJobLogId, setEditingJobLogId] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [sentBanner, setSentBanner] = useState<{ type: 'success' | 'failed'; message: string } | null>(null)
+
+  // Show success/failed banner when returning from create quote/invoice with save+send
+  useEffect(() => {
+    const quoteSent = searchParams.get('quoteSent')
+    const invoiceSent = searchParams.get('invoiceSent')
+    const quoteFailed = searchParams.get('quoteFailed')
+    const invoiceFailed = searchParams.get('invoiceFailed')
+    if (quoteSent === '1') {
+      setSentBanner({ type: 'success', message: 'Quote sent successfully' })
+      const next = new URLSearchParams(searchParams)
+      next.delete('quoteSent')
+      setSearchParams(next, { replace: true })
+      setTimeout(() => setSentBanner(null), 5000)
+    } else if (invoiceSent === '1') {
+      setSentBanner({ type: 'success', message: 'Invoice sent successfully' })
+      const next = new URLSearchParams(searchParams)
+      next.delete('invoiceSent')
+      setSearchParams(next, { replace: true })
+      setTimeout(() => setSentBanner(null), 5000)
+    } else if (quoteFailed === '1') {
+      setSentBanner({ type: 'failed', message: 'Failed to send quote' })
+      const next = new URLSearchParams(searchParams)
+      next.delete('quoteFailed')
+      setSearchParams(next, { replace: true })
+      setTimeout(() => setSentBanner(null), 5000)
+    } else if (invoiceFailed === '1') {
+      setSentBanner({ type: 'failed', message: 'Failed to send invoice' })
+      const next = new URLSearchParams(searchParams)
+      next.delete('invoiceFailed')
+      setSearchParams(next, { replace: true })
+      setTimeout(() => setSentBanner(null), 5000)
+    }
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     if (id) {
@@ -122,6 +157,35 @@ const JobLogDetailPage = () => {
 
   return (
     <div className="space-y-6">
+      {sentBanner && (
+        <Card
+          className={
+            sentBanner.type === 'success'
+              ? 'bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20'
+              : 'bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20'
+          }
+        >
+          <div className="flex items-center justify-between">
+            <p
+              className={
+                sentBanner.type === 'success'
+                  ? 'text-sm text-green-400'
+                  : 'text-sm text-red-400'
+              }
+            >
+              {sentBanner.type === 'success' ? '✓ ' : ''}
+              {sentBanner.message}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSentBanner(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      )}
       <JobLogDetail
         jobLog={selectedJobLog}
         showCreatedBy={isTeamAccount}

@@ -12,6 +12,8 @@ import TimeTracker from './TimeTracker'
 import PhotoCapture from './PhotoCapture'
 import JobLogNotes from './JobLogNotes'
 import ConvertQuoteToInvoiceModal from '@/features/quotes/components/ConvertQuoteToInvoiceModal'
+import QuoteDetail from '@/features/quotes/components/QuoteDetail'
+import InvoiceDetail from '@/features/invoices/components/InvoiceDetail'
 import { useJobLogStore } from '../store/jobLogStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
@@ -82,7 +84,14 @@ const JobLogDetail = ({
   const { deleteQuote } = useQuoteStore()
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [quoteForConvert, setQuoteForConvert] = useState<import('@/features/quotes/types/quote').Quote | null>(null)
+  const [quoteForDetail, setQuoteForDetail] = useState<import('@/features/quotes/types/quote').Quote | null>(null)
+  const [invoiceForDetail, setInvoiceForDetail] = useState<import('@/features/invoices/types/invoice').Invoice | null>(null)
   const [isConverting, setIsConverting] = useState(false)
+
+  const linkedQuoteId =
+    jobLog.quoteId ?? (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.quoteId : null)
+  const linkedInvoiceId =
+    jobLog.invoiceId ?? (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.invoiceId : null)
   const [activeTab, setActiveTab] = useState<Tab>('notes')
   const [showMenu, setShowMenu] = useState(false)
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
@@ -545,6 +554,30 @@ const JobLogDetail = ({
 
   const isCompleted = jobLog.status === 'completed' || String(jobLog.status) === 'archived'
 
+  const handleViewQuote = async () => {
+    setShowMenu(false)
+    if (!linkedQuoteId) return
+    try {
+      const quote = await services.quotes.getById(linkedQuoteId)
+      setQuoteForDetail(quote)
+    } catch {
+      // Fall back to create if fetch fails
+      handleCreateQuote()
+    }
+  }
+
+  const handleViewInvoice = async () => {
+    setShowMenu(false)
+    if (!linkedInvoiceId) return
+    try {
+      const invoice = await services.invoices.getById(linkedInvoiceId)
+      setInvoiceForDetail(invoice)
+    } catch {
+      // Fall back to create invoice if fetch fails
+      navigateToCreateInvoice()
+    }
+  }
+
   const handleCreateQuote = () => {
     setShowMenu(false)
     const params = new URLSearchParams()
@@ -564,6 +597,11 @@ const JobLogDetail = ({
 
   const handleConvertToInvoice = async () => {
     setShowMenu(false)
+    // When job has linked invoice, show invoice detail instead
+    if (linkedInvoiceId) {
+      await handleViewInvoice()
+      return
+    }
     const quoteId =
       jobLog.quoteId ??
       (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.quoteId : null)
@@ -751,7 +789,7 @@ const JobLogDetail = ({
                 {canAccessQuotes && (
                   <>
                     <button
-                      onClick={handleCreateQuote}
+                      onClick={linkedQuoteId ? handleViewQuote : handleCreateQuote}
                       className={cn(
                         "w-full text-left px-4 py-2.5 text-sm transition-colors",
                         theme === 'dark'
@@ -759,10 +797,10 @@ const JobLogDetail = ({
                           : 'text-primary-lightText hover:bg-gray-100'
                       )}
                     >
-                      Create Quote
+                      {linkedQuoteId ? 'View Quote' : 'Create Quote'}
                     </button>
                     <button
-                      onClick={handleConvertToInvoice}
+                      onClick={linkedInvoiceId ? handleViewInvoice : handleConvertToInvoice}
                       className={cn(
                         "w-full text-left px-4 py-2.5 text-sm transition-colors",
                         theme === 'dark'
@@ -770,7 +808,7 @@ const JobLogDetail = ({
                           : 'text-primary-lightText hover:bg-gray-100'
                       )}
                     >
-                      Convert to Invoice
+                      {linkedInvoiceId ? 'View Invoice' : 'Convert to Invoice'}
                     </button>
                   </>
                 )}
@@ -1048,7 +1086,7 @@ const JobLogDetail = ({
           )}
         </div>
 
-        {/* Mobile: Timer and Mark Completed buttons - after header */}
+        {/* Mobile: Timer and Job Completed buttons - after header */}
         <div className="sm:hidden flex items-center gap-2 pt-2">
           {!isTimerRunning ? (
             <>
@@ -1098,7 +1136,7 @@ const JobLogDetail = ({
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Mark Complete
+                  Job Complete
                 </Button>
               )}
             </>
@@ -1150,11 +1188,19 @@ const JobLogDetail = ({
           <div className="flex flex-wrap gap-2">
             {canAccessQuotes && (
               <>
-                <Button variant="outline" size="sm" onClick={handleCreateQuote}>
-                  Create Quote
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={linkedQuoteId ? handleViewQuote : handleCreateQuote}
+                >
+                  {linkedQuoteId ? 'View Quote' : 'Create Quote'}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleConvertToInvoice}>
-                  Convert to Invoice
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={linkedInvoiceId ? handleViewInvoice : handleConvertToInvoice}
+                >
+                  {linkedInvoiceId ? 'View Invoice' : 'Convert to Invoice'}
                 </Button>
               </>
             )}
@@ -1176,7 +1222,7 @@ const JobLogDetail = ({
             </Button>
           </div>
 
-          {/* Desktop: Timer and Mark Completed buttons - separate row, aligned right */}
+          {/* Desktop: Timer and Job Completed buttons - separate row, aligned right */}
           <div className="flex items-center gap-2">
             {!isTimerRunning ? (
               <>
@@ -1226,7 +1272,7 @@ const JobLogDetail = ({
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    Mark Complete
+                    Job Complete
                   </Button>
                 )}
               </>
@@ -1647,6 +1693,28 @@ const JobLogDetail = ({
           }}
           onConvert={handleConvertQuoteToInvoice}
           isLoading={isConverting}
+        />
+      )}
+
+      {quoteForDetail && (
+        <QuoteDetail
+          quote={quoteForDetail}
+          isOpen={!!quoteForDetail}
+          onClose={() => {
+            setQuoteForDetail(null)
+            getJobLogById(jobLog.id)
+          }}
+        />
+      )}
+
+      {invoiceForDetail && (
+        <InvoiceDetail
+          invoice={invoiceForDetail}
+          isOpen={!!invoiceForDetail}
+          onClose={() => {
+            setInvoiceForDetail(null)
+            getJobLogById(jobLog.id)
+          }}
         />
       )}
     </div>

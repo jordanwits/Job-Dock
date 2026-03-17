@@ -15,6 +15,8 @@ import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { services } from '@/lib/api/services'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
+import { getSendValidationError } from '@/lib/utils/sendValidation'
 
 interface ContactDetailProps {
   contact: Contact
@@ -53,6 +55,8 @@ const ContactDetail = ({
   const [contactConfirmationMessage, setContactConfirmationMessage] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [quoteSendError, setQuoteSendError] = useState<string | null>(null)
+  const [invoiceSendError, setInvoiceSendError] = useState<string | null>(null)
 
   const handleUpdate = async (data: Partial<CreateContactData>) => {
     try {
@@ -193,6 +197,17 @@ const ContactDetail = ({
   }
 
   const handleCreateAndSendQuote = async (data: any) => {
+    setQuoteSendError(null)
+    const validationError = getSendValidationError({
+      contactEmail: contact.email,
+      contactPhone: contact.phone?.trim(),
+      contactNotificationPreference: contact.notificationPreference ?? 'both',
+    })
+    if (validationError) {
+      setQuoteSendError(validationError)
+      setTimeout(() => setQuoteSendError(null), 8000)
+      return
+    }
     try {
       // Create the quote first
       const newQuote = await createQuote(data)
@@ -269,7 +284,8 @@ const ContactDetail = ({
       // Quotes open via QuotesPage query param (there is no /app/quotes/:id route)
       navigate(`/app/quotes?open=${encodeURIComponent(idToOpen)}`, { replace: true })
     } catch (error) {
-      // Error handled by store
+      setQuoteSendError(getErrorMessage(error, 'Failed to send quote'))
+      setTimeout(() => setQuoteSendError(null), 8000)
     }
   }
 
@@ -445,6 +461,17 @@ const ContactDetail = ({
   }
 
   const handleCreateAndSendInvoice = async (data: any) => {
+    setInvoiceSendError(null)
+    const validationError = getSendValidationError({
+      contactEmail: contact.email,
+      contactPhone: contact.phone?.trim(),
+      contactNotificationPreference: contact.notificationPreference ?? 'both',
+    })
+    if (validationError) {
+      setInvoiceSendError(validationError)
+      setTimeout(() => setInvoiceSendError(null), 8000)
+      return
+    }
     try {
       // Create the invoice first
       const newInvoice = await createInvoice(data)
@@ -521,7 +548,8 @@ const ContactDetail = ({
       // Invoices open via InvoicesPage query param (there is no /app/invoices/:id route)
       navigate(`/app/invoices?open=${encodeURIComponent(idToOpen)}`, { replace: true })
     } catch (error) {
-      // Error handled by store
+      setInvoiceSendError(getErrorMessage(error, 'Failed to send invoice'))
+      setTimeout(() => setInvoiceSendError(null), 8000)
     }
   }
 
@@ -985,16 +1013,23 @@ const ContactDetail = ({
       {/* Create Quote Modal */}
       <Modal
         isOpen={showCreateQuote}
-        onClose={() => setShowCreateQuote(false)}
+        onClose={() => {
+          setShowCreateQuote(false)
+          setQuoteSendError(null)
+        }}
         title="Create Quote"
         size="xl"
       >
         <QuoteForm
           onSubmit={handleCreateQuote}
           onSaveAndSend={handleCreateAndSendQuote}
-          onCancel={() => setShowCreateQuote(false)}
+          onCancel={() => {
+            setShowCreateQuote(false)
+            setQuoteSendError(null)
+          }}
           isLoading={quoteLoading}
           defaultContactId={contact.id}
+          error={quoteSendError}
         />
       </Modal>
 
@@ -1024,16 +1059,23 @@ const ContactDetail = ({
       {/* Create Invoice Modal */}
       <Modal
         isOpen={showCreateInvoice}
-        onClose={() => setShowCreateInvoice(false)}
+        onClose={() => {
+          setShowCreateInvoice(false)
+          setInvoiceSendError(null)
+        }}
         title="Create Invoice"
         size="xl"
       >
         <InvoiceForm
           onSubmit={handleCreateInvoice}
           onSaveAndSend={handleCreateAndSendInvoice}
-          onCancel={() => setShowCreateInvoice(false)}
+          onCancel={() => {
+            setShowCreateInvoice(false)
+            setInvoiceSendError(null)
+          }}
           isLoading={invoiceLoading}
           defaultContactId={contact.id}
+          error={invoiceSendError}
         />
       </Modal>
     </>

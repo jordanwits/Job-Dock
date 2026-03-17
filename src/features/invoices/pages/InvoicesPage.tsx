@@ -37,9 +37,16 @@ const InvoicesPage = () => {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
 
-  const safeNavigateBack = () => {
+  const safeNavigateBack = (params?: Record<string, string>) => {
     if (returnTo && returnTo.startsWith('/app')) {
-      navigate(returnTo)
+      if (params && Object.keys(params).length > 0) {
+        const [path, existingQuery] = returnTo.split('?')
+        const sp = new URLSearchParams(existingQuery || '')
+        Object.entries(params).forEach(([k, v]) => sp.set(k, v))
+        navigate(path + '?' + sp.toString())
+      } else {
+        navigate(returnTo)
+      }
     }
   }
 
@@ -77,14 +84,17 @@ const InvoicesPage = () => {
       }
       setShowCreateForm(false)
       if (returnTo) {
-        safeNavigateBack()
+        safeNavigateBack({ invoiceSent: '1' })
       } else {
         setConfirmationMessage('Invoice Sent')
         setShowConfirmation(true)
         setTimeout(() => setShowConfirmation(false), 3000)
       }
     } catch (error) {
-      // Error handled by store
+      if (returnTo && returnTo.startsWith('/app')) {
+        safeNavigateBack({ invoiceFailed: '1' })
+      }
+      // Error also shown by store
     }
   }
 
@@ -215,6 +225,7 @@ const InvoicesPage = () => {
             clearError()
           }}
           isLoading={isLoading}
+          error={error}
           defaultContactId={createInvoiceDefaults.contactId}
           defaultTitle={createInvoiceDefaults.title}
           defaultNotes={createInvoiceDefaults.notes}

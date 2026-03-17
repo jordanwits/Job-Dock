@@ -1258,12 +1258,34 @@ export const dataServices = {
       if (!contact) {
         throw new ApiError('Contact not found', 404)
       }
+      // Convert empty strings to null for optional fields so clearing works (undefined is stripped from JSON)
+      const emptyToNull = (v: unknown) =>
+        v === '' || v === undefined ? null : (v as string)
+      const data: Record<string, unknown> = {
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        email: emptyToNull(payload.email),
+        phone: emptyToNull(payload.phone),
+        company: emptyToNull(payload.company),
+        jobTitle: emptyToNull(payload.jobTitle),
+        address: emptyToNull(payload.address),
+        city: emptyToNull(payload.city),
+        state: emptyToNull(payload.state),
+        zipCode: emptyToNull(payload.zipCode),
+        country: payload.country ?? undefined,
+        tags: payload.tags ?? undefined,
+        notes: payload.notes ?? undefined,
+        status: payload.status ?? undefined,
+        notificationPreference: payload.notificationPreference ?? undefined,
+      }
+      // Omit undefined so Prisma only updates provided fields
+      const prune = (obj: Record<string, unknown>) =>
+        Object.fromEntries(
+          Object.entries(obj).filter(([, v]) => v !== undefined)
+        ) as Record<string, unknown>
       return prisma.contact.update({
         where: { id },
-        data: {
-          ...payload,
-          tags: payload.tags ?? undefined,
-        },
+        data: prune(data),
       })
     },
     delete: async (tenantId: string, id: string) => {
