@@ -143,7 +143,13 @@ const DashboardPage = () => {
     const active = jobLogs.filter(j => norm(j.status) === 'active')
     const completed = jobLogs.filter(j => norm(j.status) === 'completed')
     const recentJobs = [...jobLogs]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => {
+        const aActive = norm(a.status) === 'active'
+        const bActive = norm(b.status) === 'active'
+        if (aActive && !bActive) return -1
+        if (!aActive && bActive) return 1
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      })
       .slice(0, 5)
     return { activeCount: active.length, completedCount: completed.length, recentJobs }
   }, [jobLogs])
