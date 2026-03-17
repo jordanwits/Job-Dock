@@ -14,15 +14,15 @@ const MarketingFooter = () => {
 
   return (
     <footer className="relative bg-gradient-to-br from-primary-dark via-primary-dark-secondary to-primary-blue text-white overflow-hidden">
-      {/* Large watermark */}
+      {/* Large watermark - scaled down on mobile to avoid overflow */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
-        <div className="text-[20rem] font-bold tracking-tighter select-none">
+        <div className="text-[8rem] md:text-[20rem] font-bold tracking-tighter select-none">
           {publicSiteConfig.companyName}
         </div>
       </div>
 
-      <div className="relative container mx-auto px-4 md:px-6 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+      <div className="relative container mx-auto px-4 md:px-6 py-10 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 md:gap-12 md:mb-12">
           {/* Company Info */}
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -82,7 +82,7 @@ const MarketingFooter = () => {
           {/* Quick Links */}
           <div>
             <h4 className="text-base font-semibold mb-4">Quick Links</h4>
-            <ul className="space-y-2.5 text-sm">
+            <ul className="grid grid-cols-2 md:flex md:flex-col gap-x-6 gap-y-2.5 text-sm [&_button]:block [&_a]:block [&_button]:text-left [&_a]:text-left [&_button]:py-2 [&_a]:py-2 md:[&_button]:py-0 md:[&_a]:py-0">
               <li>
                 <button
                   onClick={() => scrollToSection('features')}
@@ -176,7 +176,7 @@ const MarketingFooter = () => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-white/10 pt-8 text-center space-y-2">
+        <div className="border-t border-white/10 pt-6 md:pt-8 text-center space-y-2">
           <p className="text-sm text-white/60">
             JobDock is a product of West Wave Creative, a DBA of Amicus Group, Inc. &copy; {new Date().getFullYear()} Amicus Group, Inc. All rights reserved.
           </p>
@@ -190,3 +190,4 @@ const MarketingFooter = () => {
 }
 
 export default MarketingFooter
+
