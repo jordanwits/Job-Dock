@@ -16,7 +16,6 @@ import { QuoteApprovalPage, InvoiceApprovalPage, QuoteViewPage, InvoiceViewPage,
 import { ReportsPage } from '@/features/reports'
 import {
   LandingPage,
-  RequestAccessPage,
   PrivacyPolicyPage,
   TermsOfServicePage,
   AboutPage,
@@ -75,7 +74,6 @@ function App() {
       <Routes>
         {/* Public Marketing Pages */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/request-access" element={<RequestAccessPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/about" element={<AboutPage />} />

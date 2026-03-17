@@ -599,6 +599,14 @@ const PENDING_MIGRATIONS = [
     description: 'Add early access request and allowlist tables for gated signup',
   },
   {
+    name: '20260316000000_drop_early_access_tables',
+    statements: [
+      `DROP TABLE IF EXISTS "early_access_requests"`,
+      `DROP TABLE IF EXISTS "early_access_allowlist"`,
+    ],
+    description: 'Remove early access tables - moving to production via Stripe',
+  },
+  {
     name: '20260215000000_add_user_permission_fields',
     statements: [
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "canCreateJobs" BOOLEAN NOT NULL DEFAULT true`,

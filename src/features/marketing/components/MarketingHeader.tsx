@@ -127,9 +127,9 @@ const MarketingHeader = () => {
               Login
             </button>
           </Link>
-          <Link to="/request-access">
+          <Link to="/auth/register">
             <button className="text-sm font-semibold text-primary-dark bg-primary-gold hover:bg-primary-gold/90 px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all hover:scale-105">
-              Get Early Access
+              Get Started
             </button>
           </Link>
         </nav>
@@ -207,9 +207,9 @@ const MarketingHeader = () => {
             >
               Why Us
             </button>
-            <Link to="/request-access" onClick={() => setIsMobileMenuOpen(false)}>
+            <Link to="/auth/register" onClick={() => setIsMobileMenuOpen(false)}>
               <button className="w-full text-center px-6 py-3 text-base font-semibold text-gray-900 bg-primary-gold hover:bg-primary-gold/90 rounded-lg shadow-md transition-all">
-                Get Early Access
+                Get Started
               </button>
             </Link>
           </nav>

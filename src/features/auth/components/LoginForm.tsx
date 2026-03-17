@@ -155,10 +155,10 @@ const LoginForm = () => {
       <div className="text-center text-sm text-primary-light/70">
         Don't have an account?{' '}
         <Link
-          to="/request-access"
+          to="/auth/register"
           className="text-primary-gold hover:text-primary-gold/80 font-medium transition-colors"
         >
-          Request access
+          Sign up
         </Link>
       </div>
     </form>

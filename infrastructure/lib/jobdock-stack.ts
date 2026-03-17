@@ -465,10 +465,6 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_TEAM_PLUS_PRICE_ID: process.env.STRIPE_TEAM_PLUS_PRICE_ID || '',
         STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
-        // Early access configuration
-        EARLY_ACCESS_ENFORCE: config.env === 'prod' || config.env === 'staging' ? 'true' : 'false',
-        EARLY_ACCESS_ADMIN_EMAILS:
-          process.env.EARLY_ACCESS_ADMIN_EMAILS || 'jordan@westwavecreative.com',
       },
     })
 
@@ -547,10 +543,6 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_TEAM_PLUS_PRICE_ID: process.env.STRIPE_TEAM_PLUS_PRICE_ID || '',
         STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
-        // Early access configuration
-        EARLY_ACCESS_ENFORCE: config.env === 'prod' || config.env === 'staging' ? 'true' : 'false',
-        EARLY_ACCESS_ADMIN_EMAILS:
-          process.env.EARLY_ACCESS_ADMIN_EMAILS || 'jordan@westwavecreative.com',
       },
     })
 

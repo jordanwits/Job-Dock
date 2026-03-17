@@ -6,7 +6,7 @@ export const landingPageContent = {
     },
     subtitle: "Everything a small contractor needs to run their business starting at $29/month.",
     description: "The Job Dock helps trades and service professionals stay focused on the work — not the admin.",
-    primaryCta: "Get Early Access",
+    primaryCta: "Get Started",
     secondaryCta: "See How It Works",
     imageAlt: "Contractor managing business with JobDock on tablet",
   },
@@ -227,23 +227,9 @@ export const landingPageContent = {
       },
       {
         question: "What kind of support do you offer?",
-        answer: "Email support is included with all accounts. During early access, you'll also have direct input on feature development and priority support as we shape the product together.",
+        answer: "Email support is included with all accounts. We're here to help you get the most out of JobDock.",
       },
     ],
-  },
-
-  earlyAccess: {
-    eyebrow: "Early Access",
-    title: "We're opening early access",
-    subtitle: "The Job Dock is currently being used by a small group of service businesses helping shape the product through real-world feedback.",
-    heading: "If you want:",
-    benefits: [
-      "Early access to the platform",
-      "A voice in how the product evolves",
-      "A simpler way to run your business",
-    ],
-    footer: "We'd love to have you.",
-    cta: "Request Early Access",
   },
 
   closingCta: {
@@ -252,7 +238,7 @@ export const landingPageContent = {
       "You do great work.",
       "Your systems should support that — not slow you down.",
     ],
-    description: "Get early access to The Job Dock and simplify how you run jobs, quotes, and schedules.",
+    description: "Simplify how you run jobs, quotes, and schedules with The Job Dock.",
     cta: "Get Started",
   },
 }

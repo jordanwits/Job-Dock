@@ -31,7 +31,7 @@ const LandingPage = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-gold opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-gold"></span>
               </span>
-              Now accepting early access
+              Now in production
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 tracking-tight leading-[1.1]">
@@ -46,7 +46,7 @@ const LandingPage = () => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <MarketingButton
-                to="/request-access"
+                to="/auth/register"
                 variant="primary"
                 size="lg"
                 className="w-full sm:w-auto min-w-[220px]"
@@ -730,77 +730,17 @@ const LandingPage = () => {
         </div>
       </MarketingSection>
 
-      {/* Early Access Section */}
-      <MarketingSection id="early-access" variant="light" withTopDivider>
+      {/* Get Started Section */}
+      <MarketingSection id="get-started" variant="light" withTopDivider>
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-4xl mx-auto text-center">
             <SectionHeading
-              eyebrow="Early Access"
-              heading="We're opening early access"
-              subheading="The Job Dock is currently being used by a small group of service businesses helping shape the product through real-world feedback."
+              eyebrow="Get Started"
+              heading="Ready to simplify your business?"
+              subheading="Get started in minutes. Create your account and begin managing quotes, invoices, and schedules in one place."
             />
-            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 md:p-10 shadow-xl mb-8">
-              <h3 className="text-xl md:text-2xl font-bold text-primary-dark mb-6">If you want:</h3>
-              <div className="space-y-4 text-left max-w-xl mx-auto">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-primary-gold"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-lg text-primary-dark/80">Early access to the platform</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-primary-gold"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-lg text-primary-dark/80">A voice in how the product evolves</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-primary-gold"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-lg text-primary-dark/80">A simpler way to run your business</p>
-                </div>
-              </div>
-            </div>
-            <p className="text-lg text-primary-dark/70 mb-8">We'd love to have you.</p>
-            <MarketingButton to="/request-access" variant="primary" size="lg" withArrow>
-              Request Early Access
+            <MarketingButton to="/auth/register" variant="primary" size="lg" withArrow>
+              Get Started
             </MarketingButton>
           </div>
         </div>

@@ -7,14 +7,13 @@ import { useAuthStore } from '@/features/auth'
 import { CompanyBrandingSection } from './CompanyBrandingSection'
 import { EmailTemplatesSection } from './EmailTemplatesSection'
 import { PdfTemplatesSection } from './PdfTemplatesSection'
-import { EarlyAccessSection } from './EarlyAccessSection'
 import { BillingSection } from './BillingSection'
 import { TeamMembersSection } from './TeamMembersSection'
 import { HelpSection } from './HelpSection'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 
-type TabId = 'billing' | 'team' | 'early-access' | 'company' | 'email' | 'pdf' | 'help'
+type TabId = 'billing' | 'team' | 'company' | 'email' | 'pdf' | 'help'
 
 interface TabConfig {
   id: TabId
@@ -187,12 +186,6 @@ export const SettingsPage = () => {
             onQuotePdfUpload={handleQuotePdfUpload}
           />
         ),
-      },
-      {
-        id: 'early-access',
-        label: 'Early Access',
-        component: <EarlyAccessSection />,
-        emailCheck: email => email === 'jordan@westwavecreative.com',
       },
       {
         id: 'help',
