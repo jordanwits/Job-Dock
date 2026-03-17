@@ -83,6 +83,7 @@ export const BillingSection = () => {
   const [changingPlan, setChangingPlan] = useState<PlanTier | null>(null)
   const [subscribing, setSubscribing] = useState<PlanTier | null>(null)
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showDeleteImmediateModal, setShowDeleteImmediateModal] = useState(false)
   const [cancelConfirmText, setCancelConfirmText] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
 
@@ -115,6 +116,23 @@ export const BillingSection = () => {
     } catch (err: any) {
       console.error('Failed to cancel:', err)
       alert(err.response?.data?.message || 'Failed to cancel. Please try again.')
+    } finally {
+      setCancelLoading(false)
+    }
+  }
+
+  const handleDeleteAccountImmediate = async () => {
+    if (cancelConfirmText.toLowerCase().trim() !== CANCEL_CONFIRM_PHRASE) {
+      alert(`Please type "${CANCEL_CONFIRM_PHRASE}" exactly to confirm.`)
+      return
+    }
+    try {
+      setCancelLoading(true)
+      await services.billing.deleteAccount()
+      window.location.href = '/'
+    } catch (err: any) {
+      console.error('Failed to delete account:', err)
+      alert(err.response?.data?.message || 'Failed to delete account. Please try again.')
     } finally {
       setCancelLoading(false)
     }
@@ -262,16 +280,6 @@ export const BillingSection = () => {
                 >
                   {manageLoading ? 'Opening...' : 'Manage billing'}
                 </Button>
-                {!status.deleteAccountAtPeriodEnd && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowCancelModal(true)}
-                    disabled={cancelLoading}
-                    className="w-full sm:w-auto border-amber-500/50 text-amber-600 dark:text-amber-400"
-                  >
-                    Cancel Subscription
-                  </Button>
-                )}
               </div>
             )}
           </div>
@@ -414,16 +422,69 @@ export const BillingSection = () => {
             })}
           </div>
         </div>
+
+        {/* Delete account - Danger zone - always visible for account owners */}
+        <Card className="p-4 border-red-500/30 dark:border-red-500/20">
+          <h3 className={cn(
+            "text-base font-medium mb-2",
+            theme === 'dark' ? 'text-red-400' : 'text-red-600'
+          )}>
+            {status.hasSubscription ? 'Unsubscribe & delete account' : 'Delete account'}
+          </h3>
+          <p className={cn(
+            "text-sm mb-4",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
+            {status.hasSubscription ? (
+              <>
+                Cancel your Stripe subscription and permanently delete your account at the end of your current billing cycle. You will retain full access until then.
+                {status.currentPeriodEndsAt && (
+                  <span className="block mt-2 font-medium">
+                    Access until: {new Date(status.currentPeriodEndsAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                )}
+              </>
+            ) : (
+              'Permanently delete your account and all associated data. This action cannot be undone.'
+            )}
+          </p>
+          {status.hasSubscription ? (
+            !status.deleteAccountAtPeriodEnd ? (
+              <Button
+                variant="danger"
+                onClick={() => setShowCancelModal(true)}
+                disabled={cancelLoading}
+              >
+                Unsubscribe and delete account
+              </Button>
+            ) : (
+              <p className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-amber-400/90' : 'text-amber-600'
+              )}>
+                Deletion scheduled. Your account will be removed at the end of the billing period.
+              </p>
+            )
+          ) : (
+            <Button
+              variant="danger"
+              onClick={() => setShowDeleteImmediateModal(true)}
+              disabled={cancelLoading}
+            >
+              Delete account
+            </Button>
+          )}
+        </Card>
       </div>
 
-      {/* Cancel Subscription modal */}
+      {/* Unsubscribe and delete account modal */}
       <Modal
         isOpen={showCancelModal}
         onClose={() => {
           setShowCancelModal(false)
           setCancelConfirmText('')
         }}
-        title="Cancel Subscription"
+        title="Unsubscribe and delete account"
         footer={
           <div className="flex gap-3 justify-end">
             <Button
@@ -442,7 +503,7 @@ export const BillingSection = () => {
               isLoading={cancelLoading}
               disabled={cancelConfirmText.toLowerCase().trim() !== CANCEL_CONFIRM_PHRASE}
             >
-              Cancel Subscription
+              Unsubscribe and delete account
             </Button>
           </div>
         }
@@ -458,6 +519,66 @@ export const BillingSection = () => {
                 Your account will be deleted on {new Date(status.currentPeriodEndsAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}. You will retain full access until this date.
               </span>
             )}
+          </p>
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+          )}>
+            Type <strong>{CANCEL_CONFIRM_PHRASE}</strong> to confirm:
+          </p>
+          <input
+            type="text"
+            value={cancelConfirmText}
+            onChange={e => setCancelConfirmText(e.target.value)}
+            placeholder={CANCEL_CONFIRM_PHRASE}
+            className={cn(
+              "w-full px-3 py-2 rounded-lg border text-sm",
+              theme === 'dark'
+                ? 'bg-primary-dark border-white/20 text-primary-light placeholder:text-primary-light/40'
+                : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-500'
+            )}
+            autoComplete="off"
+          />
+        </div>
+      </Modal>
+
+      {/* Delete account immediately modal */}
+      <Modal
+        isOpen={showDeleteImmediateModal}
+        onClose={() => {
+          setShowDeleteImmediateModal(false)
+          setCancelConfirmText('')
+        }}
+        title="Delete account"
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowDeleteImmediateModal(false)
+                setCancelConfirmText('')
+              }}
+              disabled={cancelLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDeleteAccountImmediate}
+              isLoading={cancelLoading}
+              disabled={cancelConfirmText.toLowerCase().trim() !== CANCEL_CONFIRM_PHRASE}
+            >
+              Delete account
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
+          )}>
+            This will permanently delete your account and all associated data. This action cannot be undone.
           </p>
           <p className={cn(
             "text-sm",

@@ -411,6 +411,11 @@ We look forward to working with you!',
         return successResponse(result)
       }
 
+      if (billingAction === 'delete-account' && event.httpMethod === 'POST') {
+        await dataServices.account.deleteAccount(tenantId)
+        return successResponse({ success: true })
+      }
+
       return errorResponse('Billing route not found', 404)
     }
 
@@ -463,12 +468,11 @@ We look forward to working with you!',
         if (!canManageTeam) {
           return errorResponse('Only owners and admins can invite team members', 403)
         }
-        const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
         const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
-        if (!isTeamTier && !teamTestingSkipStripe) {
+        if (!isTeamTier) {
           return errorResponse('Team subscription required to invite members', 403)
         }
-        if (tenant?.subscriptionTier === 'team' && !teamTestingSkipStripe) {
+        if (tenant?.subscriptionTier === 'team') {
           const userCount = await prisma.user.count({ where: { tenantId } })
           if (userCount >= 5) {
             return errorResponse('Team plan is limited to 5 users. Upgrade to Team+ to add more.', 403)
@@ -491,10 +495,21 @@ We look forward to working with you!',
           return errorResponse('A user with this email already exists in your team', 400)
         }
 
-        const { cognitoId, tempPassword } = await createCognitoUser(
-          email.toLowerCase(),
-          name
-        )
+        let cognitoId: string
+        let tempPassword: string
+        try {
+          const result = await createCognitoUser(email.toLowerCase(), name)
+          cognitoId = result.cognitoId
+          tempPassword = result.tempPassword
+        } catch (cognitoErr: any) {
+          if (cognitoErr?.name === 'UsernameExistsException' || cognitoErr?.name === 'InvalidParameterException') {
+            const msg = cognitoErr?.name === 'UsernameExistsException'
+              ? 'This email address already has an account. If you previously removed this team member, their account may not have been fully deleted. Please try again in a few minutes or contact support.'
+              : cognitoErr?.message
+            return errorResponse(msg, 400)
+          }
+          throw cognitoErr
+        }
 
         const newUser = await prisma.user.create({
           data: {
@@ -645,6 +660,7 @@ We look forward to working with you!',
         }
         const target = await prisma.user.findFirst({
           where: { id: targetUserId, tenantId },
+          select: { id: true, email: true, role: true },
         })
         if (!target) {
           return errorResponse('User not found', 404)
@@ -657,6 +673,27 @@ We look forward to working with you!',
         })
         if (ownerCount <= 1 && target.role === 'owner') {
           return errorResponse('Cannot remove the last owner', 403)
+        }
+        // Delete from Cognito so the user can be reinvited
+        const USER_POOL_ID = process.env.USER_POOL_ID
+        if (USER_POOL_ID && target.email) {
+          try {
+            const { CognitoIdentityProviderClient, AdminDeleteUserCommand } =
+              await import('@aws-sdk/client-cognito-identity-provider')
+            const cognitoClient = new CognitoIdentityProviderClient({
+              region: process.env.AWS_REGION || 'us-east-1',
+            })
+            await cognitoClient.send(
+              new AdminDeleteUserCommand({
+                UserPoolId: USER_POOL_ID,
+                Username: target.email,
+              })
+            )
+          } catch (cognitoErr: any) {
+            if (cognitoErr?.name !== 'UserNotFoundException') {
+              console.error(`Failed to delete Cognito user ${target.email}:`, cognitoErr)
+            }
+          }
         }
         await prisma.user.delete({ where: { id: targetUserId } })
         return successResponse({ success: true })
@@ -1115,9 +1152,8 @@ We look forward to working with you!',
             where: { id: tenantId },
             select: { subscriptionTier: true },
           })
-          const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
           const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
-          if (!isTeamTier && !teamTestingSkipStripe) {
+          if (!isTeamTier) {
             return errorResponse('Team subscription required to assign jobs to team members', 403)
           }
         }
@@ -1703,9 +1739,8 @@ async function handlePost(
           where: { id: tenantId },
           select: { subscriptionTier: true },
         })
-        const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
         const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
-        if (!isTeamTier && !teamTestingSkipStripe) {
+        if (!isTeamTier) {
           throw new ApiError('Team subscription required to assign jobs to team members', 403)
         }
       }

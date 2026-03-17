@@ -514,6 +514,11 @@ const realBillingService = {
     const response = await apiClient.post('/billing/cancel-and-schedule-deletion')
     return response.data
   },
+
+  deleteAccount: async () => {
+    const response = await apiClient.post('/billing/delete-account')
+    return response.data
+  },
 }
 
 export const billingService = realBillingService

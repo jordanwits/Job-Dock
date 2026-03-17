@@ -1730,6 +1730,230 @@ View invoices: ${viewUrl}
 }
 
 /**
+ * Email template: Notify JobDock admin/owner when client declines a quote
+ */
+export function buildQuoteDeclinedNotificationEmail(data: {
+  userName: string
+  userEmail: string
+  quoteNumber: string
+  clientName: string
+  total: number
+  companyName?: string
+  logoUrl?: string | null
+  fromName?: string
+  replyTo?: string
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
+}): EmailPayload {
+  const { userName, userEmail, quoteNumber, clientName, total, companyName, logoUrl, fromName, replyTo, settings } =
+    data
+
+  const formattedTotal = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(total)
+
+  const subject = `Quote ${quoteNumber} declined by ${clientName}`
+
+  const displayCompanyName = companyName || fromName || 'JobDock'
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const viewUrl = `${publicAppUrl}/app/quotes`
+
+  const detailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #fdecea; border-radius: 8px; border: 1px solid #f44336;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Client</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${clientName}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Quote</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${quoteNumber}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Total</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${formattedTotal}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+
+  const actionButton = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="background-color: #D4AF37; border-radius: 6px;">
+                <a href="${viewUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">View Quotes</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${userName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;"><strong>${clientName}</strong> has declined quote <strong>${quoteNumber}</strong>.</p>
+    ${detailsCard}
+    ${actionButton}
+  `
+
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Quote Declined',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
+
+  const textBody = `
+Quote Declined
+
+Hi ${userName},
+
+${clientName} has declined quote ${quoteNumber} (${formattedTotal}).
+
+View quotes: ${viewUrl}
+  `.trim()
+
+  return {
+    to: userEmail,
+    subject,
+    htmlBody,
+    textBody,
+    fromName,
+    replyTo,
+  }
+}
+
+/**
+ * Email template: Notify JobDock admin/owner when client declines an invoice
+ */
+export function buildInvoiceDeclinedNotificationEmail(data: {
+  userName: string
+  userEmail: string
+  invoiceNumber: string
+  clientName: string
+  total: number
+  companyName?: string
+  logoUrl?: string | null
+  fromName?: string
+  replyTo?: string
+  settings?: {
+    companySupportEmail?: string | null
+    companyPhone?: string | null
+  }
+}): EmailPayload {
+  const { userName, userEmail, invoiceNumber, clientName, total, companyName, logoUrl, fromName, replyTo, settings } =
+    data
+
+  const formattedTotal = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(total)
+
+  const subject = `Invoice ${invoiceNumber} declined by ${clientName}`
+
+  const displayCompanyName = companyName || fromName || 'JobDock'
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const viewUrl = `${publicAppUrl}/app/invoices`
+
+  const detailsCard = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #fdecea; border-radius: 8px; border: 1px solid #f44336;">
+      <tr>
+        <td style="padding: 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Client</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 18px; font-weight: 600; line-height: 1.4;">${clientName}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Invoice</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${invoiceNumber}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Total</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${formattedTotal}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+
+  const actionButton = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="background-color: #D4AF37; border-radius: 6px;">
+                <a href="${viewUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">View Invoices</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+
+  const content = `
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${userName},</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;"><strong>${clientName}</strong> has declined invoice <strong>${invoiceNumber}</strong>.</p>
+    ${detailsCard}
+    ${actionButton}
+  `
+
+  const htmlBody = buildModernEmailTemplate({
+    title: 'Invoice Declined',
+    content,
+    companyName: displayCompanyName,
+    logoUrl,
+    settings,
+  })
+
+  const textBody = `
+Invoice Declined
+
+Hi ${userName},
+
+${clientName} has declined invoice ${invoiceNumber} (${formattedTotal}).
+
+View invoices: ${viewUrl}
+  `.trim()
+
+  return {
+    to: userEmail,
+    subject,
+    htmlBody,
+    textBody,
+    fromName,
+    replyTo,
+  }
+}
+
+/**
  * Send quote accepted notification to all tenant users via email
  */
 export async function sendQuoteAcceptedNotificationToUsers(data: {
@@ -1821,6 +2045,120 @@ export async function sendInvoiceAcceptedNotificationToUsers(data: {
     const payload = buildInvoiceAcceptedNotificationEmail({
       userName: user.name || 'there',
       userEmail: user.email!,
+      invoiceNumber: data.invoiceNumber,
+      clientName: data.clientName,
+      total: data.total,
+      companyName: fromName,
+      logoUrl,
+      fromName,
+      replyTo,
+      settings: {
+        companySupportEmail: settings?.companySupportEmail || null,
+        companyPhone: settings?.companyPhone || null,
+      },
+    })
+    await sendEmail(payload)
+  }
+}
+
+/**
+ * Send quote declined notification to tenant admins/owner via email
+ */
+export async function sendQuoteDeclinedNotificationToAdmins(data: {
+  tenantId: string
+  quoteNumber: string
+  clientName: string
+  total: number
+}): Promise<void> {
+  const prisma = (await import('./db')).default
+
+  const admins = await prisma.user.findMany({
+    where: {
+      tenantId: data.tenantId,
+      role: { in: ['admin', 'owner'] },
+    },
+    select: { id: true, name: true, email: true },
+  })
+
+  const adminsWithEmail = admins.filter(u => u.email && u.email.trim())
+  if (adminsWithEmail.length === 0) return
+
+  const settings = await prisma.tenantSettings.findUnique({
+    where: { tenantId: data.tenantId },
+  })
+  const fromName = settings?.companyDisplayName || 'JobDock'
+  const replyTo = settings?.companySupportEmail || undefined
+
+  let logoUrl: string | null = null
+  if (settings?.logoUrl) {
+    try {
+      logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+    } catch (error) {
+      console.error('Error fetching logo URL for decline email:', error)
+    }
+  }
+
+  for (const admin of adminsWithEmail) {
+    const payload = buildQuoteDeclinedNotificationEmail({
+      userName: admin.name || 'there',
+      userEmail: admin.email!,
+      quoteNumber: data.quoteNumber,
+      clientName: data.clientName,
+      total: data.total,
+      companyName: fromName,
+      logoUrl,
+      fromName,
+      replyTo,
+      settings: {
+        companySupportEmail: settings?.companySupportEmail || null,
+        companyPhone: settings?.companyPhone || null,
+      },
+    })
+    await sendEmail(payload)
+  }
+}
+
+/**
+ * Send invoice declined notification to tenant admins/owner via email
+ */
+export async function sendInvoiceDeclinedNotificationToAdmins(data: {
+  tenantId: string
+  invoiceNumber: string
+  clientName: string
+  total: number
+}): Promise<void> {
+  const prisma = (await import('./db')).default
+
+  const admins = await prisma.user.findMany({
+    where: {
+      tenantId: data.tenantId,
+      role: { in: ['admin', 'owner'] },
+    },
+    select: { id: true, name: true, email: true },
+  })
+
+  const adminsWithEmail = admins.filter(u => u.email && u.email.trim())
+  if (adminsWithEmail.length === 0) return
+
+  const settings = await prisma.tenantSettings.findUnique({
+    where: { tenantId: data.tenantId },
+  })
+  const fromName = settings?.companyDisplayName || 'JobDock'
+  const replyTo = settings?.companySupportEmail || undefined
+
+  let logoUrl: string | null = null
+  if (settings?.logoUrl) {
+    try {
+      logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+    } catch (error) {
+      console.error('Error fetching logo URL for decline email:', error)
+    }
+  }
+
+  for (const admin of adminsWithEmail) {
+    const payload = buildInvoiceDeclinedNotificationEmail({
+      userName: admin.name || 'there',
+      userEmail: admin.email!,
       invoiceNumber: data.invoiceNumber,
       clientName: data.clientName,
       total: data.total,

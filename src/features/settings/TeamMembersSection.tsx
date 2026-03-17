@@ -108,7 +108,7 @@ export const TeamMembersSection = () => {
       setCanInvite(canInviteMembers && canInviteMore)
       setTeamLimitReached(canInviteMembers && !canInviteMore)
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load team members')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to load team members')
     }
   }
 
@@ -117,7 +117,7 @@ export const TeamMembersSection = () => {
       try {
         await loadMembers()
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to load')
+        setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to load')
       } finally {
         setLoading(false)
       }
@@ -146,7 +146,7 @@ export const TeamMembersSection = () => {
       setInviteRole('employee')
       await loadMembers()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send invite')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to send invite')
     } finally {
       setInviting(false)
     }
@@ -164,7 +164,7 @@ export const TeamMembersSection = () => {
       await services.users.updateRole(userId, role, permissions)
       await loadMembers()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update role')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to update role')
     }
   }
 
@@ -190,7 +190,7 @@ export const TeamMembersSection = () => {
       await services.users.updateRole(userId, currentRole as 'admin' | 'employee', permissions)
       await loadMembers()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update permission')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to update permission')
     } finally {
       setUpdatingPermissions(null)
     }
@@ -202,7 +202,7 @@ export const TeamMembersSection = () => {
       await services.users.remove(userId)
       await loadMembers()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to remove member')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to remove member')
     }
   }
 
@@ -215,7 +215,7 @@ export const TeamMembersSection = () => {
       setEditingColorUserId(null)
       setPendingColorValue(null)
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update color')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to update color')
     } finally {
       setUpdatingColor(null)
     }
@@ -258,7 +258,7 @@ export const TeamMembersSection = () => {
       setOwnerEditUserId(null)
       await loadMembers()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update name')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to update name')
     } finally {
       setOwnerSaving(false)
     }

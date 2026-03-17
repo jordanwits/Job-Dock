@@ -465,7 +465,6 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_TEAM_PLUS_PRICE_ID: process.env.STRIPE_TEAM_PLUS_PRICE_ID || '',
         STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
-        TEAM_TESTING_SKIP_STRIPE: process.env.TEAM_TESTING_SKIP_STRIPE || 'false',
         // Early access configuration
         EARLY_ACCESS_ENFORCE: config.env === 'prod' || config.env === 'staging' ? 'true' : 'false',
         EARLY_ACCESS_ADMIN_EMAILS:
@@ -548,7 +547,6 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_TEAM_PLUS_PRICE_ID: process.env.STRIPE_TEAM_PLUS_PRICE_ID || '',
         STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
-        TEAM_TESTING_SKIP_STRIPE: process.env.TEAM_TESTING_SKIP_STRIPE || 'false',
         // Early access configuration
         EARLY_ACCESS_ENFORCE: config.env === 'prod' || config.env === 'staging' ? 'true' : 'false',
         EARLY_ACCESS_ADMIN_EMAILS:

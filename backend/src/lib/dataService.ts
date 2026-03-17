@@ -24,6 +24,8 @@ import {
   sendInvoiceEmail,
   sendQuoteAcceptedNotificationToUsers,
   sendInvoiceAcceptedNotificationToUsers,
+  sendQuoteDeclinedNotificationToAdmins,
+  sendInvoiceDeclinedNotificationToAdmins,
 } from './email'
 import {
   sendSms,
@@ -1707,6 +1709,22 @@ export const dataServices = {
 
       console.log(`✅ Quote ${quote.quoteNumber} declined by client`)
 
+      // Notify admins/owner via email
+      try {
+        const contact = updatedQuote.contact
+        const clientName = contact
+          ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() || 'Client'
+          : 'Client'
+        await sendQuoteDeclinedNotificationToAdmins({
+          tenantId,
+          quoteNumber: updatedQuote.quoteNumber,
+          clientName,
+          total: Number(updatedQuote.total),
+        })
+      } catch (err) {
+        console.error('Failed to send quote decline notifications:', err)
+      }
+
       return {
         ...serializeQuote(updatedQuote),
         tenantId,
@@ -2077,7 +2095,7 @@ export const dataServices = {
 
       console.log(`✅ Invoice ${invoice.invoiceNumber} ${approvalStatus} by client`)
 
-      // Notify JobDock users via email when client accepts
+      // Notify via email when client responds (accepted/declined)
       if (approvalStatus === 'accepted') {
         try {
           const contact = updatedInvoice.contact
@@ -2092,6 +2110,21 @@ export const dataServices = {
           })
         } catch (err) {
           console.error('Failed to send invoice acceptance notifications:', err)
+        }
+      } else if (approvalStatus === 'declined') {
+        try {
+          const contact = updatedInvoice.contact
+          const clientName = contact
+            ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() || 'Client'
+            : 'Client'
+          await sendInvoiceDeclinedNotificationToAdmins({
+            tenantId,
+            invoiceNumber: updatedInvoice.invoiceNumber,
+            clientName,
+            total: Number(updatedInvoice.total),
+          })
+        } catch (err) {
+          console.error('Failed to send invoice decline notifications:', err)
         }
       }
 
@@ -4527,8 +4560,7 @@ export const dataServices = {
       const canDowngradeToSingle =
         (subscriptionTier === 'team' || subscriptionTier === 'team-plus') && userCount <= 1
 
-      const teamTestingSkipStripe = process.env.TEAM_TESTING_SKIP_STRIPE === 'true'
-      const canInviteTeamMembers = (isTeamTier && hasSubscription) || teamTestingSkipStripe
+      const canInviteTeamMembers = isTeamTier && hasSubscription
 
       return {
         hasSubscription,

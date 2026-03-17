@@ -140,7 +140,7 @@ const LoginForm = () => {
           <div className="mt-2 text-right">
             <Link
               to="/auth/reset-password"
-              className="text-sm text-primary-blue hover:text-primary-gold transition-colors"
+              className="text-sm text-primary-gold hover:text-primary-gold/80 transition-colors"
             >
               Forgot password?
             </Link>
