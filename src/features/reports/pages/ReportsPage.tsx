@@ -236,7 +236,7 @@ export const ReportsPage = () => {
           )}
 
           {/* Quotes Report */}
-          <QuotesReport startDate={dateRange.start} endDate={dateRange.end} quotes={quotes} />
+          <QuotesReport startDate={dateRange.start} endDate={dateRange.end} quotes={quotes} invoices={invoices} />
 
           {/* Invoices Report */}
           <InvoicesReport startDate={dateRange.start} endDate={dateRange.end} invoices={invoices} />

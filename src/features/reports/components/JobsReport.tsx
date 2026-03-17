@@ -86,9 +86,8 @@ export const JobsReport = ({
         const invoiceId = (job as any).invoiceId
         if (invoiceId) {
           const invoice = invoiceMap.get(invoiceId)
-          if (invoice) {
-            // Use invoice paid amount, but cap at job price
-            paidRevenue += Math.min(invoice.paidAmount, jobPrice)
+          if (invoice && invoice.paymentStatus === 'paid') {
+            paidRevenue += jobPrice
           }
         }
       } else {
@@ -98,7 +97,9 @@ export const JobsReport = ({
           const invoice = invoiceMap.get(invoiceId)
           if (invoice) {
             totalRevenue += invoice.total
-            paidRevenue += invoice.paidAmount
+            if (invoice.paymentStatus === 'paid') {
+              paidRevenue += invoice.total
+            }
           }
         }
       }
@@ -229,10 +230,14 @@ export const JobsReport = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex-1">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            <h3 className={cn(
-              "text-lg font-semibold",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>Jobs Summary</h3>
+            <h3
+              className={cn(
+                'text-lg font-semibold',
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}
+            >
+              Jobs Summary
+            </h3>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium self-start sm:self-center"
@@ -245,80 +250,122 @@ export const JobsReport = ({
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </button>
           </div>
-          <p className={cn(
-            "text-sm mt-1",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
+          <p
+            className={cn(
+              'text-sm mt-1',
+              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+            )}
+          >
             {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={handleExport} className="self-start sm:self-auto">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleExport}
+          className="self-start sm:self-auto"
+        >
           Export CSV
         </Button>
       </div>
 
       {filteredJobs.length === 0 ? (
         <div className="text-center py-8">
-          <p className={cn(
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>No jobs found for this period</p>
+          <p
+            className={cn(
+              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+            )}
+          >
+            No jobs found for this period
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className={cn(
-              "p-4 rounded-lg min-w-0",
-              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Total Jobs</p>
+            <div
+              className={cn(
+                'p-4 rounded-lg min-w-0',
+                theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+              )}
+            >
+              <p
+                className={cn(
+                  'text-xs uppercase tracking-wide',
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}
+              >
+                Total Jobs
+              </p>
               <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                 {formatNumber(totals.total)}
               </p>
             </div>
-            <div className={cn(
-              "p-4 rounded-lg min-w-0",
-              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Active</p>
+            <div
+              className={cn(
+                'p-4 rounded-lg min-w-0',
+                theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+              )}
+            >
+              <p
+                className={cn(
+                  'text-xs uppercase tracking-wide',
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}
+              >
+                Active
+              </p>
               <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
                 {formatNumber(totals.active)}
               </p>
             </div>
-            <div className={cn(
-              "p-4 rounded-lg min-w-0",
-              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Completed</p>
+            <div
+              className={cn(
+                'p-4 rounded-lg min-w-0',
+                theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+              )}
+            >
+              <p
+                className={cn(
+                  'text-xs uppercase tracking-wide',
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}
+              >
+                Completed
+              </p>
               <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">
                 {formatNumber(totals.completed)}
               </p>
             </div>
-            <div className={cn(
-              "p-4 rounded-lg min-w-0",
-              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Inactive</p>
-              <p className={cn(
-                "text-xl md:text-2xl font-bold mt-1 break-words",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>
+            <div
+              className={cn(
+                'p-4 rounded-lg min-w-0',
+                theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+              )}
+            >
+              <p
+                className={cn(
+                  'text-xs uppercase tracking-wide',
+                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                )}
+              >
+                Inactive
+              </p>
+              <p
+                className={cn(
+                  'text-xl md:text-2xl font-bold mt-1 break-words',
+                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                )}
+              >
                 {formatNumber(totals.inactive)}
               </p>
             </div>
@@ -328,50 +375,74 @@ export const JobsReport = ({
           {isExpanded && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className={cn(
-                  "p-4 rounded-lg min-w-0",
-                  theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-                )}>
-                  <p className={cn(
-                    "text-xs uppercase tracking-wide",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>Revenue</p>
+                <div
+                  className={cn(
+                    'p-4 rounded-lg min-w-0',
+                    theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+                  )}
+                >
+                  <p
+                    className={cn(
+                      'text-xs uppercase tracking-wide',
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                    )}
+                  >
+                    Revenue
+                  </p>
                   <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
                     ${formatCurrency(totals.revenue)}
                   </p>
                 </div>
-                <div className={cn(
-                  "p-4 rounded-lg min-w-0",
-                  theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-                )}>
-                  <p className={cn(
-                    "text-xs uppercase tracking-wide",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>Paid</p>
+                <div
+                  className={cn(
+                    'p-4 rounded-lg min-w-0',
+                    theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+                  )}
+                >
+                  <p
+                    className={cn(
+                      'text-xs uppercase tracking-wide',
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                    )}
+                  >
+                    Paid
+                  </p>
                   <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
                     ${formatCurrency(totals.paidRevenue)}
                   </p>
                 </div>
-                <div className={cn(
-                  "p-4 rounded-lg min-w-0",
-                  theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-                )}>
-                  <p className={cn(
-                    "text-xs uppercase tracking-wide",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>Cost</p>
+                <div
+                  className={cn(
+                    'p-4 rounded-lg min-w-0',
+                    theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+                  )}
+                >
+                  <p
+                    className={cn(
+                      'text-xs uppercase tracking-wide',
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                    )}
+                  >
+                    Cost
+                  </p>
                   <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">
                     ${formatCurrency(totals.cost)}
                   </p>
                 </div>
-                <div className={cn(
-                  "p-4 rounded-lg min-w-0",
-                  theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-                )}>
-                  <p className={cn(
-                    "text-xs uppercase tracking-wide",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>Profit</p>
+                <div
+                  className={cn(
+                    'p-4 rounded-lg min-w-0',
+                    theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
+                  )}
+                >
+                  <p
+                    className={cn(
+                      'text-xs uppercase tracking-wide',
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                    )}
+                  >
+                    Profit
+                  </p>
                   <p
                     className={`text-xl md:text-2xl font-bold mt-1 break-words ${
                       totals.profit >= 0 ? 'text-green-400' : 'text-red-400'
@@ -384,59 +455,66 @@ export const JobsReport = ({
 
               {/* Status Breakdown */}
               <div className="space-y-3">
-                <h4 className={cn(
-                  "text-sm font-semibold uppercase tracking-wide",
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>
+                <h4
+                  className={cn(
+                    'text-sm font-semibold uppercase tracking-wide',
+                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                  )}
+                >
                   By Status
                 </h4>
                 <div className="space-y-2">
                   {(['active', 'completed', 'inactive'] as const).map(status => {
-                const group = statusGroups[status]
-                if (group.length === 0) return null
+                    const group = statusGroups[status]
+                    if (group.length === 0) return null
 
-                const statusLabels: Record<string, string> = {
-                  active: 'Active',
-                  completed: 'Completed',
-                  inactive: 'Inactive',
-                }
+                    const statusLabels: Record<string, string> = {
+                      active: 'Active',
+                      completed: 'Completed',
+                      inactive: 'Inactive',
+                    }
 
-                const statusColors: Record<string, string> = {
-                  active: theme === 'dark'
-                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                    : 'bg-green-100 text-green-700 border-green-300',
-                  completed: theme === 'dark'
-                    ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                    : 'bg-blue-100 text-blue-700 border-blue-300',
-                  inactive: theme === 'dark' 
-                    ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' 
-                    : 'bg-gray-200 text-gray-600 border-gray-300',
-                }
+                    const statusColors: Record<string, string> = {
+                      active:
+                        theme === 'dark'
+                          ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                          : 'bg-green-100 text-green-700 border-green-300',
+                      completed:
+                        theme === 'dark'
+                          ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                          : 'bg-blue-100 text-blue-700 border-blue-300',
+                      inactive:
+                        theme === 'dark'
+                          ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                          : 'bg-gray-200 text-gray-600 border-gray-300',
+                    }
 
-                return (
-                  <div
-                    key={status}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg gap-2 min-w-0",
-                      theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
-                    )}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${statusColors[status]}`}
+                    return (
+                      <div
+                        key={status}
+                        className={cn(
+                          'flex items-center justify-between p-3 rounded-lg gap-2 min-w-0',
+                          theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
+                        )}
                       >
-                        {statusLabels[status]}
-                      </span>
-                      <span className={cn(
-                        "text-xs md:text-sm truncate",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {formatNumber(group.length)} jobs
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${statusColors[status]}`}
+                          >
+                            {statusLabels[status]}
+                          </span>
+                          <span
+                            className={cn(
+                              'text-xs md:text-sm truncate',
+                              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                            )}
+                          >
+                            {formatNumber(group.length)} jobs
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </>

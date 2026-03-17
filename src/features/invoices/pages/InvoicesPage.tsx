@@ -7,6 +7,7 @@ import InvoiceDetail from '../components/InvoiceDetail'
 import { Button, Modal, Card } from '@/components/ui'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import { services } from '@/lib/api/services'
 
 const InvoicesPage = () => {
   const { theme } = useTheme()
@@ -21,6 +22,7 @@ const InvoicesPage = () => {
     notes?: string
     price?: number
   }>({})
+  const [linkJobId, setLinkJobId] = useState<string | null>(null)
   const {
     selectedInvoice,
     createInvoice,
@@ -43,7 +45,11 @@ const InvoicesPage = () => {
 
   const handleCreate = async (data: any) => {
     try {
-      await createInvoice(data)
+      const newInvoice = await createInvoice(data)
+      if (newInvoice && linkJobId) {
+        await services.jobs.update(linkJobId, { invoiceId: newInvoice.id })
+        setLinkJobId(null)
+      }
       setShowCreateForm(false)
       if (returnTo) {
         safeNavigateBack()
@@ -61,6 +67,10 @@ const InvoicesPage = () => {
     try {
       // Create the invoice first
       const newInvoice = await createInvoice(data)
+      if (newInvoice && linkJobId) {
+        await services.jobs.update(linkJobId, { invoiceId: newInvoice.id })
+        setLinkJobId(null)
+      }
       // Send the invoice
       if (newInvoice) {
         await sendInvoice(newInvoice.id)
@@ -91,6 +101,7 @@ const InvoicesPage = () => {
   // Open create form when arriving with openCreateInvoice=1 (e.g. from job detail)
   useEffect(() => {
     if (openCreateInvoice) {
+      const jobIdParam = searchParams.get('jobId')
       const priceParam = searchParams.get('price')
       const priceNum = priceParam ? parseFloat(priceParam) : NaN
       setCreateInvoiceDefaults({
@@ -103,9 +114,11 @@ const InvoicesPage = () => {
           : undefined,
         price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
       })
+      if (jobIdParam) setLinkJobId(jobIdParam)
       setShowCreateForm(true)
       const params = new URLSearchParams(searchParams)
       params.delete('openCreateInvoice')
+      params.delete('jobId')
       params.delete('contactId')
       params.delete('title')
       params.delete('notes')

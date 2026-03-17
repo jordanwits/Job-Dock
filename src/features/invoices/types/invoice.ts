@@ -36,6 +36,9 @@ export interface Invoice {
   trackPayment?: boolean
   createdAt: string
   updatedAt: string
+  convertedFromQuoteNumber?: string
+  convertedFromQuoteTotal?: number
+  convertedFromQuoteCreatedAt?: string
 }
 
 export interface CreateInvoiceData {
@@ -52,6 +55,9 @@ export interface CreateInvoiceData {
   paymentStatus?: 'pending' | 'partial' | 'paid'
   trackResponse?: boolean
   trackPayment?: boolean
+  convertedFromQuoteNumber?: string
+  convertedFromQuoteTotal?: number
+  convertedFromQuoteCreatedAt?: string
 }
 
 export interface UpdateInvoiceData extends Partial<CreateInvoiceData> {

@@ -4,29 +4,61 @@ import { downloadCsv } from '../utils/exportCsv'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { Quote } from '@/features/quotes/types/quote'
+import type { Invoice } from '@/features/invoices/types/invoice'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+
+type QuoteForReport = Quote & { status?: string }
 
 interface QuotesReportProps {
   startDate: Date
   endDate: Date
   quotes: Quote[]
+  invoices?: Invoice[]
 }
 
-export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) => {
+export const QuotesReport = ({ startDate, endDate, quotes, invoices = [] }: QuotesReportProps) => {
   const { theme } = useTheme()
   const [isExpanded, setIsExpanded] = useState(false)
-  // Filter quotes by date range (createdAt)
+
+  // Build converted quote snapshots from invoices that were created from quotes
+  const convertedQuotes = useMemo((): QuoteForReport[] => {
+    return invoices
+      .filter(
+        (inv): inv is Invoice & { convertedFromQuoteNumber: string } =>
+          !!(inv as Invoice & { convertedFromQuoteNumber?: string }).convertedFromQuoteNumber
+      )
+      .map(inv => ({
+        id: `conv-${inv.id}`,
+        quoteNumber: inv.convertedFromQuoteNumber!,
+        title: inv.title ?? inv.convertedFromQuoteNumber,
+        contactId: inv.contactId,
+        contactName: inv.contactName,
+        contactCompany: inv.contactCompany,
+        lineItems: [],
+        subtotal: inv.subtotal,
+        taxAmount: inv.taxAmount,
+        discount: inv.discount,
+        total: inv.convertedFromQuoteTotal ?? inv.total,
+        status: 'accepted' as const,
+        validUntil: undefined,
+        createdAt: inv.convertedFromQuoteCreatedAt ?? inv.createdAt,
+        updatedAt: inv.createdAt,
+      }))
+  }, [invoices])
+
+  // Merge active quotes with converted snapshots, filter by date range (createdAt)
   const filteredQuotes = useMemo(() => {
-    return quotes.filter(quote => {
+    const all = [...quotes, ...convertedQuotes]
+    return all.filter(quote => {
       const quoteDate = new Date(quote.createdAt)
       return quoteDate >= startDate && quoteDate <= endDate
     })
-  }, [quotes, startDate, endDate])
+  }, [quotes, convertedQuotes, startDate, endDate])
 
   // Group by status
   const statusGroups = useMemo(() => {
-    const groups: Record<string, Quote[]> = {
+    const groups: Record<string, QuoteForReport[]> = {
       draft: [],
       sent: [],
       accepted: [],
@@ -221,7 +253,7 @@ export const QuotesReport = ({ startDate, endDate, quotes }: QuotesReportProps) 
               <div className="space-y-2">
                 {(['draft', 'sent', 'accepted', 'rejected', 'expired'] as const).map(status => {
                 const group = statusGroups[status]
-                if (group.length === 0) return null
+                if (!group || group.length === 0) return null
 
                 const statusLabels: Record<string, string> = {
                   draft: 'Draft',

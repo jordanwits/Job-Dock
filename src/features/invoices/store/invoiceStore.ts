@@ -181,6 +181,9 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         paymentTerms: options?.paymentTerms || 'Net 30',
         status: 'draft',
         paymentStatus: 'pending',
+        convertedFromQuoteNumber: quote.quoteNumber,
+        convertedFromQuoteTotal: quote.total,
+        convertedFromQuoteCreatedAt: quote.createdAt,
       }
 
       const newInvoice = await invoicesService.create(invoiceData)

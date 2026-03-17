@@ -889,6 +889,15 @@ WHERE "assignedTo" IS NOT NULL
     ],
     description: 'Simplify quote/invoice email templates to not include document number in default text',
   },
+  {
+    name: '20260317000000_add_converted_quote_fields_to_invoice',
+    statements: [
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "convertedFromQuoteNumber" TEXT`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "convertedFromQuoteTotal" DECIMAL(10,2)`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "convertedFromQuoteCreatedAt" TIMESTAMP(3)`,
+    ],
+    description: 'Add converted quote fields to invoices for reports',
+  },
 ]
 
 export const handler = async (

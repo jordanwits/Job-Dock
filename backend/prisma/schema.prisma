@@ -166,6 +166,9 @@ model Invoice {
   paidAmount     Decimal           @default(0) @db.Decimal(10, 2)
   trackResponse  Boolean           @default(true)
   trackPayment   Boolean           @default(true)
+  convertedFromQuoteNumber  String?
+  convertedFromQuoteTotal   Decimal?         @db.Decimal(10, 2)
+  convertedFromQuoteCreatedAt DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   lineItems      InvoiceLineItem[]

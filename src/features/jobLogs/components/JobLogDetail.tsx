@@ -583,8 +583,10 @@ const JobLogDetail = ({
 
   const navigateToCreateInvoice = () => {
     const params = new URLSearchParams()
+    const linkableJobId = jobLog.jobId || jobLog.job?.id || jobLog.id
     params.set('returnTo', '/app/job-logs/' + jobLog.id)
     params.set('openCreateInvoice', '1')
+    if (linkableJobId) params.set('jobId', linkableJobId)
     if (jobLog.contactId) params.set('contactId', jobLog.contactId)
     if (jobLog.title) params.set('title', encodeURIComponent(jobLog.title))
     if (jobLog.notes) params.set('notes', encodeURIComponent(jobLog.notes))
@@ -604,6 +606,10 @@ const JobLogDetail = ({
     setIsConverting(true)
     try {
       const invoice = await convertQuoteToInvoice(quoteForConvert, options)
+      const linkableJobId = jobLog.jobId || jobLog.job?.id || jobLog.id
+      if (linkableJobId) {
+        await services.jobs.update(linkableJobId, { invoiceId: invoice.id })
+      }
       await deleteQuote(quoteForConvert.id)
       setShowConvertModal(false)
       setQuoteForConvert(null)
