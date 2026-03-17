@@ -72,7 +72,7 @@ function TimeNumberInput({
       setMinStr('')
     } else {
       const parsed = parseInt(m, 10)
-      setMinStr(isNaN(parsed) ? '' : String(parsed))
+      setMinStr(isNaN(parsed) ? '' : String(Math.min(59, parsed)))
     }
   }, [value])
 
@@ -80,7 +80,7 @@ function TimeNumberInput({
     const hour12 = parseInt(h, 10)
     const hasHour = h !== '' && !isNaN(hour12)
     const hasMin = min !== ''
-    const minute = parseInt(min, 10) || 0
+    const minute = Math.min(59, parseInt(min, 10) || 0)
     if (hasHour && hasMin) {
       const h24 = pm ? (hour12 === 12 ? 12 : hour12 + 12) : hour12 === 12 ? 0 : hour12
       onChange(`${h24}`.padStart(2, '0') + ':' + `${minute}`.padStart(2, '0'))
@@ -90,13 +90,15 @@ function TimeNumberInput({
   }
 
   const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
+    const raw = e.target.value.replace(/\D/g, '').slice(-2)
     setHourStr(raw)
     emit(raw, minStr, isPM)
   }
 
   const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
+    let raw = e.target.value.replace(/\D/g, '').slice(-2)
+    const num = parseInt(raw, 10)
+    if (!isNaN(num) && num > 59) raw = '59'
     setMinStr(raw)
     emit(hourStr, raw, isPM)
   }

@@ -854,7 +854,8 @@ const JobLogForm = ({
                       ...assignments,
                       {
                         userId: '',
-                        role: 'Team Member',
+                        role: undefined,
+                        roleId: undefined,
                         price: null,
                         payType: 'job' as const,
                         hourlyRate: null,

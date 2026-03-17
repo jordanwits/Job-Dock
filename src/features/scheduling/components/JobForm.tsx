@@ -1142,7 +1142,7 @@ const JobForm = ({
                   type="button"
                   variant="ghost"
                   onClick={() => {
-                    const newAssignments = [{ userId: '', role: 'Team Member', price: null, payType: 'job' as const, hourlyRate: null }]
+                    const newAssignments = [{ userId: '', role: undefined, roleId: undefined, price: null, payType: 'job' as const, hourlyRate: null }]
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)
                   }}
