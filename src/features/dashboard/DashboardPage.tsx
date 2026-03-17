@@ -322,11 +322,11 @@ const DashboardPage = () => {
                 {upcomingJobs.map(job => {
                   const statusColors = {
                     active: theme === 'dark'
-                      ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-                      : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
+                      ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
+                      : 'bg-green-100 text-green-700 ring-1 ring-green-300',
                     scheduled: theme === 'dark'
-                      ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-                      : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
+                      ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
+                      : 'bg-green-100 text-green-700 ring-1 ring-green-300',
                     'in-progress': theme === 'dark'
                       ? 'bg-yellow-500/10 text-yellow-400 ring-1 ring-yellow-500/20'
                       : 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-300',
