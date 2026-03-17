@@ -47,7 +47,7 @@ const LandingPage = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-gold opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-gold"></span>
               </span>
-              Now in production
+              Live Now
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 tracking-tight leading-[1.1]">
@@ -89,14 +89,14 @@ const LandingPage = () => {
           <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-5xl mx-auto">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
-              {landingPageContent.trustBar.map((item, index) => (
-                <div key={index}>
-                  <div className="text-3xl md:text-4xl font-bold text-primary-gold mb-2">
-                    {item.value}
+                {landingPageContent.trustBar.map((item, index) => (
+                  <div key={index}>
+                    <div className="text-3xl md:text-4xl font-bold text-primary-gold mb-2">
+                      {item.value}
+                    </div>
+                    <div className="text-sm md:text-base text-primary-dark/70">{item.label}</div>
                   </div>
-                  <div className="text-sm md:text-base text-primary-dark/70">{item.label}</div>
-                </div>
-              ))}
+                ))}
               </div>
             </div>
           </div>
@@ -208,23 +208,30 @@ const LandingPage = () => {
           style={{ backgroundImage: 'url(/kings.construction-029-web.jpeg)' }}
           aria-hidden
         />
-        <div className="absolute inset-0 bg-black/25" aria-hidden />
+        <div className="absolute inset-0 bg-black/30" aria-hidden />
         <div className="container mx-auto px-4 md:px-6 relative z-10">
-          <ScrollReveal variant="left">
           <div className="text-center mb-12 md:mb-16">
-            <div className="inline-block px-4 py-1.5 rounded-full border border-white/30 bg-black/40 backdrop-blur-md text-primary-gold text-sm font-bold tracking-wider mb-4 uppercase">
-              {landingPageContent.features.eyebrow}
-            </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-              Everything you need. <span className="text-primary-gold">Nothing you don't.</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 flex flex-col items-center gap-4">
+              <span>Everything you need.</span>
+              <span>
+                <span className="text-primary-gold max-[1640px]:hidden min-[1641px]:inline">
+                  Nothing you don't.
+                </span>
+                <span className="hidden max-[1640px]:inline-flex max-[1640px]:animate-fade-in px-4 py-1.5 rounded-full bg-black/40 border border-white/25 backdrop-blur-lg text-primary-gold isolate">
+                  Nothing you don't.
+                </span>
+              </span>
             </h2>
-            <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto leading-relaxed">
-              {landingPageContent.features.subtitle}
-            </p>
+            <ScrollReveal variant="fade">
+              <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto leading-relaxed">
+                {landingPageContent.features.subtitle}
+              </p>
+            </ScrollReveal>
           </div>
           <div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             <FeatureCard
               variant="glass"
+              className="animate-fade-in-up"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -245,6 +252,7 @@ const LandingPage = () => {
             />
             <FeatureCard
               variant="glass"
+              className="animate-fade-in-up animation-delay-100"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -265,6 +273,7 @@ const LandingPage = () => {
             />
             <FeatureCard
               variant="glass"
+              className="animate-fade-in-up animation-delay-200"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -285,6 +294,7 @@ const LandingPage = () => {
             />
             <FeatureCard
               variant="glass"
+              className="animate-fade-in-up animation-delay-300"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -305,6 +315,7 @@ const LandingPage = () => {
             />
             <FeatureCard
               variant="glass"
+              className="animate-fade-in-up animation-delay-100"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -325,6 +336,7 @@ const LandingPage = () => {
             />
             <FeatureCard
               variant="glass"
+              className="animate-fade-in-up animation-delay-200"
               icon={
                 <svg
                   className="w-6 h-6 text-primary-gold"
@@ -344,7 +356,6 @@ const LandingPage = () => {
               description="Track progress from lead to completion. Never lose track of where you are."
             />
           </div>
-          </ScrollReveal>
         </div>
       </MarketingSection>
 
@@ -352,75 +363,76 @@ const LandingPage = () => {
       <MarketingSection id="how-it-works" variant="white" withTopDivider withBottomDivider>
         <div className="container mx-auto px-4 md:px-6">
           <ScrollReveal variant="right">
-          <SectionHeading
-            eyebrow="How It Works"
-            heading={
-              <>
-                From quote to invoice — <span className="text-primary-gold">without the chaos</span>
-              </>
-            }
-          />
+            <SectionHeading
+              eyebrow="How It Works"
+              heading={
+                <>
+                  From quote to invoice —{' '}
+                  <span className="text-primary-gold">without the chaos</span>
+                </>
+              }
+            />
 
-          <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-4 gap-8">
-              {/* Step 1 */}
-              <div className="text-center">
-                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
-                  <span className="text-3xl font-bold text-white">1</span>
-                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+            <div className="max-w-6xl mx-auto">
+              <div className="grid md:grid-cols-4 gap-8">
+                {/* Step 1 */}
+                <div className="text-center">
+                  <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
+                    <span className="text-3xl font-bold text-white">1</span>
+                    <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+                  </div>
+                  <h3 className="text-lg font-bold text-primary-dark mb-2">Create a client</h3>
+                  <p className="text-primary-dark/70 text-sm">
+                    Store contact details, job notes, and history in one place.
+                  </p>
                 </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">Create a client</h3>
-                <p className="text-primary-dark/70 text-sm">
-                  Store contact details, job notes, and history in one place.
-                </p>
+
+                {/* Step 2 */}
+                <div className="text-center">
+                  <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
+                    <span className="text-3xl font-bold text-white">2</span>
+                    <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+                  </div>
+                  <h3 className="text-lg font-bold text-primary-dark mb-2">Send a quote</h3>
+                  <p className="text-primary-dark/70 text-sm">
+                    Build and send clear, professional quotes in minutes.
+                  </p>
+                </div>
+
+                {/* Step 3 */}
+                <div className="text-center">
+                  <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
+                    <span className="text-3xl font-bold text-white">3</span>
+                    <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
+                  </div>
+                  <h3 className="text-lg font-bold text-primary-dark mb-2">Schedule the job</h3>
+                  <p className="text-primary-dark/70 text-sm">
+                    Book work directly on your calendar and stay organized.
+                  </p>
+                </div>
+
+                {/* Step 4 */}
+                <div className="text-center">
+                  <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
+                    <span className="text-3xl font-bold text-white">4</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-primary-dark mb-2">
+                    Invoice with confidence
+                  </h3>
+                  <p className="text-primary-dark/70 text-sm">
+                    Turn completed work into clean, accurate invoices — without starting over.
+                  </p>
+                </div>
               </div>
-
-              {/* Step 2 */}
-              <div className="text-center">
-                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
-                  <span className="text-3xl font-bold text-white">2</span>
-                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
-                </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">Send a quote</h3>
-                <p className="text-primary-dark/70 text-sm">
-                  Build and send clear, professional quotes in minutes.
+              <div className="text-center mt-12 space-y-2">
+                <p className="text-xl text-primary-dark/80 font-semibold">
+                  Everything stays connected.
                 </p>
-              </div>
-
-              {/* Step 3 */}
-              <div className="text-center">
-                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
-                  <span className="text-3xl font-bold text-white">3</span>
-                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 border-t-2 border-dashed border-primary-blue/30"></div>
-                </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">Schedule the job</h3>
-                <p className="text-primary-dark/70 text-sm">
-                  Book work directly on your calendar and stay organized.
-                </p>
-              </div>
-
-              {/* Step 4 */}
-              <div className="text-center">
-                <div className="relative mx-auto w-20 h-20 bg-gradient-to-br from-primary-blue to-primary-dark-secondary rounded-full flex items-center justify-center mb-6 shadow-lg">
-                  <span className="text-3xl font-bold text-white">4</span>
-                </div>
-                <h3 className="text-lg font-bold text-primary-dark mb-2">
-                  Invoice with confidence
-                </h3>
-                <p className="text-primary-dark/70 text-sm">
-                  Turn completed work into clean, accurate invoices — without starting over.
+                <p className="text-xl text-primary-dark/80 font-semibold">
+                  Everything stays visible.
                 </p>
               </div>
             </div>
-            <div className="text-center mt-12 space-y-2">
-              <p className="text-xl text-primary-dark/80 font-semibold">
-                Everything stays connected.
-              </p>
-              <p className="text-xl text-primary-dark/80 font-semibold">
-                Everything stays visible.
-              </p>
-            </div>
-          </div>
           </ScrollReveal>
         </div>
       </MarketingSection>
@@ -429,78 +441,78 @@ const LandingPage = () => {
       <MarketingSection variant="gradient-dark">
         <div className="container mx-auto px-4 md:px-6">
           <ScrollReveal variant="up">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
-                Built for <span className="text-primary-gold">real work</span>
-              </h2>
-              <p className="text-lg md:text-xl text-white/80">
-                The numbers that matter for service businesses
-              </p>
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
+                  Built for <span className="text-primary-gold">real work</span>
+                </h2>
+                <p className="text-lg md:text-xl text-white/80">
+                  The numbers that matter for service businesses
+                </p>
+              </div>
+              <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+                <StatCard
+                  icon={
+                    <svg
+                      className="w-8 h-8 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                  }
+                  value="3 min"
+                  label="Average Quote Time"
+                  description="From blank to sent"
+                />
+                <StatCard
+                  icon={
+                    <svg
+                      className="w-8 h-8 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  }
+                  value="1 click"
+                  label="Quote to Invoice"
+                  description="No re-entering data"
+                />
+                <StatCard
+                  icon={
+                    <svg
+                      className="w-8 h-8 text-primary-gold"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  }
+                  value="24/7"
+                  label="Client Booking"
+                  description="They book. You approve."
+                />
+              </div>
             </div>
-            <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-              <StatCard
-                icon={
-                  <svg
-                    className="w-8 h-8 text-primary-gold"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
-                }
-                value="3 min"
-                label="Average Quote Time"
-                description="From blank to sent"
-              />
-              <StatCard
-                icon={
-                  <svg
-                    className="w-8 h-8 text-primary-gold"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                }
-                value="1 click"
-                label="Quote to Invoice"
-                description="No re-entering data"
-              />
-              <StatCard
-                icon={
-                  <svg
-                    className="w-8 h-8 text-primary-gold"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                }
-                value="24/7"
-                label="Client Booking"
-                description="They book. You approve."
-              />
-            </div>
-          </div>
           </ScrollReveal>
         </div>
       </MarketingSection>
@@ -509,124 +521,51 @@ const LandingPage = () => {
       <MarketingSection id="benefits" variant="light">
         <div className="container mx-auto px-4 md:px-6">
           <ScrollReveal variant="left">
-          <div className="max-w-5xl mx-auto">
-            <SectionHeading
-              heading="The Job Dock brings it all together"
-              subheading="A simple, focused tool designed around how service businesses actually operate."
-            />
-            <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 md:p-10 shadow-xl mb-8">
-              <h3 className="text-xl md:text-2xl font-bold text-primary-dark mb-6">
-                With The Job Dock, you can:
-              </h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-primary-gold"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+            <div className="max-w-5xl mx-auto">
+              <SectionHeading
+                heading="The Job Dock brings it all together"
+                subheading="A simple, focused tool designed around how service businesses actually operate."
+              />
+              <div className="bg-white border-2 border-primary-blue/20 rounded-2xl p-8 md:p-10 shadow-xl mb-8">
+                <h3 className="text-xl md:text-2xl font-bold text-primary-dark mb-6">
+                  With The Job Dock, you can:
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {landingPageContent.solution.benefits.map((benefit, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-start gap-3 ${index === landingPageContent.solution.benefits.length - 1 ? 'md:col-span-2' : ''}`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-lg text-primary-dark/80">
-                    Create and send professional quotes
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-primary-gold"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-lg text-primary-dark/80">Convert quotes into invoices</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-primary-gold"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-lg text-primary-dark/80">
-                    Schedule jobs without double-booking
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-primary-gold"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-lg text-primary-dark/80">
-                    Track clients, jobs, and status in one place
-                  </p>
-                </div>
-                <div className="flex items-start gap-3 md:col-span-2">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-primary-gold"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-lg text-primary-dark/80">
-                    Reduce admin without adding complexity
-                  </p>
+                      <div className="flex-shrink-0 w-8 h-8 bg-primary-gold/10 rounded-lg flex items-center justify-center mt-0.5">
+                        <svg
+                          className="w-5 h-5 text-primary-gold"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-lg text-primary-dark/80">{benefit}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
+              <div className="text-center space-y-2">
+                <p className="text-xl text-primary-dark/80 font-semibold">No learning curve.</p>
+                <p className="text-xl text-primary-dark/80 font-semibold">
+                  No unnecessary features.
+                </p>
+                <p className="text-xl text-primary-dark/80 font-semibold">
+                  Just what you need — and nothing you don't.
+                </p>
+              </div>
             </div>
-            <div className="text-center space-y-2">
-              <p className="text-xl text-primary-dark/80 font-semibold">No learning curve.</p>
-              <p className="text-xl text-primary-dark/80 font-semibold">No unnecessary features.</p>
-              <p className="text-xl text-primary-dark/80 font-semibold">
-                Just what you need — and nothing you don't.
-              </p>
-            </div>
-          </div>
           </ScrollReveal>
         </div>
       </MarketingSection>
@@ -635,111 +574,111 @@ const LandingPage = () => {
       <MarketingSection id="why-us" variant="white">
         <div className="container mx-auto px-4 md:px-6">
           <ScrollReveal variant="right">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid gap-10 md:gap-12 items-center lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-16">
-              {/* Left Column - Image */}
-              <div className="order-2 lg:order-1 mt-12 lg:mt-0 flex justify-center lg:justify-start">
-                <img
-                  src="/JDmock.png"
-                  alt="Job Dock product mockup"
-                  className="w-full max-w-[300px] h-auto"
-                  loading="lazy"
-                />
-              </div>
-
-              {/* Right Column - Content */}
-              <div className="order-1 lg:order-2 flex justify-center">
-                <div className="w-full max-w-xl">
-                  <SectionHeading
-                    eyebrow="Why We're Different"
-                    heading="Built for real people, not enterprise checklists"
-                    subheading="Many tools try to be everything for everyone. The Job Dock is different."
-                    align="left"
+            <div className="max-w-7xl mx-auto">
+              <div className="grid gap-10 md:gap-12 items-center lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-16">
+                {/* Left Column - Image */}
+                <div className="order-2 lg:order-1 mt-12 lg:mt-0 flex justify-center lg:justify-start">
+                  <img
+                    src="/JDmock.png"
+                    alt="Job Dock product mockup"
+                    className="w-full max-w-[300px] h-auto"
+                    loading="lazy"
                   />
+                </div>
 
-                  <div className="space-y-6">
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-primary-gold"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-primary-dark mb-1">
-                        Simplicity over complexity
-                      </h3>
-                      <p className="text-primary-dark/70">
-                        We strip away the bloat and focus on what actually matters.
-                      </p>
-                    </div>
-                  </div>
+                {/* Right Column - Content */}
+                <div className="order-1 lg:order-2 flex justify-center">
+                  <div className="w-full max-w-xl">
+                    <SectionHeading
+                      eyebrow="Why We're Different"
+                      heading="Built for real people, not enterprise checklists"
+                      subheading="Many tools try to be everything for everyone. The Job Dock is different."
+                      align="left"
+                    />
 
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-primary-gold"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-primary-dark mb-1">
-                        Clarity over feature overload
-                      </h3>
-                      <p className="text-primary-dark/70">
-                        Every feature has a purpose. Nothing is there "just because."
-                      </p>
-                    </div>
-                  </div>
+                    <div className="space-y-6">
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
+                          <svg
+                            className="w-6 h-6 text-primary-gold"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-primary-dark mb-1">
+                            Simplicity over complexity
+                          </h3>
+                          <p className="text-primary-dark/70">
+                            We strip away the bloat and focus on what actually matters.
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-primary-gold"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
+                          <svg
+                            className="w-6 h-6 text-primary-gold"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-primary-dark mb-1">
+                            Clarity over feature overload
+                          </h3>
+                          <p className="text-primary-dark/70">
+                            Every feature has a purpose. Nothing is there "just because."
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
+                          <svg
+                            className="w-6 h-6 text-primary-gold"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-primary-dark mb-1">
+                            Human workflows over rigid systems
+                          </h3>
+                          <p className="text-primary-dark/70">
+                            Work the way you want to, not the way some software says you should.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-primary-dark mb-1">
-                        Human workflows over rigid systems
-                      </h3>
-                      <p className="text-primary-dark/70">
-                        Work the way you want to, not the way some software says you should.
-                      </p>
-                    </div>
-                  </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
           </ScrollReveal>
         </div>
       </MarketingSection>
@@ -748,16 +687,16 @@ const LandingPage = () => {
       <MarketingSection id="get-started" variant="light" withTopDivider>
         <div className="container mx-auto px-4 md:px-6">
           <ScrollReveal variant="fade">
-          <div className="max-w-4xl mx-auto text-center">
-            <SectionHeading
-              eyebrow="Get Started"
-              heading="Ready to simplify your business?"
-              subheading="Get started in minutes. Create your account and begin managing quotes, invoices, and schedules in one place."
-            />
-            <MarketingButton to="/auth/signup" variant="primary" size="lg" withArrow>
-              Get Started
-            </MarketingButton>
-          </div>
+            <div className="max-w-4xl mx-auto text-center">
+              <SectionHeading
+                eyebrow="Get Started"
+                heading="Ready to simplify your business?"
+                subheading="Get started in minutes. Create your account and begin managing quotes, invoices, and schedules in one place."
+              />
+              <MarketingButton to="/auth/signup" variant="primary" size="lg" withArrow>
+                Get Started
+              </MarketingButton>
+            </div>
           </ScrollReveal>
         </div>
       </MarketingSection>
@@ -766,5 +705,3 @@ const LandingPage = () => {
 }
 
 export default LandingPage
-
-

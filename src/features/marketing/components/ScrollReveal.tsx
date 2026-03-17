@@ -35,8 +35,8 @@ const ScrollReveal = ({
     let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
+      entries => {
+        entries.forEach(entry => {
           if (entry.isIntersecting) {
             setHasAnimated(true)
             if (delay > 0) {

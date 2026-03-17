@@ -20,7 +20,7 @@ const FeatureCard = ({
     default: 'bg-white border border-primary-blue/10 hover:border-primary-gold/30 hover:shadow-lg',
     bordered: 'bg-white border-2 border-primary-blue/20 hover:border-primary-gold hover:shadow-xl',
     elevated: 'bg-white shadow-md hover:shadow-2xl border border-primary-blue/5',
-    glass: 'border border-white/30 bg-black/40 backdrop-blur-md shadow-2xl shadow-black/10',
+    glass: 'border border-white/30 bg-black/20 backdrop-blur-md shadow-2xl shadow-black/10',
   }
 
   const isGlass = variant === 'glass'

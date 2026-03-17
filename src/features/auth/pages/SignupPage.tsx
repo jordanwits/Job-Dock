@@ -54,8 +54,8 @@ const SignupPage = () => {
       <div className="container mx-auto px-4 md:px-6 pt-24 md:pt-32 pb-12 md:pb-16">
         <div className="max-w-4xl mx-auto">
         <div className="mb-10 text-center space-y-2">
-          <h1 className="text-4xl font-bold text-primary-gold">JobDock</h1>
-          <p className="text-primary-dark/70">Contractor Management Platform</p>
+          <h1 className="text-4xl font-bold text-primary-gold">Sign up</h1>
+          <p className="text-primary-dark/70">Choose your plan to continue</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg border border-primary-blue/10 p-8 md:p-12">
