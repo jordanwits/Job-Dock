@@ -223,6 +223,11 @@ const InvoicesPage = () => {
           onJobCreateFailed={error => {
             // Error is already displayed by the job store
           }}
+          onInvoiceSent={(message) => {
+            setConfirmationMessage(message)
+            setShowConfirmation(true)
+            setTimeout(() => setShowConfirmation(false), 3000)
+          }}
         />
       )}
     </div>

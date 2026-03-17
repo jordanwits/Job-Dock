@@ -235,6 +235,11 @@ const QuotesPage = () => {
           onJobCreateFailed={error => {
             // Error is already displayed by the job store
           }}
+          onQuoteSent={(message) => {
+            setConfirmationMessage(message)
+            setShowConfirmation(true)
+            setTimeout(() => setShowConfirmation(false), 3000)
+          }}
         />
       )}
     </div>

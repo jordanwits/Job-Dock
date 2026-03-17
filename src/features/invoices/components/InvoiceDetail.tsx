@@ -14,6 +14,7 @@ interface InvoiceDetailProps {
   onClose: () => void
   onJobCreated?: () => void
   onJobCreateFailed?: (error: string) => void
+  onInvoiceSent?: (message: string) => void
 }
 
 const InvoiceDetail = ({
@@ -22,6 +23,7 @@ const InvoiceDetail = ({
   onClose,
   onJobCreated,
   onJobCreateFailed,
+  onInvoiceSent,
 }: InvoiceDetailProps) => {
   const { theme } = useTheme()
   const { updateInvoice, deleteInvoice, sendInvoice, isLoading } = useInvoiceStore()
@@ -64,17 +66,23 @@ const InvoiceDetail = ({
     setSendSuccess(false)
     try {
       await sendInvoice(invoice.id)
-      setSendSuccess(true)
-      // Hide success message after 3 seconds
-      setTimeout(() => {
-        setSendSuccess(false)
-      }, 3000)
+      const updatedInvoice = useInvoiceStore.getState().selectedInvoice
+      const sentVia = updatedInvoice?.sentVia
+      if (sentVia && sentVia.length > 0) {
+        const viaText = sentVia.includes('email') && sentVia.includes('sms')
+          ? ` via email and SMS to ${updatedInvoice?.contactEmail || updatedInvoice?.contactPhone || 'contact'}`
+          : sentVia.includes('sms')
+            ? ` via SMS to ${updatedInvoice?.contactPhone || 'contact'}`
+            : ` via email to ${updatedInvoice?.contactEmail || 'contact'}`
+        onInvoiceSent?.(`Invoice sent successfully${viaText}`)
+        onClose()
+      } else {
+        setSendSuccess(true)
+        setTimeout(() => setSendSuccess(false), 3000)
+      }
     } catch (error: any) {
       setSendError(error.message || 'Failed to send invoice')
-      // Hide error message after 5 seconds
-      setTimeout(() => {
-        setSendError(null)
-      }, 5000)
+      setTimeout(() => setSendError(null), 5000)
     } finally {
       setIsSending(false)
     }

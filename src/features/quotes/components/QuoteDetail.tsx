@@ -16,6 +16,7 @@ interface QuoteDetailProps {
   onClose: () => void
   onJobCreated?: () => void
   onJobCreateFailed?: (error: string) => void
+  onQuoteSent?: (message: string) => void
 }
 
 const QuoteDetail = ({
@@ -24,6 +25,7 @@ const QuoteDetail = ({
   onClose,
   onJobCreated,
   onJobCreateFailed,
+  onQuoteSent,
 }: QuoteDetailProps) => {
   const { theme } = useTheme()
   const { updateQuote, deleteQuote, sendQuote, isLoading } = useQuoteStore()
@@ -87,17 +89,23 @@ const QuoteDetail = ({
     setSendSuccess(false)
     try {
       await sendQuote(quote.id)
-      setSendSuccess(true)
-      // Hide success message after 3 seconds
-      setTimeout(() => {
-        setSendSuccess(false)
-      }, 3000)
+      const updatedQuote = useQuoteStore.getState().selectedQuote
+      const sentVia = updatedQuote?.sentVia
+      if (sentVia && sentVia.length > 0) {
+        const viaText = sentVia.includes('email') && sentVia.includes('sms')
+          ? ` via email and SMS to ${updatedQuote?.contactEmail || updatedQuote?.contactPhone || 'contact'}`
+          : sentVia.includes('sms')
+            ? ` via SMS to ${updatedQuote?.contactPhone || 'contact'}`
+            : ` via email to ${updatedQuote?.contactEmail || 'contact'}`
+        onQuoteSent?.(`Quote sent successfully${viaText}`)
+        onClose()
+      } else {
+        setSendSuccess(true)
+        setTimeout(() => setSendSuccess(false), 3000)
+      }
     } catch (error: any) {
       setSendError(error.message || 'Failed to send quote')
-      // Hide error message after 5 seconds
-      setTimeout(() => {
-        setSendError(null)
-      }, 5000)
+      setTimeout(() => setSendError(null), 5000)
     } finally {
       setIsSending(false)
     }
