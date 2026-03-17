@@ -630,27 +630,28 @@ const LandingPage = () => {
       <MarketingSection id="why-us" variant="white">
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-7xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-4 lg:gap-4 items-center">
+            <div className="grid gap-4 items-center lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-16">
               {/* Left Column - Image */}
               <div className="order-2 lg:order-1 flex justify-center lg:justify-start">
                 <img
                   src="/JDmock.png"
                   alt="Job Dock product mockup"
-                  className="w-full max-w-sm h-auto"
+                  className="w-full max-w-[300px] h-auto"
                   loading="lazy"
                 />
               </div>
 
               {/* Right Column - Content */}
-              <div className="order-1 lg:order-2">
-                <SectionHeading
-                  eyebrow="Why We're Different"
-                  heading="Built for real people, not enterprise checklists"
-                  subheading="Many tools try to be everything for everyone. The Job Dock is different."
-                  align="left"
-                />
+              <div className="order-1 lg:order-2 flex justify-center">
+                <div className="w-full max-w-xl">
+                  <SectionHeading
+                    eyebrow="Why We're Different"
+                    heading="Built for real people, not enterprise checklists"
+                    subheading="Many tools try to be everything for everyone. The Job Dock is different."
+                    align="left"
+                  />
 
-                <div className="space-y-6">
+                  <div className="space-y-6">
                   <div className="flex gap-4">
                     <div className="flex-shrink-0 w-12 h-12 bg-primary-gold/10 rounded-xl flex items-center justify-center">
                       <svg
@@ -728,6 +729,7 @@ const LandingPage = () => {
                       </p>
                     </div>
                   </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -755,3 +757,4 @@ const LandingPage = () => {
 }
 
 export default LandingPage
+
