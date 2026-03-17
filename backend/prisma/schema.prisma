@@ -23,7 +23,7 @@ model Tenant {
   currentPeriodEndsAt      DateTime?
   cancelAtPeriodEnd        Boolean         @default(false)
   deleteAccountAtPeriodEnd Boolean         @default(false)
-  subscriptionTier         String?         // "single" | "team"
+  subscriptionTier         String?         // "single" | "team" | "team-plus"
   contacts                 Contact[]
   invoices                 Invoice[]
   jobs                     Job[]

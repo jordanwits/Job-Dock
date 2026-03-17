@@ -404,8 +404,16 @@ We look forward to working with you!',
 
       const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { subscriptionTier: true },
+        select: { subscriptionTier: true, stripePriceId: true, stripeSubscriptionId: true },
       })
+
+      // Infer effective tier from stripePriceId when subscriptionTier is null (e.g. after Stripe webhook)
+      const teamPriceId = process.env.STRIPE_TEAM_PRICE_ID
+      const teamPlusPriceId = process.env.STRIPE_TEAM_PLUS_PRICE_ID
+      const hasSubscription = !!tenant?.stripeSubscriptionId
+      const isTeamPrice = tenant?.stripePriceId === teamPriceId || tenant?.subscriptionTier === 'team'
+      const isTeamPlusPrice = tenant?.stripePriceId === teamPlusPriceId || tenant?.subscriptionTier === 'team-plus'
+      const effectiveTier = tenant?.subscriptionTier || (hasSubscription && isTeamPlusPrice ? 'team-plus' : hasSubscription && isTeamPrice ? 'team' : null)
 
       const usersAction = id
       const targetUserId = id && usersAction !== 'invite' ? id : undefined
@@ -414,11 +422,12 @@ We look forward to working with you!',
         if (!canManageTeam) {
           return errorResponse('Only owners and admins can invite team members', 403)
         }
-        const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
+        const isTeamTier = effectiveTier === 'team' || effectiveTier === 'team-plus'
         if (!isTeamTier) {
           return errorResponse('Team subscription required to invite members', 403)
         }
-        if (tenant?.subscriptionTier === 'team') {
+        // Team: max 5 users. Team+: unlimited.
+        if (effectiveTier === 'team') {
           const userCount = await prisma.user.count({ where: { tenantId } })
           if (userCount >= 5) {
             return errorResponse('Team plan is limited to 5 users. Upgrade to Team+ to add more.', 403)
@@ -966,9 +975,15 @@ We look forward to working with you!',
           const { default: prisma } = await import('../../lib/db')
           const tenant = await prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { subscriptionTier: true },
+            select: { subscriptionTier: true, stripePriceId: true, stripeSubscriptionId: true },
           })
-          const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
+          const teamPriceId = process.env.STRIPE_TEAM_PRICE_ID
+          const teamPlusPriceId = process.env.STRIPE_TEAM_PLUS_PRICE_ID
+          const hasSub = !!tenant?.stripeSubscriptionId
+          const isTeamPrice = tenant?.stripePriceId === teamPriceId || tenant?.subscriptionTier === 'team'
+          const isTeamPlusPrice = tenant?.stripePriceId === teamPlusPriceId || tenant?.subscriptionTier === 'team-plus'
+          const effectiveTierForJob = tenant?.subscriptionTier || (hasSub && isTeamPlusPrice ? 'team-plus' : hasSub && isTeamPrice ? 'team' : null)
+          const isTeamTier = effectiveTierForJob === 'team' || effectiveTierForJob === 'team-plus'
           if (!isTeamTier) {
             return errorResponse('Team subscription required to assign jobs to team members', 403)
           }
@@ -1553,9 +1568,15 @@ async function handlePost(
         }
         const tenant = await prisma.tenant.findUnique({
           where: { id: tenantId },
-          select: { subscriptionTier: true },
+          select: { subscriptionTier: true, stripePriceId: true, stripeSubscriptionId: true },
         })
-        const isTeamTier = tenant?.subscriptionTier === 'team' || tenant?.subscriptionTier === 'team-plus'
+        const teamPriceId = process.env.STRIPE_TEAM_PRICE_ID
+        const teamPlusPriceId = process.env.STRIPE_TEAM_PLUS_PRICE_ID
+        const hasSub = !!tenant?.stripeSubscriptionId
+        const isTeamPrice = tenant?.stripePriceId === teamPriceId || tenant?.subscriptionTier === 'team'
+        const isTeamPlusPrice = tenant?.stripePriceId === teamPlusPriceId || tenant?.subscriptionTier === 'team-plus'
+        const effectiveTier = tenant?.subscriptionTier || (hasSub && isTeamPlusPrice ? 'team-plus' : hasSub && isTeamPrice ? 'team' : null)
+        const isTeamTier = effectiveTier === 'team' || effectiveTier === 'team-plus'
         if (!isTeamTier) {
           throw new ApiError('Team subscription required to assign jobs to team members', 403)
         }

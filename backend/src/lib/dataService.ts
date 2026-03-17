@@ -4854,6 +4854,9 @@ export const dataServices = {
         customer: tenant.stripeCustomerId,
         allow_promotion_codes: true,
         line_items: [{ price: priceId, quantity: 1 }],
+        subscription_data: {
+          metadata: { tenantId, ownerUserId: userId },
+        },
         metadata: { tenantId, ownerUserId: userId },
         success_url: `${returnUrl}?upgraded=1`,
         cancel_url: returnUrl,
