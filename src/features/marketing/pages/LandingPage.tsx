@@ -734,11 +734,6 @@ const LandingPage = () => {
                     </div>
                   </div>
                 </div>
-
-                <p className="text-lg text-primary-dark/80 mt-8 p-4 bg-white/50 border-l-4 border-primary-gold rounded italic">
-                  If you've ever thought "this software is more work than it's worth" — this is for
-                  you.
-                </p>
               </div>
             </div>
           </div>

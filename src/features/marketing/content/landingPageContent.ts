@@ -196,7 +196,6 @@ export const landingPageContent = {
         description: "Work the way you want to, not the way some software says you should.",
       },
     ],
-    quote: "If you've ever thought \"this software is more work than it's worth\" — this is for you.",
     imageAlt: "Team of contractors collaborating and planning projects",
   },
 
