@@ -39,6 +39,7 @@ const InvoiceDetail = ({
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
+  const [lastSentVia, setLastSentVia] = useState<string[] | null>(null)
 
   const handleUpdate = async (data: any) => {
     try {
@@ -77,9 +78,9 @@ const InvoiceDetail = ({
     }
     setIsSending(true)
     try {
-      await sendInvoice(invoice.id)
-      const updatedInvoice = useInvoiceStore.getState().selectedInvoice
+      const updatedInvoice = await sendInvoice(invoice.id)
       const sentVia = updatedInvoice?.sentVia
+      setLastSentVia(updatedInvoice?.sentVia ?? [])
       if (sentVia && sentVia.length > 0) {
         const viaText = sentVia.includes('email') && sentVia.includes('sms')
           ? ` via email and SMS to ${updatedInvoice?.contactEmail || updatedInvoice?.contactPhone || 'contact'}`
@@ -626,19 +627,19 @@ const InvoiceDetail = ({
           </div>
 
           {/* Success/Error Messages - Positioned at Bottom for Mobile Visibility */}
-          {sendSuccess && invoice.sentVia && invoice.sentVia.length > 0 && (
+          {sendSuccess && lastSentVia && lastSentVia.length > 0 && (
             <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
               <p className="text-sm text-green-400 font-medium">
                 ✓ Invoice sent successfully
-                {invoice.sentVia.includes('email') && invoice.sentVia.includes('sms')
+                {lastSentVia.includes('email') && lastSentVia.includes('sms')
                   ? ` via email and SMS to ${invoice.contactEmail || invoice.contactPhone || 'contact'}`
-                  : invoice.sentVia.includes('sms')
+                  : lastSentVia.includes('sms')
                     ? ` via SMS to ${invoice.contactPhone || 'contact'}`
                     : ` via email to ${invoice.contactEmail || 'contact'}`}
               </p>
             </div>
           )}
-          {sendSuccess && (!invoice.sentVia || invoice.sentVia.length === 0) && (
+          {sendSuccess && (!lastSentVia || lastSentVia.length === 0) && (
             <div className="p-4 rounded-lg border border-amber-500 bg-amber-500/10">
               <p className="text-sm text-amber-400 font-medium">
                 Invoice could not be delivered.

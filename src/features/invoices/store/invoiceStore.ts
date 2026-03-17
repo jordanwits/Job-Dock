@@ -19,7 +19,7 @@ interface InvoiceState {
   createInvoice: (data: CreateInvoiceData) => Promise<Invoice>
   updateInvoice: (data: UpdateInvoiceData) => Promise<void>
   deleteInvoice: (id: string) => Promise<void>
-  sendInvoice: (id: string) => Promise<void>
+  sendInvoice: (id: string) => Promise<Invoice>
   convertQuoteToInvoice: (
     quote: Quote,
     options?: { paymentTerms?: string; dueDate?: string }
@@ -121,7 +121,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
     }
   },
 
-  sendInvoice: async (id: string) => {
+  sendInvoice: async (id: string): Promise<Invoice> => {
     set({ isLoading: true, error: null })
     try {
       const updatedInvoice = await invoicesService.send(id)
@@ -130,6 +130,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         selectedInvoice: state.selectedInvoice?.id === id ? updatedInvoice : state.selectedInvoice,
         isLoading: false,
       }))
+      return updatedInvoice
     } catch (error: unknown) {
       set({
         error: getErrorMessage(error, 'Failed to send invoice'),

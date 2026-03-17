@@ -43,6 +43,7 @@ const QuoteDetail = ({
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
+  const [lastSentVia, setLastSentVia] = useState<string[] | null>(null)
 
   const handleUpdate = async (data: any) => {
     try {
@@ -100,9 +101,9 @@ const QuoteDetail = ({
     }
     setIsSending(true)
     try {
-      await sendQuote(quote.id)
-      const updatedQuote = useQuoteStore.getState().selectedQuote
+      const updatedQuote = await sendQuote(quote.id)
       const sentVia = updatedQuote?.sentVia
+      setLastSentVia(updatedQuote?.sentVia ?? [])
       if (sentVia && sentVia.length > 0) {
         const viaText = sentVia.includes('email') && sentVia.includes('sms')
           ? ` via email and SMS to ${updatedQuote?.contactEmail || updatedQuote?.contactPhone || 'contact'}`
@@ -482,19 +483,19 @@ const QuoteDetail = ({
           </div>
 
           {/* Success/Error Messages - Positioned at Bottom for Mobile Visibility */}
-          {sendSuccess && quote.sentVia && quote.sentVia.length > 0 && (
+          {sendSuccess && lastSentVia && lastSentVia.length > 0 && (
             <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
               <p className="text-sm text-green-400 font-medium">
                 ✓ Quote sent successfully
-                {quote.sentVia.includes('email') && quote.sentVia.includes('sms')
+                {lastSentVia.includes('email') && lastSentVia.includes('sms')
                   ? ` via email and SMS to ${quote.contactEmail || quote.contactPhone || 'contact'}`
-                  : quote.sentVia.includes('sms')
+                  : lastSentVia.includes('sms')
                     ? ` via SMS to ${quote.contactPhone || 'contact'}`
                     : ` via email to ${quote.contactEmail || 'contact'}`}
               </p>
             </div>
           )}
-          {sendSuccess && (!quote.sentVia || quote.sentVia.length === 0) && (
+          {sendSuccess && (!lastSentVia || lastSentVia.length === 0) && (
             <div className="p-4 rounded-lg border border-amber-500 bg-amber-500/10">
               <p className="text-sm text-amber-400 font-medium">
                 Quote could not be delivered.

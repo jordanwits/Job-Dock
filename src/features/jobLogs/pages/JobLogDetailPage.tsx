@@ -197,6 +197,14 @@ const JobLogDetailPage = () => {
         onSaveEdit={handleSaveEdit}
         onStatusChange={handleStatusChange}
         isLoading={isLoading}
+        onQuoteSent={(message) => {
+          setSentBanner({ type: 'success', message })
+          setTimeout(() => setSentBanner(null), 5000)
+        }}
+        onInvoiceSent={(message) => {
+          setSentBanner({ type: 'success', message })
+          setTimeout(() => setSentBanner(null), 5000)
+        }}
       />
 
       <ConfirmationDialog

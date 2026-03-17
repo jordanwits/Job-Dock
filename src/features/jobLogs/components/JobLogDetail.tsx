@@ -41,6 +41,8 @@ interface JobLogDetailProps {
   }) => Promise<void>
   onStatusChange?: (status: 'active' | 'completed' | 'inactive') => Promise<void>
   isLoading?: boolean
+  onQuoteSent?: (message: string) => void
+  onInvoiceSent?: (message: string) => void
 }
 
 type Tab = 'clock' | 'photos' | 'notes'
@@ -74,6 +76,8 @@ const JobLogDetail = ({
   onSaveEdit,
   onStatusChange,
   isLoading,
+  onQuoteSent,
+  onInvoiceSent,
 }: JobLogDetailProps) => {
   const { theme } = useTheme()
   const statusColors = getStatusColors(theme)
@@ -1704,6 +1708,7 @@ const JobLogDetail = ({
             setQuoteForDetail(null)
             getJobLogById(jobLog.id)
           }}
+          onQuoteSent={onQuoteSent}
         />
       )}
 
@@ -1715,6 +1720,7 @@ const JobLogDetail = ({
             setInvoiceForDetail(null)
             getJobLogById(jobLog.id)
           }}
+          onInvoiceSent={onInvoiceSent}
         />
       )}
     </div>

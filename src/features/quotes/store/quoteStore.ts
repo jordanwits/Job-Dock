@@ -17,7 +17,7 @@ interface QuoteState {
   createQuote: (data: CreateQuoteData) => Promise<Quote>
   updateQuote: (data: UpdateQuoteData) => Promise<void>
   deleteQuote: (id: string) => Promise<void>
-  sendQuote: (id: string) => Promise<void>
+  sendQuote: (id: string) => Promise<Quote>
   setSelectedQuote: (quote: Quote | null) => void
   setSearchQuery: (query: string) => void
   setStatusFilter: (status: 'all' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired') => void
@@ -132,6 +132,7 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
             : state.selectedQuote,
         isLoading: false,
       }))
+      return updatedQuote
     } catch (error: unknown) {
       set({
         error: getErrorMessage(error, 'Failed to send quote'),
