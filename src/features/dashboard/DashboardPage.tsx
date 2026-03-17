@@ -190,7 +190,7 @@ const DashboardPage = () => {
           "text-3xl font-bold tracking-tight",
           theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
         )}>
-          Welcome back{user?.name ? <span className="text-primary-gold">, {user.name}</span> : ''}
+          Welcome back{user?.name ? <span className="text-primary-gold">, {user.name.split(' ')[0]}</span> : ''}
         </h1>
         <p className={cn(
           "text-base",
