@@ -9,6 +9,14 @@ import { Card, Button } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
+
+const isStandaloneMode = (): boolean => {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  )
+}
+
 const DashboardPage = () => {
   const navigate = useNavigate()
   const { user, isAuthenticated, refreshAccessToken } = useAuthStore()
@@ -27,6 +35,7 @@ const DashboardPage = () => {
   const lastFetchAtRef = useRef<number>(0)
   const inFlightRef = useRef<boolean>(false)
   const STALE_AFTER_MS = 2 * 60 * 1000
+  const isStandalone = isStandaloneMode()
 
   // Fetch all data function - memoized to avoid recreating on every render
   const fetchAllData = useCallback(() => {
@@ -50,14 +59,18 @@ const DashboardPage = () => {
   }, [fetchAllData])
 
   const refreshAndFetchIfStale = useCallback(
-    async (reason: 'visibility' | 'focus' | 'pageshow') => {
+    async (reason: 'visibility' | 'focus' | 'pageshow', forceRefresh = false) => {
       if (!isAuthenticated || !user) return
       if (inFlightRef.current) return
 
       const last = lastFetchAtRef.current
       const now = Date.now()
       const isStale = !last || now - last >= STALE_AFTER_MS
-      if (!isStale) return
+      
+      // In PWA/standalone mode (e.g., iPhone home screen app), always force refresh 
+      // on visibility change since iOS can hold stale in-memory state after backgrounding
+      const shouldRefresh = forceRefresh || isStale || (isStandalone && reason === 'visibility')
+      if (!shouldRefresh) return
 
       inFlightRef.current = true
       try {
@@ -74,14 +87,15 @@ const DashboardPage = () => {
         fetchAllData()
       }
     },
-    [fetchAllData, isAuthenticated, refreshAccessToken, user]
+    [fetchAllData, isAuthenticated, refreshAccessToken, user, isStandalone]
   )
 
   // Refetch data when page becomes visible/focused again (handles mobile app idle time)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        void refreshAndFetchIfStale('visibility')
+        // Force refresh in standalone/PWA mode to handle iOS backgrounding behavior
+        void refreshAndFetchIfStale('visibility', isStandalone)
       }
     }
 
@@ -91,20 +105,30 @@ const DashboardPage = () => {
 
     const handlePageShow = (e: PageTransitionEvent) => {
       // `pageshow` covers bfcache restores in some environments.
+      // Force refresh when page is restored from bfcache (e.persisted)
       if (e.persisted || document.visibilityState === 'visible') {
-        void refreshAndFetchIfStale('pageshow')
+        void refreshAndFetchIfStale('pageshow', e.persisted || isStandalone)
       }
+    }
+
+    // iOS-specific: handle resume from app switcher / background
+    const handleResume = () => {
+      void refreshAndFetchIfStale('visibility', true)
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
     window.addEventListener('pageshow', handlePageShow)
+    // 'resume' event is dispatched by some PWA environments when app resumes
+    window.addEventListener('resume', handleResume)
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('resume', handleResume)
     }
-  }, [refreshAndFetchIfStale])
+  }, [refreshAndFetchIfStale, isStandalone])
 
   // Get upcoming appointments (next 7 days) - limit for compact display
   const upcomingJobsLimit = 5

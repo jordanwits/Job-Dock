@@ -42,18 +42,10 @@ const LandingPage = () => {
         <div className="absolute inset-0 bg-black/25" aria-hidden />
         <div className="container mx-auto px-4 md:px-6 relative z-10">
           <div className="max-w-4xl mx-auto rounded-3xl border border-white/30 bg-black/20 backdrop-blur-md p-8 md:p-12 shadow-2xl shadow-black/10 text-center animate-fade-in-up">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/15 border border-white/20 text-primary-gold text-sm font-semibold tracking-wide mb-8 hover:bg-black/25 transition-colors cursor-default">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-gold opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-gold"></span>
-              </span>
-              Live Now
-            </div>
-
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 tracking-tight leading-[1.1]">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 tracking-tight leading-tight">
               {landingPageContent.hero.title.line1}
               <br />
-              <span className="text-primary-gold">{landingPageContent.hero.title.line2}</span>
+              <span className="text-primary-gold block mt-5">{landingPageContent.hero.title.line2}</span>
             </h1>
 
             <p className="text-lg md:text-xl lg:text-2xl text-white/90 mb-10 leading-relaxed max-w-3xl mx-auto font-light">
@@ -223,7 +215,7 @@ const LandingPage = () => {
               </span>
             </h2>
             <ScrollReveal variant="fade">
-              <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto leading-relaxed">
+              <p className="text-lg md:text-xl text-white/95 max-w-3xl mx-auto leading-relaxed">
                 {landingPageContent.features.subtitle}
               </p>
             </ScrollReveal>
