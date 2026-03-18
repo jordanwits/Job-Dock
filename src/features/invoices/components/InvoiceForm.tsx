@@ -253,20 +253,10 @@ const InvoiceForm = ({
 
         {/* Line Items */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <label className={cn(
-              "block text-sm font-medium",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>Line Items *</label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
-            >
-              + Add Item
-            </Button>
-          </div>
+          <label className={cn(
+            "block text-sm font-medium mb-3",
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}>Line Items *</label>
 
           <div className="space-y-3">
             {fields.map((field, index) => (
@@ -340,6 +330,15 @@ const InvoiceForm = ({
               </div>
             ))}
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
+            className="mt-3"
+          >
+            + Add Item
+          </Button>
           {errors.lineItems && (
             <p className="mt-1 text-sm text-red-500">{errors.lineItems.message}</p>
           )}
