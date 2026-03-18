@@ -242,7 +242,7 @@ const realJobsService = {
     showDeleted?: boolean,
     includeUnlinkedJobs?: boolean
   ) => {
-    const params: any = {}
+    const params: any = { _ts: Date.now() }
     if (startDate) params.startDate = startDate.toISOString()
     if (endDate) params.endDate = endDate.toISOString()
     if (includeArchived) params.includeArchived = 'true'
@@ -253,7 +253,9 @@ const realJobsService = {
   },
 
   getById: async (id: string) => {
-    const response = await apiClient.get(`/jobs/${id}`)
+    const response = await apiClient.get(`/jobs/${id}`, {
+      params: { _ts: Date.now() },
+    })
     return response.data
   },
 

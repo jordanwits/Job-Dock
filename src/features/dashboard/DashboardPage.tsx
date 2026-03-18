@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import { useEffect, useMemo, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
@@ -37,25 +37,35 @@ const DashboardPage = () => {
   const STALE_AFTER_MS = 2 * 60 * 1000
   const isStandalone = isStandaloneMode()
 
-  // Fetch all data function - memoized to avoid recreating on every render
-  const fetchAllData = useCallback(() => {
-    if (!isAuthenticated || !user) return
+  // Fetch all data function - memoized to avoid recreating on every render.
+  // Returns true if all fetches succeeded; only then do we mark data fresh.
+  const fetchAllData = useCallback(async (): Promise<boolean> => {
+    if (!isAuthenticated || !user) return false
     const now = new Date()
     const startDate = startOfMonth(now)
     const endDate = endOfMonth(addDays(now, 30)) // Fetch current and next month
-    fetchJobs(startDate, endDate)
-    fetchJobLogs()
+
+    const promises: Promise<void>[] = [
+      fetchJobs(startDate, endDate),
+      fetchJobLogs(),
+    ]
     if (!isEmployee) {
-      fetchQuotes()
-      fetchInvoices()
+      promises.push(fetchQuotes())
+      promises.push(fetchInvoices())
     }
-    lastFetchAtRef.current = Date.now()
-  }, [fetchJobs, fetchJobLogs, fetchQuotes, fetchInvoices, isEmployee])
+
+    const results = await Promise.allSettled(promises)
+    const allSucceeded = results.every((r) => r.status === 'fulfilled')
+    if (allSucceeded) {
+      lastFetchAtRef.current = Date.now()
+    }
+    return allSucceeded
+  }, [fetchJobs, fetchJobLogs, fetchQuotes, fetchInvoices, isEmployee, isAuthenticated, user])
 
   // Fetch all data on mount - force refresh to get updated overdue statuses
   // All users get appointments and job logs; admins also get quotes and invoices
   useEffect(() => {
-    fetchAllData()
+    void fetchAllData()
   }, [fetchAllData])
 
   const refreshAndFetchIfStale = useCallback(
@@ -66,25 +76,37 @@ const DashboardPage = () => {
       const last = lastFetchAtRef.current
       const now = Date.now()
       const isStale = !last || now - last >= STALE_AFTER_MS
-      
-      // In PWA/standalone mode (e.g., iPhone home screen app), always force refresh 
-      // on visibility change since iOS can hold stale in-memory state after backgrounding
-      const shouldRefresh = forceRefresh || isStale || (isStandalone && reason === 'visibility')
+
+      // After resume, stores may be empty if iOS cleared in-memory state; treat as stale.
+      const { jobLogs: storedJobLogs } = useJobLogStore.getState()
+      const { jobs: storedJobs } = useJobStore.getState()
+      const storesEmpty =
+        storedJobLogs.length === 0 && storedJobs.length === 0
+
+      // In PWA/standalone mode (e.g., iPhone home screen app), always force refresh
+      // on visibility change since iOS can hold stale in-memory state after backgrounding.
+      const shouldRefresh =
+        forceRefresh ||
+        isStale ||
+        storesEmpty ||
+        (isStandalone && reason === 'visibility')
       if (!shouldRefresh) return
 
       inFlightRef.current = true
       try {
         // After long idle, the access token may be expired; refresh first so fetches succeed.
-        await refreshAccessToken()
-      } catch {
-        // If refresh fails, auth store clears session / redirects elsewhere.
+        try {
+          await refreshAccessToken()
+        } catch {
+          // If refresh fails, auth store clears session / redirects elsewhere.
+        }
+
+        // Only fetch if we're still authenticated after attempting refresh.
+        if (useAuthStore.getState().isAuthenticated) {
+          await fetchAllData()
+        }
       } finally {
         inFlightRef.current = false
-      }
-
-      // Only fetch if we're still authenticated after attempting refresh.
-      if (useAuthStore.getState().isAuthenticated) {
-        fetchAllData()
       }
     },
     [fetchAllData, isAuthenticated, refreshAccessToken, user, isStandalone]
@@ -92,10 +114,24 @@ const DashboardPage = () => {
 
   // Refetch data when page becomes visible/focused again (handles mobile app idle time)
   useEffect(() => {
+    let followUpTimeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const scheduleDelayedRefetch = (reason: 'visibility' | 'pageshow') => {
+      if (!isStandalone) return
+      if (followUpTimeoutId) clearTimeout(followUpTimeoutId)
+      followUpTimeoutId = setTimeout(() => {
+        followUpTimeoutId = null
+        if (document.visibilityState === 'visible') {
+          void refreshAndFetchIfStale(reason, true)
+        }
+      }, 1500)
+    }
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         // Force refresh in standalone/PWA mode to handle iOS backgrounding behavior
         void refreshAndFetchIfStale('visibility', isStandalone)
+        scheduleDelayedRefetch('visibility')
       }
     }
 
@@ -108,12 +144,16 @@ const DashboardPage = () => {
       // Force refresh when page is restored from bfcache (e.persisted)
       if (e.persisted || document.visibilityState === 'visible') {
         void refreshAndFetchIfStale('pageshow', e.persisted || isStandalone)
+        if (e.persisted || isStandalone) {
+          scheduleDelayedRefetch('pageshow')
+        }
       }
     }
 
     // iOS-specific: handle resume from app switcher / background
     const handleResume = () => {
       void refreshAndFetchIfStale('visibility', true)
+      scheduleDelayedRefetch('visibility')
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -121,8 +161,9 @@ const DashboardPage = () => {
     window.addEventListener('pageshow', handlePageShow)
     // 'resume' event is dispatched by some PWA environments when app resumes
     window.addEventListener('resume', handleResume)
-    
+
     return () => {
+      if (followUpTimeoutId) clearTimeout(followUpTimeoutId)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener('pageshow', handlePageShow)
