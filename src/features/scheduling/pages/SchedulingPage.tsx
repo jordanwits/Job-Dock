@@ -70,7 +70,9 @@ const SchedulingPage = () => {
     viewMode,
     currentDate,
     createJob,
+    createIndependentBooking,
     updateJob,
+    updateIndependentBooking,
     deleteJob,
     permanentDeleteJob,
     restoreJob,
@@ -546,7 +548,7 @@ const SchedulingPage = () => {
       if (returnTo && returnTo.startsWith('/app')) {
         navigate(returnTo)
       } else {
-        setJobConfirmationMessage('Job created successfully')
+        setJobConfirmationMessage(notifyClient ? 'Sent via email and SMS' : 'Job created and appointment scheduled')
         setShowJobConfirmation(true)
         setTimeout(() => setShowJobConfirmation(false), 3000)
       }
@@ -572,9 +574,11 @@ const SchedulingPage = () => {
       setSelectedJob(null)
       setShowJobDetail(false)
       clearJobsError()
-      const message = payload.updateAll
-        ? 'All future jobs updated successfully'
-        : 'Job updated successfully'
+      const message = payload.notifyClient
+        ? 'Sent via email and SMS'
+        : payload.updateAll
+          ? 'All future jobs updated successfully'
+          : 'Job updated successfully'
       setJobConfirmationMessage(message)
       setShowJobConfirmation(true)
       setTimeout(() => setShowJobConfirmation(false), 3000)
@@ -588,11 +592,31 @@ const SchedulingPage = () => {
     console.log('📝 SchedulingPage: handleUpdateJob called', {
       editUpdateAll,
       editingJobId: editingJob?.id,
+      isIndependent: editingJob?.isIndependent,
       recurrenceId: editingJob?.recurrenceId,
       hasRecurrence: !!data.recurrence,
       recurrenceData: data.recurrence,
     })
     if (editingJob) {
+      if (editingJob.isIndependent) {
+        try {
+          await updateIndependentBooking(editingJob.id, data)
+          const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+          const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+          await fetchJobs(startDate, endDate)
+          setEditingJob(null)
+          setShowJobForm(false)
+          setSelectedJob(null)
+          setShowJobDetail(false)
+          clearJobsError()
+          setJobConfirmationMessage('Appointment updated successfully')
+          setShowJobConfirmation(true)
+          setTimeout(() => setShowJobConfirmation(false), 3000)
+        } catch (error: any) {
+          // Error displayed via jobsError
+        }
+        return
+      }
       const updatePayload: any = { ...data, id: editingJob.id, updateAll: editUpdateAll }
       if (editingJob.bookingId) updatePayload.bookingId = editingJob.bookingId
       const timesChanged =
@@ -984,6 +1008,23 @@ const SchedulingPage = () => {
     // Compute endTime
     const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
 
+    // Independent without contact: update immediately, no need to ask about notification
+    const hasContact = !!(job.contactId && String(job.contactId).trim())
+    if (job.isIndependent && !hasContact) {
+      updateIndependentBooking(jobId, {
+        toBeScheduled: false,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      })
+        .then(() => {
+          const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+          const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+          return fetchJobs(startDate, endDate)
+        })
+        .catch(() => {})
+      return
+    }
+
     // Build payload and show notification prompt before scheduling
     const updatePayload: {
       id: string
@@ -991,6 +1032,7 @@ const SchedulingPage = () => {
       startTime: string
       endTime: string
       bookingId?: string
+      isIndependent?: boolean
     } = {
       id: jobId,
       toBeScheduled: false,
@@ -998,6 +1040,7 @@ const SchedulingPage = () => {
       endTime: endTime.toISOString(),
     }
     if (bookingId) updatePayload.bookingId = bookingId
+    if (job.isIndependent) updatePayload.isIndependent = true
     setPendingUpdatePayload(updatePayload)
     setShowNotifyClientModal(true)
   }
@@ -1546,6 +1589,11 @@ const SchedulingPage = () => {
                   setViewMode('day')
                 }}
                 onUnscheduledDrop={handleUnscheduledDrop}
+                onUpdateSuccess={(message) => {
+                  setJobConfirmationMessage(message)
+                  setShowJobConfirmation(true)
+                  setTimeout(() => setShowJobConfirmation(false), 3000)
+                }}
                 user={user}
               />
             </div>
@@ -1596,7 +1644,13 @@ const SchedulingPage = () => {
           clearJobsError()
         }}
         title={
-          editingJob?.toBeScheduled ? 'Schedule Job' : editingJob ? 'Edit Job' : 'Schedule New Job'
+          editingJob?.isIndependent
+            ? 'Edit Appointment'
+            : editingJob?.toBeScheduled
+              ? 'Schedule Job'
+              : editingJob
+                ? 'Edit Job'
+                : 'Schedule New Job'
         }
         size="xl"
         fitContentOnMobile
@@ -1610,14 +1664,25 @@ const SchedulingPage = () => {
           onSubmit={
             editingJob
               ? handleUpdateJob
-              : async (data, existingJobId) => {
-                  if (existingJobId) {
+              : async (data, existingJobId, isIndependent) => {
+                  if (isIndependent) {
+                    try {
+                      await createIndependentBooking(data)
+                      setShowJobForm(false)
+                      clearJobsError()
+                      setJobConfirmationMessage('Appointment scheduled')
+                      setShowJobConfirmation(true)
+                      setTimeout(() => setShowJobConfirmation(false), 3000)
+                    } catch (error: any) {
+                      // Error will be displayed in the modal via jobsError
+                    }
+                  } else if (existingJobId) {
                     // Update existing job instead of creating new one
                     try {
                       await updateJob({ id: existingJobId, ...data })
                       setShowJobForm(false)
                       clearJobsError()
-                      setJobConfirmationMessage('Job scheduled successfully')
+                      setJobConfirmationMessage('Appointment scheduled for linked job')
                       setShowJobConfirmation(true)
                       setTimeout(() => setShowJobConfirmation(false), 3000)
                     } catch (error: any) {
@@ -1664,7 +1729,33 @@ const SchedulingPage = () => {
           if (pendingCreatePayload) {
             performCreateJob(pendingCreatePayload, false)
           } else if (pendingUpdatePayload) {
-            performJobUpdate({ ...pendingUpdatePayload, notifyClient: false })
+            const { isIndependent, ...rest } = pendingUpdatePayload
+            if (isIndependent) {
+              updateIndependentBooking(rest.id, { startTime: rest.startTime, endTime: rest.endTime, notifyClient: false }).then(() => {
+                const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+                const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+                fetchJobs(startDate, endDate)
+                setJobConfirmationMessage('Appointment updated successfully')
+                setShowJobConfirmation(true)
+                setTimeout(() => setShowJobConfirmation(false), 3000)
+              }).catch(() => {})
+            } else {
+              performJobUpdate({ ...rest, notifyClient: false })
+            }
+          } else if (pendingUpdatePayload) {
+            const { isIndependent, ...rest } = pendingUpdatePayload
+            if (isIndependent) {
+              updateIndependentBooking(rest.id, { startTime: rest.startTime, endTime: rest.endTime, notifyClient: true }).then(() => {
+                const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+                const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+                fetchJobs(startDate, endDate)
+                setJobConfirmationMessage('Sent via email and SMS')
+                setShowJobConfirmation(true)
+                setTimeout(() => setShowJobConfirmation(false), 3000)
+              }).catch(() => {})
+            } else {
+              performJobUpdate({ ...rest, notifyClient: false })
+            }
           }
           setShowNotifyClientModal(false)
           setPendingCreatePayload(null)
@@ -1674,7 +1765,19 @@ const SchedulingPage = () => {
           if (pendingCreatePayload) {
             performCreateJob(pendingCreatePayload, notify)
           } else if (pendingUpdatePayload) {
-            performJobUpdate({ ...pendingUpdatePayload, notifyClient: notify })
+            const { isIndependent, ...rest } = pendingUpdatePayload
+            if (isIndependent) {
+              updateIndependentBooking(rest.id, { startTime: rest.startTime, endTime: rest.endTime, notifyClient: notify }).then(() => {
+                const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+                const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+                fetchJobs(startDate, endDate)
+                setJobConfirmationMessage('Appointment updated successfully')
+                setShowJobConfirmation(true)
+                setTimeout(() => setShowJobConfirmation(false), 3000)
+              }).catch(() => {})
+            } else {
+              performJobUpdate({ ...rest, notifyClient: notify })
+            }
           }
           setShowNotifyClientModal(false)
           setPendingCreatePayload(null)
@@ -1708,7 +1811,8 @@ const SchedulingPage = () => {
               : undefined
           }
           onRestore={
-            user?.role !== 'employee' || selectedJob.createdById === user?.id
+            !selectedJob.isIndependent &&
+            (user?.role !== 'employee' || selectedJob.createdById === user?.id)
               ? handleRestoreJob
               : undefined
           }
@@ -1736,7 +1840,22 @@ const SchedulingPage = () => {
         sourceContext="job-followup"
         allowLinkExistingJob={true} // Allow linking to existing jobs for follow-ups
         existingJobId={selectedJob?.id} // Auto-select the current job when scheduling from it
-        onSuccess={() => {
+        onSuccess={(_, options) => {
+          const message =
+            options?.notifySent
+              ? 'Sent via email and SMS'
+              : options?.action === 'independent'
+                ? 'Appointment scheduled'
+                : options?.action === 'linked'
+                  ? 'Appointment scheduled for linked job'
+                  : options?.action === 'new'
+                    ? 'Job created and appointment scheduled'
+                    : null
+          if (message) {
+            setJobConfirmationMessage(message)
+            setShowJobConfirmation(true)
+            setTimeout(() => setShowJobConfirmation(false), 3000)
+          }
           setSelectedJob(null)
           setShowJobDetail(false)
         }}

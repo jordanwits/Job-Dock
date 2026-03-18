@@ -93,6 +93,7 @@ model Contact {
   jobs           Job[]
   jobRecurrences JobRecurrence[]
   quotes         Quote[]
+  bookings       Booking[]
 
   @@index([tenantId])
   @@index([email])
@@ -278,37 +279,42 @@ model Job {
 }
 
 model Booking {
-  id            String         @id @default(uuid())
-  tenantId      String
-  jobId         String
-  serviceId     String?
-  quoteId       String?
-  invoiceId     String?
-  recurrenceId  String?
-  startTime     DateTime?
-  endTime       DateTime?
-  toBeScheduled Boolean        @default(false)
-  status        String         @default("active")
-  location      String?
-  price         Decimal?       @db.Decimal(10, 2)
-  notes         String?
-  assignedTo    Json?
-  breaks        Json?
-  deletedAt     DateTime?
-  archivedAt    DateTime?
-  createdById   String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  job           Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  service       Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  quote         Quote?          @relation(fields: [quoteId], references: [id], onDelete: SetNull)
-  invoice       Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  recurrence    JobRecurrence?  @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy     User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  id             String         @id @default(uuid())
+  tenantId       String
+  jobId          String?        // Nullable for independent appointments
+  title          String?        // Booking-owned title when jobId is null (e.g. consults)
+  contactId      String?        // Optional contact for independent appointments
+  serviceId      String?
+  quoteId        String?
+  invoiceId      String?
+  recurrenceId   String?
+  startTime      DateTime?
+  endTime        DateTime?
+  toBeScheduled  Boolean        @default(false)
+  status         String         @default("active")
+  location       String?
+  price          Decimal?       @db.Decimal(10, 2)
+  notes          String?
+  assignedTo     Json?
+  breaks         Json?
+  isIndependent  Boolean        @default(false) // True when this is a standalone appointment (no job)
+  deletedAt      DateTime?
+  archivedAt     DateTime?
+  createdById    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  job            Job?           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  contact        Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  service        Service?       @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  quote          Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  invoice        Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  recurrence     JobRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy      User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([jobId])
+  @@index([contactId])
   @@index([serviceId])
   @@index([quoteId])
   @@index([invoiceId])
@@ -319,6 +325,7 @@ model Booking {
   @@index([deletedAt])
   @@index([archivedAt])
   @@index([toBeScheduled])
+  @@index([isIndependent])
   @@map("bookings")
 }
 

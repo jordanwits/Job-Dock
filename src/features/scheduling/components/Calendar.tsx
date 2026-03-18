@@ -40,6 +40,7 @@ interface CalendarProps {
   onJobClick: (job: Job) => void
   onDateClick: (date: Date) => void
   onUnscheduledDrop?: (jobId: string, targetDate: Date, targetHour?: number, bookingId?: string) => void
+  onUpdateSuccess?: (message: string) => void
   user?: User | null
 }
 
@@ -66,6 +67,7 @@ const Calendar = ({
   onJobClick,
   onDateClick,
   onUnscheduledDrop,
+  onUpdateSuccess,
   user,
 }: CalendarProps) => {
   const { theme } = useTheme()
@@ -222,7 +224,7 @@ const Calendar = ({
   const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<Record<string, unknown> | null>(null)
 
-  const { updateJob } = useJobStore()
+  const { updateJob, updateIndependentBooking } = useJobStore()
 
   // Update scale and viewport height when window is resized
   useEffect(() => {
@@ -541,14 +543,23 @@ const Calendar = ({
 
         // Only update if something actually changed
         if (newStartTime.getTime() !== originalStart.getTime()) {
-          const payload: { id: string; startTime: string; endTime: string; bookingId?: string } = {
-            id: job.id,
-            startTime: newStartTime.toISOString(),
-            endTime: newEndTime.toISOString(),
+          const hasContact = !!(job.contactId && job.contactId.trim())
+          if (job.isIndependent && !hasContact) {
+            updateIndependentBooking(job.id, {
+              startTime: newStartTime.toISOString(),
+              endTime: newEndTime.toISOString(),
+            }).catch((err) => console.error('Failed to update appointment:', err))
+          } else {
+            const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
+              id: job.id,
+              startTime: newStartTime.toISOString(),
+              endTime: newEndTime.toISOString(),
+            }
+            if (job.bookingId) payload.bookingId = job.bookingId
+            if (job.isIndependent) payload.isIndependent = true
+            setPendingUpdatePayload(payload)
+            setShowNotifyClientModal(true)
           }
-          if (job.bookingId) payload.bookingId = job.bookingId
-          setPendingUpdatePayload(payload)
-          setShowNotifyClientModal(true)
         }
       } catch (error) {
         console.error('Failed to update job:', error)
@@ -599,13 +610,23 @@ const Calendar = ({
         const startTime = new Date(job.startTime!)
         if (newEndTime <= startTime) return
 
-        const payload: { id: string; endTime: string; bookingId?: string } = {
-          id: job.id,
-          endTime: newEndTime.toISOString(),
+        const hasContact = !!(job.contactId && job.contactId.trim())
+        if (job.isIndependent && !hasContact) {
+          updateIndependentBooking(job.id, {
+            startTime: job.startTime ?? undefined,
+            endTime: newEndTime.toISOString(),
+          }).catch((err) => console.error('Failed to update appointment:', err))
+        } else {
+          const payload: { id: string; endTime: string; startTime?: string; bookingId?: string; isIndependent?: boolean } = {
+            id: job.id,
+            endTime: newEndTime.toISOString(),
+            startTime: job.startTime ?? undefined,
+          }
+          if (job.bookingId) payload.bookingId = job.bookingId
+          if (job.isIndependent) payload.isIndependent = true
+          setPendingUpdatePayload(payload)
+          setShowNotifyClientModal(true)
         }
-        if (job.bookingId) payload.bookingId = job.bookingId
-        setPendingUpdatePayload(payload)
-        setShowNotifyClientModal(true)
       } catch (error) {
         console.error('Failed to resize job:', error)
       }
@@ -858,15 +879,25 @@ const Calendar = ({
         if (dayOffset !== 0) {
           const newStartTime = addDays(originalStart, dayOffset)
           const newEndTime = addDays(originalEnd, dayOffset)
+          const job = dragState.job
+          const hasContact = !!(job.contactId && job.contactId.trim())
 
-          const payload: { id: string; startTime: string; endTime: string; bookingId?: string } = {
-            id: dragState.job.id,
-            startTime: newStartTime.toISOString(),
-            endTime: newEndTime.toISOString(),
+          if (job.isIndependent && !hasContact) {
+            updateIndependentBooking(job.id, {
+              startTime: newStartTime.toISOString(),
+              endTime: newEndTime.toISOString(),
+            }).catch((err) => console.error('Failed to update appointment:', err))
+          } else {
+            const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
+              id: job.id,
+              startTime: newStartTime.toISOString(),
+              endTime: newEndTime.toISOString(),
+            }
+            if (job.bookingId) payload.bookingId = job.bookingId
+            if (job.isIndependent) payload.isIndependent = true
+            setPendingUpdatePayload(payload)
+            setShowNotifyClientModal(true)
           }
-          if (dragState.job.bookingId) payload.bookingId = dragState.job.bookingId
-          setPendingUpdatePayload(payload)
-          setShowNotifyClientModal(true)
         }
 
         // Clear drag state
@@ -910,14 +941,24 @@ const Calendar = ({
           new Date(dragState.job.endTime).getTime() - new Date(dragState.job.startTime).getTime()
         const newEndTime = new Date(newStartTime.getTime() + duration)
 
-        const payload: { id: string; startTime: string; endTime: string; bookingId?: string } = {
-          id: dragState.job.id,
-          startTime: newStartTime.toISOString(),
-          endTime: newEndTime.toISOString(),
+        const job = dragState.job
+        const hasContact = !!(job.contactId && job.contactId.trim())
+        if (job.isIndependent && !hasContact) {
+          updateIndependentBooking(job.id, {
+            startTime: newStartTime.toISOString(),
+            endTime: newEndTime.toISOString(),
+          }).catch((err) => console.error('Failed to update appointment:', err))
+        } else {
+          const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
+            id: job.id,
+            startTime: newStartTime.toISOString(),
+            endTime: newEndTime.toISOString(),
+          }
+          if (job.bookingId) payload.bookingId = job.bookingId
+          if (job.isIndependent) payload.isIndependent = true
+          setPendingUpdatePayload(payload)
+          setShowNotifyClientModal(true)
         }
-        if (dragState.job.bookingId) payload.bookingId = dragState.job.bookingId
-        setPendingUpdatePayload(payload)
-        setShowNotifyClientModal(true)
 
         // Clear drag state
         isDraggingRef.current = false
@@ -2071,14 +2112,22 @@ const Calendar = ({
                         new Date(originalJob.endTime).getTime() -
                         new Date(originalJob.startTime).getTime()
                       const newEndTime = new Date(newStartTime.getTime() + duration)
-                      const payload: { id: string; startTime: string; endTime: string; bookingId?: string } = {
-                        id: monthJobId,
-                        startTime: newStartTime.toISOString(),
-                        endTime: newEndTime.toISOString(),
+                      if (originalJob.isIndependent && !originalJob.contactId) {
+                        updateIndependentBooking(monthJobId, {
+                          startTime: newStartTime.toISOString(),
+                          endTime: newEndTime.toISOString(),
+                        }).catch((err) => console.error('Failed to update appointment:', err))
+                      } else {
+                        const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
+                          id: monthJobId,
+                          startTime: newStartTime.toISOString(),
+                          endTime: newEndTime.toISOString(),
+                        }
+                        if (originalJob.bookingId) payload.bookingId = originalJob.bookingId
+                        if (originalJob.isIndependent) payload.isIndependent = true
+                        setPendingUpdatePayload(payload)
+                        setShowNotifyClientModal(true)
                       }
-                      if (originalJob.bookingId) payload.bookingId = originalJob.bookingId
-                      setPendingUpdatePayload(payload)
-                      setShowNotifyClientModal(true)
                     }
                     return
                   }
@@ -2539,18 +2588,33 @@ const Calendar = ({
         isOpen={showNotifyClientModal}
         onClose={() => {
           if (pendingUpdatePayload) {
-            updateJob({ ...pendingUpdatePayload, notifyClient: false }).catch((error) => {
-              console.error('Failed to update job:', error)
-            })
+            const { isIndependent, ...rest } = pendingUpdatePayload as { isIndependent?: boolean; id: string; startTime?: string; endTime?: string; bookingId?: string; notifyClient?: boolean }
+            if (isIndependent) {
+              updateIndependentBooking(rest.id, { startTime: rest.startTime as string, endTime: rest.endTime as string, notifyClient: false })
+                .then(() => onUpdateSuccess?.('Appointment updated successfully'))
+                .catch((error) => console.error('Failed to update appointment:', error))
+            } else {
+              updateJob({ ...rest, notifyClient: false })
+                .then(() => onUpdateSuccess?.('Job updated successfully'))
+                .catch((error) => console.error('Failed to update job:', error))
+            }
           }
           setShowNotifyClientModal(false)
           setPendingUpdatePayload(null)
         }}
         onNotify={(notify) => {
           if (pendingUpdatePayload) {
-            updateJob({ ...pendingUpdatePayload, notifyClient: notify }).catch((error) => {
-              console.error('Failed to update job:', error)
-            })
+            const { isIndependent, ...rest } = pendingUpdatePayload as { isIndependent?: boolean; id: string; startTime?: string; endTime?: string; bookingId?: string; notifyClient?: boolean }
+            const successMessage = notify ? 'Sent via email and SMS' : (isIndependent ? 'Appointment updated successfully' : 'Job updated successfully')
+            if (isIndependent) {
+              updateIndependentBooking(rest.id, { startTime: rest.startTime as string, endTime: rest.endTime as string, notifyClient: notify })
+                .then(() => onUpdateSuccess?.(successMessage))
+                .catch((error) => console.error('Failed to update appointment:', error))
+            } else {
+              updateJob({ ...rest, notifyClient: notify })
+                .then(() => onUpdateSuccess?.(successMessage))
+                .catch((error) => console.error('Failed to update job:', error))
+            }
           }
           setShowNotifyClientModal(false)
           setPendingUpdatePayload(null)

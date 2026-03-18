@@ -825,7 +825,7 @@ const JobLogDetail = ({
                       : 'text-primary-lightText hover:bg-gray-100'
                   )}
                 >
-                  Schedule Appointment
+                  Schedule Job
                 </button>
                 {canEditJobs && (
                   <button
@@ -1209,7 +1209,7 @@ const JobLogDetail = ({
               </>
             )}
             <Button variant="outline" size="sm" onClick={handleScheduleAppointment}>
-              Schedule Appointment
+              Schedule Job
             </Button>
             {canEditJobs && (
               <Button variant="outline" size="sm" onClick={onEdit}>

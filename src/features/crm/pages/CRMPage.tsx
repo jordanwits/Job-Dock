@@ -162,8 +162,8 @@ const CRMPage = () => {
           contact={selectedContact}
           isOpen={!!selectedContact}
           onClose={() => setSelectedContact(null)}
-          onJobCreated={() => {
-            setConfirmationMessage('Job created successfully')
+          onJobCreated={(message) => {
+            setConfirmationMessage(message || 'Job created successfully')
             setShowConfirmation(true)
             setTimeout(() => setShowConfirmation(false), 3000)
           }}
@@ -184,11 +184,21 @@ const CRMPage = () => {
         defaultContactId={newContactId || undefined}
         defaultTitle={newContactName || undefined}
         sourceContext="contact"
-        onSuccess={(createdJob) => {
+        onSuccess={(createdJob, options) => {
           setShowScheduleJob(false)
           setNewContactId(null)
           setNewContactName('')
-          setConfirmationMessage('Contact created and job scheduled successfully')
+          const message =
+            options?.notifySent
+              ? 'Contact created. Sent via email and SMS'
+              : options?.action === 'independent'
+                ? 'Contact created and appointment scheduled'
+                : options?.action === 'linked'
+                  ? 'Contact created and appointment scheduled for linked job'
+                  : options?.action === 'new'
+                    ? 'Contact created and job scheduled'
+                    : 'Contact created and job scheduled successfully'
+          setConfirmationMessage(message)
           setShowConfirmation(true)
           setTimeout(() => setShowConfirmation(false), 3000)
           if (createdJob?.id) {

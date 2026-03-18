@@ -2278,6 +2278,7 @@ export const dataServices = {
               createdBy: { select: { name: true } },
             },
           },
+          contact: true,
           service: true,
           createdBy: { select: { name: true } },
         },
@@ -2289,52 +2290,66 @@ export const dataServices = {
       if (currentUserId && canSeeOtherJobs !== true) {
         filteredBookings = bookings.filter(b => {
           const job = b.job
-          if (job.createdById === currentUserId) return true
-          const userIds = extractUserIds(b.assignedTo ?? job.assignedTo)
+          if (b.isIndependent) {
+            if (b.createdById === currentUserId) return true
+            const userIds = extractUserIds(b.assignedTo)
+            return userIds.includes(currentUserId)
+          }
+          if (job!.createdById === currentUserId) return true
+          const userIds = extractUserIds(b.assignedTo ?? job!.assignedTo)
           return userIds.includes(currentUserId)
         })
       }
 
-      // Flatten Bookings to Job-like shape
+      // Flatten Bookings to Job-like shape (handles both job-backed and independent appointments)
       const jobsFromBookings = await Promise.all(
         filteredBookings.map(async b => {
           const job = b.job
-          const assignedToName = await getAssignedToName(tenantId, b.assignedTo ?? job.assignedTo)
+          const isIndependent = b.isIndependent || !job
+          const assignedToName = await getAssignedToName(
+            tenantId,
+            b.assignedTo ?? (job as any)?.assignedTo
+          )
           const assignedToWithPrivacy = getAssignedToWithPrivacy(
-            b.assignedTo ?? job.assignedTo,
+            b.assignedTo ?? (job as any)?.assignedTo,
             currentUserId,
             currentUserRole
           )
+          const contactName =
+            (job as any)?.contact
+              ? `${(job as any).contact.firstName ?? ''} ${(job as any).contact.lastName ?? ''}`.trim()
+              : (b as any).contact
+                ? `${(b as any).contact.firstName ?? ''} ${(b as any).contact.lastName ?? ''}`.trim()
+                : undefined
           return {
-            id: job.id,
-            tenantId: job.tenantId,
-            title: job.title,
-            description: job.description,
-            contactId: job.contactId,
-            contactName: job.contact
-              ? `${job.contact.firstName ?? ''} ${job.contact.lastName ?? ''}`.trim()
-              : undefined,
+            id: isIndependent ? b.id : job!.id,
+            tenantId: isIndependent ? b.tenantId : job!.tenantId,
+            title: isIndependent ? (b.title ?? 'Untitled') : job!.title,
+            description: isIndependent ? undefined : job!.description,
+            contactId: isIndependent ? b.contactId ?? undefined : job!.contactId,
+            contactName,
             serviceId: b.serviceId,
             serviceName: b.service?.name,
-            quoteId: b.quoteId ?? job.quoteId,
-            invoiceId: b.invoiceId ?? job.invoiceId,
+            quoteId: b.quoteId ?? (job as any)?.quoteId ?? undefined,
+            invoiceId: b.invoiceId ?? (job as any)?.invoiceId ?? undefined,
             recurrenceId: b.recurrenceId,
             startTime: b.startTime?.toISOString() ?? null,
             endTime: b.endTime?.toISOString() ?? null,
             toBeScheduled: b.toBeScheduled,
             status: b.status,
-            location: b.location ?? job.location,
+            location: b.location ?? (job as any)?.location ?? undefined,
             price: b.price != null ? Number(b.price) : null,
-            notes: b.notes ?? job.notes,
-            assignedTo: assignedToWithPrivacy ?? b.assignedTo ?? job.assignedTo,
+            notes: b.notes ?? (job as any)?.notes ?? undefined,
+            assignedTo: assignedToWithPrivacy ?? b.assignedTo ?? (job as any)?.assignedTo,
             assignedToName,
             bookingId: b.id,
+            isIndependent: !!isIndependent,
             archivedAt: b.archivedAt?.toISOString() ?? null,
             deletedAt: b.deletedAt?.toISOString() ?? null,
-            createdById: b.createdById ?? job.createdById,
-            createdByName: (job.createdBy as any)?.name ?? (b.createdBy as any)?.name,
-            createdAt: job.createdAt.toISOString(),
-            updatedAt: job.updatedAt.toISOString(),
+            createdById: b.createdById ?? (job as any)?.createdById,
+            createdByName: ((job as any)?.createdBy as any)?.name ?? ((b.createdBy as any)?.name),
+            createdAt: (isIndependent ? b.createdAt : job!.createdAt).toISOString(),
+            updatedAt: (isIndependent ? b.updatedAt : job!.updatedAt).toISOString(),
           }
         })
       )
@@ -2343,7 +2358,9 @@ export const dataServices = {
       if (!includeUnlinkedJobs) {
         return jobsFromBookings
       }
-      const jobIdsWithBookings = new Set(bookings.map(b => b.jobId))
+      const jobIdsWithBookings = new Set(
+        bookings.map(b => b.jobId).filter((id): id is string => id != null)
+      )
       const jobsWithoutBookings = await prisma.job.findMany({
         where: {
           tenantId,
@@ -3761,9 +3778,89 @@ export const dataServices = {
     create: async (tenantId: string, payload: any) => {
       await ensureTenantExists(tenantId)
 
+      const isIndependent = payload.isIndependent === true
+
+      if (isIndependent) {
+        // Independent appointment: no job, title required, contact optional
+        const title = payload.title && typeof payload.title === 'string' ? payload.title.trim() : null
+        if (!title) throw new ApiError('title is required for independent appointments', 400)
+
+        const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
+        if (normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
+
+        const requestedStart =
+          payload.startTime !== undefined && payload.startTime !== null && payload.startTime !== ''
+            ? parseValidDate(payload.startTime)
+            : null
+        const requestedEnd =
+          payload.endTime !== undefined && payload.endTime !== null && payload.endTime !== ''
+            ? parseValidDate(payload.endTime)
+            : null
+
+        const toBeScheduled = payload.toBeScheduled === true || (!requestedStart && !requestedEnd)
+
+        if (!toBeScheduled && (!requestedStart || !requestedEnd)) {
+          throw new ApiError('startTime and endTime are required for scheduled appointments', 400)
+        }
+        if ((requestedStart && !requestedEnd) || (!requestedStart && requestedEnd)) {
+          throw new ApiError('Both startTime and endTime must be provided', 400)
+        }
+
+        const contactId =
+          payload.contactId && typeof payload.contactId === 'string' ? payload.contactId.trim() : null
+        if (contactId) {
+          const contact = await prisma.contact.findFirst({
+            where: { id: contactId, tenantId },
+          })
+          if (!contact) throw new ApiError('Contact not found', 404)
+        }
+
+        const booking = await prisma.booking.create({
+          data: {
+            tenantId,
+            jobId: null,
+            title,
+            contactId,
+            serviceId: payload.serviceId ?? null,
+            quoteId: null,
+            invoiceId: null,
+            startTime: toBeScheduled ? null : requestedStart,
+            endTime: toBeScheduled ? null : requestedEnd,
+            toBeScheduled,
+            status: payload.status ?? 'active',
+            location: payload.location ?? null,
+            price: payload.price !== undefined ? payload.price : null,
+            notes: payload.notes ?? null,
+            assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+            breaks: payload.breaks ?? null,
+            isIndependent: true,
+            createdById: payload.createdById ?? payload._actingUserId ?? null,
+          },
+          include: {
+            service: true,
+            contact: true,
+            createdBy: { select: { name: true } },
+          },
+        })
+
+        return {
+          ...booking,
+          price: booking.price != null ? Number(booking.price) : null,
+          startTime: booking.startTime?.toISOString() ?? null,
+          endTime: booking.endTime?.toISOString() ?? null,
+          isIndependent: true,
+          job: null,
+          contactName: (booking as any).contact
+            ? `${(booking as any).contact.firstName ?? ''} ${(booking as any).contact.lastName ?? ''}`.trim()
+            : undefined,
+          createdByName: ((booking as any).createdBy as any)?.name ?? undefined,
+        }
+      }
+
+      // Job-backed booking
       const jobId = payload.jobId
       if (!jobId || typeof jobId !== 'string') {
-        throw new ApiError('jobId is required', 400)
+        throw new ApiError('jobId is required for job-backed bookings', 400)
       }
 
       const job = await prisma.job.findFirst({
@@ -3839,6 +3936,214 @@ export const dataServices = {
         },
       }
     },
+    update: async (tenantId: string, id: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+
+      const booking = await prisma.booking.findFirst({
+        where: { id, tenantId },
+        include: { service: true, contact: true, createdBy: { select: { name: true } } },
+      })
+
+      if (!booking) throw new ApiError('Booking not found', 404)
+      if (!booking.isIndependent) {
+        throw new ApiError(
+          'Only independent appointments can be updated via the bookings API. Use jobs.update for job-backed bookings.',
+          400
+        )
+      }
+
+      const normalizedAssignedTo =
+        payload.assignedTo !== undefined ? normalizeAssignedTo(payload.assignedTo) : undefined
+      if (normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
+
+      const updateData: Record<string, any> = {}
+      if (payload.title !== undefined) updateData.title = payload.title
+      if (payload.contactId !== undefined) updateData.contactId = payload.contactId || null
+      if (payload.serviceId !== undefined) updateData.serviceId = payload.serviceId || null
+      if (payload.location !== undefined) updateData.location = payload.location || null
+      if (payload.price !== undefined) updateData.price = payload.price
+      if (payload.notes !== undefined) updateData.notes = payload.notes
+      if (payload.status !== undefined) updateData.status = payload.status
+      if (payload.assignedTo !== undefined) updateData.assignedTo = payload.assignedTo
+      if (payload.breaks !== undefined) updateData.breaks = payload.breaks
+      if (payload.createdById !== undefined) updateData.createdById = payload.createdById
+
+      if (payload.startTime !== undefined || payload.endTime !== undefined) {
+        const requestedStart =
+          payload.startTime !== undefined && payload.startTime !== null && payload.startTime !== ''
+            ? parseValidDate(payload.startTime)
+            : null
+        const requestedEnd =
+          payload.endTime !== undefined && payload.endTime !== null && payload.endTime !== ''
+            ? parseValidDate(payload.endTime)
+            : null
+        const toBeScheduled = payload.toBeScheduled === true || (!requestedStart && !requestedEnd)
+        if (!toBeScheduled && (!requestedStart || !requestedEnd)) {
+          throw new ApiError('startTime and endTime are required for scheduled appointments', 400)
+        }
+        updateData.startTime = toBeScheduled ? null : requestedStart
+        updateData.endTime = toBeScheduled ? null : requestedEnd
+        updateData.toBeScheduled = toBeScheduled
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: updateData,
+        include: { service: true, contact: true, createdBy: { select: { name: true } } },
+      })
+
+      return {
+        ...updated,
+        price: updated.price != null ? Number(updated.price) : null,
+        startTime: updated.startTime?.toISOString() ?? null,
+        endTime: updated.endTime?.toISOString() ?? null,
+        isIndependent: true,
+        job: null,
+        contactName: (updated as any).contact
+          ? `${(updated as any).contact.firstName ?? ''} ${(updated as any).contact.lastName ?? ''}`.trim()
+          : undefined,
+        createdByName: ((updated as any).createdBy as any)?.name ?? undefined,
+      }
+    },
+    update: async (tenantId: string, id: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+
+      const existing = await prisma.booking.findFirst({
+        where: { id, tenantId },
+        include: { contact: true, service: true },
+      })
+      if (!existing) throw new ApiError('Booking not found', 404)
+      if (!existing.isIndependent) {
+        throw new ApiError(
+          'Use job update to modify job-backed bookings. This endpoint is for independent appointments only.',
+          400
+        )
+      }
+
+      const normalizedAssignedTo = payload.assignedTo !== undefined
+        ? normalizeAssignedTo(payload.assignedTo)
+        : null
+      if (normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
+
+      const requestedStart =
+        payload.startTime !== undefined && payload.startTime !== null && payload.startTime !== ''
+          ? parseValidDate(payload.startTime)
+          : undefined
+      const requestedEnd =
+        payload.endTime !== undefined && payload.endTime !== null && payload.endTime !== ''
+          ? parseValidDate(payload.endTime)
+          : undefined
+      const toBeScheduled = payload.toBeScheduled
+      if (toBeScheduled === false && (requestedStart || requestedEnd)) {
+        if (!requestedStart || !requestedEnd) {
+          throw new ApiError('Both startTime and endTime must be provided for scheduled appointments', 400)
+        }
+      }
+      if (toBeScheduled !== true && requestedStart && !requestedEnd) {
+        throw new ApiError('Both startTime and endTime must be provided', 400)
+      }
+
+      const updateData: Prisma.BookingUpdateInput = {
+        ...(payload.title !== undefined && { title: payload.title }),
+        ...(payload.contactId !== undefined && { contactId: payload.contactId || null }),
+        ...(payload.location !== undefined && { location: payload.location ?? null }),
+        ...(payload.notes !== undefined && { notes: payload.notes ?? null }),
+        ...(payload.status !== undefined && { status: payload.status }),
+        ...(payload.price !== undefined && { price: payload.price }),
+        ...(normalizedAssignedTo !== null && { assignedTo: normalizedAssignedTo as unknown as Prisma.InputJsonValue }),
+        ...(payload.createdById !== undefined && { createdById: payload.createdById ?? payload._actingUserId ?? null }),
+      }
+      if (toBeScheduled !== undefined) updateData.toBeScheduled = toBeScheduled
+      if (requestedStart !== undefined) updateData.startTime = requestedStart ?? null
+      if (requestedEnd !== undefined) updateData.endTime = requestedEnd ?? null
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: updateData,
+        include: { contact: true, service: true },
+      })
+
+      // Reschedule notification for independent bookings: when notifyClient is true and date/time changed
+      const timesChanged = payload.startTime !== undefined || payload.endTime !== undefined
+      if (payload.notifyClient === true && timesChanged && updated.startTime && updated.endTime && updated.contact) {
+        try {
+          const contact = updated.contact as (Contact & { notificationPreference?: string }) | null
+          const pref = contact?.notificationPreference ?? 'both'
+          const wantsEmail = shouldSendEmail(pref)
+          const wantsSms = shouldSendSms(pref)
+          const clientEmail = contact?.email?.trim() || null
+          const clientPhone = contact?.phone?.trim() || null
+
+          const settings = await prisma.tenantSettings.findUnique({
+            where: { tenantId },
+          })
+          let logoUrl: string | null = null
+          if (settings?.logoUrl) {
+            try {
+              const { getFileUrl } = await import('./fileUpload')
+              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+            } catch (error) {
+              console.error('Error fetching logo URL for reschedule email:', error)
+            }
+          }
+          const companyName = settings?.companyDisplayName || 'JobDock'
+          const timezoneOffset = (settings?.timezoneOffset as number) ?? -8
+          const serviceName = (updated as any).service?.name || updated.title || 'Appointment'
+
+          if (wantsEmail && clientEmail) {
+            console.log(`📧 Sending reschedule email to ${clientEmail} (independent booking)`)
+            const clientName = contact
+              ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || 'there'
+              : 'there'
+            const emailPayload = buildClientRescheduleEmail({
+              clientName,
+              serviceName,
+              startTime: new Date(updated.startTime),
+              endTime: new Date(updated.endTime),
+              location: updated.location ?? undefined,
+              timezoneOffset,
+              companyName,
+              logoUrl,
+              settings: {
+                companySupportEmail: settings?.companySupportEmail || null,
+                companyPhone: settings?.companyPhone || null,
+              },
+            })
+            await sendEmail({
+              ...emailPayload,
+              to: clientEmail,
+              fromName: companyName,
+              replyTo: settings?.companySupportEmail || undefined,
+            })
+            console.log('✅ Independent booking reschedule email sent successfully')
+          }
+          if (wantsSms && clientPhone) {
+            console.log(`📱 Sending reschedule SMS to ${clientPhone} (independent booking)`)
+            const smsBody = buildRescheduleNotificationSms({
+              serviceName,
+              startTime: new Date(updated.startTime),
+              companyName,
+              timezoneOffset,
+            })
+            await sendSms(clientPhone, smsBody)
+            console.log('✅ Independent booking reschedule SMS sent successfully')
+          }
+        } catch (rescheduleError) {
+          console.error('❌ Failed to send independent booking reschedule notification:', rescheduleError)
+        }
+      }
+
+      return {
+        ...updated,
+        price: updated.price != null ? Number(updated.price) : null,
+        startTime: updated.startTime?.toISOString() ?? null,
+        endTime: updated.endTime?.toISOString() ?? null,
+        isIndependent: true,
+        contactName: updated.contact
+          ? `${updated.contact.firstName ?? ''} ${updated.contact.lastName ?? ''}`.trim()
+          : undefined,
+      }
+    },
     delete: async (tenantId: string, id: string) => {
       await ensureTenantExists(tenantId)
 
@@ -3849,6 +4154,15 @@ export const dataServices = {
 
       if (!booking) throw new ApiError('Booking not found', 404)
 
+      // Independent bookings have no job
+      if (booking.isIndependent || !booking.job) {
+        await prisma.booking.update({
+          where: { id },
+          data: { archivedAt: new Date() },
+        })
+        return { success: true }
+      }
+
       const job = booking.job
       const otherBookings = job.bookings.filter((b: any) => b.id !== id)
 
@@ -3857,9 +4171,6 @@ export const dataServices = {
         where: { id },
         data: { archivedAt: new Date() },
       })
-
-      // If this was the last booking and job has no other data, we could optionally archive the job too
-      // But for now, we'll keep the job even if it has no bookings
 
       return { success: true }
     },
@@ -3873,10 +4184,7 @@ export const dataServices = {
 
       if (!booking) throw new ApiError('Booking not found', 404)
 
-      const job = booking.job
-      const otherBookings = job.bookings.filter((b: any) => b.id !== id)
-
-      // Permanently delete the booking
+      // Independent and job-backed both get permanently deleted the same way
       await prisma.booking.delete({
         where: { id },
       })

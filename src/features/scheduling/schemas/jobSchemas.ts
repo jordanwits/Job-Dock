@@ -27,15 +27,15 @@ export const jobAssignmentSchema = z.object({
   hourlyRate: z.number().nullable().optional(),
 })
 
-export const jobSchema = z.object({
+const baseJobSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  contactId: z.string().min(1, 'Contact is required'),
+  contactId: z.string().optional(),
   serviceId: z.string().optional(),
   quoteId: z.string().optional(),
   invoiceId: z.string().optional(),
-  startTime: z.string().optional(), // Computed from date/time pickers
-  endTime: z.string().optional(), // Computed from date/time pickers
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
   status: z.enum(['active', 'scheduled', 'in-progress', 'completed', 'cancelled', 'pending-confirmation']).optional(),
   location: z.string().optional(),
   price: z.string().optional().or(z.number().optional()),
@@ -43,7 +43,16 @@ export const jobSchema = z.object({
   assignedTo: z.array(jobAssignmentSchema).optional(),
   breaks: z.array(jobBreakSchema).optional(),
   recurrence: recurrenceSchema.optional(),
+  _jobSelectionMode: z.enum(['new', 'existing', 'independent']).optional(),
 })
 
-export type JobFormData = z.infer<typeof jobSchema>
+export const jobSchema = baseJobSchema.refine(
+  (data) => {
+    if (data._jobSelectionMode === 'independent') return true
+    return !!(data.contactId && data.contactId.trim().length > 0)
+  },
+  { message: 'Contact is required', path: ['contactId'] }
+)
+
+export type JobFormData = z.infer<typeof baseJobSchema>
 

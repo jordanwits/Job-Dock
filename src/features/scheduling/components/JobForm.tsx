@@ -45,7 +45,7 @@ import { cn } from '@/lib/utils'
 
 interface JobFormProps {
   job?: Job
-  onSubmit: (data: JobFormData, existingJobId?: string) => Promise<void>
+  onSubmit: (data: JobFormData, existingJobId?: string, isIndependent?: boolean) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
   defaultContactId?: string
@@ -119,7 +119,7 @@ const JobForm = ({
   const [jobRoles, setJobRoles] = useState<Array<{ id: string; title: string }>>([])
   const [canShowAssignee, setCanShowAssignee] = useState(false)
   const [assignments, setAssignments] = useState<JobAssignment[]>([])
-  const [jobSelectionMode, setJobSelectionMode] = useState<'new' | 'existing'>(
+  const [jobSelectionMode, setJobSelectionMode] = useState<'new' | 'existing' | 'independent'>(
     propExistingJobId ? 'existing' : 'new'
   )
   const [selectedExistingJobId, setSelectedExistingJobId] = useState<string | undefined>(
@@ -132,7 +132,11 @@ const JobForm = ({
   const [scheduleDateError, setScheduleDateError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [showPayChangeModal, setShowPayChangeModal] = useState(false)
-  const [pendingSubmit, setPendingSubmit] = useState<{ formData: any; existingJobId?: string } | null>(null)
+  const [pendingSubmit, setPendingSubmit] = useState<{
+    formData: any
+    existingJobId?: string
+    isIndependent?: boolean
+  } | null>(null)
   const [startTime, setStartTime] = useState(
     job && job.startTime ? format(new Date(job.startTime), 'HH:mm') : '09:00'
   )
@@ -328,6 +332,7 @@ const JobForm = ({
       location: job?.location || defaultLocation || '',
       price: job?.price != null ? job.price.toString() : (defaultPrice != null ? defaultPrice.toString() : ''),
       notes: job?.notes || defaultNotes || '',
+      _jobSelectionMode: (propExistingJobId ? 'existing' : 'new') as 'new' | 'existing' | 'independent',
       assignedTo: (() => {
         // If editing a job, use job's assignedTo
         if (job?.assignedTo) {
@@ -728,17 +733,20 @@ const JobForm = ({
         price: shouldIncludeJobPrice ? convertPrice(dataWithoutTimes.price) : undefined,
       }
       const existingJobId = jobSelectionMode === 'existing' ? selectedExistingJobId : undefined
+      const isIndependent = jobSelectionMode === 'independent'
       const needsEffectiveDate =
+        !isIndependent &&
         job &&
         propTimeEntries &&
         canSeeJobPrices &&
         hasPayChangeWithTimeEntries(job.assignedTo, normalizedAssignments, propTimeEntries)
+      const { _jobSelectionMode: _, ...cleanFormData } = formData as any
       if (needsEffectiveDate) {
-        setPendingSubmit({ formData, existingJobId })
+        setPendingSubmit({ formData: cleanFormData, existingJobId, isIndependent })
         setShowPayChangeModal(true)
         return
       }
-      await onSubmit(formData, existingJobId)
+      await onSubmit(cleanFormData, existingJobId, isIndependent)
       return
     }
 
@@ -806,7 +814,7 @@ const JobForm = ({
       jobId: job?.id,
     })
 
-    if (repeatPattern !== 'none') {
+    if (repeatPattern !== 'none' && jobSelectionMode !== 'independent') {
       const [frequency, intervalStr] = repeatPattern.split('-') as [RecurrenceFrequency, string]
       const interval = parseInt(intervalStr) || 1
 
@@ -875,25 +883,28 @@ const JobForm = ({
       recurrenceDetails: formData.recurrence,
     })
     const existingJobId = jobSelectionMode === 'existing' ? selectedExistingJobId : undefined
+    const isIndependent = jobSelectionMode === 'independent'
     const needsEffectiveDate =
+      !isIndependent &&
       job &&
       propTimeEntries &&
       canSeeJobPrices &&
       hasPayChangeWithTimeEntries(job.assignedTo, normalizedAssignments, propTimeEntries)
+    const { _jobSelectionMode: _, ...cleanFormData } = formData as any
     if (needsEffectiveDate) {
-      setPendingSubmit({ formData, existingJobId })
+      setPendingSubmit({ formData: cleanFormData, existingJobId, isIndependent })
       setShowPayChangeModal(true)
       return
     }
-    await onSubmit(formData, existingJobId)
+    await onSubmit(cleanFormData, existingJobId, isIndependent)
   }
 
   const handlePayChangeModalConfirm = async (effectiveDate: string) => {
     if (!pendingSubmit) return
-    const { formData, existingJobId } = pendingSubmit
+    const { formData, existingJobId, isIndependent } = pendingSubmit
     setShowPayChangeModal(false)
     setPendingSubmit(null)
-    await onSubmit({ ...formData, payChangeEffectiveDate: effectiveDate }, existingJobId)
+    await onSubmit({ ...formData, payChangeEffectiveDate: effectiveDate }, existingJobId, isIndependent)
   }
 
   const handleInvalidSubmit = (invalid: any) => {
@@ -1000,6 +1011,7 @@ const JobForm = ({
                 onChange={() => {
                   setJobSelectionMode('new')
                   setSelectedExistingJobId(undefined)
+                  setValue('_jobSelectionMode', 'new')
                 }}
                 className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
               />
@@ -1013,13 +1025,33 @@ const JobForm = ({
                 type="radio"
                 name="jobSelectionMode"
                 checked={jobSelectionMode === 'existing'}
-                onChange={() => setJobSelectionMode('existing')}
+                onChange={() => {
+                  setJobSelectionMode('existing')
+                  setValue('_jobSelectionMode', 'existing')
+                }}
                 className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
               />
               <span className={cn(
                 "text-sm",
                 theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
               )}>Link to Existing Job</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="jobSelectionMode"
+                checked={jobSelectionMode === 'independent'}
+                onChange={() => {
+                  setJobSelectionMode('independent')
+                  setSelectedExistingJobId(undefined)
+                  setValue('_jobSelectionMode', 'independent')
+                }}
+                className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
+              />
+              <span className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>Independent Appointment</span>
             </label>
           </div>
 
@@ -1078,7 +1110,7 @@ const JobForm = ({
         control={control}
         render={({ field }) => (
           <Select
-            label="Contact *"
+            label={jobSelectionMode === 'independent' ? 'Contact (optional)' : 'Contact *'}
             value={field.value}
             onChange={field.onChange}
             error={errors.contactId?.message}
@@ -2082,7 +2114,7 @@ const JobForm = ({
           Cancel
         </Button>
         <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-          {isLoading ? 'Saving...' : job ? 'Update Job' : 'Create Job'}
+          {isLoading ? 'Saving...' : job ? 'Update Job' : jobSelectionMode === 'independent' ? 'Schedule Appointment' : jobSelectionMode === 'existing' ? 'Schedule Job' : 'Create Job'}
         </Button>
       </div>
 

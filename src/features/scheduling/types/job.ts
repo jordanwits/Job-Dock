@@ -28,8 +28,9 @@ export interface Job {
   id: string
   title: string
   description?: string
-  contactId: string
-  contactName: string
+  contactId?: string // Optional for independent appointments
+  contactName?: string
+  isIndependent?: boolean // True when this is a standalone booking (no job)
   contactEmail?: string
   contactPhone?: string
   serviceId?: string
@@ -97,7 +98,80 @@ export interface UpdateJobData extends Partial<CreateJobData> {
   payChangeEffectiveDate?: string // When editing pay and job has time entries, effective date (YYYY-MM-DD)
 }
 
+/** Data for creating an independent appointment (calendar-only booking, no job in Job Logs) */
+export interface CreateIndependentBookingData {
+  title: string
+  contactId?: string
+  serviceId?: string
+  startTime?: string
+  endTime?: string
+  toBeScheduled?: boolean
+  notifyClient?: boolean // When true and date/time changed, send reschedule notification to client
+  status?:
+    | 'active'
+    | 'scheduled'
+    | 'in-progress'
+    | 'completed'
+    | 'cancelled'
+    | 'pending-confirmation'
+  location?: string
+  price?: number
+  notes?: string
+  assignedTo?: JobAssignment[]
+  breaks?: JobBreak[]
+}
+
 export type JobStatus =
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'pending-confirmation'
   | 'scheduled'
   | 'in-progress'
   | 'completed'

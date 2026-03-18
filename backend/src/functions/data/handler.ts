@@ -1687,6 +1687,33 @@ async function handlePut(
     }
   }
 
+  // For bookings update: inject acting user and check scheduling permissions
+  if (service === dataServices.bookings && id) {
+    try {
+      const context = await extractContext(event)
+      const { default: prisma } = await import('../../lib/db')
+      const user = await prisma.user.findFirst({
+        where: { cognitoId: context.userId },
+        select: { id: true, canScheduleAppointments: true },
+      })
+      if (user) {
+        payload._actingUserId = user.id
+        const hasStartTime = payload?.startTime !== null && payload?.startTime !== undefined
+        const hasEndTime = payload?.endTime !== null && payload?.endTime !== undefined
+        if ((hasStartTime || hasEndTime) && !user.canScheduleAppointments) {
+          throw new ApiError(
+            'You do not have permission to schedule appointments. You can update appointments without changing times.',
+            403
+          )
+        }
+      }
+    } catch (error: any) {
+      if (error instanceof ApiError) {
+        throw error
+      }
+    }
+  }
+
   // For time-entries update: pass user context for permission checks
   if (service === dataServices['time-entries'] && id) {
     try {

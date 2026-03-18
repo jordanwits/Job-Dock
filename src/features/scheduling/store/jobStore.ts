@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { jobsService } from '@/lib/api/services'
-import type { Job, CreateJobData, UpdateJobData } from '../types/job'
+import { jobsService, bookingsService } from '@/lib/api/services'
+import type { Job, CreateJobData, UpdateJobData, CreateIndependentBookingData } from '../types/job'
 
 // Normalize job data from API response to match the Job interface
 // The backend returns nested contact/service objects, but we need flat fields
@@ -47,6 +47,7 @@ const normalizeJob = (apiJob: any): Job => {
     updatedAt: apiJob.updatedAt,
     occurrenceCount: apiJob.occurrenceCount,
     bookingId: apiJob.bookingId ?? undefined,
+    isIndependent: apiJob.isIndependent ?? false,
   }
 }
 
@@ -65,7 +66,9 @@ interface JobState {
   fetchJobsForLink: (startDate?: Date, endDate?: Date) => Promise<void>
   getJobById: (id: string) => Promise<void>
   createJob: (data: CreateJobData) => Promise<Job>
+  createIndependentBooking: (data: CreateIndependentBookingData) => Promise<Job>
   updateJob: (data: UpdateJobData) => Promise<void>
+  updateIndependentBooking: (id: string, data: Partial<CreateIndependentBookingData>) => Promise<void>
   deleteJob: (id: string, deleteAll?: boolean) => Promise<void>
   permanentDeleteJob: (id: string, deleteAll?: boolean) => Promise<void>
   restoreJob: (id: string) => Promise<void>
@@ -168,6 +171,85 @@ export const useJobStore = create<JobState>((set, get) => ({
       enhancedError.conflicts = errorData.conflicts
       
       throw enhancedError
+    }
+  },
+
+  createIndependentBooking: async (data: CreateIndependentBookingData) => {
+    set({ isLoading: true, error: null })
+    try {
+      const payload = {
+        isIndependent: true,
+        title: data.title,
+        contactId: data.contactId && data.contactId.trim() ? data.contactId : undefined,
+        serviceId: data.serviceId && data.serviceId.trim() ? data.serviceId : undefined,
+        startTime: data.startTime || undefined,
+        endTime: data.endTime || undefined,
+        toBeScheduled: data.toBeScheduled ?? false,
+        status: data.status ?? 'active',
+        location: data.location || undefined,
+        price: data.price ?? undefined,
+        notes: data.notes || undefined,
+        assignedTo: data.assignedTo ?? undefined,
+        breaks: data.breaks ?? undefined,
+      }
+      const apiBooking = await bookingsService.create(payload)
+      const newJob = normalizeJob({
+        ...apiBooking,
+        id: apiBooking.id,
+        bookingId: apiBooking.id,
+      })
+      set((state) => ({
+        jobs: [...state.jobs, newJob],
+        isLoading: false,
+      }))
+      return newJob
+    } catch (error: any) {
+      const apiMessage = error.response?.data?.error?.message || error.response?.data?.message
+      const errorMessage = apiMessage || error.message || 'Failed to create appointment'
+      set({
+        error: errorMessage,
+        isLoading: false,
+      })
+      throw error
+    }
+  },
+
+  updateIndependentBooking: async (id: string, data: Partial<CreateIndependentBookingData>) => {
+    set({ isLoading: true, error: null })
+    try {
+      const payload: Record<string, unknown> = {}
+      if (data.title !== undefined) payload.title = data.title
+      if (data.contactId !== undefined) payload.contactId = data.contactId || null
+      if (data.serviceId !== undefined) payload.serviceId = data.serviceId || null
+      if (data.startTime !== undefined) payload.startTime = data.startTime
+      if (data.endTime !== undefined) payload.endTime = data.endTime
+      if (data.toBeScheduled !== undefined) payload.toBeScheduled = data.toBeScheduled
+      if (data.status !== undefined) payload.status = data.status
+      if (data.location !== undefined) payload.location = data.location
+      if (data.price !== undefined) payload.price = data.price
+      if (data.notes !== undefined) payload.notes = data.notes
+      if (data.assignedTo !== undefined) payload.assignedTo = data.assignedTo
+      if (data.breaks !== undefined) payload.breaks = data.breaks
+      if (data.notifyClient !== undefined) payload.notifyClient = data.notifyClient
+      const apiBooking = await bookingsService.update(id, payload)
+      const updatedJob = normalizeJob({
+        ...apiBooking,
+        id: apiBooking.id,
+        bookingId: apiBooking.id,
+      })
+      set((state) => ({
+        jobs: state.jobs.map((j) => (j.id === id ? updatedJob : j)),
+        selectedJob:
+          state.selectedJob?.id === id ? updatedJob : state.selectedJob,
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      const apiMessage = error.response?.data?.error?.message || error.response?.data?.message
+      set({
+        error: apiMessage || error.message || 'Failed to update appointment',
+        isLoading: false,
+      })
+      throw error
     }
   },
 

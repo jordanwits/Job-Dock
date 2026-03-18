@@ -311,6 +311,10 @@ const realBookingsService = {
     const response = await apiClient.post('/bookings', data)
     return response.data
   },
+  update: async (id: string, data: any) => {
+    const response = await apiClient.put(`/bookings/${id}`, data)
+    return response.data
+  },
   delete: async (id: string) => {
     const response = await apiClient.delete(`/bookings/${id}`)
     return response.data

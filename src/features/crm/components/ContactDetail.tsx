@@ -22,7 +22,7 @@ interface ContactDetailProps {
   contact: Contact
   isOpen: boolean
   onClose: () => void
-  onJobCreated?: () => void
+  onJobCreated?: (message?: string) => void
   onJobCreateFailed?: (error: string) => void
 }
 
@@ -289,10 +289,16 @@ const ContactDetail = ({
     }
   }
 
-  const handleCreateJob = async (data: CreateJobData) => {
+  const handleCreateJob = async (
+    data: CreateJobData | { title: string; contactId?: string; [key: string]: unknown },
+    _existingJobId?: string,
+    _isIndependent?: boolean
+  ) => {
     try {
-      const jobData = {
+      // ContactDetail always creates jobs (not independent); contactId comes from defaultContactId
+      const jobData: CreateJobData = {
         ...data,
+        contactId: data.contactId ?? contact.id,
         toBeScheduled: true, // Create as unscheduled job
       }
       const newJob = await createJob(jobData)
@@ -997,11 +1003,22 @@ const ContactDetail = ({
         defaultContactId={contact.id}
         defaultTitle={`${contact.firstName} ${contact.lastName}`}
         sourceContext="contact"
-        onSuccess={createdJob => {
+        allowLinkExistingJob={true}
+        onSuccess={(createdJob, options) => {
           setShowScheduleJob(false)
           onClose()
           if (onJobCreated) {
-            onJobCreated()
+            const message =
+              options?.notifySent
+                ? 'Sent via email and SMS'
+                : options?.action === 'independent'
+                  ? 'Appointment scheduled'
+                  : options?.action === 'linked'
+                    ? 'Appointment scheduled for linked job'
+                    : options?.action === 'new'
+                      ? 'Job created and appointment scheduled'
+                      : 'Job created successfully'
+            onJobCreated(message)
           }
           // Open the newly scheduled appointment on the calendar.
           if (createdJob?.id) {

@@ -20,7 +20,7 @@ interface ScheduleJobModalProps {
   invoiceId?: string
   initialQuoteId?: string
   initialInvoiceId?: string
-  onSuccess?: (createdJob?: Job) => void
+  onSuccess?: (createdJob?: Job, options?: { notifySent?: boolean; action?: 'new' | 'linked' | 'independent' }) => void
   allowLinkExistingJob?: boolean // When true, show option to link to existing job
   existingJobId?: string // Pre-selected existing job ID
 }
@@ -41,17 +41,28 @@ const ScheduleJobModal = ({
   initialQuoteId,
   initialInvoiceId,
   onSuccess,
-  allowLinkExistingJob = false,
+  allowLinkExistingJob,
   existingJobId,
 }: ScheduleJobModalProps) => {
-  const { createJob, updateJob, isLoading, error, clearError } = useJobStore()
+  // Default to true when scheduling from contact context to match calendar page (Create New / Link / Independent options)
+  const effectiveAllowLinkExistingJob = allowLinkExistingJob ?? (sourceContext === 'contact')
+  const { createJob, createIndependentBooking, updateJob, isLoading, error, clearError } = useJobStore()
   const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
   const [pendingCreatePayload, setPendingCreatePayload] = useState<{ data: CreateJobData; existingJobIdParam?: string } | null>(null)
 
-  const handleSubmit = async (data: CreateJobData, existingJobIdParam?: string) => {
+  const handleSubmit = async (data: CreateJobData, existingJobIdParam?: string, isIndependent?: boolean) => {
     const jobIdToUpdate = existingJobIdParam || existingJobId
 
     try {
+      if (isIndependent) {
+        await createIndependentBooking(data)
+        clearError()
+        onClose()
+        if (onSuccess) {
+          onSuccess(undefined, { action: 'independent' })
+        }
+        return
+      }
       if (jobIdToUpdate) {
         // Update existing job instead of creating new one
         const jobData = {
@@ -69,7 +80,7 @@ const ScheduleJobModal = ({
         await useJobStore.getState().getJobById(jobIdToUpdate)
         const updatedJob = useJobStore.getState().selectedJob
         if (onSuccess && updatedJob) {
-          onSuccess(updatedJob)
+          onSuccess(updatedJob, { action: 'linked' })
         }
       } else {
         // Create new job - ask about notifying client if it's a scheduled appointment
@@ -88,7 +99,7 @@ const ScheduleJobModal = ({
         clearError()
         onClose()
         if (onSuccess) {
-          onSuccess(created)
+          onSuccess(created, { action: 'new' })
         }
       }
     } catch (error: any) {
@@ -112,7 +123,7 @@ const ScheduleJobModal = ({
       setPendingCreatePayload(null)
       onClose()
       if (onSuccess) {
-        onSuccess(created)
+        onSuccess(created, { notifySent: notifyClient, action: 'new' })
       }
     } catch (error: any) {
       // Keep modal open on error
@@ -156,8 +167,9 @@ const ScheduleJobModal = ({
           defaultPrice={defaultPrice}
           initialQuoteId={initialQuoteId}
           initialInvoiceId={initialInvoiceId}
-          allowLinkExistingJob={allowLinkExistingJob}
+          allowLinkExistingJob={effectiveAllowLinkExistingJob}
           existingJobId={existingJobId}
+          isSimpleCreate={false}
         />
       </Modal>
     </>

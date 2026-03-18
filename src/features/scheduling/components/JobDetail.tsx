@@ -100,7 +100,8 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
   
   const isArchived = !!job.archivedAt
   const isUnscheduled = job.toBeScheduled || !job.startTime || !job.endTime
-  
+  const isIndependent = !!(job as { isIndependent?: boolean }).isIndependent
+
   // Detect if this is a multi-day job
   const startTime = job.startTime ? new Date(job.startTime) : null
   const endTime = job.endTime ? new Date(job.endTime) : null
@@ -419,8 +420,8 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
           </Card>
         )}
 
-        {/* Linked Quote or Invoice */}
-        {(linkedQuote || linkedInvoice) && (
+        {/* Linked Quote or Invoice - hide for independent appointments */}
+        {(linkedQuote || linkedInvoice) && !job.isIndependent && (
           <Card>
             <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Linked Document</h3>
             {linkedQuote && (
