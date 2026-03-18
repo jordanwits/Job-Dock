@@ -328,7 +328,7 @@ export const BillingSection = () => {
                 <Card
                   key={plan.id}
                   className={cn(
-                    'p-6 relative',
+                    'p-6 relative flex flex-col h-full',
                     isCurrentPlan && 'ring-2 ring-primary-gold border-primary-gold'
                   )}
                 >
@@ -340,48 +340,50 @@ export const BillingSection = () => {
                     </div>
                   )}
                   
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className={cn(
-                        "text-xl font-semibold",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {plan.name}
-                        {plan.price && (
-                          <span className="text-primary-gold font-semibold ml-2">{plan.price}</span>
-                        )}
-                      </h4>
-                      <p className={cn(
-                        "text-sm mt-1",
-                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                      )}>{plan.description}</p>
+                  <div className="flex flex-col h-full">
+                    <div className="flex-1 space-y-4">
+                      <div>
+                        <h4 className={cn(
+                          "text-xl font-semibold",
+                          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                        )}>
+                          {plan.name}
+                          {plan.price && (
+                            <span className="text-primary-gold font-semibold ml-2">{plan.price}</span>
+                          )}
+                        </h4>
+                        <p className={cn(
+                          "text-sm mt-1",
+                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                        )}>{plan.description}</p>
+                      </div>
+
+                      <ul className="space-y-2">
+                        {plan.features.map((feature, idx) => (
+                          <li key={idx} className={cn(
+                            "flex items-start text-sm",
+                            theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightText'
+                          )}>
+                            <svg
+                              className="w-5 h-5 text-primary-gold mr-2 flex-shrink-0 mt-0.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
 
-                    <ul className="space-y-2">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className={cn(
-                          "flex items-start text-sm",
-                          theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightText'
-                        )}>
-                          <svg
-                            className="w-5 h-5 text-primary-gold mr-2 flex-shrink-0 mt-0.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div className="pt-4">
+                    <div className="pt-4 flex-shrink-0">
                       {isCurrentPlan ? (
                         <Button variant="secondary" disabled className="w-full">
                           Current Plan

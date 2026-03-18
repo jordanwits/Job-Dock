@@ -95,6 +95,8 @@ export const TeamMembersSection = () => {
   }, [editingColorUserId])
 
   const [teamLimitReached, setTeamLimitReached] = useState(false)
+  const [teamMemberCount, setTeamMemberCount] = useState<number | null>(null)
+  const [teamMemberLimit, setTeamMemberLimit] = useState<number | null>(null)
 
   const loadMembers = async () => {
     try {
@@ -107,6 +109,8 @@ export const TeamMembersSection = () => {
       const canInviteMore = billingData.canInviteMore !== false
       setCanInvite(canInviteMembers && canInviteMore)
       setTeamLimitReached(canInviteMembers && !canInviteMore)
+      setTeamMemberCount(billingData.teamMemberCount ?? null)
+      setTeamMemberLimit(billingData.teamMemberLimit ?? null)
     } catch (err: any) {
       setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to load team members')
     }
@@ -264,6 +268,8 @@ export const TeamMembersSection = () => {
     }
   }
 
+  const showTeamCount = teamMemberLimit != null && teamMemberCount != null
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -281,10 +287,20 @@ export const TeamMembersSection = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className={cn(
-        "text-xl font-semibold",
-        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-      )}>Team Members</h2>
+      <div className="flex items-center gap-2 flex-wrap">
+        <h2 className={cn(
+          "text-xl font-semibold",
+          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+        )}>Team Members</h2>
+        {showTeamCount && (
+          <span className={cn(
+            "text-sm font-medium px-2 py-0.5 rounded",
+            theme === 'dark' ? 'text-primary-light/80 bg-primary-dark-secondary' : 'text-primary-lightTextSecondary bg-gray-100'
+          )}>
+            {teamMemberCount}/{teamMemberLimit}
+          </span>
+        )}
+      </div>
       <div className="space-y-4">
         {error && (
           <div className="text-red-400 text-sm">{error}</div>

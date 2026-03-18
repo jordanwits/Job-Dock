@@ -5588,7 +5588,10 @@ export const dataServices = {
           contactId,
           serviceId: payload.serviceId !== undefined ? payload.serviceId || null : undefined,
           price: payload.price !== undefined ? normalizePrice(payload.price) : undefined,
-          assignedTo: (normalizedAssignedTo ?? null) as unknown as Prisma.InputJsonValue,
+          assignedTo:
+            payload.assignedTo !== undefined
+              ? ((normalizedAssignedTo ?? null) as unknown as Prisma.InputJsonValue)
+              : undefined,
           status: payload.status ?? undefined,
         },
         include: {
