@@ -131,7 +131,7 @@ const Modal = ({
 
   const sizeClass = sizes[size] || sizes.md
 
-  /** Short confirmations on mobile: avoid flex-1 body stretching the shell to max-height */
+  /** Short confirmations on narrow viewports: avoid flex-1 body stretching the shell to max-height */
   const compactMobileBody =
     fitContentOnMobile && mobilePosition === 'center' && (size === 'xs' || size === 'sm')
 
@@ -139,7 +139,8 @@ const Modal = ({
     <div
       className={cn(
         // Full viewport - no bottom extension on wrapper so flex center is true viewport center
-        'fixed inset-0 z-50 flex overscroll-contain',
+        // Above in-app fullscreen layers (e.g. photo viewer z-50) so confirm dialogs are always on top
+        'fixed inset-0 z-[100] flex overscroll-contain',
         transparentBackdrop
           ? 'bg-black/20'
           : theme === 'dark'
@@ -177,7 +178,8 @@ const Modal = ({
             : size === 'xs' || size === 'sm'
               ? cn(
                   'my-auto max-h-viewport-mobile sm:h-auto sm:max-h-[85vh]',
-                  compactMobileBody && 'max-sm:h-fit max-sm:min-h-0'
+                  // max-sm missed many real devices (tablet, desktop-mode, wide CSS pixels); keep compact confirms from stretching
+                  compactMobileBody && 'max-lg:h-fit max-lg:min-h-0'
                 )
               : size === 'lg' || size === 'xl' || size === '2xl'
                 ? fitContentOnMobile
@@ -252,7 +254,7 @@ const Modal = ({
         <div
           className={cn(
             'overflow-y-auto overflow-x-hidden custom-scrollbar touch-pan-y',
-            compactMobileBody ? 'max-sm:flex-none sm:flex-1 sm:min-h-0' : 'flex-1 min-h-0',
+            compactMobileBody ? 'max-lg:flex-none lg:flex-1 lg:min-h-0' : 'flex-1 min-h-0',
             compactOnMobile ? 'p-3 pb-6 sm:p-6 sm:pb-6' : 'p-4 sm:p-6 pb-8 sm:pb-6'
           )}
           style={{ WebkitOverflowScrolling: 'touch' }}
