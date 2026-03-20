@@ -719,6 +719,7 @@ We look forward to working with you!',
     }
 
     // Photo file proxy with token - no auth required (token is in URL for img src)
+    // Documents use entityType "job" / entityId = job id (unified jobs + job logs).
     if (
       event.httpMethod === 'GET' &&
       resource === 'job-logs' &&
@@ -735,19 +736,31 @@ We look forward to working with you!',
           const doc = await prisma.document.findFirst({
             where: {
               id: photoId,
-              entityType: 'job_log',
+              entityType: 'job',
               entityId: id,
             },
           })
           if (doc) {
-            const { buffer, contentType } = await getFileBuffer(doc.fileKey)
-            const ct =
-              contentType ||
-              (doc.fileName?.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg')
+            const { buffer, contentType: s3ContentType } = await getFileBuffer(doc.fileKey)
+            const raw = (s3ContentType || '').toLowerCase()
+            const dbMime = (doc.mimeType || '').toLowerCase()
+            let ct =
+              raw.startsWith('image/') && raw !== 'image/svg+xml'
+                ? s3ContentType!
+                : dbMime.startsWith('image/') && dbMime !== 'image/svg+xml'
+                  ? doc.mimeType
+                  : null
+            if (!ct) {
+              const lower = doc.fileName?.toLowerCase() ?? ''
+              if (lower.endsWith('.webp')) ct = 'image/webp'
+              else if (lower.endsWith('.png')) ct = 'image/png'
+              else ct = 'image/jpeg'
+            }
             return binaryResponse(buffer, ct)
           }
         }
       }
+      return errorResponse('Photo not found', 404)
     }
 
     // Check if this is a public booking endpoint that doesn't require authentication

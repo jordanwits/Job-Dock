@@ -1,7 +1,15 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { format } from 'date-fns'
 import { Button, Textarea, ConfirmationDialog } from '@/components/ui'
 import type { JobLogPhoto, MarkupStroke, MarkupPoint } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
+
+function formatPhotoTimestamp(iso: string | undefined): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return format(d, 'MMM d, yyyy • h:mm a')
+}
 
 interface PhotoCaptureProps {
   jobLogId: string
@@ -376,6 +384,10 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
     setStrokes([])
   }
 
+  const fullscreenCapturedAt = fullscreenPhoto
+    ? formatPhotoTimestamp(fullscreenPhoto.createdAt)
+    : null
+
   return (
     <div className="space-y-4">
       <input
@@ -397,6 +409,7 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
         <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 mt-4">
           {photos.map((p) => {
             const isLoaded = loadedThumbnails.has(p.id)
+            const capturedAt = formatPhotoTimestamp(p.createdAt)
             return (
               <div
                 key={p.id}
@@ -457,6 +470,9 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
                   </svg>
                 </button>
                 </div>
+                {capturedAt && (
+                  <p className="text-xs text-primary-light/60 tabular-nums">{capturedAt}</p>
+                )}
                 {p.notes && (
                   <p className="text-sm text-primary-light/80 line-clamp-2 break-words">{p.notes}</p>
                 )}
@@ -486,6 +502,11 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
             className="flex-1 flex flex-col items-center justify-center w-full max-w-4xl gap-4 overflow-auto min-h-0"
             onClick={(e) => e.stopPropagation()}
           >
+            {fullscreenCapturedAt && (
+              <p className="text-sm text-white/55 tabular-nums text-center w-full">
+                {fullscreenCapturedAt}
+              </p>
+            )}
             <div className="flex flex-wrap justify-center gap-2">
               <Button
                 variant="outline"

@@ -131,6 +131,10 @@ const Modal = ({
 
   const sizeClass = sizes[size] || sizes.md
 
+  /** Short confirmations on mobile: avoid flex-1 body stretching the shell to max-height */
+  const compactMobileBody =
+    fitContentOnMobile && mobilePosition === 'center' && (size === 'xs' || size === 'sm')
+
   const modalContent = (
     <div
       className={cn(
@@ -159,7 +163,7 @@ const Modal = ({
     >
       <div
         className={cn(
-          'relative w-full rounded-lg shadow-xl flex flex-col',
+          'relative w-full min-h-0 rounded-lg shadow-xl flex flex-col overflow-hidden',
           theme === 'dark'
             ? 'bg-primary-dark-secondary border border-primary-blue'
             : 'bg-white border border-gray-200',
@@ -171,7 +175,10 @@ const Modal = ({
                 ? 'h-viewport-mobile-lg sm:h-auto sm:max-h-[85vh] sm:my-auto'
                 : 'h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
             : size === 'xs' || size === 'sm'
-              ? 'my-auto max-h-viewport-mobile sm:h-auto sm:max-h-[85vh]'
+              ? cn(
+                  'my-auto max-h-viewport-mobile sm:h-auto sm:max-h-[85vh]',
+                  compactMobileBody && 'max-sm:h-fit max-sm:min-h-0'
+                )
               : size === 'lg' || size === 'xl' || size === '2xl'
                 ? fitContentOnMobile
                   ? 'my-auto max-h-[85dvh] sm:h-auto sm:max-h-[85vh]'
@@ -244,7 +251,8 @@ const Modal = ({
         {/* Content - Scrollable. pb-8 on mobile ensures last items can scroll into view; touch for iOS */}
         <div
           className={cn(
-            'overflow-y-auto overflow-x-hidden flex-1 min-h-0 custom-scrollbar touch-pan-y',
+            'overflow-y-auto overflow-x-hidden custom-scrollbar touch-pan-y',
+            compactMobileBody ? 'max-sm:flex-none sm:flex-1 sm:min-h-0' : 'flex-1 min-h-0',
             compactOnMobile ? 'p-3 pb-6 sm:p-6 sm:pb-6' : 'p-4 sm:p-6 pb-8 sm:pb-6'
           )}
           style={{ WebkitOverflowScrolling: 'touch' }}

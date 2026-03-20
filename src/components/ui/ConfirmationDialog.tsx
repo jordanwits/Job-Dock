@@ -72,7 +72,9 @@ const ConfirmationDialog = ({
       onClose={onClose}
       title={title}
       footer={footer}
-      size="md"
+      size="sm"
+      compactOnMobile
+      fitContentOnMobile
       closeOnOverlayClick={!loading}
     >
       <div
