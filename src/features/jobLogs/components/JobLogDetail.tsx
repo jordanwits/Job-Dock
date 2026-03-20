@@ -23,7 +23,6 @@ const TIMER_STORAGE_KEY = 'joblog-active-timer'
 
 interface JobLogDetailProps {
   jobLog: JobLog
-  showCreatedBy?: boolean
   onBack: () => void
   onEdit: () => void
   onDelete: () => void
@@ -67,7 +66,6 @@ const getStatusColors = (theme: 'dark' | 'light'): Record<string, string> => ({
 
 const JobLogDetail = ({
   jobLog,
-  showCreatedBy,
   onBack,
   onEdit,
   onDelete,
@@ -898,7 +896,7 @@ const JobLogDetail = ({
               {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
             </span>
           </div>
-          {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
+          {jobLog.assignedToName && (
             <div className="flex flex-col gap-2 mt-2">
               {jobLog.assignedToName &&
                 (() => {
@@ -1076,16 +1074,6 @@ const JobLogDetail = ({
                     </div>
                   )
                 })()}
-              {showCreatedBy && jobLog.job?.createdByName && (
-                <span className={cn(
-                  "inline-block w-fit px-2 py-1 rounded text-xs font-medium border break-words",
-                  theme === 'dark'
-                    ? 'bg-primary-blue/20 text-primary-light/90 border-primary-blue/30'
-                    : 'bg-blue-100 text-blue-700 border-blue-300'
-                )}>
-                  Created by {jobLog.job.createdByName}
-                </span>
-              )}
             </div>
           )}
         </div>

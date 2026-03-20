@@ -10,13 +10,12 @@ import { useTheme } from '@/contexts/ThemeContext'
 interface JobLogListProps {
   onCreateClick?: () => void
   onSelectJobLog: (id: string) => void
-  showCreatedBy?: boolean
 }
 
 type DisplayMode = 'cards' | 'list'
 type SortBy = 'recent' | 'oldest' | 'title'
 
-const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogListProps) => {
+const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
   const { theme } = useTheme()
   const {
     jobLogs,
@@ -557,7 +556,6 @@ const JobLogList = ({ onCreateClick, onSelectJobLog, showCreatedBy }: JobLogList
               onClick={() => onSelectJobLog(jobLog.id)}
               isSelected={selectedIds.has(jobLog.id)}
               onToggleSelect={toggleSelection}
-              showCreatedBy={showCreatedBy}
             />
           ))}
         </div>

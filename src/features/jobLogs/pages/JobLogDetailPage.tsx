@@ -3,26 +3,12 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogDetail from '../components/JobLogDetail'
 import { ConfirmationDialog, Card, Button } from '@/components/ui'
-import { services } from '@/lib/api/services'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
 
 const JobLogDetailPage = () => {
   const { theme } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [isTeamAccount, setIsTeamAccount] = useState(false)
-
-  useEffect(() => {
-    const checkTeam = async () => {
-      try {
-        const status = await services.billing.getStatus()
-        setIsTeamAccount(status.subscriptionTier === 'team' || status.subscriptionTier === 'team-plus')
-      } catch {
-        setIsTeamAccount(false)
-      }
-    }
-    checkTeam()
-  }, [])
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const {
@@ -188,7 +174,6 @@ const JobLogDetailPage = () => {
       )}
       <JobLogDetail
         jobLog={selectedJobLog}
-        showCreatedBy={isTeamAccount}
         onBack={handleBack}
         onEdit={() => setEditingJobLogId(selectedJobLog.id)}
         onDelete={handleDeleteClick}

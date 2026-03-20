@@ -5,7 +5,6 @@ import JobLogList from '../components/JobLogList'
 import JobLogForm from '../components/JobLogForm'
 import { Modal, Button } from '@/components/ui'
 import type { CreateJobLogData } from '../types/jobLog'
-import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
@@ -82,7 +81,6 @@ const JobLogsListPage = () => {
       <JobLogList
         onCreateClick={() => setShowCreateForm(true)}
         onSelectJobLog={handleSelectJobLog}
-        showCreatedBy={isTeamAccount}
       />
 
       <Modal

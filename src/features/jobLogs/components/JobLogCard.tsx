@@ -10,7 +10,6 @@ interface JobLogCardProps {
   onClick: () => void
   isSelected?: boolean
   onToggleSelect?: (id: string, event: React.MouseEvent) => void
-  showCreatedBy?: boolean
 }
 
 const JobLogCard = ({
@@ -18,7 +17,6 @@ const JobLogCard = ({
   onClick,
   isSelected,
   onToggleSelect,
-  showCreatedBy,
 }: JobLogCardProps) => {
   const { theme } = useTheme()
   const totalMinutes =
@@ -115,19 +113,12 @@ const JobLogCard = ({
               )}>{subtitle}</span>
             )}
           </div>
-          {(jobLog.assignedToName || (showCreatedBy && jobLog.job?.createdByName)) && (
+          {jobLog.assignedToName && (
             <p className={cn(
               "text-xs mt-1 break-words",
               theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
             )}>
-              {[
-                jobLog.assignedToName && `Assigned to ${jobLog.assignedToName}`,
-                showCreatedBy &&
-                  jobLog.job?.createdByName &&
-                  `Created by ${jobLog.job.createdByName}`,
-              ]
-                .filter(Boolean)
-                .join(' • ')}
+              Assigned to {jobLog.assignedToName}
             </p>
           )}
         </div>
