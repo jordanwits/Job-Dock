@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { publicApiClient } from '@/lib/api/client'
+import { DeclineSuccessIcon } from './DeclineSuccessIcon'
 
 type ApprovalAction = 'accept' | 'decline'
 
@@ -128,7 +129,11 @@ const QuoteApprovalPage = () => {
           </div>
         ) : success ? (
           <div className="space-y-4">
-            <div className="text-5xl mb-4">{action === 'accept' ? '✅' : '📝'}</div>
+            {action === 'accept' ? (
+              <div className="text-5xl mb-4">✅</div>
+            ) : (
+              <DeclineSuccessIcon />
+            )}
             <h2 className="text-2xl font-semibold text-primary-light mb-2">
               {action === 'accept' ? 'Quote Accepted!' : 'Quote Declined'}
             </h2>

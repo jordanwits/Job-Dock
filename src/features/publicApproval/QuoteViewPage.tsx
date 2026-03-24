@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { publicApiClient } from '@/lib/api/client'
+import { DeclineSuccessIcon } from './DeclineSuccessIcon'
 
 const DECLINE_REASON_MAX_LEN = 2000
 
@@ -131,7 +132,11 @@ const QuoteViewPage = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-primary-gold">JobDock</h1>
             )}
           </div>
-          <div className="text-4xl sm:text-5xl mb-4">{success === 'accept' ? '✅' : '📝'}</div>
+          {success === 'accept' ? (
+            <div className="text-4xl sm:text-5xl mb-4">✅</div>
+          ) : (
+            <DeclineSuccessIcon />
+          )}
           <h2 className="text-xl sm:text-2xl font-semibold text-primary-light mb-2">
             {success === 'accept' ? 'Quote Accepted!' : 'Quote Declined'}
           </h2>
