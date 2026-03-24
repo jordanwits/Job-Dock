@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogCard from './JobLogCard'
 import { Input, Button, Select, Checkbox } from '@/components/ui'
@@ -17,6 +18,7 @@ type SortBy = 'recent' | 'oldest' | 'title'
 
 const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
   const { theme } = useTheme()
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     jobLogs,
     isLoading,
@@ -44,9 +46,41 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  const showCompletedPriorToCompletedFilterRef = useRef<boolean | null>(null)
+  const prevStatusFilterRef = useRef(statusFilter)
+
   useEffect(() => {
     fetchJobLogs()
   }, [fetchJobLogs])
+
+  useEffect(() => {
+    setStatusFilter('all')
+  }, [])
+
+  useEffect(() => {
+    const status = searchParams.get('status')
+    if (!status) return
+    if (status !== 'active' && status !== 'completed' && status !== 'inactive') return
+    setStatusFilter(status)
+    const next = new URLSearchParams(searchParams)
+    next.delete('status')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, setStatusFilter])
+
+  useEffect(() => {
+    const prev = prevStatusFilterRef.current
+    if (statusFilter === 'completed' && prev !== 'completed') {
+      showCompletedPriorToCompletedFilterRef.current = showCompleted
+      setShowCompleted(true)
+    } else if (statusFilter !== 'completed' && prev === 'completed') {
+      const prior = showCompletedPriorToCompletedFilterRef.current
+      if (prior !== null) {
+        setShowCompleted(prior)
+      }
+    }
+    prevStatusFilterRef.current = statusFilter
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read showCompleted only when statusFilter changes
+  }, [statusFilter])
 
   useEffect(() => {
     localStorage.setItem('joblogs-display-mode', displayMode)
@@ -57,8 +91,12 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
   }, [sortBy])
 
   useEffect(() => {
+    if (statusFilter === 'completed') return
     localStorage.setItem('joblogs-show-completed', String(showCompleted))
-  }, [showCompleted])
+  }, [showCompleted, statusFilter])
+
+  const showCompletedEffective =
+    statusFilter === 'completed' ? true : showCompleted
 
   const hasFilters = Boolean(searchQuery.trim()) || statusFilter !== 'all'
   const clearFilters = () => {
@@ -126,8 +164,8 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
   const filteredJobLogs = useMemo(() => {
     let filtered = jobLogs
 
-    // Filter out completed jobs if toggle is off
-    if (!showCompleted) {
+    // Filter out completed jobs if toggle is off (always show them when Completed status filter is on)
+    if (!showCompletedEffective) {
       filtered = filtered.filter((j) => {
         const s = j.status ?? 'active'
         return s !== 'completed'
@@ -163,7 +201,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
     })
 
     return sorted
-  }, [jobLogs, statusFilter, searchQuery, sortBy, showCompleted])
+  }, [jobLogs, statusFilter, searchQuery, sortBy, showCompletedEffective])
 
   const computeTotalHours = (jobLog: (typeof jobLogs)[0]) => {
     const totalMinutes =
@@ -209,14 +247,25 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
           />
         </div>
         <div className="flex gap-2 flex-wrap sm:flex-nowrap items-center">
-          <label className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer whitespace-nowrap flex-shrink-0",
-            theme === 'dark'
-              ? 'border-primary-blue/30 bg-primary-dark-secondary'
-              : 'border-gray-200 bg-white'
-          )}>
+          <label
+            className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg border whitespace-nowrap flex-shrink-0',
+              statusFilter === 'completed'
+                ? 'cursor-not-allowed opacity-90'
+                : 'cursor-pointer',
+              theme === 'dark'
+                ? 'border-primary-blue/30 bg-primary-dark-secondary'
+                : 'border-gray-200 bg-white'
+            )}
+            title={
+              statusFilter === 'completed'
+                ? 'Show completed is required while filtering by Completed status'
+                : undefined
+            }
+          >
             <Checkbox
-              checked={showCompleted}
+              checked={showCompletedEffective}
+              disabled={statusFilter === 'completed'}
               onChange={(e) => setShowCompleted(e.target.checked)}
             />
             <span className={cn(

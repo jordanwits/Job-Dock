@@ -22,13 +22,13 @@ try {
     $lambdaName = ($outputs | Where-Object { $_.OutputKey -eq "MigrationLambdaName" }).OutputValue
     
     if (-not $lambdaName) {
-        Write-Host "✗ Could not find Migration Lambda. Check stack deployment." -ForegroundColor Red
+        Write-Host "[X] Could not find Migration Lambda. Check stack deployment." -ForegroundColor Red
         exit 1
     }
     
-    Write-Host "✓ Found Lambda: $lambdaName" -ForegroundColor Green
+    Write-Host "[OK] Found Lambda: $lambdaName" -ForegroundColor Green
 } catch {
-    Write-Host "✗ Error fetching stack info: $_" -ForegroundColor Red
+    Write-Host "[X] Error fetching stack info: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -57,23 +57,23 @@ if ($LASTEXITCODE -eq 0) {
         $response = Get-Content "migration-response.json" | ConvertFrom-Json
         
         Write-Host "`n=== Migration Response ===" -ForegroundColor Cyan
-        $response | ConvertTo-Json -Depth 5 | Write-Host
+        Write-Host ($response | ConvertTo-Json -Depth 5)
         
-        if ($response.statusCode -eq 200) {
-            Write-Host "`n✓ Migration completed successfully!" -ForegroundColor Green
+        if ($response.success -eq $true) {
+            Write-Host "`nMigration completed successfully!" -ForegroundColor Green
         } else {
-            Write-Host "`n✗ Migration failed. Check logs above." -ForegroundColor Red
+            Write-Host "`nMigration failed. Check logs above." -ForegroundColor Red
             exit 1
         }
     }
 } else {
-    Write-Host "✗ Failed to invoke Lambda" -ForegroundColor Red
+    Write-Host "[X] Failed to invoke Lambda" -ForegroundColor Red
     exit 1
 }
 
 Write-Host "`n=== Next Steps ===" -ForegroundColor Cyan
 Write-Host "1. Verify migration in CloudWatch Logs"
 Write-Host "2. Test your application"
-Write-Host "3. No bastion host needed! 🎉"
+Write-Host "3. No bastion host needed."
 Write-Host ""
-Write-Host "CloudWatch Logs: https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/`$252Faws`$252Flambda`$252F$lambdaName" -ForegroundColor Gray
+Write-Host ('CloudWatch Logs for Lambda: ' + $lambdaName) -ForegroundColor Gray

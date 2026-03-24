@@ -450,7 +450,7 @@ const QuoteForm = ({
             { value: 'draft', label: 'Draft' },
             { value: 'sent', label: 'Sent' },
             { value: 'accepted', label: 'Accepted' },
-            { value: 'rejected', label: 'Rejected' },
+            { value: 'rejected', label: 'Declined' },
             { value: 'expired', label: 'Expired' },
           ]}
         />

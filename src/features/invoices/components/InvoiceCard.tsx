@@ -3,6 +3,7 @@ import { useInvoiceStore } from '../store/invoiceStore'
 import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
+import { CLIENT_APPROVAL_LABELS, INVOICE_STATUS_LABELS } from '../types/invoice'
 
 interface InvoiceCardProps {
   invoice: Invoice
@@ -19,7 +20,7 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
       ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
       : 'bg-gray-200 text-gray-600 border-gray-300',
     sent: theme === 'dark'
-      ? 'bg-primary-blue/20 text-primary-blue border-primary-blue/30'
+      ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
       : 'bg-blue-100 text-blue-700 border-blue-300',
     overdue: theme === 'dark'
       ? 'bg-red-500/20 text-red-400 border-red-500/30'
@@ -160,7 +161,7 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
                   statusColors[invoice.status]
                 )}
               >
-                {invoice.status}
+                {INVOICE_STATUS_LABELS[invoice.status]}
               </span>
             )}
             {shouldShowApproval && (
@@ -170,7 +171,7 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
                   approvalStatusColors[invoice.approvalStatus!]
                 )}
               >
-                Client {invoice.approvalStatus}
+                Client {CLIENT_APPROVAL_LABELS[invoice.approvalStatus]}
               </span>
             )}
             {invoice.trackPayment !== false && (

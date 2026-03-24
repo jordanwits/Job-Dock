@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuoteStore } from '../store/quoteStore'
+import { QUOTE_STATUS_LABELS } from '../types/quote'
 import QuoteCard from './QuoteCard'
 import { Input, Button, Select } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -12,8 +14,17 @@ interface QuoteListProps {
 
 type DisplayMode = 'cards' | 'list'
 
+const QUOTE_STATUS_FROM_URL = [
+  'draft',
+  'sent',
+  'accepted',
+  'rejected',
+  'expired',
+] as const
+
 const QuoteList = ({ onCreateClick }: QuoteListProps) => {
   const { theme } = useTheme()
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     quotes,
     isLoading,
@@ -39,6 +50,20 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
   useEffect(() => {
     fetchQuotes()
   }, [fetchQuotes])
+
+  useEffect(() => {
+    setStatusFilter('all')
+  }, [setStatusFilter])
+
+  useEffect(() => {
+    const status = searchParams.get('status')
+    if (!status) return
+    if (!QUOTE_STATUS_FROM_URL.includes(status as (typeof QUOTE_STATUS_FROM_URL)[number])) return
+    setStatusFilter(status as (typeof QUOTE_STATUS_FROM_URL)[number])
+    const next = new URLSearchParams(searchParams)
+    next.delete('status')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, setStatusFilter])
 
   // Persist display mode preference
   useEffect(() => {
@@ -158,7 +183,7 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
       ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
       : 'bg-gray-200 text-gray-600 border-gray-300',
     sent: theme === 'dark'
-      ? 'bg-primary-blue/20 text-primary-blue border-primary-blue/30'
+      ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
       : 'bg-blue-100 text-blue-700 border-blue-300',
     accepted: theme === 'dark'
       ? 'bg-green-500/20 text-green-400 border-green-500/30'
@@ -202,7 +227,7 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
               { value: 'draft', label: 'Draft' },
               { value: 'sent', label: 'Sent' },
               { value: 'accepted', label: 'Accepted' },
-              { value: 'rejected', label: 'Rejected' },
+              { value: 'rejected', label: 'Declined' },
               { value: 'expired', label: 'Expired' },
             ]}
             className="w-full sm:w-auto min-w-[140px]"
@@ -496,7 +521,7 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={cn('px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border', statusColors[quote.status])}>
-                        {quote.status}
+                        {QUOTE_STATUS_LABELS[quote.status]}
                       </span>
                     </td>
                   </tr>

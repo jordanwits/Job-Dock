@@ -25,6 +25,8 @@ export interface Quote {
   discountReason?: string
   total: number
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+  /** Set when the client declines via the public approval link (optional). */
+  clientDeclineReason?: string
   notes?: string
   validUntil?: string
   createdAt: string
@@ -49,3 +51,11 @@ export interface UpdateQuoteData extends Partial<CreateQuoteData> {
 
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
 
+/** User-facing labels (stored/API status for declined quotes remains `rejected`). */
+export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  accepted: 'Accepted',
+  rejected: 'Declined',
+  expired: 'Expired',
+}

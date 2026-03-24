@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { publicApiClient } from '@/lib/api/client'
 
+const DECLINE_REASON_MAX_LEN = 2000
+
 const InvoiceViewPage = () => {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
@@ -15,6 +17,8 @@ const InvoiceViewPage = () => {
   const [submitting, setSubmitting] = useState<'accept' | 'decline' | null>(null)
   const [success, setSuccess] = useState<'accept' | 'decline' | null>(null)
   const [invoiceNumber, setInvoiceNumber] = useState<string>('')
+  const [declineStep, setDeclineStep] = useState<'idle' | 'confirm'>('idle')
+  const [declineReason, setDeclineReason] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -54,12 +58,21 @@ const InvoiceViewPage = () => {
   const handleAction = async (action: 'accept' | 'decline') => {
     if (!id || !token) return
 
+    if (action === 'decline' && declineStep === 'idle') {
+      setDeclineStep('confirm')
+      setError(null)
+      return
+    }
+
     setSubmitting(action)
     try {
       const endpoint = action === 'accept'
         ? `/invoices/${id}/approve-public`
         : `/invoices/${id}/decline-public`
-      const response = await publicApiClient.post(`${endpoint}?token=${token}`, {})
+      const trimmed = declineReason.trim().slice(0, DECLINE_REASON_MAX_LEN)
+      const body =
+        action === 'accept' ? {} : trimmed ? { declineReason: trimmed } : {}
+      const response = await publicApiClient.post(`${endpoint}?token=${token}`, body)
       setInvoiceNumber(response.data.invoiceNumber || id)
       setSuccess(action)
     } catch (err: any) {
@@ -181,21 +194,65 @@ const InvoiceViewPage = () => {
           )}
         </div>
 
+        {declineStep === 'confirm' && (
+          <div className="mb-4 space-y-2 shrink-0 max-w-xl mx-auto w-full">
+            <label htmlFor="invoice-view-decline-reason" className="block text-sm text-primary-light/80">
+              Reason for declining <span className="text-primary-light/50">(optional)</span>
+            </label>
+            <textarea
+              id="invoice-view-decline-reason"
+              value={declineReason}
+              onChange={e => setDeclineReason(e.target.value.slice(0, DECLINE_REASON_MAX_LEN))}
+              rows={3}
+              placeholder="The contractor will see this in JobDock."
+              className="w-full rounded-lg border border-primary-light/20 bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/40 focus:border-primary-gold focus:outline-none focus:ring-1 focus:ring-primary-gold"
+            />
+            <p className="text-xs text-primary-light/50 text-right">
+              {declineReason.length}/{DECLINE_REASON_MAX_LEN}
+            </p>
+          </div>
+        )}
+
         <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 justify-center shrink-0">
           <button
             onClick={() => handleAction('accept')}
-            disabled={!!submitting}
+            disabled={!!submitting || declineStep === 'confirm'}
             className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-gold text-primary-dark font-semibold rounded-lg hover:bg-primary-gold/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
           >
             {submitting === 'accept' ? 'Processing...' : 'Approve Invoice'}
           </button>
-          <button
-            onClick={() => handleAction('decline')}
-            disabled={!!submitting}
-            className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
-          >
-            {submitting === 'decline' ? 'Processing...' : 'Decline'}
-          </button>
+          {declineStep === 'idle' ? (
+            <button
+              type="button"
+              onClick={() => handleAction('decline')}
+              disabled={!!submitting}
+              className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
+            >
+              Decline
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeclineStep('idle')
+                  setDeclineReason('')
+                }}
+                disabled={!!submitting}
+                className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 disabled:opacity-50 min-h-[48px]"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAction('decline')}
+                disabled={!!submitting}
+                className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-red-600/90 text-white font-semibold rounded-lg hover:bg-red-600 disabled:opacity-50 min-h-[48px]"
+              >
+                {submitting === 'decline' ? 'Processing...' : 'Confirm decline'}
+              </button>
+            </>
+          )}
         </div>
       </main>
     </div>

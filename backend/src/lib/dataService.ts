@@ -889,6 +889,16 @@ async function generateSequentialNumber(tenantId: string, model: 'quote' | 'invo
   return `${prefix}-${new Date().getFullYear()}-${String(count + 1).padStart(3, '0')}`
 }
 
+const CLIENT_DECLINE_REASON_MAX_LEN = 2000
+
+function normalizeClientDeclineReason(input: unknown): string | null {
+  if (input === undefined || input === null) return null
+  if (typeof input !== 'string') return null
+  const t = input.trim()
+  if (!t) return null
+  return t.slice(0, CLIENT_DECLINE_REASON_MAX_LEN)
+}
+
 const serializeQuote = (
   quote: Quote & {
     contact?: Contact
@@ -913,6 +923,7 @@ const serializeQuote = (
   discountReason: quote.discountReason ?? undefined,
   total: toNumber(quote.total),
   status: quote.status as any,
+  clientDeclineReason: quote.clientDeclineReason ?? undefined,
   notes: quote.notes ?? undefined,
   validUntil: quote.validUntil?.toISOString(),
   createdAt: quote.createdAt.toISOString(),
@@ -947,6 +958,7 @@ const serializeInvoice = (
   paymentStatus: invoice.paymentStatus,
   approvalStatus: (invoice as any).approvalStatus ?? 'none',
   approvalAt: (invoice as any).approvalAt?.toISOString(),
+  clientDeclineReason: invoice.clientDeclineReason ?? undefined,
   notes: invoice.notes ?? undefined,
   dueDate: invoice.dueDate?.toISOString(),
   paymentTerms: invoice.paymentTerms,
@@ -1724,7 +1736,7 @@ export const dataServices = {
         tenantId,
       }
     },
-    decline: async (tenantId: string, id: string) => {
+    decline: async (tenantId: string, id: string, declineReason?: unknown) => {
       await ensureTenantExists(tenantId)
 
       const quote = await prisma.quote.findFirst({
@@ -1735,6 +1747,8 @@ export const dataServices = {
       if (!quote) {
         throw new ApiError('Quote not found', 404)
       }
+
+      const storedDeclineReason = normalizeClientDeclineReason(declineReason)
 
       // Only allow declining if quote is in 'sent' status
       if (quote.status !== 'sent') {
@@ -1757,7 +1771,7 @@ export const dataServices = {
 
       const updatedQuote = await prisma.quote.update({
         where: { id },
-        data: { status: 'rejected' },
+        data: { status: 'rejected', clientDeclineReason: storedDeclineReason },
         include: { contact: true, lineItems: true },
       })
 
@@ -1774,6 +1788,7 @@ export const dataServices = {
           quoteNumber: updatedQuote.quoteNumber,
           clientName,
           total: Number(updatedQuote.total),
+          declineReason: storedDeclineReason ?? undefined,
         })
       } catch (err) {
         console.error('Failed to send quote decline notifications:', err)
@@ -2109,7 +2124,8 @@ export const dataServices = {
     setApprovalStatus: async (
       tenantId: string,
       id: string,
-      approvalStatus: 'accepted' | 'declined'
+      approvalStatus: 'accepted' | 'declined',
+      declineReason?: unknown
     ) => {
       await ensureTenantExists(tenantId)
 
@@ -2141,11 +2157,17 @@ export const dataServices = {
         }
       }
 
+      const storedDeclineReason =
+        approvalStatus === 'declined' ? normalizeClientDeclineReason(declineReason) : null
+
       const updatedInvoice = await prisma.invoice.update({
         where: { id },
         data: {
           approvalStatus: approvalStatus,
           approvalAt: new Date(),
+          ...(approvalStatus === 'declined'
+            ? { clientDeclineReason: storedDeclineReason }
+            : {}),
         } as any,
         include: { contact: true, lineItems: true },
       })
@@ -2179,6 +2201,7 @@ export const dataServices = {
             invoiceNumber: updatedInvoice.invoiceNumber,
             clientName,
             total: Number(updatedInvoice.total),
+            declineReason: storedDeclineReason ?? undefined,
           })
         } catch (err) {
           console.error('Failed to send invoice decline notifications:', err)

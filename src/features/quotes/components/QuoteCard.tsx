@@ -1,4 +1,4 @@
-import { Quote } from '../types/quote'
+import { Quote, QUOTE_STATUS_LABELS } from '../types/quote'
 import { useQuoteStore } from '../store/quoteStore'
 import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -19,7 +19,7 @@ const QuoteCard = ({ quote, isSelected, onToggleSelect }: QuoteCardProps) => {
       ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
       : 'bg-gray-200 text-gray-600 border-gray-300',
     sent: theme === 'dark'
-      ? 'bg-primary-blue/20 text-primary-blue border-primary-blue/30'
+      ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
       : 'bg-blue-100 text-blue-700 border-blue-300',
     accepted: theme === 'dark'
       ? 'bg-green-500/20 text-green-400 border-green-500/30'
@@ -105,7 +105,7 @@ const QuoteCard = ({ quote, isSelected, onToggleSelect }: QuoteCardProps) => {
               statusColors[quote.status]
             )}
           >
-            {quote.status}
+            {QUOTE_STATUS_LABELS[quote.status]}
           </span>
         </div>
 

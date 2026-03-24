@@ -29,6 +29,14 @@ export interface EmailPayload {
   replyTo?: string // Email address for replies
 }
 
+function escapeHtmlForEmail(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 /**
  * Get local time components from a UTC date based on timezone offset
  * @param utcDate The UTC date
@@ -1738,6 +1746,7 @@ export function buildQuoteDeclinedNotificationEmail(data: {
   quoteNumber: string
   clientName: string
   total: number
+  declineReason?: string | null
   companyName?: string
   logoUrl?: string | null
   fromName?: string
@@ -1747,8 +1756,19 @@ export function buildQuoteDeclinedNotificationEmail(data: {
     companyPhone?: string | null
   }
 }): EmailPayload {
-  const { userName, userEmail, quoteNumber, clientName, total, companyName, logoUrl, fromName, replyTo, settings } =
-    data
+  const {
+    userName,
+    userEmail,
+    quoteNumber,
+    clientName,
+    total,
+    declineReason,
+    companyName,
+    logoUrl,
+    fromName,
+    replyTo,
+    settings,
+  } = data
 
   const formattedTotal = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -1784,6 +1804,16 @@ export function buildQuoteDeclinedNotificationEmail(data: {
                 <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${formattedTotal}</p>
               </td>
             </tr>
+            ${
+              declineReason
+                ? `<tr>
+              <td style="padding: 12px 0 0 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Client note (optional)</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 15px; line-height: 1.5; white-space: pre-wrap;">${escapeHtmlForEmail(declineReason)}</p>
+              </td>
+            </tr>`
+                : ''
+            }
           </table>
         </td>
       </tr>
@@ -1826,7 +1856,7 @@ Quote Declined
 
 Hi ${userName},
 
-${clientName} has declined quote ${quoteNumber} (${formattedTotal}).
+${clientName} has declined quote ${quoteNumber} (${formattedTotal}).${declineReason ? `\n\nClient note:\n${declineReason}` : ''}
 
 View quotes: ${viewUrl}
   `.trim()
@@ -1850,6 +1880,7 @@ export function buildInvoiceDeclinedNotificationEmail(data: {
   invoiceNumber: string
   clientName: string
   total: number
+  declineReason?: string | null
   companyName?: string
   logoUrl?: string | null
   fromName?: string
@@ -1859,8 +1890,19 @@ export function buildInvoiceDeclinedNotificationEmail(data: {
     companyPhone?: string | null
   }
 }): EmailPayload {
-  const { userName, userEmail, invoiceNumber, clientName, total, companyName, logoUrl, fromName, replyTo, settings } =
-    data
+  const {
+    userName,
+    userEmail,
+    invoiceNumber,
+    clientName,
+    total,
+    declineReason,
+    companyName,
+    logoUrl,
+    fromName,
+    replyTo,
+    settings,
+  } = data
 
   const formattedTotal = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -1896,6 +1938,16 @@ export function buildInvoiceDeclinedNotificationEmail(data: {
                 <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;">${formattedTotal}</p>
               </td>
             </tr>
+            ${
+              declineReason
+                ? `<tr>
+              <td style="padding: 12px 0 0 0;">
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Client note (optional)</p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 15px; line-height: 1.5; white-space: pre-wrap;">${escapeHtmlForEmail(declineReason)}</p>
+              </td>
+            </tr>`
+                : ''
+            }
           </table>
         </td>
       </tr>
@@ -1938,7 +1990,7 @@ Invoice Declined
 
 Hi ${userName},
 
-${clientName} has declined invoice ${invoiceNumber} (${formattedTotal}).
+${clientName} has declined invoice ${invoiceNumber} (${formattedTotal}).${declineReason ? `\n\nClient note:\n${declineReason}` : ''}
 
 View invoices: ${viewUrl}
   `.trim()
@@ -2069,6 +2121,7 @@ export async function sendQuoteDeclinedNotificationToAdmins(data: {
   quoteNumber: string
   clientName: string
   total: number
+  declineReason?: string | null
 }): Promise<void> {
   const prisma = (await import('./db')).default
 
@@ -2105,6 +2158,7 @@ export async function sendQuoteDeclinedNotificationToAdmins(data: {
       quoteNumber: data.quoteNumber,
       clientName: data.clientName,
       total: data.total,
+      declineReason: data.declineReason,
       companyName: fromName,
       logoUrl,
       fromName,
@@ -2126,6 +2180,7 @@ export async function sendInvoiceDeclinedNotificationToAdmins(data: {
   invoiceNumber: string
   clientName: string
   total: number
+  declineReason?: string | null
 }): Promise<void> {
   const prisma = (await import('./db')).default
 
@@ -2162,6 +2217,7 @@ export async function sendInvoiceDeclinedNotificationToAdmins(data: {
       invoiceNumber: data.invoiceNumber,
       clientName: data.clientName,
       total: data.total,
+      declineReason: data.declineReason,
       companyName: fromName,
       logoUrl,
       fromName,

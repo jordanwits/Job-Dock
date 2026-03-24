@@ -28,6 +28,8 @@ export interface Invoice {
   paymentStatus: 'pending' | 'partial' | 'paid'
   approvalStatus?: 'none' | 'accepted' | 'declined'
   approvalAt?: string
+  /** Set when the client declines via the public approval link (optional). */
+  clientDeclineReason?: string
   notes?: string
   dueDate?: string
   paymentTerms?: string
@@ -69,3 +71,15 @@ export type InvoiceStatus = 'draft' | 'sent' | 'overdue' | 'cancelled'
 export type PaymentStatus = 'pending' | 'partial' | 'paid'
 export type ApprovalStatus = 'none' | 'accepted' | 'declined'
 
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  overdue: 'Overdue',
+  cancelled: 'Cancelled',
+}
+
+export const CLIENT_APPROVAL_LABELS: Record<ApprovalStatus, string> = {
+  none: 'No response',
+  accepted: 'Accepted',
+  declined: 'Declined',
+}

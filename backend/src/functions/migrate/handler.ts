@@ -917,6 +917,14 @@ END $$`,
     ],
     description: 'Add support for independent appointments (bookings without a parent job)',
   },
+  {
+    name: '20260324000000_add_client_decline_reason',
+    statements: [
+      `ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "clientDeclineReason" TEXT`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "clientDeclineReason" TEXT`,
+    ],
+    description: 'Optional client decline reason when declining quote/invoice via public link',
+  },
 ]
 
 export const handler = async (

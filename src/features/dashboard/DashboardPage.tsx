@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useMemo, useCallback, useRef, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
@@ -9,6 +9,7 @@ import { Card, Button } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
+import { QUOTE_STATUS_LABELS } from '@/features/quotes/types/quote'
 
 const isStandaloneMode = (): boolean => {
   return (
@@ -247,6 +248,34 @@ const DashboardPage = () => {
     ? jobsLoading || jobLogsLoading
     : jobsLoading || jobLogsLoading || quotesLoading || invoicesLoading
 
+  const statTileClass = (clickable: boolean) =>
+    cn(
+      'rounded-lg p-4 ring-1',
+      theme === 'dark'
+        ? 'bg-primary-dark/50 ring-white/5'
+        : 'bg-gray-100 ring-gray-200/20',
+      clickable
+        ? theme === 'dark'
+          ? 'cursor-pointer hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-blue/40'
+          : 'cursor-pointer hover:bg-gray-200 border border-transparent hover:border-gray-200/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-blue/50'
+        : 'cursor-default'
+    )
+
+  const statTileProps = (clickable: boolean, path: string) =>
+    clickable
+      ? {
+          role: 'button' as const,
+          tabIndex: 0 as const,
+          onClick: () => navigate(path),
+          onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              navigate(path)
+            }
+          },
+        }
+      : {}
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -471,12 +500,10 @@ const DashboardPage = () => {
 
             {/* Job Stats */}
             <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className={cn(
-                "rounded-lg p-4 ring-1",
-                theme === 'dark'
-                  ? 'bg-primary-dark/50 ring-white/5'
-                  : 'bg-gray-100 ring-gray-200/20'
-              )}>
+              <div
+                className={statTileClass(jobMetrics.activeCount > 0)}
+                {...statTileProps(jobMetrics.activeCount > 0, '/app/job-logs?status=active')}
+              >
                 <p className={cn(
                   "text-xs font-medium uppercase tracking-wide",
                   theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
@@ -485,12 +512,10 @@ const DashboardPage = () => {
                 </p>
                 <p className="text-2xl font-bold text-green-400 mt-2">{jobMetrics.activeCount}</p>
               </div>
-              <div className={cn(
-                "rounded-lg p-4 ring-1",
-                theme === 'dark'
-                  ? 'bg-primary-dark/50 ring-white/5'
-                  : 'bg-gray-100 ring-gray-200/20'
-              )}>
+              <div
+                className={statTileClass(jobMetrics.completedCount > 0)}
+                {...statTileProps(jobMetrics.completedCount > 0, '/app/job-logs?status=completed')}
+              >
                 <p className={cn(
                   "text-xs font-medium uppercase tracking-wide",
                   theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
@@ -611,13 +636,16 @@ const DashboardPage = () => {
               </div>
 
               {/* Quote Stats */}
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                <div className={cn(
-                  "rounded-lg p-4 ring-1",
-                  theme === 'dark'
-                    ? 'bg-primary-dark/50 ring-white/5'
-                    : 'bg-gray-100 ring-gray-200/20'
-                )}>
+              <div
+                className={cn(
+                  'grid gap-3 mb-5 min-w-0',
+                  quoteMetrics.rejected > 0 ? 'grid-cols-3' : 'grid-cols-2'
+                )}
+              >
+                <div
+                  className={cn(statTileClass(quoteMetrics.pending > 0), 'min-w-0')}
+                  {...statTileProps(quoteMetrics.pending > 0, '/app/quotes?status=sent')}
+                >
                   <p className={cn(
                     "text-xs font-medium uppercase tracking-wide",
                     theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
@@ -628,12 +656,10 @@ const DashboardPage = () => {
                     {quoteMetrics.pending}
                   </p>
                 </div>
-                <div className={cn(
-                  "rounded-lg p-4 ring-1",
-                  theme === 'dark'
-                    ? 'bg-primary-dark/50 ring-white/5'
-                    : 'bg-gray-100 ring-gray-200/20'
-                )}>
+                <div
+                  className={cn(statTileClass(quoteMetrics.accepted > 0), 'min-w-0')}
+                  {...statTileProps(quoteMetrics.accepted > 0, '/app/quotes?status=accepted')}
+                >
                   <p className={cn(
                     "text-xs font-medium uppercase tracking-wide",
                     theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
@@ -642,6 +668,20 @@ const DashboardPage = () => {
                   </p>
                   <p className="text-2xl font-bold text-green-400 mt-2">{quoteMetrics.accepted}</p>
                 </div>
+                {quoteMetrics.rejected > 0 && (
+                  <div
+                    className={cn(statTileClass(true), 'min-w-0')}
+                    {...statTileProps(true, '/app/quotes?status=rejected')}
+                  >
+                    <p className={cn(
+                      "text-xs font-medium uppercase tracking-wide",
+                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                    )}>
+                      Declined
+                    </p>
+                    <p className="text-2xl font-bold text-red-400 mt-2">{quoteMetrics.rejected}</p>
+                  </div>
+                )}
               </div>
 
               {/* Recent Quotes */}
@@ -688,7 +728,7 @@ const DashboardPage = () => {
                                   : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300')
                             )}
                           >
-                            {quote.status}
+                            {QUOTE_STATUS_LABELS[quote.status]}
                           </span>
                         </div>
                         <p className={cn(
@@ -743,12 +783,10 @@ const DashboardPage = () => {
                     ${invoiceMetrics.outstanding.toFixed(0)}
                   </p>
                 </div>
-                <div className={cn(
-                  "rounded-lg p-4 ring-1",
-                  theme === 'dark'
-                    ? 'bg-primary-dark/50 ring-white/5'
-                    : 'bg-gray-100 ring-gray-200/20'
-                )}>
+                <div
+                  className={statTileClass(invoiceMetrics.overdue > 0)}
+                  {...statTileProps(invoiceMetrics.overdue > 0, '/app/invoices?status=overdue')}
+                >
                   <p className={cn(
                     "text-xs font-medium uppercase tracking-wide",
                     theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'

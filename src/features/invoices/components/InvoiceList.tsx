@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useInvoiceStore } from '../store/invoiceStore'
 import InvoiceCard from './InvoiceCard'
 import { Input, Button, Select, Card } from '@/components/ui'
@@ -15,8 +16,11 @@ interface InvoiceListProps {
 
 type DisplayMode = 'cards' | 'list'
 
+const INVOICE_STATUS_FROM_URL = ['draft', 'sent', 'overdue', 'cancelled'] as const
+
 const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
   const { theme } = useTheme()
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     invoices,
     isLoading,
@@ -51,6 +55,21 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     fetchInvoices()
     fetchUnconvertedQuotes()
   }, [fetchInvoices])
+
+  useEffect(() => {
+    setStatusFilter('all')
+  }, [setStatusFilter])
+
+  useEffect(() => {
+    const status = searchParams.get('status')
+    if (!status) return
+    if (!INVOICE_STATUS_FROM_URL.includes(status as (typeof INVOICE_STATUS_FROM_URL)[number]))
+      return
+    setStatusFilter(status as (typeof INVOICE_STATUS_FROM_URL)[number])
+    const next = new URLSearchParams(searchParams)
+    next.delete('status')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, setStatusFilter])
 
   const fetchUnconvertedQuotes = async () => {
     setIsLoadingQuotes(true)

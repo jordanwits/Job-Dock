@@ -46,6 +46,10 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
     fetchContacts()
   }, [fetchContacts])
 
+  useEffect(() => {
+    setStatusFilter('all')
+  }, [setStatusFilter])
+
   // Persist view mode preference
   useEffect(() => {
     localStorage.setItem('crm-view-mode', viewMode)

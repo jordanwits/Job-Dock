@@ -259,7 +259,7 @@ export const QuotesReport = ({ startDate, endDate, quotes, invoices = [] }: Quot
                   draft: 'Draft',
                   sent: 'Sent',
                   accepted: 'Accepted',
-                  rejected: 'Rejected',
+                  rejected: 'Declined',
                   expired: 'Expired',
                 }
 

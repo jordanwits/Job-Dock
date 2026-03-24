@@ -1457,7 +1457,8 @@ async function handlePost(
     if (!verifyApprovalToken('quote', id, tenantId, token)) {
       throw new ApiError('Invalid or expired approval token', 403)
     }
-    return (service as typeof dataServices.quotes).decline(tenantId, id)
+    const payload = parseOptionalJsonBody(event)
+    return (service as typeof dataServices.quotes).decline(tenantId, id, payload.declineReason)
   }
 
   if (resource === 'invoices' && id && action === 'approve-public') {
@@ -1479,7 +1480,13 @@ async function handlePost(
     if (!verifyApprovalToken('invoice', id, tenantId, token)) {
       throw new ApiError('Invalid or expired approval token', 403)
     }
-    return (service as typeof dataServices.invoices).setApprovalStatus(tenantId, id, 'declined')
+    const payload = parseOptionalJsonBody(event)
+    return (service as typeof dataServices.invoices).setApprovalStatus(
+      tenantId,
+      id,
+      'declined',
+      payload.declineReason
+    )
   }
 
   // Public reschedule action - verify token first
@@ -1771,6 +1778,18 @@ function parseBody(event: APIGatewayProxyEvent) {
     return JSON.parse(event.body)
   } catch {
     throw new Error('Invalid JSON body')
+  }
+}
+
+/** Public approve/decline POST may use an empty body; optional JSON for decline reason */
+function parseOptionalJsonBody(event: APIGatewayProxyEvent): Record<string, unknown> {
+  if (!event.body?.trim()) {
+    return {}
+  }
+  try {
+    return JSON.parse(event.body) as Record<string, unknown>
+  } catch {
+    throw new ApiError('Invalid JSON body', 400)
   }
 }
 

@@ -106,7 +106,7 @@ const InvoiceDetail = ({
       ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
       : 'bg-gray-200 text-gray-600 border-gray-300',
     sent: theme === 'dark'
-      ? 'bg-primary-blue/20 text-primary-blue border-primary-blue/30'
+      ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
       : 'bg-blue-100 text-blue-700 border-blue-300',
     overdue: theme === 'dark'
       ? 'bg-red-500/20 text-red-400 border-red-500/30'
@@ -340,6 +340,34 @@ const InvoiceDetail = ({
           {sendError && (
             <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
               <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
+            </div>
+          )}
+
+          {invoice.approvalStatus === 'declined' && invoice.clientDeclineReason?.trim() && (
+            <div
+              className={cn(
+                'p-4 rounded-lg border',
+                theme === 'dark'
+                  ? 'border-amber-500/40 bg-amber-500/10'
+                  : 'border-amber-200 bg-amber-50'
+              )}
+            >
+              <p
+                className={cn(
+                  'text-sm font-medium',
+                  theme === 'dark' ? 'text-amber-200' : 'text-amber-900'
+                )}
+              >
+                Client decline note
+              </p>
+              <p
+                className={cn(
+                  'text-sm mt-2 whitespace-pre-wrap',
+                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                )}
+              >
+                {invoice.clientDeclineReason}
+              </p>
             </div>
           )}
 
