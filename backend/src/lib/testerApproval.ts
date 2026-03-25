@@ -35,6 +35,52 @@ function metadataPlanLabel(plan: string): string {
 }
 
 /**
+ * Resolve owner row by JobDock `users.id`, Cognito `sub` (`users.cognitoId`), or login email.
+ * (Cognito console "User ID" / sub is not the same UUID as Postgres `users.id`.)
+ */
+async function findUserForTesterApproval(raw: string) {
+  const q = raw.trim()
+  if (!q) {
+    throw new ApiError('userId is required', 400)
+  }
+
+  let target = await prisma.user.findUnique({
+    where: { id: q },
+    include: { tenant: true },
+  })
+
+  if (!target) {
+    target = await prisma.user.findUnique({
+      where: { cognitoId: q },
+      include: { tenant: true },
+    })
+  }
+
+  if (!target && EMAIL_RE.test(q)) {
+    const matches = await prisma.user.findMany({
+      where: { email: { equals: q, mode: 'insensitive' } },
+      include: { tenant: true },
+    })
+    if (matches.length > 1) {
+      throw new ApiError(
+        'Multiple users share that email. Use JobDock user id or Cognito sub from the database.',
+        400
+      )
+    }
+    target = matches[0] ?? null
+  }
+
+  if (!target) {
+    throw new ApiError(
+      'User not found. Paste JobDock user id (from database), or Cognito sub (same as users.cognitoId), or their sign-in email.',
+      404
+    )
+  }
+
+  return target
+}
+
+/**
  * Creates a private Stripe Checkout session for an approved tester (owner only).
  * Regenerates checkout URL on repeat calls (updates testerCheckoutUrl / testerInviteSentAt).
  */
@@ -44,14 +90,7 @@ export async function createTesterApprovalCheckout(params: {
 }): Promise<{ checkoutUrl: string }> {
   const { targetUserId, plan } = params
 
-  const target = await prisma.user.findUnique({
-    where: { id: targetUserId },
-    include: { tenant: true },
-  })
-
-  if (!target) {
-    throw new ApiError('User not found', 404)
-  }
+  const target = await findUserForTesterApproval(targetUserId)
 
   if (target.role !== 'owner') {
     throw new ApiError('Tester checkout can only be generated for tenant owners', 400)
@@ -136,7 +175,6 @@ export async function createTesterApprovalCheckout(params: {
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
-    allow_promotion_codes: false,
     discounts: [{ coupon: couponId }],
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {

@@ -10,7 +10,14 @@ import {
   AdminConfirmSignUpCommand,
   AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
-import { registerUser, loginUser, refreshAccessToken, verifyToken, respondToNewPasswordChallenge } from '../../lib/auth'
+import {
+  registerUser,
+  loginUser,
+  refreshAccessToken,
+  verifyToken,
+  respondToNewPasswordChallenge,
+  type CognitoUser,
+} from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
 import prisma from '../../lib/db'
 import { dataServices } from '../../lib/dataService'
@@ -166,6 +173,94 @@ function slugify(value: string): string {
     .substring(0, 50)
 }
 
+const appUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+  tenantId: true,
+  role: true,
+  canCreateJobs: true,
+  canScheduleAppointments: true,
+  canSeeOtherJobs: true,
+  canSeeJobPrices: true,
+  onboardingCompletedAt: true,
+} as const
+
+type AppUserRow = {
+  id: string
+  email: string
+  name: string
+  tenantId: string
+  role: string
+  canCreateJobs: boolean
+  canScheduleAppointments: boolean
+  canSeeOtherJobs: boolean
+  canSeeJobPrices: boolean
+  onboardingCompletedAt: Date | null
+}
+
+/**
+ * Look up JobDock user by Cognito sub, or create tenant + owner (Cognito-only users).
+ * Used after normal login and after NEW_PASSWORD_REQUIRED challenge.
+ */
+async function findOrProvisionUserFromCognito(cognitoUser: CognitoUser): Promise<AppUserRow | null> {
+  const existing = await prisma.user.findUnique({
+    where: { cognitoId: cognitoUser.sub },
+    select: appUserSelect,
+  })
+  if (existing) return existing
+
+  console.log('[Auth] User not in database, auto-provisioning from Cognito...')
+  try {
+    const poolUsername =
+      typeof cognitoUser['cognito:username'] === 'string' && cognitoUser['cognito:username'].trim()
+        ? cognitoUser['cognito:username'].trim()
+        : cognitoUser.email
+
+    const cognitoUserDetails = await cognitoClient.send(
+      new AdminGetUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: poolUsername,
+      })
+    )
+
+    const nameAttr = cognitoUserDetails.UserAttributes?.find(a => a.Name === 'name')
+    const userName = nameAttr?.Value || cognitoUser.email.split('@')[0] || 'User'
+
+    const tenantId = randomUUID()
+    const tenantName = `${userName}'s Company`
+    const baseSubdomain = slugify(tenantName)
+    const uniqueId = tenantId.substring(0, 8)
+    const subdomain = `${baseSubdomain}-${uniqueId}`
+
+    const tenant = await prisma.tenant.create({
+      data: {
+        id: tenantId,
+        name: tenantName,
+        subdomain: subdomain,
+      },
+    })
+
+    const created = await prisma.user.create({
+      data: {
+        id: randomUUID(),
+        cognitoId: cognitoUser.sub,
+        email: cognitoUser.email,
+        name: userName,
+        tenantId: tenant.id,
+        role: 'owner',
+      },
+      select: appUserSelect,
+    })
+
+    console.log(`[Auth] Auto-provisioned owner: ${created.email}`)
+    return created
+  } catch (provisionError: unknown) {
+    console.error('[Auth] Auto-provisioning failed:', provisionError)
+    return null
+  }
+}
+
 /** Stripe-first signup: create checkout session, user pays, then creates account. */
 async function handleSignupCheckout(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}')
@@ -310,92 +405,20 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     // 2. Decode the ID token to get Cognito user ID
     const verifyStart = Date.now()
     console.log(`[Login] Step 2: Verifying token...`)
-    const { verifyToken } = await import('../../lib/auth')
     const cognitoUser = await verifyToken(tokens.IdToken!)
     console.log(`[Login] Step 2 complete: Token verification took ${Date.now() - verifyStart}ms`)
 
-    // 3. Look up user in database by Cognito ID
+    // 3. Look up or auto-provision JobDock user (same as after NEW_PASSWORD_REQUIRED)
     const dbStart = Date.now()
-    console.log(`[Login] Step 3: Looking up user in database...`)
-    let user = await prisma.user.findUnique({
-      where: { cognitoId: cognitoUser.sub },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        tenantId: true,
-        role: true,
-        canCreateJobs: true,
-        canScheduleAppointments: true,
-        canSeeOtherJobs: true,
-        canSeeJobPrices: true,
-        onboardingCompletedAt: true,
-      },
-    })
-    console.log(`[Login] Step 3 complete: Database lookup took ${Date.now() - dbStart}ms`)
+    console.log(`[Login] Step 3: Looking up / provisioning user...`)
+    const user = await findOrProvisionUserFromCognito(cognitoUser)
+    console.log(`[Login] Step 3 complete: Database step took ${Date.now() - dbStart}ms`)
 
-    // 4. Auto-provision user if they exist in Cognito but not in database
     if (!user) {
-      console.log(`[Login] User not found in database, auto-provisioning...`)
-      try {
-        // Get user details from Cognito
-        const cognitoUserDetails = await cognitoClient.send(
-          new AdminGetUserCommand({
-            UserPoolId: USER_POOL_ID,
-            Username: cognitoUser.email,
-          })
-        )
-
-        // Extract name from Cognito attributes
-        const nameAttr = cognitoUserDetails.UserAttributes?.find(a => a.Name === 'name')
-        const userName = nameAttr?.Value || cognitoUser.email.split('@')[0] || 'User'
-
-        // Create tenant for the user
-        const tenantId = randomUUID()
-        const tenantName = `${userName}'s Company`
-        const baseSubdomain = slugify(tenantName)
-        const uniqueId = tenantId.substring(0, 8)
-        const subdomain = `${baseSubdomain}-${uniqueId}`
-
-        const tenant = await prisma.tenant.create({
-          data: {
-            id: tenantId,
-            name: tenantName,
-            subdomain: subdomain,
-          },
-        })
-
-        // Create user linked to tenant
-        user = await prisma.user.create({
-          data: {
-            id: randomUUID(),
-            cognitoId: cognitoUser.sub,
-            email: cognitoUser.email,
-            name: userName,
-            tenantId: tenant.id,
-            role: 'owner',
-          },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            tenantId: true,
-            role: true,
-            canCreateJobs: true,
-            canScheduleAppointments: true,
-            canSeeOtherJobs: true,
-            onboardingCompletedAt: true,
-          },
-        })
-
-        console.log(`[Login] User auto-provisioned successfully: ${user.email}`)
-      } catch (provisionError: any) {
-        console.error('[Login] Auto-provisioning failed:', provisionError)
-        return errorResponse(
-          'User is not provisioned in JobDock. Please contact support or try registering again.',
-          404
-        )
-      }
+      return errorResponse(
+        'User is not provisioned in JobDock. Please contact support or try registering again.',
+        404
+      )
     }
 
     const totalTime = Date.now() - startTime
@@ -467,24 +490,12 @@ async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<AP
     const tokens = await respondToNewPasswordChallenge(session, email, newPassword)
     const cognitoUser = await verifyToken(tokens.IdToken!)
 
-    const user = await prisma.user.findUnique({
-      where: { cognitoId: cognitoUser.sub },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        tenantId: true,
-        role: true,
-        canCreateJobs: true,
-        canScheduleAppointments: true,
-        canSeeOtherJobs: true,
-        canSeeJobPrices: true,
-        onboardingCompletedAt: true,
-      },
-    })
-
+    const user = await findOrProvisionUserFromCognito(cognitoUser)
     if (!user) {
-      return errorResponse('User not found in JobDock database', 404)
+      return errorResponse(
+        'User is not provisioned in JobDock. Please contact support or try registering again.',
+        404
+      )
     }
 
     return successResponse({

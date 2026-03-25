@@ -78,13 +78,20 @@ export const TesterApprovalSection = () => {
 
       <div className="mt-4 space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Owner user ID</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Owner (JobDock id, Cognito sub, or email)
+          </label>
           <Input
             value={userId}
             onChange={e => setUserId(e.target.value)}
-            placeholder="UUID from database"
+            placeholder="e.g. Cognito sub, or their login email"
             className="font-mono text-sm"
           />
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            The Cognito console &quot;User ID&quot; (sub) is accepted. It is not the same as the UUID in the{' '}
+            <code className="rounded bg-slate-200/80 px-1 dark:bg-slate-700">users</code> table unless you paste sub
+            here—we match that as <code className="rounded bg-slate-200/80 px-1 dark:bg-slate-700">cognitoId</code>.
+          </p>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Plan</label>
