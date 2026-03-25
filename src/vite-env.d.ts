@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_AWS_REGION: string
   readonly VITE_COGNITO_USER_POOL_ID: string
   readonly VITE_COGNITO_CLIENT_ID: string
+  /** Comma-separated emails that see the Settings "Tester approval" tab (API enforces separately). */
+  readonly VITE_PLATFORM_ADMIN_EMAILS?: string
 }
 
 interface ImportMeta {

@@ -23,6 +23,7 @@ import {
   SmsConsentPage,
 } from '@/features/marketing'
 import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/onboarding'
+import { BillingSuccessPage, BillingCancelledPage } from '@/features/billing/billingPages'
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -102,6 +103,10 @@ function App() {
         <Route path="/auth/signup/complete" element={<SignupCompletePage />} />
         <Route path="/auth/register" element={<Navigate to="/auth/signup" replace />} />
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Stripe tester / billing return URLs (public) */}
+        <Route path="/billing/success" element={<BillingSuccessPage />} />
+        <Route path="/billing/cancelled" element={<BillingCancelledPage />} />
 
         {/* Onboarding Route - Protected but no sidebar */}
         <Route

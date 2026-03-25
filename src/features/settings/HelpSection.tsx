@@ -7,6 +7,8 @@ import { useInstallPrompt } from '@/hooks/useInstallPrompt'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
 
+const SUPPORT_EMAIL = 'jordan@westwavecreative.com'
+
 export const HelpSection = () => {
   const { theme } = useTheme()
   const navigate = useNavigate()
@@ -86,6 +88,33 @@ export const HelpSection = () => {
             >
               Play Tutorial
             </Button>
+          </div>
+        </Card>
+
+        {/* Support email */}
+        <Card className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className={cn(
+                "text-lg font-medium mb-2",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>Contact support</h3>
+              <p className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
+                Questions or issues? Email us and we will get back to you.
+              </p>
+            </div>
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className={cn(
+                'text-sm font-medium underline underline-offset-2 hover:opacity-80',
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}
+            >
+              {SUPPORT_EMAIL}
+            </a>
           </div>
         </Card>
 

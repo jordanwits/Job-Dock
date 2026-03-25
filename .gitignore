@@ -38,6 +38,9 @@ samconfig.toml
 # Testing
 coverage
 
+# Migration Lambda CLI output (local)
+migration-response.json
+
 # Build
 build
 .cache

@@ -3962,78 +3962,9 @@ export const dataServices = {
     update: async (tenantId: string, id: string, payload: any) => {
       await ensureTenantExists(tenantId)
 
-      const booking = await prisma.booking.findFirst({
-        where: { id, tenantId },
-        include: { service: true, contact: true, createdBy: { select: { name: true } } },
-      })
-
-      if (!booking) throw new ApiError('Booking not found', 404)
-      if (!booking.isIndependent) {
-        throw new ApiError(
-          'Only independent appointments can be updated via the bookings API. Use jobs.update for job-backed bookings.',
-          400
-        )
-      }
-
-      const normalizedAssignedTo =
-        payload.assignedTo !== undefined ? normalizeAssignedTo(payload.assignedTo) : undefined
-      if (normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
-
-      const updateData: Record<string, any> = {}
-      if (payload.title !== undefined) updateData.title = payload.title
-      if (payload.contactId !== undefined) updateData.contactId = payload.contactId || null
-      if (payload.serviceId !== undefined) updateData.serviceId = payload.serviceId || null
-      if (payload.location !== undefined) updateData.location = payload.location || null
-      if (payload.price !== undefined) updateData.price = payload.price
-      if (payload.notes !== undefined) updateData.notes = payload.notes
-      if (payload.status !== undefined) updateData.status = payload.status
-      if (payload.assignedTo !== undefined) updateData.assignedTo = payload.assignedTo
-      if (payload.breaks !== undefined) updateData.breaks = payload.breaks
-      if (payload.createdById !== undefined) updateData.createdById = payload.createdById
-
-      if (payload.startTime !== undefined || payload.endTime !== undefined) {
-        const requestedStart =
-          payload.startTime !== undefined && payload.startTime !== null && payload.startTime !== ''
-            ? parseValidDate(payload.startTime)
-            : null
-        const requestedEnd =
-          payload.endTime !== undefined && payload.endTime !== null && payload.endTime !== ''
-            ? parseValidDate(payload.endTime)
-            : null
-        const toBeScheduled = payload.toBeScheduled === true || (!requestedStart && !requestedEnd)
-        if (!toBeScheduled && (!requestedStart || !requestedEnd)) {
-          throw new ApiError('startTime and endTime are required for scheduled appointments', 400)
-        }
-        updateData.startTime = toBeScheduled ? null : requestedStart
-        updateData.endTime = toBeScheduled ? null : requestedEnd
-        updateData.toBeScheduled = toBeScheduled
-      }
-
-      const updated = await prisma.booking.update({
-        where: { id },
-        data: updateData,
-        include: { service: true, contact: true, createdBy: { select: { name: true } } },
-      })
-
-      return {
-        ...updated,
-        price: updated.price != null ? Number(updated.price) : null,
-        startTime: updated.startTime?.toISOString() ?? null,
-        endTime: updated.endTime?.toISOString() ?? null,
-        isIndependent: true,
-        job: null,
-        contactName: (updated as any).contact
-          ? `${(updated as any).contact.firstName ?? ''} ${(updated as any).contact.lastName ?? ''}`.trim()
-          : undefined,
-        createdByName: ((updated as any).createdBy as any)?.name ?? undefined,
-      }
-    },
-    update: async (tenantId: string, id: string, payload: any) => {
-      await ensureTenantExists(tenantId)
-
       const existing = await prisma.booking.findFirst({
         where: { id, tenantId },
-        include: { contact: true, service: true },
+        include: { contact: true, service: true, createdBy: { select: { name: true } } },
       })
       if (!existing) throw new ApiError('Booking not found', 404)
       if (!existing.isIndependent) {
@@ -4069,10 +4000,12 @@ export const dataServices = {
       const updateData: Prisma.BookingUpdateInput = {
         ...(payload.title !== undefined && { title: payload.title }),
         ...(payload.contactId !== undefined && { contactId: payload.contactId || null }),
+        ...(payload.serviceId !== undefined && { serviceId: payload.serviceId || null }),
         ...(payload.location !== undefined && { location: payload.location ?? null }),
         ...(payload.notes !== undefined && { notes: payload.notes ?? null }),
         ...(payload.status !== undefined && { status: payload.status }),
         ...(payload.price !== undefined && { price: payload.price }),
+        ...(payload.breaks !== undefined && { breaks: payload.breaks }),
         ...(normalizedAssignedTo !== null && { assignedTo: normalizedAssignedTo as unknown as Prisma.InputJsonValue }),
         ...(payload.createdById !== undefined && { createdById: payload.createdById ?? payload._actingUserId ?? null }),
       }
@@ -4083,7 +4016,7 @@ export const dataServices = {
       const updated = await prisma.booking.update({
         where: { id },
         data: updateData,
-        include: { contact: true, service: true },
+        include: { contact: true, service: true, createdBy: { select: { name: true } } },
       })
 
       // Reschedule notification for independent bookings: when notifyClient is true and date/time changed
@@ -4162,9 +4095,11 @@ export const dataServices = {
         startTime: updated.startTime?.toISOString() ?? null,
         endTime: updated.endTime?.toISOString() ?? null,
         isIndependent: true,
+        job: null,
         contactName: updated.contact
           ? `${updated.contact.firstName ?? ''} ${updated.contact.lastName ?? ''}`.trim()
           : undefined,
+        createdByName: (updated as { createdBy?: { name: string } | null }).createdBy?.name ?? undefined,
       }
     },
     delete: async (tenantId: string, id: string) => {
@@ -5374,11 +5309,15 @@ export const dataServices = {
       const priceIdToTier = (priceId: string | null): string | null => {
         if (!priceId) return null
         const singlePriceId = process.env.STRIPE_PRICE_ID
+        const soloPriceId = process.env.STRIPE_JOBDOCK_SOLO_PRICE_ID
         const teamPriceId = process.env.STRIPE_TEAM_PRICE_ID
+        const teamPriceIdAlt = process.env.STRIPE_JOBDOCK_TEAM_PRICE_ID
         const teamPlusPriceId = process.env.STRIPE_TEAM_PLUS_PRICE_ID
-        if (priceId === singlePriceId) return 'single'
-        if (priceId === teamPlusPriceId) return 'team-plus'
-        if (priceId === teamPriceId) return 'team'
+        const teamPlusPriceIdAlt = process.env.STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID
+        if (priceId === singlePriceId || (soloPriceId && priceId === soloPriceId)) return 'single'
+        if (priceId === teamPlusPriceId || (teamPlusPriceIdAlt && priceId === teamPlusPriceIdAlt))
+          return 'team-plus'
+        if (priceId === teamPriceId || (teamPriceIdAlt && priceId === teamPriceIdAlt)) return 'team'
         return 'single' // default for unknown price
       }
 

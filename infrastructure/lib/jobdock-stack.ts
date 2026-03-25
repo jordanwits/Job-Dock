@@ -543,6 +543,11 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_TEAM_PLUS_PRICE_ID: process.env.STRIPE_TEAM_PLUS_PRICE_ID || '',
         STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
+        STRIPE_TESTER_COUPON_ID: process.env.STRIPE_TESTER_COUPON_ID || '',
+        STRIPE_JOBDOCK_SOLO_PRICE_ID: process.env.STRIPE_JOBDOCK_SOLO_PRICE_ID || '',
+        STRIPE_JOBDOCK_TEAM_PRICE_ID: process.env.STRIPE_JOBDOCK_TEAM_PRICE_ID || '',
+        STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID: process.env.STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID || '',
+        JOBDOCK_PLATFORM_ADMIN_EMAILS: process.env.JOBDOCK_PLATFORM_ADMIN_EMAILS || '',
       },
     })
 

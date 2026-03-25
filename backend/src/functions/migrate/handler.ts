@@ -925,6 +925,17 @@ END $$`,
     ],
     description: 'Optional client decline reason when declining quote/invoice via public link',
   },
+  {
+    name: '20260325120000_add_user_tester_billing_fields',
+    statements: [
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "testerApproved" BOOLEAN NOT NULL DEFAULT false`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "testerApprovedAt" TIMESTAMP(3)`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "stripeCustomerId" TEXT`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "testerInviteSentAt" TIMESTAMP(3)`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "testerCheckoutUrl" TEXT`,
+    ],
+    description: 'Tester approval Stripe checkout fields on users',
+  },
 ]
 
 export const handler = async (

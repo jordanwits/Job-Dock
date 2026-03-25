@@ -11,10 +11,11 @@ import { BillingSection } from './BillingSection'
 import { TeamMembersSection } from './TeamMembersSection'
 import { HelpSection } from './HelpSection'
 import { FeedbackSection } from './FeedbackSection'
+import { TesterApprovalSection, isTesterApprovalUiVisible } from './TesterApprovalSection'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 
-type TabId = 'billing' | 'team' | 'company' | 'email' | 'pdf' | 'help' | 'feedback'
+type TabId = 'billing' | 'team' | 'company' | 'email' | 'pdf' | 'help' | 'feedback' | 'tester'
 
 interface TabConfig {
   id: TabId
@@ -197,6 +198,12 @@ export const SettingsPage = () => {
         id: 'help',
         label: 'Help',
         component: <HelpSection />,
+      },
+      {
+        id: 'tester',
+        label: 'Tester approval',
+        component: <TesterApprovalSection />,
+        emailCheck: isTesterApprovalUiVisible,
       },
     ],
     [

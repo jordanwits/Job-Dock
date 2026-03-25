@@ -657,6 +657,35 @@ We look forward to working with you!',
       return errorResponse('Users route not found', 404)
     }
 
+    // Platform admin: private tester checkout (POST /admin/testers/approve)
+    if (resource === 'admin' && id === 'testers' && action === 'approve' && event.httpMethod === 'POST') {
+      try {
+        const context = await extractContext(event)
+        const { isPlatformAdmin } = await import('../../lib/platformAdmin')
+        if (!isPlatformAdmin(context.userEmail)) {
+          return errorResponse('Forbidden', 403)
+        }
+        const body = parseBody(event)
+        const userId = typeof body?.userId === 'string' ? body.userId.trim() : ''
+        const planRaw = typeof body?.plan === 'string' ? body.plan.trim().toLowerCase() : 'solo'
+        if (!userId) {
+          return errorResponse('userId is required', 400)
+        }
+        const { createTesterApprovalCheckout } = await import('../../lib/testerApproval')
+        const { checkoutUrl } = await createTesterApprovalCheckout({
+          targetUserId: userId,
+          plan: planRaw as 'solo' | 'single' | 'team' | 'team-plus',
+        })
+        return successResponse({ ok: true, checkoutUrl })
+      } catch (err) {
+        if (err instanceof ApiError) {
+          return errorResponse(err.message, err.statusCode)
+        }
+        console.error('[admin/testers/approve]', err)
+        return errorResponse(err instanceof Error ? err.message : 'Failed to create tester checkout', 500)
+      }
+    }
+
     // Handle onboarding endpoints with authentication
     if (resource === 'onboarding') {
       console.log('[ONBOARDING] Handling onboarding request:', {
@@ -829,7 +858,7 @@ We look forward to working with you!',
 
     // Subscription enforcement (when enabled)
     const enforceSubscription = process.env.STRIPE_ENFORCE_SUBSCRIPTION === 'true'
-    if (enforceSubscription && resource !== 'billing') {
+    if (enforceSubscription && resource !== 'billing' && resource !== 'admin') {
       // Always allow public endpoints
       if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint && !isPublicRescheduleInfoEndpoint && !isPublicRescheduleEndpoint) {
         // Check subscription status
@@ -895,7 +924,8 @@ We look forward to working with you!',
       !isPublicApprovalEndpoint &&
       !isPublicRescheduleInfoEndpoint &&
       !isPublicRescheduleEndpoint &&
-      resource !== 'billing'
+      resource !== 'billing' &&
+      resource !== 'admin'
     ) {
       const { default: prisma } = await import('../../lib/db')
       const context = await extractContext(event)

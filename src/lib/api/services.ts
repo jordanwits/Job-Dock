@@ -550,6 +550,21 @@ const realBillingService = {
 
 export const billingService = realBillingService
 
+const realAdminService = {
+  approveTester: async (body: { userId: string; plan: 'solo' | 'single' | 'team' | 'team-plus' }) => {
+    const response = await apiClient.post('/admin/testers/approve', body)
+    return response.data as { ok: boolean; checkoutUrl: string }
+  },
+}
+
+export const adminService = useMockData
+  ? {
+      approveTester: async () => {
+        throw new Error('Tester approval is not available in mock data mode')
+      },
+    }
+  : realAdminService
+
 const realUsersService = {
   getAll: async () => {
     const response = await apiClient.get('/users')
@@ -641,6 +656,7 @@ export const services = {
   jobLogs: jobLogsService,
   timeEntries: timeEntriesService,
   billing: billingService,
+  admin: adminService,
   users: usersService,
   jobRoles: jobRolesService,
 }

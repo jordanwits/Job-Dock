@@ -55,6 +55,12 @@ model User {
   canSeeJobPrices       Boolean     @default(true)
   color                 String?     // Color for calendar display (e.g., "blue-500", "green-500")
   onboardingCompletedAt DateTime?
+  // Platform-approved tester billing (private checkout; not public signup)
+  testerApproved        Boolean     @default(false)
+  testerApprovedAt      DateTime?
+  stripeCustomerId      String?     // Stripe customer id used for tester checkout (mirrors tenant when shared)
+  testerInviteSentAt    DateTime?
+  testerCheckoutUrl     String?
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
   tenant                Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
