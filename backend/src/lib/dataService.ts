@@ -5925,9 +5925,20 @@ export const dataServices = {
         .filter(Boolean)
         .join(', ')
       const updatedPrimary = (updated as any).bookings?.[0]
+      const uContact = (updated as { contact?: { id: string; firstName: string; lastName: string; email?: string | null } | null }).contact
       return {
         ...updated,
         pinnedAt: updated.pinnedAt?.toISOString() ?? null,
+        // Match getById contact shape (UI reads contact.name, not Prisma firstName/lastName)
+        contact: uContact
+          ? {
+              id: uContact.id,
+              firstName: uContact.firstName,
+              lastName: uContact.lastName,
+              email: uContact.email ?? undefined,
+              name: `${uContact.firstName} ${uContact.lastName}`.trim(),
+            }
+          : null,
         // flattened primary booking fields for Jobs page parity with calendar jobs
         startTime: updatedPrimary?.startTime
           ? new Date(updatedPrimary.startTime).toISOString()

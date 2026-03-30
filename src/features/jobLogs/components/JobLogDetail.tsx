@@ -710,7 +710,7 @@ const JobLogDetail = ({
             ]
           : []
       // Normalize to ensure it's in the correct format
-      const normalized = assignedToArray.map((item: any) => {
+      const normalized = assignedToArray.map((item: JobAssignment | string) => {
         if (typeof item === 'object' && item !== null && 'userId' in item) {
           return {
             userId: item.userId,
@@ -966,16 +966,6 @@ const JobLogDetail = ({
             <div className="flex flex-col gap-2 mt-2">
               {jobLog.assignedToName &&
                 (() => {
-                  const getTotalMinutesForUser = (userId: string): number => {
-                    const entries = (jobLog.timeEntries ?? []).filter(te => te.userId === userId)
-                    return entries.reduce((sum, te) => {
-                      const start = new Date(te.startTime).getTime()
-                      const end = new Date(te.endTime).getTime()
-                      const breakMin = te.breakMinutes ?? 0
-                      return sum + (end - start) / 60000 - breakMin
-                    }, 0)
-                  }
-
                   const getTotalEarnedForUser = (
                     userId: string,
                     assignmentHourlyRate: number | null | undefined
@@ -1033,8 +1023,6 @@ const JobLogDetail = ({
                             const payType = assignment.payType || 'job'
                             const price = canSeePrice ? assignment.price : undefined
                             const hourlyRate = canSeePrice ? assignment.hourlyRate : undefined
-                            const totalMinutes = getTotalMinutesForUser(assignment.userId)
-                            const totalHours = totalMinutes / 60
                             const totalEarned =
                               payType === 'hourly'
                                 ? getTotalEarnedForUser(assignment.userId, hourlyRate ?? null)

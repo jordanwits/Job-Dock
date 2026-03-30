@@ -32,8 +32,12 @@ interface JobLogState {
     }
   ) => Promise<void>
   createTimeEntry: (data: { jobLogId: string; startTime: string; endTime: string; breakMinutes?: number; notes?: string; userId?: string }) => Promise<TimeEntry>
-  updateTimeEntry: (id: string, data: Partial<{ startTime: string; endTime: string; breakMinutes?: number; notes?: string }>) => Promise<void>
-  deleteTimeEntry: (id: string) => Promise<void>
+  updateTimeEntry: (
+    id: string,
+    data: Partial<{ startTime: string; endTime: string; breakMinutes?: number; notes?: string }>,
+    jobLogId?: string
+  ) => Promise<void>
+  deleteTimeEntry: (id: string, jobLogId?: string) => Promise<void>
   setSelectedJobLog: (jobLog: JobLog | null) => void
   clearError: () => void
 }
