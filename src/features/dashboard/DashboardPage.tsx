@@ -7,6 +7,7 @@ import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
 import { Card, Button } from '@/components/ui'
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
+import { getUpcomingBookingListInstant } from '@/features/scheduling/utils/upcomingBookingDisplay'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 import { QUOTE_STATUS_LABELS } from '@/features/quotes/types/quote'
@@ -243,15 +244,19 @@ const DashboardPage = () => {
   // Get upcoming appointments (next 7 days) - limit for compact display
   const upcomingJobsLimit = 5
   const upcomingJobs = useMemo(() => {
-    const today = new Date()
-    const nextWeek = addDays(today, 7)
+    const now = new Date()
+    const nextWeek = addDays(now, 7)
 
-    return jobs
-      .filter(job => {
-        const jobDate = new Date(job.startTime)
-        return jobDate >= today && jobDate <= nextWeek && job.status !== 'cancelled'
-      })
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    const entries: { job: (typeof jobs)[number]; displayAt: Date }[] = []
+    for (const job of jobs) {
+      if (!job.startTime) continue
+      const displayAt = getUpcomingBookingListInstant(job, now)
+      if (!displayAt || displayAt.getTime() > nextWeek.getTime()) continue
+      entries.push({ job, displayAt })
+    }
+
+    return entries
+      .sort((a, b) => a.displayAt.getTime() - b.displayAt.getTime())
       .slice(0, upcomingJobsLimit)
   }, [jobs, upcomingJobsLimit])
 
@@ -494,7 +499,7 @@ const DashboardPage = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                {upcomingJobs.map(job => {
+                {upcomingJobs.map(({ job, displayAt }) => {
                   const statusColors = {
                     active: theme === 'dark'
                       ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
@@ -537,7 +542,7 @@ const DashboardPage = () => {
                             "text-sm mt-1.5",
                             theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
                           )}>
-                            {format(new Date(job.startTime), 'MMM d, yyyy • h:mm a')}
+                            {format(displayAt, 'MMM d, yyyy • h:mm a')}
                           </p>
                           {job.contactName && (
                             <p className={cn(

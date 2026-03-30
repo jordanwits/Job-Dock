@@ -8,11 +8,13 @@ import { useTheme } from '@/contexts/ThemeContext'
 
 interface JobCardProps {
   job: Job
+  /** When set (e.g. multi-day “next day” in upcoming lists), shown instead of `job.startTime`. */
+  scheduledDisplayAt?: Date
   showCreatedBy?: boolean
   onClick?: (job: Job) => void
 }
 
-const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
+const JobCard = ({ job, scheduledDisplayAt, showCreatedBy, onClick }: JobCardProps) => {
   const { setSelectedJob } = useJobStore()
   const { user } = useAuthStore()
   const { theme } = useTheme()
@@ -135,6 +137,7 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
 
   const subtitle = [job.contactName, job.location].filter(Boolean).join(' • ')
   const hasAssignee = !!job.assignedToName
+  const scheduleAt = scheduledDisplayAt ?? (job.startTime ? new Date(job.startTime) : null)
 
   return (
     <Card
@@ -215,7 +218,7 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
             />
           </svg>
           <span className="text-base font-semibold text-primary-gold">
-            {job.startTime ? format(new Date(job.startTime), 'MMM d, h:mm a') : 'To be scheduled'}
+            {scheduleAt ? format(scheduleAt, 'MMM d, h:mm a') : 'To be scheduled'}
           </span>
         </div>
 
@@ -251,8 +254,8 @@ const JobCard = ({ job, showCreatedBy, onClick }: JobCardProps) => {
                     )}>/hr</span>
                   )}
                 </>
-              ) : job.startTime ? (
-                format(new Date(job.startTime), 'h:mm a')
+              ) : scheduleAt ? (
+                format(scheduleAt, 'h:mm a')
               ) : (
                 '—'
               )}

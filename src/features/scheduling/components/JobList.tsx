@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useJobStore } from '../store/jobStore'
 import type { Job } from '../types/job'
 import JobCard from './JobCard'
+import { getUpcomingBookingListInstant } from '../utils/upcomingBookingDisplay'
 import { startOfMonth, endOfMonth, addMonths, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -31,35 +32,34 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
     fetchJobs(startDate, endDate, false, false) // active only, no archived
   }, [currentDate, fetchJobs])
 
-  // Get filtered jobs - upcoming active jobs only
+  // Upcoming active jobs: multi-day jobs use the next in-range calendar day (one row per job).
   const filteredJobs = useMemo(() => {
-    const today = new Date()
-    let endDate: Date
+    const now = new Date()
+    let windowEnd: Date
 
     switch (timeFrame) {
       case 'day':
-        endDate = addDays(today, 1)
+        windowEnd = addDays(now, 1)
         break
       case 'week':
-        endDate = addDays(today, 7)
+        windowEnd = addDays(now, 7)
         break
       case 'month':
-        endDate = addDays(today, 30)
+        windowEnd = addDays(now, 30)
         break
       default:
-        endDate = addDays(today, 7)
+        windowEnd = addDays(now, 7)
     }
 
-    return jobs
-      .filter((job) => {
-        // Exclude unscheduled jobs from this list
-        if (job.toBeScheduled || !job.startTime) return false
-        
-        const jobDate = new Date(job.startTime)
-        // Active view - upcoming jobs only
-        return jobDate >= today && jobDate <= endDate && job.status !== 'cancelled' && !job.archivedAt
-      })
-      .sort((a, b) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())
+    const entries: { job: Job; displayAt: Date }[] = []
+    for (const job of jobs) {
+      if (!job.startTime) continue
+      const displayAt = getUpcomingBookingListInstant(job, now)
+      if (!displayAt || displayAt.getTime() > windowEnd.getTime()) continue
+      entries.push({ job, displayAt })
+    }
+
+    return entries.sort((a, b) => a.displayAt.getTime() - b.displayAt.getTime())
   }, [jobs, timeFrame])
 
   if (isLoading) {
@@ -129,10 +129,11 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredJobs.map((job) => (
+            {filteredJobs.map(({ job, displayAt }) => (
               <JobCard 
                 key={job.id} 
-                job={job} 
+                job={job}
+                scheduledDisplayAt={displayAt}
                 showCreatedBy={showCreatedBy}
                 onClick={onJobClick}
               />
