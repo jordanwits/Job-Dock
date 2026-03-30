@@ -2215,9 +2215,7 @@ const Calendar = ({
                           jobColors.border,
                           jobColors.text,
                           isJobStartDay && 'rounded-l', // Rounded on left only if job starts here
-                          (segmentEndsOnJobEnd || segmentSpansToEndOfRow) && 'rounded-r', // Rounded on right if end of job or row
-                          // Add visual indicator for multi-assignment
-                          jobColors.isMultiAssignment && 'border-l-2 border-r border-t border-b'
+                          (segmentEndsOnJobEnd || segmentSpansToEndOfRow) && 'rounded-r' // Rounded on right if end of job or row
                         )}
                         style={
                           {
@@ -2235,6 +2233,7 @@ const Calendar = ({
                             zIndex: isMonthMoving && dragState.isDragging ? 50 : 5,
                             pointerEvents:
                               isMonthMoving && dragState.isDragging ? 'none' : undefined,
+                            ...jobColors.gradientStyle,
                           } as React.CSSProperties & { '--top-desktop': string }
                         }
                         title={job.title}
