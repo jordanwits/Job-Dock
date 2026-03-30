@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { jobLogsService, timeEntriesService } from '@/lib/api/services'
-import type { JobLog, CreateJobLogData, TimeEntry } from '../types/jobLog'
+import type { JobLog, CreateJobLogData, JobLogUpdatePayload, TimeEntry } from '../types/jobLog'
 
 interface JobLogState {
   jobLogs: JobLog[]
@@ -11,7 +11,7 @@ interface JobLogState {
   fetchJobLogs: () => Promise<void>
   getJobLogById: (id: string) => Promise<void>
   createJobLog: (data: CreateJobLogData) => Promise<JobLog>
-  updateJobLog: (id: string, data: Partial<CreateJobLogData>) => Promise<void>
+  updateJobLog: (id: string, data: JobLogUpdatePayload, options?: { silent?: boolean }) => Promise<void>
   deleteJobLog: (id: string) => Promise<void>
   uploadPhoto: (jobLogId: string, file: File) => Promise<void>
   deletePhoto: (jobLogId: string, photoId: string) => Promise<void>
@@ -88,19 +88,21 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
     }
   },
 
-  updateJobLog: async (id: string, data: Partial<CreateJobLogData>) => {
-    set({ isLoading: true, error: null })
+  updateJobLog: async (id: string, data: JobLogUpdatePayload, options?: { silent?: boolean }) => {
+    const silent = options?.silent
+    if (silent) set({ error: null })
+    else set({ isLoading: true, error: null })
     try {
       const updatedJobLog = await jobLogsService.update(id, data)
       set(state => ({
         jobLogs: state.jobLogs.map(j => (j.id === id ? updatedJobLog : j)),
         selectedJobLog: state.selectedJobLog?.id === id ? updatedJobLog : state.selectedJobLog,
-        isLoading: false,
+        ...(silent ? {} : { isLoading: false }),
       }))
     } catch (error: any) {
       set({
         error: error.response?.data?.message || error.message || 'Failed to update job',
-        isLoading: false,
+        ...(silent ? {} : { isLoading: false }),
       })
       throw error
     }

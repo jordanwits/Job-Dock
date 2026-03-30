@@ -5514,6 +5514,7 @@ export const dataServices = {
           const primaryBooking = job.bookings[0]
           return {
             ...job,
+            pinnedAt: job.pinnedAt?.toISOString() ?? null,
             assignedToName,
             assignedToUsers,
             assignedTo: assignedToWithPrivacy || job.assignedTo,
@@ -5633,6 +5634,7 @@ export const dataServices = {
       const primaryBooking = job.bookings[0]
       return {
         ...job,
+        pinnedAt: job.pinnedAt?.toISOString() ?? null,
         assignedToName,
         assignedToUsers,
         assignedTo: assignedToWithPrivacy || job.assignedTo,
@@ -5776,6 +5778,7 @@ export const dataServices = {
         .join(', ')
       return {
         ...created,
+        pinnedAt: created.pinnedAt?.toISOString() ?? null,
         // flattened primary booking fields for Jobs page
         startTime: null,
         endTime: null,
@@ -5848,6 +5851,13 @@ export const dataServices = {
         }
       }
 
+      const pinUpdate =
+        payload.pinned === true
+          ? { pinnedAt: new Date() }
+          : payload.pinned === false
+            ? { pinnedAt: null }
+            : {}
+
       const updated = await prisma.job.update({
         where: { id },
         data: {
@@ -5863,6 +5873,7 @@ export const dataServices = {
               ? ((normalizedAssignedTo ?? null) as unknown as Prisma.InputJsonValue)
               : undefined,
           status: payload.status ?? undefined,
+          ...pinUpdate,
         },
         include: {
           contact: true,
@@ -5916,6 +5927,7 @@ export const dataServices = {
       const updatedPrimary = (updated as any).bookings?.[0]
       return {
         ...updated,
+        pinnedAt: updated.pinnedAt?.toISOString() ?? null,
         // flattened primary booking fields for Jobs page parity with calendar jobs
         startTime: updatedPrimary?.startTime
           ? new Date(updatedPrimary.startTime).toISOString()

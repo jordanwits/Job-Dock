@@ -22,6 +22,7 @@ const JobLogDetailPage = () => {
 
   const [editingJobLogId, setEditingJobLogId] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [pinSaving, setPinSaving] = useState(false)
   const [sentBanner, setSentBanner] = useState<{ type: 'success' | 'failed'; message: string } | null>(null)
 
   // Show success/failed banner when returning from create quote/invoice with save+send
@@ -92,6 +93,20 @@ const JobLogDetailPage = () => {
     if (!selectedJobLog) return
     await updateJobLog(selectedJobLog.id, { status })
     getJobLogById(selectedJobLog.id)
+  }
+
+  const handleTogglePin = async () => {
+    if (!selectedJobLog) return
+    setPinSaving(true)
+    try {
+      await updateJobLog(
+        selectedJobLog.id,
+        { pinned: !Boolean(selectedJobLog.pinnedAt) },
+        { silent: true }
+      )
+    } finally {
+      setPinSaving(false)
+    }
   }
 
   const handleDeleteClick = () => {
@@ -182,6 +197,8 @@ const JobLogDetailPage = () => {
         onSaveEdit={handleSaveEdit}
         onStatusChange={handleStatusChange}
         isLoading={isLoading}
+        onTogglePin={handleTogglePin}
+        pinSaving={pinSaving}
         onQuoteSent={(message) => {
           setSentBanner({ type: 'success', message })
           setTimeout(() => setSentBanner(null), 5000)

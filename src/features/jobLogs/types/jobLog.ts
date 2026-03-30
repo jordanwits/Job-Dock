@@ -86,6 +86,8 @@ export interface JobLog {
   assignedToName?: string
   assignedToUsers?: Array<{ id: string; name: string }> // For clock-in selector when employee can't list all users
   status: 'active' | 'completed' | 'inactive'
+  /** ISO timestamp when pinned to dashboard; null/undefined when not pinned */
+  pinnedAt?: string | null
   createdAt: string
   updatedAt: string
   job?: {
@@ -125,3 +127,6 @@ export interface CreateJobLogData {
 export interface UpdateJobLogData extends Partial<CreateJobLogData> {
   id: string
 }
+
+/** Fields accepted by PUT /job-logs/:id (includes pin toggle, not used on create forms) */
+export type JobLogUpdatePayload = Partial<CreateJobLogData> & { pinned?: boolean }

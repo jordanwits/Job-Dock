@@ -10,11 +10,79 @@ import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 import { QUOTE_STATUS_LABELS } from '@/features/quotes/types/quote'
+import type { JobLog } from '@/features/jobLogs/types/jobLog'
 
 const isStandaloneMode = (): boolean => {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as any).standalone === true
+  )
+}
+
+function DashboardJobLogRow({ jobLog, theme }: { jobLog: JobLog; theme: 'dark' | 'light' }) {
+  const totalMinutes =
+    jobLog.timeEntries?.reduce((sum, te) => {
+      const start = new Date(te.startTime).getTime()
+      const end = new Date(te.endTime).getTime()
+      const breakMin = te.breakMinutes ?? 0
+      return sum + (end - start) / 60000 - breakMin
+    }, 0) ?? 0
+  const hours = Math.floor(totalMinutes / 60)
+  const mins = Math.round(totalMinutes % 60)
+  const statusLabel = (jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active'
+  const statusColors: Record<string, string> = {
+    active:
+      theme === 'dark'
+        ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
+        : 'bg-green-100 text-green-700 ring-1 ring-green-300',
+    completed:
+      theme === 'dark'
+        ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
+        : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
+    inactive:
+      theme === 'dark'
+        ? 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20'
+        : 'bg-gray-200 text-gray-600 ring-1 ring-gray-300',
+  }
+  return (
+    <Link
+      to={`/app/job-logs/${jobLog.id}`}
+      className={cn(
+        'block text-sm p-3 rounded-lg transition-all',
+        theme === 'dark'
+          ? 'bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10'
+          : 'bg-gray-100 hover:bg-gray-200 border border-transparent hover:border-gray-200/30'
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span
+          className={cn(
+            'font-medium truncate',
+            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          )}
+        >
+          {jobLog.title}
+        </span>
+        <span
+          className={cn(
+            'text-xs px-2.5 py-1 rounded-full font-medium capitalize whitespace-nowrap',
+            statusColors[statusLabel] || statusColors.inactive
+          )}
+        >
+          {statusLabel}
+        </span>
+      </div>
+      <p
+        className={cn(
+          'text-xs mt-1.5',
+          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+        )}
+      >
+        {jobLog.timeEntries && jobLog.timeEntries.length > 0
+          ? `${hours}h ${mins}m total`
+          : format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
+      </p>
+    </Link>
   )
 }
 
@@ -208,7 +276,15 @@ const DashboardPage = () => {
     const norm = (s: string | undefined) => (s === 'archived' ? 'inactive' : s || 'active')
     const active = jobLogs.filter(j => norm(j.status) === 'active')
     const completed = jobLogs.filter(j => norm(j.status) === 'completed')
+    const pinnedJobs = [...jobLogs]
+      .filter(j => Boolean(j.pinnedAt))
+      .sort(
+        (a, b) =>
+          new Date(b.pinnedAt!).getTime() - new Date(a.pinnedAt!).getTime()
+      )
+    const pinnedIds = new Set(pinnedJobs.map(j => j.id))
     const recentJobs = [...jobLogs]
+      .filter(j => !pinnedIds.has(j.id))
       .sort((a, b) => {
         const aActive = norm(a.status) === 'active'
         const bActive = norm(b.status) === 'active'
@@ -217,7 +293,12 @@ const DashboardPage = () => {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       })
       .slice(0, 5)
-    return { activeCount: active.length, completedCount: completed.length, recentJobs }
+    return {
+      activeCount: active.length,
+      completedCount: completed.length,
+      pinnedJobs,
+      recentJobs,
+    }
   }, [jobLogs])
 
   // Invoice metrics
@@ -528,6 +609,24 @@ const DashboardPage = () => {
               </div>
             </div>
 
+            {jobMetrics.pinnedJobs.length > 0 ? (
+              <div className="mb-5">
+                <p
+                  className={cn(
+                    'text-xs font-medium uppercase tracking-wide mb-3',
+                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                  )}
+                >
+                  Pinned Jobs
+                </p>
+                <div className="space-y-2">
+                  {jobMetrics.pinnedJobs.map(jobLog => (
+                    <DashboardJobLogRow key={jobLog.id} jobLog={jobLog} theme={theme} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {/* Recent Jobs */}
             {jobMetrics.recentJobs.length > 0 ? (
               <div>
@@ -538,71 +637,12 @@ const DashboardPage = () => {
                   Recent Jobs
                 </p>
                 <div className="space-y-2">
-                  {jobMetrics.recentJobs.map(jobLog => {
-                    const totalMinutes =
-                      jobLog.timeEntries?.reduce((sum, te) => {
-                        const start = new Date(te.startTime).getTime()
-                        const end = new Date(te.endTime).getTime()
-                        const breakMin = te.breakMinutes ?? 0
-                        return sum + (end - start) / 60000 - breakMin
-                      }, 0) ?? 0
-                    const hours = Math.floor(totalMinutes / 60)
-                    const mins = Math.round(totalMinutes % 60)
-                    const statusLabel =
-                      (jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active'
-                    const statusColors: Record<string, string> = {
-                      active: theme === 'dark'
-                        ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
-                        : 'bg-green-100 text-green-700 ring-1 ring-green-300',
-                      completed: theme === 'dark'
-                        ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-                        : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
-                      inactive:
-                        theme === 'dark'
-                          ? 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20'
-                          : 'bg-gray-200 text-gray-600 ring-1 ring-gray-300',
-                    }
-                    return (
-                      <Link
-                        key={jobLog.id}
-                        to={`/app/job-logs/${jobLog.id}`}
-                        className={cn(
-                          "block text-sm p-3 rounded-lg transition-all",
-                          theme === 'dark'
-                            ? 'bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10'
-                            : 'bg-gray-100 hover:bg-gray-200 border border-transparent hover:border-gray-200/30'
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={cn(
-                            "font-medium truncate",
-                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                          )}>
-                            {jobLog.title}
-                          </span>
-                          <span
-                            className={cn(
-                              'text-xs px-2.5 py-1 rounded-full font-medium capitalize whitespace-nowrap',
-                              statusColors[statusLabel] || statusColors.inactive
-                            )}
-                          >
-                            {statusLabel}
-                          </span>
-                        </div>
-                        <p className={cn(
-                          "text-xs mt-1.5",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>
-                          {jobLog.timeEntries && jobLog.timeEntries.length > 0
-                            ? `${hours}h ${mins}m total`
-                            : format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
-                        </p>
-                      </Link>
-                    )
-                  })}
+                  {jobMetrics.recentJobs.map(jobLog => (
+                    <DashboardJobLogRow key={jobLog.id} jobLog={jobLog} theme={theme} />
+                  ))}
                 </div>
               </div>
-            ) : (
+            ) : jobMetrics.pinnedJobs.length === 0 ? (
               <div className="text-center py-8">
                 <p className={cn(
                   "text-sm",
@@ -614,7 +654,7 @@ const DashboardPage = () => {
                   </Button>
                 </Link>
               </div>
-            )}
+            ) : null}
           </Card>
 
           {/* Quotes - admin/owner only */}

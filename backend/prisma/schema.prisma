@@ -265,6 +265,7 @@ model Job {
   notes         String?
   assignedTo    Json?      // Array of assignments: [{userId: "id1", role: "Lead", price: 500}, ...]
   createdById   String?
+  pinnedAt      DateTime?      // Set when job is pinned to dashboard; null when unpinned
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   contact       Contact        @relation(fields: [contactId], references: [id])

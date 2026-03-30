@@ -936,6 +936,13 @@ END $$`,
     ],
     description: 'Tester approval Stripe checkout fields on users',
   },
+  {
+    name: '20260330120000_add_job_pinned_at',
+    statements: [
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "pinnedAt" TIMESTAMP(3)`,
+    ],
+    description: 'Pin job logs to dashboard',
+  },
 ]
 
 export const handler = async (
