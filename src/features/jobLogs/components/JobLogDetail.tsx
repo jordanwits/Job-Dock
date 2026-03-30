@@ -921,7 +921,7 @@ const JobLogDetail = ({
                   alt=""
                   width={24}
                   height={24}
-                  className="w-5 h-5 sm:w-6 sm:h-6 object-contain pointer-events-none rotate-45"
+                  className="w-6 h-6 object-contain pointer-events-none rotate-45"
                   draggable={false}
                 />
               </button>
