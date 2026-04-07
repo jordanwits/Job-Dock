@@ -1,7 +1,6 @@
 import { ReactNode, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
-import Button from './Button'
 import { useTheme } from '@/contexts/ThemeContext'
 
 export interface ModalProps {
@@ -13,6 +12,8 @@ export interface ModalProps {
   footer?: ReactNode
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   closeOnOverlayClick?: boolean
+  /** When false, the header X is hidden (overlay still does not dismiss unless closeOnOverlayClick is true). */
+  showCloseButton?: boolean
   transparentBackdrop?: boolean
   mobilePosition?: 'center' | 'bottom'
   /** Reduce padding on mobile for compact modals (e.g. simple confirmations) */
@@ -29,7 +30,8 @@ const Modal = ({
   children,
   footer,
   size = 'md',
-  closeOnOverlayClick = true,
+  closeOnOverlayClick = false,
+  showCloseButton = true,
   transparentBackdrop = false,
   mobilePosition = 'center',
   compactOnMobile = false,
@@ -191,7 +193,7 @@ const Modal = ({
         onMouseDown={e => e.stopPropagation()}
       >
         {/* Header */}
-        {(title || headerRight || closeOnOverlayClick) && (
+        {(title || headerRight || showCloseButton) && (
           <div
             className={cn(
               'flex items-center justify-between gap-2 border-b flex-shrink-0 relative z-20 pointer-events-auto',
@@ -222,7 +224,7 @@ const Modal = ({
                 </span>
               )}
             </div>
-            {closeOnOverlayClick && (
+            {showCloseButton && (
               <button
                 ref={closeButtonRef}
                 className={cn(

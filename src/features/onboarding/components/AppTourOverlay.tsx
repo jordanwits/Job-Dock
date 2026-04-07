@@ -114,7 +114,7 @@ export const AppTourOverlay = () => {
       onClose={handleClose}
       title={currentStep.title}
       size="md"
-      closeOnOverlayClick={false}
+      showCloseButton={false}
       transparentBackdrop={true}
       footer={
         <>

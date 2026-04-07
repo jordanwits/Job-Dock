@@ -75,7 +75,6 @@ const ConfirmationDialog = ({
       size="sm"
       compactOnMobile
       fitContentOnMobile
-      closeOnOverlayClick={!loading}
     >
       <div
         className={cn(

@@ -60,7 +60,6 @@ const NotifyClientModal = ({
       footer={footer}
       size="xs"
       compactOnMobile
-      closeOnOverlayClick={!isLoading}
     >
       <p
         className={cn(
