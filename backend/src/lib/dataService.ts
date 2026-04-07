@@ -1933,12 +1933,17 @@ export const dataServices = {
         throw new ApiError('Invoice title is required', 400)
       }
 
-      // Calculate totals from line items if provided
-      const itemsToCalculate = lineItems || []
-      const subtotal = itemsToCalculate.reduce(
-        (sum: number, item: any) => sum + (item.quantity || 0) * (item.unitPrice || 0),
-        0
-      )
+      // Totals: recalc from payload line items only when lineItems is sent; otherwise keep stored
+      // subtotal (e.g. paymentStatus-only updates must not use `lineItems || []`, which is empty).
+      let subtotal: number
+      if (lineItems !== undefined) {
+        subtotal = lineItems.reduce(
+          (sum: number, item: any) => sum + (item.quantity || 0) * (item.unitPrice || 0),
+          0
+        )
+      } else {
+        subtotal = Number(existingInvoice.subtotal)
+      }
       const taxRate = payload.taxRate !== undefined ? payload.taxRate : existingInvoice.taxRate
       const taxAmount = subtotal * Number(taxRate)
       const discount = payload.discount !== undefined ? payload.discount : existingInvoice.discount

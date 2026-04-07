@@ -9,7 +9,7 @@ import apiClient, { publicApiClient } from './client'
 import { mockServices } from '../mock/api'
 import { appEnv } from '@/lib/env'
 import type { Quote, CreateQuoteData } from '@/features/quotes/types/quote'
-import type { Invoice, CreateInvoiceData } from '@/features/invoices/types/invoice'
+import type { Invoice, CreateInvoiceData, UpdateInvoiceData } from '@/features/invoices/types/invoice'
 import type { Job, CreateJobData } from '@/features/scheduling/types/job'
 import type { Service, CreateServiceData } from '@/features/scheduling/types/service'
 
@@ -218,7 +218,7 @@ const realInvoicesService = {
     return response.data
   },
 
-  update: async (id: string, data: Partial<CreateInvoiceData>) => {
+  update: async (id: string, data: Omit<UpdateInvoiceData, 'id'>) => {
     const response = await apiClient.put(`/invoices/${id}`, data)
     return response.data
   },

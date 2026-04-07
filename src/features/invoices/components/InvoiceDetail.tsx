@@ -1,7 +1,7 @@
 import { Invoice, InvoiceStatus, PaymentStatus, ApprovalStatus } from '../types/invoice'
 import { useInvoiceStore } from '../store/invoiceStore'
-import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
-import { useState } from 'react'
+import { Modal, Button, StatusBadgeSelect, Input } from '@/components/ui'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import InvoiceForm from './InvoiceForm'
 import { cn } from '@/lib/utils'
@@ -40,6 +40,80 @@ const InvoiceDetail = ({
   const [confirmationMessage, setConfirmationMessage] = useState('')
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [lastSentVia, setLastSentVia] = useState<string[] | null>(null)
+  const [editingPaidAmount, setEditingPaidAmount] = useState(false)
+  const [paidAmountInput, setPaidAmountInput] = useState('')
+  const [paidAmountError, setPaidAmountError] = useState<string | null>(null)
+  const [isSavingPaidAmount, setIsSavingPaidAmount] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) {
+      setEditingPaidAmount(false)
+      setPaidAmountError(null)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    setEditingPaidAmount(false)
+    setPaidAmountError(null)
+    setPaidAmountInput('')
+  }, [invoice.id])
+
+  const openPaidAmountEdit = () => {
+    setPaidAmountInput(
+      invoice.paidAmount > 0 ? String(invoice.paidAmount) : ''
+    )
+    setPaidAmountError(null)
+    setEditingPaidAmount(true)
+  }
+
+  const cancelPaidAmountEdit = () => {
+    setEditingPaidAmount(false)
+    setPaidAmountError(null)
+    setPaidAmountInput(
+      invoice.paidAmount > 0 ? String(invoice.paidAmount) : ''
+    )
+  }
+
+  const savePaidAmount = async () => {
+    const raw = paidAmountInput.trim()
+    if (raw === '') {
+      setPaidAmountError('Enter the amount paid')
+      return
+    }
+    const n = Number(raw)
+    if (Number.isNaN(n) || n < 0) {
+      setPaidAmountError('Enter a valid amount')
+      return
+    }
+    const total = invoice.total
+    if (n >= total) {
+      setPaidAmountError(null)
+      setIsSavingPaidAmount(true)
+      try {
+        await updateInvoice({ id: invoice.id, paymentStatus: 'paid' })
+        setEditingPaidAmount(false)
+      } catch {
+        // Store surfaces error
+      } finally {
+        setIsSavingPaidAmount(false)
+      }
+      return
+    }
+    setPaidAmountError(null)
+    setIsSavingPaidAmount(true)
+    try {
+      await updateInvoice({
+        id: invoice.id,
+        paymentStatus: 'partial',
+        paidAmount: n,
+      })
+      setEditingPaidAmount(false)
+    } catch {
+      // Store surfaces error
+    } finally {
+      setIsSavingPaidAmount(false)
+    }
+  }
 
   const handleUpdate = async (data: any) => {
     try {
@@ -379,27 +453,117 @@ const InvoiceDetail = ({
                 ? 'border-primary-blue bg-primary-dark-secondary'
                 : 'border-gray-200 bg-white'
             )}>
-              <div className="flex justify-between items-center">
+              <div
+                className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 items-center"
+              >
                 <span className={cn(
                   "text-sm",
                   theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
                 )}>Amount Paid</span>
-                <span className={cn(
-                  "text-lg font-semibold",
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>
-                  {formatCurrency(invoice.paidAmount)}
-                </span>
+                <div className="justify-self-end min-w-0">
+                  {!editingPaidAmount ? (
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={openPaidAmountEdit}
+                        disabled={isLoading}
+                        className={cn(
+                          'shrink-0 rounded-md p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold',
+                          theme === 'dark'
+                            ? 'text-primary-light/70 hover:bg-primary-dark-secondary hover:text-primary-light'
+                            : 'text-primary-lightTextSecondary hover:bg-gray-100 hover:text-primary-lightText'
+                        )}
+                        title="Set amount paid"
+                        aria-label="Set amount paid"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className="h-4 w-4"
+                          aria-hidden
+                        >
+                          <path d="m13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793Zm-2.207 2.207L3 14v3h3l8.379-8.379-2.828-2.828Z" />
+                        </svg>
+                      </button>
+                      <span className={cn(
+                        "text-lg font-semibold tabular-nums text-right",
+                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                      )}>
+                        {formatCurrency(invoice.paidAmount)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-2">
+                      <div className="relative w-[7.5rem] max-w-full">
+                        <span
+                          className={cn(
+                            'pointer-events-none absolute inset-y-0 left-2 z-10 flex items-center text-sm font-medium tabular-nums',
+                            theme === 'dark'
+                              ? 'text-primary-light/80'
+                              : 'text-primary-lightTextSecondary'
+                          )}
+                          aria-hidden
+                        >
+                          $
+                        </span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={paidAmountInput}
+                          onChange={e => {
+                            setPaidAmountInput(e.target.value)
+                            setPaidAmountError(null)
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') void savePaidAmount()
+                            if (e.key === 'Escape') cancelPaidAmountEdit()
+                          }}
+                          className="h-9 w-full pl-6 pr-2 text-right tabular-nums"
+                          disabled={isSavingPaidAmount}
+                          autoFocus
+                          aria-label="Amount paid in dollars"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void savePaidAmount()}
+                          disabled={isSavingPaidAmount}
+                          isLoading={isSavingPaidAmount}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={cancelPaidAmountEdit}
+                          disabled={isSavingPaidAmount}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className={cn(
-                "flex justify-between items-center mt-2 pt-2 border-t",
-                theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-              )}>
+              {paidAmountError && (
+                <p className="text-xs text-red-400 mt-2 text-right">{paidAmountError}</p>
+              )}
+              <div
+                className={cn(
+                  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-center mt-2 pt-2 border-t',
+                  theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
+                )}
+              >
                 <span className={cn(
                   "text-sm",
                   theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
                 )}>Remaining Balance</span>
-                <span className="text-lg font-bold text-primary-gold">
+                <span className="text-lg font-bold text-primary-gold tabular-nums text-right justify-self-end">
                   {formatCurrency(invoice.total - invoice.paidAmount)}
                 </span>
               </div>

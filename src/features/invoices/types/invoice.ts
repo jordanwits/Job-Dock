@@ -65,6 +65,8 @@ export interface CreateInvoiceData {
 export interface UpdateInvoiceData extends Partial<CreateInvoiceData> {
   id: string
   approvalStatus?: ApprovalStatus
+  /** Amount already paid (partial payments). Ignored unless paymentStatus is partial. */
+  paidAmount?: number
 }
 
 export type InvoiceStatus = 'draft' | 'sent' | 'overdue' | 'cancelled'
