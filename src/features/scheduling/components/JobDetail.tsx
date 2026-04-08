@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { Modal, Button, Card } from '@/components/ui'
 import { useJobStore } from '../store/jobStore'
 import type { Job, JobAssignment } from '../types/job'
-import { cn } from '@/lib/utils'
+import { cn, getMapsHref } from '@/lib/utils'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useAuthStore } from '@/features/auth/store/authStore'
@@ -453,7 +453,16 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
         {job.location && (
           <Card>
             <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Location</h3>
-            <p className={textMain}>{job.location}</p>
+            <p className={textMain}>
+              <a
+                href={getMapsHref(job.location)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-gold hover:underline"
+              >
+                {job.location}
+              </a>
+            </p>
           </Card>
         )}
 

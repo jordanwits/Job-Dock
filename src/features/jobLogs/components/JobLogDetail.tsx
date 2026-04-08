@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { Card, Button, StatusBadgeSelect, Modal, Select } from '@/components/ui'
-import { cn } from '@/lib/utils'
+import { cn, getMapsHref } from '@/lib/utils'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
 import type { JobLog, JobAssignment } from '../types/jobLog'
@@ -1607,7 +1607,14 @@ const JobLogDetail = ({
                   theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
                 )}
               >
-                {jobLog.location}
+                <a
+                  href={getMapsHref(jobLog.location)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-gold hover:underline"
+                >
+                  {jobLog.location}
+                </a>
               </dd>
             </div>
           )}

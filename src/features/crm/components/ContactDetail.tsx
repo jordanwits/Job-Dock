@@ -13,7 +13,7 @@ import { CreateJobData } from '@/features/scheduling/types/job'
 import InvoiceForm from '@/features/invoices/components/InvoiceForm'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { services } from '@/lib/api/services'
-import { cn } from '@/lib/utils'
+import { buildContactAddressQuery, cn, getMapsHref } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { getSendValidationError } from '@/lib/utils/sendValidation'
@@ -883,11 +883,11 @@ const ContactDetail = ({
               >
                 Address
               </h3>
-              <div
-                className={cn(
-                  'text-sm',
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}
+              <a
+                href={getMapsHref(buildContactAddressQuery(contact))}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm block text-primary-gold hover:underline"
               >
                 {contact.address && <div>{contact.address}</div>}
                 {(contact.city || contact.state || contact.zipCode) && (
@@ -898,7 +898,7 @@ const ContactDetail = ({
                   </div>
                 )}
                 {contact.country && <div>{contact.country}</div>}
-              </div>
+              </a>
             </div>
           )}
 
