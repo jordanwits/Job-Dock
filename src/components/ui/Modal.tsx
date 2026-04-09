@@ -133,9 +133,11 @@ const Modal = ({
 
   const sizeClass = sizes[size] || sizes.md
 
-  /** Short confirmations on narrow viewports: avoid flex-1 body stretching the shell to max-height */
+  /** Short forms / confirms on narrow viewports: avoid flex-1 body stretching the shell to full height */
   const compactMobileBody =
-    fitContentOnMobile && mobilePosition === 'center' && (size === 'xs' || size === 'sm')
+    fitContentOnMobile &&
+    mobilePosition === 'center' &&
+    (size === 'xs' || size === 'sm' || size === 'md')
 
   const modalContent = (
     <div
@@ -187,7 +189,12 @@ const Modal = ({
                 ? fitContentOnMobile
                   ? 'my-auto max-h-[85dvh] sm:h-auto sm:max-h-[85vh]'
                   : 'my-auto h-viewport-mobile-lg sm:h-auto sm:max-h-[85vh]'
-                : 'my-auto h-viewport-mobile sm:h-auto sm:max-h-[85vh]',
+                : fitContentOnMobile
+                  ? cn(
+                      'my-auto max-h-[85dvh] sm:h-auto sm:max-h-[85vh]',
+                      'max-lg:h-fit max-lg:min-h-0'
+                    )
+                  : 'my-auto h-viewport-mobile sm:h-auto sm:max-h-[85vh]',
           sizeClass
         )}
         onMouseDown={e => e.stopPropagation()}

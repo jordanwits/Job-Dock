@@ -285,7 +285,7 @@ export function SavedLineItemsSection() {
                   </div>
                 </th>
                 <th className="p-3 font-medium text-primary-gold">Description</th>
-                <th className="p-3 font-medium text-primary-gold">Default qty</th>
+                <th className="p-3 font-medium text-primary-gold">Quantity</th>
                 <th className="p-3 font-medium text-primary-gold">Unit price</th>
               </tr>
             </thead>
@@ -370,6 +370,7 @@ export function SavedLineItemsSection() {
           })
         }}
         title="New saved line item"
+        fitContentOnMobile
       >
         <form
           onSubmit={e => {
@@ -384,7 +385,7 @@ export function SavedLineItemsSection() {
             error={createForm.formState.errors.description?.message}
           />
           <Input
-            label="Default quantity"
+            label="Quantity"
             type="number"
             step="0.01"
             {...createForm.register('defaultQuantity')}
