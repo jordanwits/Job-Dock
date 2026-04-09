@@ -12,6 +12,7 @@ import { SchedulingPage } from '@/features/scheduling'
 import { JobLogsListPage, JobLogDetailPage } from '@/features/jobLogs'
 import { PublicBookingPage, PublicReschedulePage } from '@/features/booking'
 import { SettingsPage, ProfileSettingsPage } from '@/features/settings'
+import { LineItemsManagerPage } from '@/features/line-items/pages/LineItemsManagerPage'
 import { QuoteApprovalPage, InvoiceApprovalPage, QuoteViewPage, InvoiceViewPage, ShortLinkRedirect } from '@/features/publicApproval'
 import { ReportsPage } from '@/features/reports'
 import {
@@ -189,6 +190,25 @@ function App() {
                 >
                   <InvoicesPage />
                 </AppLayout>
+                </BillingGuard>
+              </AdminRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/app/line-items"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <AdminRoute userRole={user?.role}>
+                <BillingGuard>
+                  <AppLayout
+                    sidebarItems={sidebarItems}
+                    user={user ? { name: user.name, email: user.email, role: user.role } : undefined}
+                    onLogout={handleLogout}
+                  >
+                    <LineItemsManagerPage />
+                  </AppLayout>
                 </BillingGuard>
               </AdminRoute>
             </ProtectedRoute>

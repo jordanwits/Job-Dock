@@ -27,6 +27,7 @@ const loadMockStorage = () => {
     schedules: [],
     jobs: [],
     services: [],
+    savedLineItems: [],
   }
 }
 
@@ -40,7 +41,18 @@ const saveMockStorage = () => {
 }
 
 // Mock data storage (persisted to localStorage)
-const mockStorage = loadMockStorage()
+const mockStorage = loadMockStorage() as {
+  contacts: unknown[]
+  quotes: unknown[]
+  invoices: unknown[]
+  schedules: unknown[]
+  jobs: unknown[]
+  services: unknown[]
+  savedLineItems: unknown[]
+}
+if (!mockStorage.savedLineItems) {
+  mockStorage.savedLineItems = []
+}
 
 // Initialize with seed services if storage is empty
 if (mockStorage.services.length === 0) {
@@ -1040,6 +1052,195 @@ export const mockServicesService = {
   },
 }
 
+const mockSavedLineItemId = () =>
+  `sli-mock-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
+
+export const mockSavedLineItemsService = {
+  getAll: async () => {
+    await delay(150)
+    return [...(mockStorage.savedLineItems as Record<string, unknown>[])].sort((a, b) =>
+      String(a.name).localeCompare(String(b.name))
+    )
+  },
+
+  getById: async (id: string) => {
+    await delay(80)
+    const item = (mockStorage.savedLineItems as { id: string }[]).find(x => x.id === id)
+    if (!item) throw new Error('Saved line item not found')
+    return item
+  },
+
+  create: async (data: {
+    name?: string
+    description?: string
+    defaultQuantity?: number
+    unitPrice?: number
+  }) => {
+    await delay(150)
+    const descriptionTrimmed = String(data.description ?? '').trim()
+    let name = String(data.name || '').trim()
+    if (!name) {
+      name = descriptionTrimmed.slice(0, 500)
+    }
+    if (!name) throw new Error('Description is required')
+    const normalizedName = name.trim().toLowerCase().replace(/\s+/g, ' ')
+    if (
+      (mockStorage.savedLineItems as { normalizedName: string }[]).some(
+        x => x.normalizedName === normalizedName
+      )
+    ) {
+      throw new Error('A saved line item with this name already exists')
+    }
+    const now = new Date().toISOString()
+    const item = {
+      id: mockSavedLineItemId(),
+      tenantId: 'mock-tenant',
+      name,
+      normalizedName,
+      description: descriptionTrimmed,
+      defaultQuantity: Number(data.defaultQuantity ?? 1),
+      unitPrice: Number(data.unitPrice ?? 0),
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    }
+    ;(mockStorage.savedLineItems as unknown[]).push(item)
+    saveMockStorage()
+    return item
+  },
+
+  update: async (
+    id: string,
+    data: Partial<{
+      name: string
+      description: string
+      defaultQuantity: number
+      unitPrice: number
+    }>
+  ) => {
+    await delay(150)
+    const list = mockStorage.savedLineItems as Record<string, unknown>[]
+    const idx = list.findIndex(x => x.id === id)
+    if (idx < 0) throw new Error('Saved line item not found')
+    const existing = { ...list[idx] }
+    const nextDescription =
+      data.description !== undefined && data.description !== null
+        ? String(data.description).trim()
+        : undefined
+
+    let nextName: string | undefined
+    if (data.name !== undefined && data.name !== null) {
+      nextName = String(data.name).trim()
+      if (!nextName) throw new Error('Name cannot be empty')
+    } else if (nextDescription !== undefined) {
+      nextName = nextDescription.slice(0, 500)
+      if (!nextName) throw new Error('Description is required')
+    }
+
+    if (nextName !== undefined) {
+      const normalizedName = nextName.toLowerCase().replace(/\s+/g, ' ')
+      if (
+        list.some((x, i) => i !== idx && x.normalizedName === normalizedName)
+      ) {
+        throw new Error('A saved line item with this name already exists')
+      }
+      existing.name = nextName
+      existing.normalizedName = normalizedName
+    }
+    if (nextDescription !== undefined) existing.description = nextDescription
+    if (data.defaultQuantity !== undefined) existing.defaultQuantity = Number(data.defaultQuantity)
+    if (data.unitPrice !== undefined) existing.unitPrice = Number(data.unitPrice)
+    existing.isActive = true
+    existing.updatedAt = new Date().toISOString()
+    list[idx] = existing
+    saveMockStorage()
+    return existing
+  },
+
+  delete: async (id: string) => {
+    await delay(120)
+    const list = mockStorage.savedLineItems as { id: string }[]
+    const idx = list.findIndex(x => x.id === id)
+    if (idx < 0) throw new Error('Saved line item not found')
+    list.splice(idx, 1)
+    saveMockStorage()
+    return { success: true }
+  },
+
+  importPreview: async (csvContent: string) => {
+    await delay(200)
+    const lines = csvContent.trim().split(/\n/).filter(Boolean)
+    const headers =
+      lines[0]?.split(',').map(h => h.trim().replace(/^"|"$/g, '')) ?? []
+    const rows: Record<string, string>[] = []
+    for (let r = 1; r < Math.min(lines.length, 6); r++) {
+      const cols = lines[r]!.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
+      const row: Record<string, string> = {}
+      headers.forEach((h, i) => {
+        row[h] = cols[i] ?? ''
+      })
+      rows.push(row)
+    }
+    const suggestedMapping: Record<string, string> = {}
+    headers.forEach(h => {
+      const l = h.toLowerCase()
+      if (['name', 'item', 'product', 'service'].some(x => l.includes(x))) suggestedMapping[h] = 'name'
+      else if (l.includes('desc')) suggestedMapping[h] = 'description'
+      else if (l.includes('qty') || l === 'quantity') suggestedMapping[h] = 'defaultQuantity'
+      else if (l.includes('price') || l.includes('rate') || l.includes('amount'))
+        suggestedMapping[h] = 'unitPrice'
+    })
+    return {
+      headers,
+      rows,
+      totalRows: Math.max(0, lines.length - 1),
+      suggestedMapping,
+    }
+  },
+
+  importInit: async (
+    _fileName: string,
+    _csvContent: string,
+    _fieldMapping: Record<string, string>
+  ) => {
+    await delay(120)
+    return { sessionId: `mock-sli-${Date.now()}` }
+  },
+
+  importProcess: async (_sessionId: string) => {
+    await delay(400)
+    return {
+      sessionId: 'mock',
+      status: 'completed',
+      progress: { total: 0, processed: 0, inserted: 0, updated: 0, skipped: 0, failed: 0 },
+      pendingConflicts: [],
+      errors: [],
+    }
+  },
+
+  importStatus: async (_sessionId: string) => {
+    await delay(50)
+    return {
+      sessionId: 'mock',
+      status: 'completed',
+      progress: { total: 0, processed: 0, inserted: 0, updated: 0, skipped: 0, failed: 0 },
+      pendingConflicts: [],
+      errors: [],
+    }
+  },
+
+  importResolveConflict: async () => {
+    await delay(80)
+    return {
+      sessionId: 'mock',
+      status: 'completed',
+      progress: { total: 0, processed: 0, inserted: 0, updated: 0, skipped: 0, failed: 0 },
+      pendingConflicts: [],
+      errors: [],
+    }
+  },
+}
+
 // Export all mock services
 export const mockServices = {
   auth: mockAuthService,
@@ -1048,5 +1249,5 @@ export const mockServices = {
   invoices: mockInvoicesService,
   jobs: mockJobsService,
   services: mockServicesService,
-  // Add more services as you build them
+  savedLineItems: mockSavedLineItemsService,
 }

@@ -7,6 +7,7 @@ import {
   Contact,
   Job,
   JobRecurrence,
+  SavedLineItem,
 } from '@prisma/client'
 import prisma from './db'
 import { ensureTenantExists } from './tenant'
@@ -50,6 +51,15 @@ import {
   getImportSessionData,
   parseCSVPreview,
 } from './csvImport'
+import {
+  parseSavedLineItemCSVPreview,
+  createSavedLineItemImportSession,
+  getSavedLineItemImportSession,
+  processSavedLineItemImportSession,
+  getSavedLineItemImportSessionData,
+  resolveSavedLineItemConflict,
+} from './savedLineItemCsvImport'
+import { normalizeSavedLineItemName } from './savedLineItemCsvHelpers'
 import { addDays, addWeeks, addMonths } from 'date-fns'
 import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 
@@ -66,6 +76,31 @@ export interface RecurrencePayload {
 }
 
 const toNumber = (value: Prisma.Decimal | number | null | undefined) => (value ? Number(value) : 0)
+
+function serializeSavedLineItem(item: SavedLineItem) {
+  return {
+    id: item.id,
+    tenantId: item.tenantId,
+    name: item.name,
+    normalizedName: item.normalizedName,
+    description: item.description,
+    defaultQuantity: toNumber(item.defaultQuantity) || 1,
+    unitPrice: toNumber(item.unitPrice),
+    isActive: item.isActive,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString(),
+  }
+}
+
+function serializeSavedLineItemImportResponse(data: ReturnType<typeof getSavedLineItemImportSessionData>) {
+  return {
+    ...data,
+    pendingConflicts: data.pendingConflicts.map(c => ({
+      ...c,
+      existingItem: serializeSavedLineItem(c.existingItem),
+    })),
+  }
+}
 
 // Helper to parse and validate a date, returns null if invalid
 function parseValidDate(value: any): Date | null {
@@ -1419,7 +1454,11 @@ export const dataServices = {
     },
     importResolveConflict: async (
       tenantId: string,
-      payload: { sessionId: string; conflictId: string; resolution: 'update' | 'skip' }
+      payload: {
+        sessionId: string
+        conflictId: string
+        resolution: 'update' | 'skip' | 'keep_existing' | 'keep_incoming' | 'keep_both'
+      }
     ) => {
       await ensureTenantExists(tenantId)
       const session = getImportSession(payload.sessionId)
@@ -6669,6 +6708,222 @@ export const dataServices = {
 
       await prisma.jobRole.delete({ where: { id } })
       return { success: true }
+    },
+  },
+  'saved-line-items': {
+    getAll: async (tenantId: string) => {
+      await ensureTenantExists(tenantId)
+      const items = await prisma.savedLineItem.findMany({
+        where: { tenantId },
+        orderBy: [{ name: 'asc' }],
+      })
+      return items.map(serializeSavedLineItem)
+    },
+    getById: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      const item = await prisma.savedLineItem.findFirst({
+        where: { id, tenantId },
+      })
+      if (!item) {
+        throw new ApiError('Saved line item not found', 404)
+      }
+      return serializeSavedLineItem(item)
+    },
+    create: async (tenantId: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+      const descriptionRaw =
+        payload.description != null && payload.description !== ''
+          ? String(payload.description).trim()
+          : ''
+      let name = String(payload.name || '').trim()
+      if (!name) {
+        name = descriptionRaw.slice(0, 500)
+      }
+      if (!name) {
+        throw new ApiError('Description is required', 400)
+      }
+      const normalizedName = normalizeSavedLineItemName(name)
+      const description = descriptionRaw
+      const defaultQuantity =
+        payload.defaultQuantity != null && payload.defaultQuantity !== ''
+          ? Number(payload.defaultQuantity)
+          : 1
+      const unitPrice =
+        payload.unitPrice != null && payload.unitPrice !== '' ? Number(payload.unitPrice) : 0
+      if (!Number.isFinite(defaultQuantity) || defaultQuantity < 0) {
+        throw new ApiError('Invalid default quantity', 400)
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new ApiError('Invalid unit price', 400)
+      }
+
+      const dup = await prisma.savedLineItem.findUnique({
+        where: {
+          tenantId_normalizedName: { tenantId, normalizedName },
+        },
+      })
+      if (dup) {
+        throw new ApiError('A saved line item with this name already exists', 400)
+      }
+
+      const created = await prisma.savedLineItem.create({
+        data: {
+          tenantId,
+          name,
+          normalizedName,
+          description,
+          defaultQuantity: new Prisma.Decimal(defaultQuantity),
+          unitPrice: new Prisma.Decimal(unitPrice),
+          isActive: true,
+        },
+      })
+      return serializeSavedLineItem(created)
+    },
+    update: async (tenantId: string, id: string, payload: any) => {
+      await ensureTenantExists(tenantId)
+      const existing = await prisma.savedLineItem.findFirst({
+        where: { id, tenantId },
+      })
+      if (!existing) {
+        throw new ApiError('Saved line item not found', 404)
+      }
+
+      let nextDescription: string | undefined
+      if (payload.description !== undefined) {
+        nextDescription = String(payload.description).trim()
+      }
+
+      let nextName: string | undefined
+      let nextNormalized: string | undefined
+      if (payload.name !== undefined) {
+        nextName = String(payload.name).trim()
+        if (!nextName) {
+          throw new ApiError('Name cannot be empty', 400)
+        }
+      } else if (nextDescription !== undefined) {
+        nextName = nextDescription.slice(0, 500)
+        if (!nextName) {
+          throw new ApiError('Description is required', 400)
+        }
+      }
+
+      if (nextName !== undefined) {
+        nextNormalized = normalizeSavedLineItemName(nextName)
+        if (nextNormalized !== existing.normalizedName) {
+          const taken = await prisma.savedLineItem.findFirst({
+            where: { tenantId, normalizedName: nextNormalized, NOT: { id } },
+          })
+          if (taken) {
+            throw new ApiError('A saved line item with this name already exists', 400)
+          }
+        }
+      }
+
+      const data: Prisma.SavedLineItemUpdateInput = {}
+      if (nextName !== undefined && nextNormalized !== undefined) {
+        data.name = nextName
+        data.normalizedName = nextNormalized
+      }
+      if (nextDescription !== undefined) {
+        data.description = nextDescription
+      }
+      if (payload.defaultQuantity !== undefined && payload.defaultQuantity !== '') {
+        const q = Number(payload.defaultQuantity)
+        if (!Number.isFinite(q) || q < 0) {
+          throw new ApiError('Invalid default quantity', 400)
+        }
+        data.defaultQuantity = new Prisma.Decimal(q)
+      }
+      if (payload.unitPrice !== undefined && payload.unitPrice !== '') {
+        const p = Number(payload.unitPrice)
+        if (!Number.isFinite(p) || p < 0) {
+          throw new ApiError('Invalid unit price', 400)
+        }
+        data.unitPrice = new Prisma.Decimal(p)
+      }
+      data.isActive = true
+
+      const updated = await prisma.savedLineItem.update({
+        where: { id },
+        data,
+      })
+      return serializeSavedLineItem(updated)
+    },
+    delete: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+      const item = await prisma.savedLineItem.findFirst({
+        where: { id, tenantId },
+      })
+      if (!item) {
+        throw new ApiError('Saved line item not found', 404)
+      }
+      await prisma.savedLineItem.delete({ where: { id } })
+      return { success: true }
+    },
+    importPreview: async (tenantId: string, payload: { csvContent: string }) => {
+      await ensureTenantExists(tenantId)
+      return parseSavedLineItemCSVPreview(payload.csvContent)
+    },
+    importInit: async (
+      tenantId: string,
+      payload: { fileName: string; csvContent: string; fieldMapping: Record<string, string> }
+    ) => {
+      await ensureTenantExists(tenantId)
+      const session = createSavedLineItemImportSession(
+        tenantId,
+        payload.fileName,
+        payload.csvContent,
+        payload.fieldMapping
+      )
+      return { sessionId: session.id }
+    },
+    importProcess: async (tenantId: string, sessionId: string) => {
+      await ensureTenantExists(tenantId)
+      const session = getSavedLineItemImportSession(sessionId)
+      if (!session) {
+        throw new ApiError('Import session not found', 404)
+      }
+      if (session.tenantId !== tenantId) {
+        throw new ApiError('Unauthorized', 403)
+      }
+      const data = await processSavedLineItemImportSession(sessionId)
+      return serializeSavedLineItemImportResponse(data)
+    },
+    importStatus: async (tenantId: string, sessionId: string) => {
+      await ensureTenantExists(tenantId)
+      const session = getSavedLineItemImportSession(sessionId)
+      if (!session) {
+        throw new ApiError('Import session not found', 404)
+      }
+      if (session.tenantId !== tenantId) {
+        throw new ApiError('Unauthorized', 403)
+      }
+      return serializeSavedLineItemImportResponse(getSavedLineItemImportSessionData(sessionId))
+    },
+    importResolveConflict: async (
+      tenantId: string,
+      payload: {
+        sessionId: string
+        conflictId: string
+        resolution: 'update' | 'skip' | 'keep_existing' | 'keep_incoming' | 'keep_both'
+      }
+    ) => {
+      await ensureTenantExists(tenantId)
+      const session = getSavedLineItemImportSession(payload.sessionId)
+      if (!session) {
+        throw new ApiError('Import session not found', 404)
+      }
+      if (session.tenantId !== tenantId) {
+        throw new ApiError('Unauthorized', 403)
+      }
+      await resolveSavedLineItemConflict(
+        payload.sessionId,
+        payload.conflictId,
+        payload.resolution
+      )
+      return serializeSavedLineItemImportResponse(
+        getSavedLineItemImportSessionData(payload.sessionId)
+      )
     },
   },
   account: {

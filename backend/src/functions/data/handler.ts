@@ -892,6 +892,7 @@ We look forward to working with you!',
       'settings',
       'users',
       'job-roles',
+      'saved-line-items',
     ] as const
     const employeeAllowedResources = ['job-logs', 'time-entries'] as const
     // Employees can read these (for calendar, job form, header company name/logo) but not create/update/delete
@@ -903,6 +904,7 @@ We look forward to working with you!',
       'invoices',
       'settings',
       'job-roles', // For clock-in permission check (canClockInFor)
+      'saved-line-items',
     ] as const
     // Employees have full access to jobs (create, read) but edit/delete restricted to own jobs
     const employeeJobAccessResources = ['jobs'] as const
@@ -1176,6 +1178,15 @@ async function handleGet(
       throw new ApiError('Session ID required', 400)
     }
     return (service as typeof dataServices.contacts).importStatus(tenantId, sessionId)
+  }
+
+  // Saved line items import status
+  if (resource === 'saved-line-items' && id === 'import' && action === 'status') {
+    const sessionId = event.queryStringParameters?.sessionId
+    if (!sessionId) {
+      throw new ApiError('Session ID required', 400)
+    }
+    return (service as typeof dataServices['saved-line-items']).importStatus(tenantId, sessionId)
   }
 
   // Get reschedule info for public reschedule page
@@ -1456,6 +1467,33 @@ async function handlePost(
   if (resource === 'contacts' && id === 'import' && action === 'resolve-conflict') {
     const payload = parseBody(event)
     return (service as typeof dataServices.contacts).importResolveConflict(tenantId, payload)
+  }
+
+  // Saved line items CSV import
+  if (resource === 'saved-line-items' && id === 'import' && action === 'preview') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices['saved-line-items']).importPreview(tenantId, payload)
+  }
+
+  if (resource === 'saved-line-items' && id === 'import' && action === 'init') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices['saved-line-items']).importInit(tenantId, payload)
+  }
+
+  if (resource === 'saved-line-items' && id === 'import' && action === 'process') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices['saved-line-items']).importProcess(
+      tenantId,
+      payload.sessionId
+    )
+  }
+
+  if (resource === 'saved-line-items' && id === 'import' && action === 'resolve-conflict') {
+    const payload = parseBody(event)
+    return (service as typeof dataServices['saved-line-items']).importResolveConflict(
+      tenantId,
+      payload
+    )
   }
 
   // Send actions don't require a body

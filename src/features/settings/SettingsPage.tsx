@@ -15,7 +15,15 @@ import { TesterApprovalSection, isTesterApprovalUiVisible } from './TesterApprov
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 
-type TabId = 'billing' | 'team' | 'company' | 'email' | 'pdf' | 'help' | 'feedback' | 'tester'
+type TabId =
+  | 'billing'
+  | 'team'
+  | 'company'
+  | 'email'
+  | 'pdf'
+  | 'help'
+  | 'feedback'
+  | 'tester'
 
 interface TabConfig {
   id: TabId

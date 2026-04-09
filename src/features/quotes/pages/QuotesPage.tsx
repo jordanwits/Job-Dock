@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuoteStore } from '../store/quoteStore'
 import QuoteList from '../components/QuoteList'
 import QuoteForm from '../components/QuoteForm'
@@ -13,6 +13,7 @@ const QuotesPage = () => {
   const { theme } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const returnTo = searchParams.get('returnTo')
   const openCreateQuote = searchParams.get('openCreateQuote') === '1'
   const openQuoteId = searchParams.get('open')
@@ -168,13 +169,26 @@ const QuotesPage = () => {
             Create and manage quotes for your projects
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreateForm(true)}
-          className="w-full sm:w-auto"
-          title="Keyboard shortcut: Ctrl+N or ⌘N"
-        >
-          Create Quote
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(
+                `/app/line-items?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`
+              )
+            }
+            className="w-full sm:w-auto"
+          >
+            Line Items
+          </Button>
+          <Button
+            onClick={() => setShowCreateForm(true)}
+            className="w-full sm:w-auto"
+            title="Keyboard shortcut: Ctrl+N or ⌘N"
+          >
+            Create Quote
+          </Button>
+        </div>
       </div>
 
       {/* Error Display */}

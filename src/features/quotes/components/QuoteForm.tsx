@@ -9,6 +9,8 @@ import ContactForm from '@/features/crm/components/ContactForm'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
 import { getSendValidationError } from '@/lib/utils/sendValidation'
+import { PickSavedLineItemModal } from '@/features/line-items/components/PickSavedLineItemModal'
+import { isDefaultPlaceholderLineItem } from '@/features/line-items/utils/isDefaultPlaceholderLineItem'
 
 interface QuoteFormProps {
   quote?: Quote
@@ -40,6 +42,7 @@ const QuoteForm = ({
   const [showCreateContact, setShowCreateContact] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
   const [saveAndSendError, setSaveAndSendError] = useState<string | null>(null)
+  const [savedLinePickerOpen, setSavedLinePickerOpen] = useState(false)
   const errorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -63,6 +66,7 @@ const QuoteForm = ({
     control,
     watch,
     setValue,
+    getValues,
     formState: { errors },
     reset,
   } = useForm<QuoteFormData>({
@@ -87,7 +91,7 @@ const QuoteForm = ({
     },
   })
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control,
     name: 'lineItems',
   })
@@ -238,7 +242,6 @@ const QuoteForm = ({
           placeholder="e.g., Kitchen Remodel, Office Renovation (pulled from project title)"
           error={errors.title?.message}
           {...register('title')}
-          helperText="Pulled from project title when creating from a job"
         />
 
         {/* Line Items */}
@@ -320,15 +323,24 @@ const QuoteForm = ({
               </div>
             ))}
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
-            className="mt-3"
-          >
-            + Add Item
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
+            >
+              + Add Item
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSavedLinePickerOpen(true)}
+            >
+              + From saved
+            </Button>
+          </div>
           {errors.lineItems && (
             <p className="mt-1 text-sm text-red-500">{errors.lineItems.message}</p>
           )}
@@ -474,6 +486,27 @@ const QuoteForm = ({
           )}
         </div>
       </form>
+
+      <PickSavedLineItemModal
+        isOpen={savedLinePickerOpen}
+        onClose={() => setSavedLinePickerOpen(false)}
+        onSelect={line => {
+          const row = {
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+          }
+          const items = getValues('lineItems')
+          if (
+            items.length === 1 &&
+            isDefaultPlaceholderLineItem(items[0])
+          ) {
+            update(0, row)
+          } else {
+            append(row)
+          }
+        }}
+      />
 
       {/* Create Contact Modal */}
       <Modal

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useInvoiceStore } from '../store/invoiceStore'
 import InvoiceList from '../components/InvoiceList'
 import InvoiceForm from '../components/InvoiceForm'
@@ -13,6 +13,7 @@ const InvoicesPage = () => {
   const { theme } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const returnTo = searchParams.get('returnTo')
   const openInvoiceId = searchParams.get('open')
   const openCreateInvoice = searchParams.get('openCreateInvoice') === '1'
@@ -170,13 +171,26 @@ const InvoicesPage = () => {
             Create and manage invoices for your clients
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreateForm(true)}
-          className="w-full sm:w-auto"
-          title="Keyboard shortcut: Ctrl+N or ⌘N"
-        >
-          Create Invoice
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(
+                `/app/line-items?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`
+              )
+            }
+            className="w-full sm:w-auto"
+          >
+            Line Items
+          </Button>
+          <Button
+            onClick={() => setShowCreateForm(true)}
+            className="w-full sm:w-auto"
+            title="Keyboard shortcut: Ctrl+N or ⌘N"
+          >
+            Create Invoice
+          </Button>
+        </div>
       </div>
 
       {/* Error Display */}

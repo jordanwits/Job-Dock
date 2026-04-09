@@ -12,6 +12,11 @@ import type { Quote, CreateQuoteData } from '@/features/quotes/types/quote'
 import type { Invoice, CreateInvoiceData, UpdateInvoiceData } from '@/features/invoices/types/invoice'
 import type { Job, CreateJobData } from '@/features/scheduling/types/job'
 import type { Service, CreateServiceData } from '@/features/scheduling/types/service'
+import type {
+  SavedLineItem,
+  CreateSavedLineItemData,
+  UpdateSavedLineItemData,
+} from '@/features/line-items/types/savedLineItem'
 
 // Determine which services to use
 const useMockData = appEnv.isMock
@@ -154,7 +159,7 @@ const realContactsService = {
   importResolveConflict: async (
     sessionId: string,
     conflictId: string,
-    resolution: 'update' | 'skip'
+    resolution: 'update' | 'skip' | 'keep_existing' | 'keep_incoming' | 'keep_both'
   ) => {
     const response = await apiClient.post('/contacts/import/resolve-conflict', {
       sessionId,
@@ -644,6 +649,83 @@ const realJobRolesService = {
 
 export const jobRolesService = realJobRolesService
 
+const realSavedLineItemsService = {
+  getAll: async (): Promise<SavedLineItem[]> => {
+    const response = await apiClient.get('/saved-line-items')
+    return response.data
+  },
+
+  getById: async (id: string): Promise<SavedLineItem> => {
+    const response = await apiClient.get(`/saved-line-items/${id}`)
+    return response.data
+  },
+
+  create: async (data: CreateSavedLineItemData): Promise<SavedLineItem> => {
+    const response = await apiClient.post('/saved-line-items', data)
+    return response.data
+  },
+
+  update: async (
+    id: string,
+    data: Omit<UpdateSavedLineItemData, 'id'>
+  ): Promise<SavedLineItem> => {
+    const response = await apiClient.put(`/saved-line-items/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete(`/saved-line-items/${id}`)
+    return response.data
+  },
+
+  importPreview: async (csvContent: string) => {
+    const response = await apiClient.post('/saved-line-items/import/preview', { csvContent })
+    return response.data
+  },
+
+  importInit: async (
+    fileName: string,
+    csvContent: string,
+    fieldMapping: Record<string, string>
+  ) => {
+    const response = await apiClient.post('/saved-line-items/import/init', {
+      fileName,
+      csvContent,
+      fieldMapping,
+    })
+    return response.data
+  },
+
+  importProcess: async (sessionId: string) => {
+    const response = await apiClient.post('/saved-line-items/import/process', { sessionId })
+    return response.data
+  },
+
+  importStatus: async (sessionId: string) => {
+    const response = await apiClient.get(
+      `/saved-line-items/import/status?sessionId=${encodeURIComponent(sessionId)}`
+    )
+    return response.data
+  },
+
+  importResolveConflict: async (
+    sessionId: string,
+    conflictId: string,
+    resolution: 'update' | 'skip' | 'keep_existing' | 'keep_incoming' | 'keep_both'
+  ) => {
+    const response = await apiClient.post('/saved-line-items/import/resolve-conflict', {
+      sessionId,
+      conflictId,
+      resolution,
+    })
+    return response.data
+  },
+}
+
+export const savedLineItemsService = useMockData
+  ? mockServices.savedLineItems
+  : realSavedLineItemsService
+
 // Add more services as you build them
 export const services = {
   auth: authService,
@@ -659,4 +741,5 @@ export const services = {
   admin: adminService,
   users: usersService,
   jobRoles: jobRolesService,
+  savedLineItems: savedLineItemsService,
 }
