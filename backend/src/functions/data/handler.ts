@@ -1414,6 +1414,36 @@ async function handlePost(
     throw new ApiError('Invalid action for settings', 400)
   }
 
+  if (resource === 'help' && id) {
+    const payload = parseBody(event)
+    const context = await extractContext(event)
+    const { default: prisma } = await import('../../lib/db')
+    const user = await prisma.user.findFirst({
+      where: { cognitoId: context.userId, tenantId },
+      select: { id: true, name: true, email: true },
+    })
+    if (!user) {
+      throw new ApiError('User not found', 404)
+    }
+    const help = dataServices.help
+    if (id === 'session') {
+      return help.createSession(tenantId, user.id)
+    }
+    if (id === 'chat') {
+      return help.chat(tenantId, user.id, user.email, user.name ?? undefined, payload)
+    }
+    if (id === 'report') {
+      return help.reportToEngineer(
+        tenantId,
+        user.id,
+        user.email,
+        user.name ?? undefined,
+        payload
+      )
+    }
+    throw new ApiError('Invalid action for help', 400)
+  }
+
   if (resource === 'services' && id && action === 'book') {
     const payload = parseBody(event)
     // Try to extract contractor email from the logged-in user

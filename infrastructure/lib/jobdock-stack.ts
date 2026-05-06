@@ -548,6 +548,8 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_JOBDOCK_TEAM_PRICE_ID: process.env.STRIPE_JOBDOCK_TEAM_PRICE_ID || '',
         STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID: process.env.STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID || '',
         JOBDOCK_PLATFORM_ADMIN_EMAILS: process.env.JOBDOCK_PLATFORM_ADMIN_EMAILS || '',
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+        JOBDOCK_SUPPORT_ENGINEER_EMAIL: process.env.JOBDOCK_SUPPORT_ENGINEER_EMAIL || '',
       },
     })
 
@@ -713,6 +715,12 @@ export class JobDockStack extends cdk.Stack {
       value: `https://${this.distribution.distributionDomainName}`,
       description: 'CloudFront distribution URL',
       exportName: `JobDock-${config.env}-CloudFrontUrl`,
+    })
+
+    new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
+      value: this.distribution.distributionId,
+      description: 'CloudFront distribution ID (for cache invalidation)',
+      exportName: `JobDock-${config.env}-CloudFrontDistributionId`,
     })
 
     new cdk.CfnOutput(this, 'DataLambdaName', {

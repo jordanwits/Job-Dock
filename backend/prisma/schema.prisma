@@ -36,6 +36,7 @@ model Tenant {
   users                    User[]
   settings                 TenantSettings?
   jobRoles                 JobRole[]
+  helpChatSessions         HelpChatSession[]
 
   @@index([subdomain])
   @@index([stripeCustomerId])
@@ -68,6 +69,8 @@ model User {
   jobsCreated           Job[]
   bookingsCreated       Booking[]
   timeEntries           TimeEntry[]
+  helpChatSessions      HelpChatSession[]
+  helpChatDailyUsage    HelpChatDailyUsage[]
 
   @@index([tenantId])
   @@index([cognitoId])
@@ -488,4 +491,70 @@ model ShortLink {
   @@index([code])
   @@index([expiresAt])
   @@map("short_links")
+}
+
+/// In-app help RAG: chunked product docs with embeddings (pgvector)
+model HelpKnowledgeChunk {
+  id          String                @id @default(uuid())
+  source      String
+  chunkIndex  Int                   @map("chunk_index")
+  content     String
+  metadata    Json?
+  embedding   Unsupported("vector(1536)")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  @@unique([source, chunkIndex])
+  @@index([source])
+  @@map("help_knowledge_chunks")
+}
+
+model HelpChatSession {
+  id          String              @id @default(uuid())
+  tenantId    String              @map("tenant_id")
+  userId      String              @map("user_id")
+  title       String?
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    HelpChatMessage[]
+  escalations HelpEscalation[]
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("help_chat_sessions")
+}
+
+model HelpChatMessage {
+  id        String            @id @default(uuid())
+  sessionId String            @map("session_id")
+  role      String
+  content   String
+  createdAt DateTime          @default(now()) @map("created_at")
+  session   HelpChatSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("help_chat_messages")
+}
+
+/// One escalation email per session (dedupe double-submit)
+model HelpEscalation {
+  id        String          @id @default(uuid())
+  sessionId String          @unique @map("session_id")
+  createdAt DateTime        @default(now()) @map("created_at")
+  session   HelpChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("help_escalations")
+}
+
+model HelpChatDailyUsage {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  day       DateTime @db.Date
+  chatTurns Int      @default(0) @map("chat_turns")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("help_chat_daily_usage")
 }

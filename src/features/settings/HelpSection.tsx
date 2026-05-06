@@ -91,6 +91,24 @@ export const HelpSection = () => {
           </div>
         </Card>
 
+        {/* Help chatbot */}
+        <Card className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className={cn(
+                "text-lg font-medium mb-2",
+                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+              )}>Help chat</h3>
+              <p className={cn(
+                "text-sm",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>
+                Use the <strong className="font-medium">Help</strong> button in the lower-right corner to ask how-to questions, get troubleshooting tips, or send a report to engineering (includes your conversation).
+              </p>
+            </div>
+          </div>
+        </Card>
+
         {/* Support email */}
         <Card className="p-6">
           <div className="space-y-4">

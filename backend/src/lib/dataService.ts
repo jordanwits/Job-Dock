@@ -29,6 +29,7 @@ import {
   sendQuoteDeclinedNotificationToAdmins,
   sendInvoiceDeclinedNotificationToAdmins,
 } from './email'
+import { helpService } from './helpChat'
 import {
   sendSms,
   buildBookingConfirmationSms,
@@ -6950,6 +6951,7 @@ export const dataServices = {
       return { success: true }
     },
   },
+  help: helpService,
 }
 
 /** Remove all users except the owner (for Single-tier downgrade). Also deletes from Cognito. */

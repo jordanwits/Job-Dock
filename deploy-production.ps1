@@ -305,13 +305,16 @@ if (-not $SkipFrontend) {
         exit 1
     }
     
-    # Invalidate CloudFront cache
+    # Invalidate CloudFront cache (use stack output; do not guess from list-distributions)
     Write-Host "Invalidating CloudFront cache..." -ForegroundColor Yellow
-    $distributionId = aws cloudfront list-distributions --query "DistributionList.Items[?Comment==''].Id" --output text | Select-Object -First 1
-    
-    if (-not [string]::IsNullOrEmpty($distributionId)) {
-        aws cloudfront create-invalidation --distribution-id $distributionId --paths "/*"
-        Write-Host "✅ CloudFront cache invalidated" -ForegroundColor Green
+    $distributionId = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" --output text 2>$null
+
+    if (-not [string]::IsNullOrEmpty($distributionId) -and $distributionId -ne "None") {
+        aws cloudfront create-invalidation --distribution-id $distributionId.Trim() --paths "/*"
+        Write-Host "CloudFront cache invalidated" -ForegroundColor Green
+        Write-Host ""
+    } else {
+        Write-Host "CloudFrontDistributionId output missing - skip invalidation (run CDK deploy once with latest stack)." -ForegroundColor Yellow
         Write-Host ""
     }
 } else {

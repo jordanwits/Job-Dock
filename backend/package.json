@@ -16,7 +16,8 @@
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
     "prisma:deploy": "prisma migrate deploy",
-    "enroll-stripe": "tsx scripts/enroll-tenants-stripe.ts"
+    "enroll-stripe": "tsx scripts/enroll-tenants-stripe.ts",
+    "ingest-help": "tsx scripts/ingest-help-docs.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.490.0",
@@ -28,6 +29,7 @@
     "aws-lambda": "^1.0.7",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
+    "openai": "^4.104.0",
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
     "resend": "^4.0.0",
