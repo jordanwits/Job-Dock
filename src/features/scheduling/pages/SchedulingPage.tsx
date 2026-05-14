@@ -1650,7 +1650,7 @@ const SchedulingPage = () => {
               ? 'Schedule Job'
               : editingJob
                 ? 'Edit Job'
-                : 'Schedule New Job'
+                : 'Schedule Job'
         }
         size="xl"
         fitContentOnMobile

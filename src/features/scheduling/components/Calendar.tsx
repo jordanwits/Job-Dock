@@ -223,6 +223,23 @@ const Calendar = ({
   const [justFinishedDrag, setJustFinishedDrag] = useState(false) // Disable transitions after drop
   const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<Record<string, unknown> | null>(null)
+  // Mobile day-view slide transition (from month view).
+  // The sheet mounts on top of the month view and slides up. When the animation
+  // completes we commit the real viewMode='day' via onDateClick and unmount the
+  // sheet in the same React batch — the underlying day view replaces the sheet
+  // with identical DOM (same renderDayView + same date), so the swap is seamless.
+  const [mobileDaySheetMounted, setMobileDaySheetMounted] = useState(false)
+  const [mobileDaySheetOpen, setMobileDaySheetOpen] = useState(false)
+  const openMobileDaySheet = (day: Date) => {
+    setSelectedDate(day)
+    setMobileDaySheetMounted(true)
+    requestAnimationFrame(() => setMobileDaySheetOpen(true))
+    setTimeout(() => {
+      onDateClick(day)
+      setMobileDaySheetMounted(false)
+      setMobileDaySheetOpen(false)
+    }, 320)
+  }
 
   const { updateJob, updateIndependentBooking } = useJobStore()
 
@@ -1083,32 +1100,27 @@ const Calendar = ({
                         onJobClick(job)
                       }}
                     >
+                      <div className="flex min-w-0 flex-nowrap items-baseline gap-x-1 text-sm pointer-events-none">
+                        <span className={cn(
+                          'min-w-0 shrink truncate font-medium',
+                          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                        )}>
+                          {job.title}
+                        </span>
+                        {job.contactName && (
+                          <span className={cn(
+                            'shrink-0 truncate text-xs font-normal',
+                            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                          )}>
+                            {' - '}
+                            {job.contactName}
+                          </span>
+                        )}
+                      </div>
                       <div className={cn(
-                        "text-sm font-medium",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>{job.title}</div>
-                      {job.status === 'pending-confirmation' && (
-                        <div className={cn(
-                          "text-[10px] font-medium uppercase tracking-wide mt-0.5",
-                          theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
-                        )}>Needs confirmation</div>
-                      )}
-                      <div className={cn(
-                        "text-xs",
+                        "hidden sm:block text-xs",
                         theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
                       )}>{dateRange}</div>
-                      {job.contactName && (
-                        <div className={cn(
-                          "text-xs",
-                          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                        )}>{job.contactName}</div>
-                      )}
-                      {job.assignedToName && (
-                        <div className={cn(
-                          "text-xs",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>→ {job.assignedToName}</div>
-                      )}
                     </div>
                   )
                 })}
@@ -1243,43 +1255,30 @@ const Calendar = ({
                             onJobClick(job)
                           }}
                         >
-                          <div className={cn(
-                            "text-sm font-medium pointer-events-none",
-                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                          )}>
-                            {job.title}
+                          <div className="flex min-w-0 flex-nowrap items-baseline gap-x-1 text-sm pointer-events-none">
+                            <span className={cn(
+                              'min-w-0 shrink truncate font-medium',
+                              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                            )}>
+                              {job.title}
+                            </span>
+                            {job.contactName && (
+                              <span className={cn(
+                                'shrink-0 truncate text-xs font-normal',
+                                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                              )}>
+                                {' - '}
+                                {job.contactName}
+                              </span>
+                            )}
                           </div>
-                          {job.status === 'pending-confirmation' && (
-                            <div className={cn(
-                              "text-[10px] font-medium uppercase tracking-wide pointer-events-none",
-                              theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
-                            )}>Needs confirmation</div>
-                          )}
                           <div className={cn(
-                            "text-xs pointer-events-none",
+                            "hidden sm:block text-xs pointer-events-none",
                             theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
                           )}>
                             {format(displayStartTime, 'h:mm a')} -{' '}
                             {format(displayEndTime, 'h:mm a')}
-                            {isResizing && ' (resizing...)'}
-                            {isMoving && ' (moving...)'}
                           </div>
-                          {job.contactName && (
-                            <div className={cn(
-                              "text-xs pointer-events-none",
-                              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                            )}>
-                              {job.contactName}
-                            </div>
-                          )}
-                          {job.assignedToName && (
-                            <div className={cn(
-                              "text-xs pointer-events-none",
-                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                            )}>
-                              → {job.assignedToName}
-                            </div>
-                          )}
                         </div>
 
                         {/* Resize handle - bottom 24px always accessible */}
@@ -1608,11 +1607,14 @@ const Calendar = ({
                           const topOffset = lane * (laneHeight + laneGap)
 
                           const jobColors = getJobColors(job)
+                          const allDayDateRange = isSameDay(jobStartDay, jobEndDay)
+                            ? format(jobStartDay, 'MMM d')
+                            : `${format(jobStartDay, 'MMM d')} - ${format(jobEndDay, 'MMM d')}`
                           return (
                             <div
                               key={job.id}
                               className={cn(
-                                'absolute multi-day-job-bar text-[10px] md:text-xs border-l-2 truncate cursor-grab active:cursor-grabbing hover:opacity-90 z-20 flex items-center',
+                                'absolute multi-day-job-bar text-[10px] md:text-xs border-l-2 cursor-grab active:cursor-grabbing hover:opacity-90 z-20 flex items-center min-w-0',
                                 jobColors.bg || '',
                                 jobColors.border,
                                 jobColors.text,
@@ -1653,9 +1655,24 @@ const Calendar = ({
                                 if (dragState.isDragging) return
                                 onJobClick(job)
                               }}
-                              title={job.title}
+                              title={`${job.title}${job.contactName ? ` - ${job.contactName}` : ''} · ${allDayDateRange}`}
                             >
-                              <span className="truncate">{job.title}</span>
+                              <div className="min-w-0 flex-1 flex flex-col justify-center leading-tight gap-px py-px">
+                                <div className="flex min-w-0 flex-nowrap items-baseline gap-x-1">
+                                  <span className="min-w-0 shrink truncate font-medium">
+                                    {job.title}
+                                  </span>
+                                  {job.contactName && (
+                                    <span className="shrink-0 truncate text-[9px] font-normal opacity-90 md:text-[10px]">
+                                      {' - '}
+                                      {job.contactName}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="hidden sm:block min-w-0 truncate text-[9px] opacity-80 md:text-[10px]">
+                                  {allDayDateRange}
+                                </div>
+                              </div>
                             </div>
                           )
                         })}
@@ -1786,34 +1803,29 @@ const Calendar = ({
                                       onJobClick(job)
                                     }}
                                   >
-                                    <div className={cn(
-                                      "font-medium truncate pointer-events-none",
-                                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                                    )}>
-                                      {job.title}
-                                    </div>
-                                    {job.status === 'pending-confirmation' && (
-                                      <div className={cn(
-                                        "text-[10px] font-medium uppercase tracking-wide truncate pointer-events-none",
-                                        theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
-                                      )}>Needs confirmation</div>
-                                    )}
-                                    <div className={cn(
-                                      "truncate pointer-events-none",
-                                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                                    )}>
-                                      <span className="hidden sm:inline">
-                                        {format(displayStartTime, 'h:mm a')}
+                                    <div className="flex min-w-0 flex-nowrap items-baseline gap-x-1 pointer-events-none">
+                                      <span className={cn(
+                                        'min-w-0 shrink truncate text-xs font-medium',
+                                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+                                      )}>
+                                        {job.title}
                                       </span>
-                                      <span className="sm:hidden">
-                                        {format(displayStartTime, 'h:mm')}
-                                      </span>
-                                      {(isResizing || isMoving) && (
-                                        <span className="hidden sm:inline">
-                                          {' '}
-                                          - {format(displayEndTime, 'h:mm a')}
+                                      {job.contactName && (
+                                        <span className={cn(
+                                          'shrink-0 truncate text-[10px] font-normal md:text-xs',
+                                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                                        )}>
+                                          {' - '}
+                                          {job.contactName}
                                         </span>
                                       )}
+                                    </div>
+                                    <div className={cn(
+                                      'hidden sm:block truncate text-[10px] pointer-events-none md:text-xs',
+                                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+                                    )}>
+                                      {format(displayStartTime, 'h:mm a')} -{' '}
+                                      {format(displayEndTime, 'h:mm a')}
                                     </div>
                                   </div>
 
@@ -1913,10 +1925,12 @@ const Calendar = ({
     // Month view "all-day lane" sizing.
     // Multi-day pills are absolutely positioned and can overflow into adjacent day cells.
     // We reserve lane height in-flow so normal (timed) jobs never overlap those pills.
-    // Fixed pill height + lane step = even spacing everywhere (same-cell, overflow, any row).
+    // Mobile (<sm): thin colored bars without text. Desktop: full pills with time + title.
     const monthPillHeightRem = 1.5
     const monthLaneGapRem = 0.4
-    const monthLaneStepMobileRem = monthPillHeightRem + monthLaneGapRem
+    const monthBarHeightMobileRem = 0.5
+    const monthBarGapMobileRem = 0.2
+    const monthLaneStepMobileRem = monthBarHeightMobileRem + monthBarGapMobileRem
     const monthLaneStepDesktopRem = monthPillHeightRem + monthLaneGapRem
 
     // Multi-day jobs in the visible month grid (deduped by id)
@@ -1974,9 +1988,10 @@ const Calendar = ({
       <div ref={monthViewRef} className="flex-1 overflow-auto p-0.5">
         <style>{`
           /* Month view helpers for multi-day layout */
-          @media (min-width: 768px) {
+          @media (min-width: 640px) {
             .month-multi-day-pill {
               top: var(--top-desktop, 0) !important;
+              height: var(--height-desktop, 1.5rem) !important;
             }
             .month-multiday-lane-spacer {
               height: var(--spacer-height-desktop, 0) !important;
@@ -2066,7 +2081,7 @@ const Calendar = ({
                 className={cn(
                   // Only use Tailwind minHeight class on desktop (when dynamicHeight is not set)
                   !scaleSettings.dynamicHeight && scaleSettings.minHeight,
-                  'border-b border-r p-1 md:p-2 cursor-pointer transition-colors relative select-none overflow-visible',
+                  'border-b border-r p-1.5 md:p-2 cursor-pointer transition-colors relative select-none overflow-visible',
                   theme === 'dark' 
                     ? 'border-primary-blue/30 hover:bg-primary-blue/10' 
                     : 'border-gray-200/20 hover:bg-gray-100',
@@ -2079,8 +2094,14 @@ const Calendar = ({
                 }
                 data-drop-date={day.toISOString()}
                 onClick={() => {
-                  setSelectedDate(day)
-                  onDateClick(day)
+                  const isMobile =
+                    typeof window !== 'undefined' && window.innerWidth < 640
+                  if (isMobile) {
+                    openMobileDaySheet(day)
+                  } else {
+                    setSelectedDate(day)
+                    onDateClick(day)
+                  }
                 }}
                 onDragOver={e => {
                   e.preventDefault()
@@ -2142,7 +2163,7 @@ const Calendar = ({
               >
                 <div
                   className={cn(
-                    'text-xs md:text-sm font-medium mb-0.5 md:mb-1',
+                    'text-sm font-medium mb-1',
                     !isCurrentMonth && 'opacity-40',
                     isToday(day) ? 'text-primary-gold' : theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
                   )}
@@ -2222,9 +2243,10 @@ const Calendar = ({
                             position: 'absolute',
                             left: '0.125rem',
                             top: `${topOffsetMobile}rem`,
-                            height: `${monthPillHeightRem}rem`,
+                            height: `${monthBarHeightMobileRem}rem`,
                             width: `calc(${Math.min(segmentSpanDays, daysUntilEndOfRow)} * (100% + 0.25rem + 1px) - 0.25rem)`,
                             '--top-desktop': `${topOffsetDesktop}rem`,
+                            '--height-desktop': `${monthPillHeightRem}rem`,
                             transform: isMonthMoving
                               ? `translate3d(${translateX}px, ${translateY}px, 0)`
                               : undefined,
@@ -2234,21 +2256,19 @@ const Calendar = ({
                             pointerEvents:
                               isMonthMoving && dragState.isDragging ? 'none' : undefined,
                             ...jobColors.gradientStyle,
-                          } as React.CSSProperties & { '--top-desktop': string }
+                          } as React.CSSProperties & {
+                            '--top-desktop': string
+                            '--height-desktop': string
+                          }
                         }
                         title={job.title}
                       >
                         {isJobStartDay ? (
-                          <>
-                            <span className="hidden sm:inline">
-                              {format(new Date(job.startTime!), 'h:mm a')} {job.title}
-                            </span>
-                            <span className="sm:hidden">
-                              {format(new Date(job.startTime!), 'h:mm')}
-                            </span>
-                          </>
+                          <span className="hidden sm:inline">
+                            {format(new Date(job.startTime!), 'h:mm a')} {job.title}
+                          </span>
                         ) : (
-                          <span>{job.title}</span>
+                          <span className="hidden sm:inline">{job.title}</span>
                         )}
                       </div>
                     )
@@ -2268,80 +2288,134 @@ const Calendar = ({
                     />
                   )}
 
-                  {/* Single-day jobs - positioned below multi-day jobs */}
-                  {singleDayJobs.slice(0, scaleSettings.maxItems).map((job, _singleJobIndex) => {
-                    // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
-                    if (!job.startTime || !job.endTime) return null
-
-                    const isDragging =
-                      dragState.job?.id === job.id &&
-                      (dragState.job?.bookingId == null
-                        ? job.bookingId == null
-                        : dragState.job.bookingId === job.bookingId)
-                    const isMonthMoving = isDragging && dragState.type === 'month-move'
-                    const translateX = isMonthMoving ? dragOffset.x : 0
-                    const translateY = isMonthMoving ? dragOffset.y : 0
-
-                    const jobColors = getJobColors(job)
-                    return (
-                      <div
-                        key={job.id}
-                        className={cn(
-                          'text-[10px] md:text-xs p-0.5 md:p-1 rounded truncate cursor-grab active:cursor-grabbing touch-none',
-                          'border-l-2',
-                          !isCurrentMonth && 'opacity-60',
-                          'hover:opacity-80',
-                          jobColors.bg || '',
-                          jobColors.border,
-                          jobColors.text
-                        )}
-                        style={
-                          {
-                            transform: isMonthMoving
-                              ? `translate3d(${translateX}px, ${translateY}px, 0)`
-                              : undefined,
-                            transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
-                            willChange: isMonthMoving ? 'transform' : undefined,
-                            zIndex: isMonthMoving && dragState.isDragging ? 50 : 1, // Lower z-index than multi-day jobs (5)
-                            pointerEvents:
-                              isMonthMoving && dragState.isDragging ? 'none' : undefined,
-                            ...jobColors.gradientStyle,
-                          } as React.CSSProperties
+                  {/* Mobile (<sm): colored dots. Tap the cell to drill into the day. */}
+                  <div className="flex flex-wrap items-center gap-1 sm:hidden">
+                    {singleDayJobs.slice(0, 6).map(job => {
+                      if (!job.startTime || !job.endTime) return null
+                      const jobColors = getJobColors(job)
+                      // Resolve a solid fill via inline style — Tailwind purges
+                      // solid `bg-X-500` classes that don't appear literally elsewhere.
+                      const gradient = jobColors.gradientStyle as
+                        | (React.CSSProperties & {
+                            borderLeftColor?: string
+                            borderColor?: string
+                          })
+                        | undefined
+                      let solidColor = gradient?.borderLeftColor ?? gradient?.borderColor
+                      if (!solidColor) {
+                        const tailwindRgb: Record<string, string> = {
+                          'blue-500': 'rgb(59, 130, 246)',
+                          'red-500': 'rgb(239, 68, 68)',
+                          'orange-500': 'rgb(249, 115, 22)',
+                          'yellow-500': 'rgb(234, 179, 8)',
+                          'lime-500': 'rgb(132, 204, 22)',
+                          'green-500': 'rgb(34, 197, 94)',
+                          'violet-500': 'rgb(139, 92, 246)',
+                          'purple-500': 'rgb(168, 85, 247)',
+                          'fuchsia-500': 'rgb(217, 70, 239)',
+                          'pink-500': 'rgb(236, 72, 153)',
+                          'gray-500': 'rgb(107, 114, 128)',
                         }
-                        onPointerDown={e => {
-                          // Month view: use pointer-based drag for ALL devices (mouse + touch)
-                          e.stopPropagation()
-                          handleDragStart(e, job, 'month-move')
-                        }}
-                        onClick={e => {
-                          e.stopPropagation()
-                          if (justDraggedRef.current) {
-                            justDraggedRef.current = false
-                            return
-                          }
-                          if (dragState.isDragging) return
-                          onJobClick(job)
-                        }}
-                        title={job.title}
+                        const match = jobColors.bg?.match(/bg-(\w+-\d+)/)
+                        if (match) solidColor = tailwindRgb[match[1]]
+                      }
+                      return (
+                        <div
+                          key={job.id}
+                          className={cn(
+                            'w-2 h-2 rounded-full flex-shrink-0',
+                            !isCurrentMonth && 'opacity-60'
+                          )}
+                          style={solidColor ? { backgroundColor: solidColor } : undefined}
+                          title={job.title}
+                        />
+                      )
+                    })}
+                    {singleDayJobs.length > 6 && (
+                      <span
+                        className={cn(
+                          'text-[10px] leading-none',
+                          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary',
+                          !isCurrentMonth && 'opacity-60'
+                        )}
                       >
-                        <span className="hidden sm:inline">
+                        +{singleDayJobs.length - 6}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Desktop (≥sm): single-day pills */}
+                  <div className="hidden sm:block space-y-1">
+                    {singleDayJobs.slice(0, scaleSettings.maxItems).map(job => {
+                      // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
+                      if (!job.startTime || !job.endTime) return null
+
+                      const isDragging =
+                        dragState.job?.id === job.id &&
+                        (dragState.job?.bookingId == null
+                          ? job.bookingId == null
+                          : dragState.job.bookingId === job.bookingId)
+                      const isMonthMoving = isDragging && dragState.type === 'month-move'
+                      const translateX = isMonthMoving ? dragOffset.x : 0
+                      const translateY = isMonthMoving ? dragOffset.y : 0
+
+                      const jobColors = getJobColors(job)
+                      return (
+                        <div
+                          key={job.id}
+                          className={cn(
+                            'text-xs p-1 rounded truncate cursor-grab active:cursor-grabbing touch-none',
+                            'border-l-2',
+                            !isCurrentMonth && 'opacity-60',
+                            'hover:opacity-80',
+                            jobColors.bg || '',
+                            jobColors.border,
+                            jobColors.text
+                          )}
+                          style={
+                            {
+                              transform: isMonthMoving
+                                ? `translate3d(${translateX}px, ${translateY}px, 0)`
+                                : undefined,
+                              transition: isMonthMoving || justFinishedDrag ? 'none' : undefined,
+                              willChange: isMonthMoving ? 'transform' : undefined,
+                              zIndex: isMonthMoving && dragState.isDragging ? 50 : 1, // Lower z-index than multi-day jobs (5)
+                              pointerEvents:
+                                isMonthMoving && dragState.isDragging ? 'none' : undefined,
+                              ...jobColors.gradientStyle,
+                            } as React.CSSProperties
+                          }
+                          onPointerDown={e => {
+                            e.stopPropagation()
+                            handleDragStart(e, job, 'month-move')
+                          }}
+                          onClick={e => {
+                            e.stopPropagation()
+                            if (justDraggedRef.current) {
+                              justDraggedRef.current = false
+                              return
+                            }
+                            if (dragState.isDragging) return
+                            onJobClick(job)
+                          }}
+                          title={job.title}
+                        >
                           {format(new Date(job.startTime), 'h:mm a')} {job.title}
-                        </span>
-                        <span className="sm:hidden">{format(new Date(job.startTime), 'h:mm')}</span>
+                        </div>
+                      )
+                    })}
+                    {singleDayJobs.length > scaleSettings.maxItems && (
+                      <div
+                        className={cn(
+                          'text-xs',
+                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary',
+                          !isCurrentMonth && 'opacity-60'
+                        )}
+                      >
+                        +{singleDayJobs.length - scaleSettings.maxItems} more
                       </div>
-                    )
-                  })}
-                  {singleDayJobs.length > scaleSettings.maxItems && (
-                    <div
-                      className={cn(
-                        'text-[10px] md:text-xs',
-                        theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary',
-                        !isCurrentMonth && 'opacity-60'
-                      )}
-                    >
-                      +{singleDayJobs.length - scaleSettings.maxItems} more
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             )
@@ -2577,10 +2651,28 @@ const Calendar = ({
       </div>
 
       {/* Calendar content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {viewMode === 'day' && renderDayView()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'month' && renderMonthView()}
+
+        {/* Mobile-only: day-view sliding transition from month view.
+            Slides up over the month view, then onDateClick fires to swap viewMode
+            to 'day' as this sheet unmounts (same renderDayView underneath → seamless). */}
+        {mobileDaySheetMounted && viewMode === 'month' && (
+          <div
+            className={cn(
+              'absolute inset-0 z-30 flex flex-col sm:hidden',
+              'transform transition-transform duration-300 ease-out will-change-transform',
+              theme === 'dark'
+                ? 'bg-primary-dark-secondary'
+                : 'bg-primary-lightSecondary',
+              mobileDaySheetOpen ? 'translate-y-0' : 'translate-y-full'
+            )}
+          >
+            {renderDayView()}
+          </div>
+        )}
       </div>
 
       <NotifyClientModal

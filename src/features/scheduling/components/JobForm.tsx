@@ -1018,7 +1018,10 @@ const JobForm = ({
               <span className={cn(
                 "text-sm",
                 theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>Create New Job</span>
+              )}>
+                <span className="sm:hidden">New Job</span>
+                <span className="hidden sm:inline">Create New Job</span>
+              </span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -1034,7 +1037,10 @@ const JobForm = ({
               <span className={cn(
                 "text-sm",
                 theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>Link to Existing Job</span>
+              )}>
+                <span className="sm:hidden">Existing Job</span>
+                <span className="hidden sm:inline">Link to Existing Job</span>
+              </span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -1051,7 +1057,10 @@ const JobForm = ({
               <span className={cn(
                 "text-sm",
                 theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>Independent Appointment</span>
+              )}>
+                <span className="sm:hidden">Independent</span>
+                <span className="hidden sm:inline">Independent Appointment</span>
+              </span>
             </label>
           </div>
 
