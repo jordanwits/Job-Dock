@@ -1,4 +1,4 @@
-import { addDays, startOfDay, set } from 'date-fns'
+import { addDays, isAfter, isBefore, isSameDay, startOfDay, set } from 'date-fns'
 import type { Job } from '../types/job'
 
 /** Same rule as the calendar: different calendar days for start/end (local). */
@@ -19,10 +19,13 @@ export function getUpcomingBookingListInstant(job: Job, now: Date): Date | null 
   if (job.archivedAt) return null
 
   const start = new Date(job.startTime)
+  const nowDay = startOfDay(now)
+  const startDay = startOfDay(start)
 
   if (!job.endTime) {
-    if (start.getTime() < now.getTime()) return null
-    return start
+    if (isBefore(nowDay, startDay)) return start
+    if (isSameDay(now, start)) return start
+    return null
   }
 
   if (isMultiDayScheduledJob(job)) {
@@ -41,6 +44,7 @@ export function getUpcomingBookingListInstant(job: Job, now: Date): Date | null 
     })
   }
 
-  if (start.getTime() < now.getTime()) return null
+  const endDay = startOfDay(new Date(job.endTime))
+  if (isAfter(nowDay, endDay)) return null
   return start
 }

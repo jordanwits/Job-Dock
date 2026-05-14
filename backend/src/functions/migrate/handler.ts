@@ -599,6 +599,14 @@ const PENDING_MIGRATIONS = [
     description: 'Add early access request and allowlist tables for gated signup',
   },
   {
+    name: '20260514000000_add_can_edit_jobs_permissions',
+    statements: [
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "canEditJobs" BOOLEAN NOT NULL DEFAULT true`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "canEditAssignedJobsOnly" BOOLEAN NOT NULL DEFAULT true`,
+    ],
+    description: 'Add canEditJobs and canEditAssignedJobsOnly permission fields for team members',
+  },
+  {
     name: '20260316000000_drop_early_access_tables',
     statements: [
       `DROP TABLE IF EXISTS "early_access_requests"`,
@@ -1079,6 +1087,14 @@ END $$`,
       `CREATE INDEX IF NOT EXISTS "password_reset_tokens_expiresAt_idx" ON "password_reset_tokens"("expiresAt")`,
     ],
     description: 'One-time tokens for custom password reset flow (sent via Resend, confirmed via AdminSetUserPassword)',
+  },
+  {
+    name: '20260514130000_add_job_archived_at',
+    statements: [
+      `ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "archivedAt" TIMESTAMP(3)`,
+      `CREATE INDEX IF NOT EXISTS "jobs_archivedAt_idx" ON "jobs"("archivedAt")`,
+    ],
+    description: 'Add archivedAt to Job for first-class archive state on the Jobs page (cascades to bookings)',
   },
 ]
 

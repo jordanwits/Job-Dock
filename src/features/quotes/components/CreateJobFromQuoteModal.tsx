@@ -69,7 +69,8 @@ const CreateJobFromQuoteModal = ({
 
   const contactOptions = contacts.map(c => ({
     value: c.id,
-    label: `${c.firstName} ${c.lastName}`.trim() || c.email || c.id,
+    label:
+      `${c.firstName} ${c.lastName}${c.company ? ` - ${c.company}` : ''}`.trim() || c.email || c.id,
   }))
 
   const handleCreate = async () => {
@@ -147,6 +148,7 @@ const CreateJobFromQuoteModal = ({
           value={contactId}
           onChange={(id) => setContactId(id || '')}
           placeholder="Select contact"
+          searchPlaceholder="Search by name or company..."
         />
 
         <Input

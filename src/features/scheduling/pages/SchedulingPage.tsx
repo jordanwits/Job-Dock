@@ -21,6 +21,7 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } fr
 import { services } from '@/lib/api/services'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
 
 const SchedulingPage = () => {
   const { user } = useAuthStore()
@@ -690,9 +691,9 @@ const SchedulingPage = () => {
           await bookingsService.delete(selectedJob.bookingId)
           await fetchJobs()
         } else {
-          // Job has no booking - delete the job itself (removes from Jobs page and Scheduling)
-          const { jobLogsService } = await import('@/lib/api/services')
-          await jobLogsService.delete(selectedJob.id)
+          // Job has no booking (rare path) - soft-archive the job itself
+          const { jobsService } = await import('@/lib/api/services')
+          await jobsService.delete(selectedJob.id)
           await fetchJobs()
         }
         setSelectedJob(null)
@@ -973,6 +974,22 @@ const SchedulingPage = () => {
     }
   }
 
+  const canUserEditJob = (job: { assignedTo?: any; createdById?: string | null }) => {
+    if (!user) return true
+    if (user.role === 'admin' || user.role === 'owner') return true
+    if (user.canEditJobs === false) return false
+    if (user.canEditAssignedJobsOnly !== false) {
+      if (job.createdById === user.id) return true
+      try {
+        const raw = job.assignedTo
+        const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (Array.isArray(arr)) return arr.some((a: any) => a.userId === user.id)
+      } catch {}
+      return false
+    }
+    return true
+  }
+
   const handleUnscheduledDrop = (
     jobId: string,
     targetDate: Date,
@@ -983,6 +1000,12 @@ const SchedulingPage = () => {
       ? jobs.find(j => j.id === jobId && j.bookingId === bookingId)
       : jobs.find(j => j.id === jobId)
     if (!job) return
+
+    if (!canUserEditJob(job)) {
+      setJobErrorMessage('You can only edit jobs you are assigned to')
+      setShowJobError(true)
+      return
+    }
 
     // Determine duration (in minutes)
     let durationMinutes = 60 // default
@@ -1021,7 +1044,13 @@ const SchedulingPage = () => {
           const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
           return fetchJobs(startDate, endDate)
         })
-        .catch(() => {})
+        .catch((err: unknown) => {
+          clearJobsError()
+          setJobErrorMessage(
+            getErrorMessage(err, 'Could not schedule this appointment. Ask an admin if you need permission changes.')
+          )
+          setShowJobError(true)
+        })
       return
     }
 
@@ -1594,6 +1623,10 @@ const SchedulingPage = () => {
                   setShowJobConfirmation(true)
                   setTimeout(() => setShowJobConfirmation(false), 3000)
                 }}
+                onUpdateError={(message) => {
+                  setJobErrorMessage(message)
+                  setShowJobError(true)
+                }}
                 user={user}
               />
             </div>
@@ -1738,7 +1771,13 @@ const SchedulingPage = () => {
                 setJobConfirmationMessage('Appointment updated successfully')
                 setShowJobConfirmation(true)
                 setTimeout(() => setShowJobConfirmation(false), 3000)
-              }).catch(() => {})
+              }).catch((err: unknown) => {
+                clearJobsError()
+                setJobErrorMessage(
+                  getErrorMessage(err, 'Could not update this appointment. Ask an admin if you need permission changes.')
+                )
+                setShowJobError(true)
+              })
             } else {
               performJobUpdate({ ...rest, notifyClient: false })
             }
@@ -1752,7 +1791,13 @@ const SchedulingPage = () => {
                 setJobConfirmationMessage('Sent via email and SMS')
                 setShowJobConfirmation(true)
                 setTimeout(() => setShowJobConfirmation(false), 3000)
-              }).catch(() => {})
+              }).catch((err: unknown) => {
+                clearJobsError()
+                setJobErrorMessage(
+                  getErrorMessage(err, 'Could not update this appointment. Ask an admin if you need permission changes.')
+                )
+                setShowJobError(true)
+              })
             } else {
               performJobUpdate({ ...rest, notifyClient: false })
             }
@@ -1774,7 +1819,13 @@ const SchedulingPage = () => {
                 setJobConfirmationMessage('Appointment updated successfully')
                 setShowJobConfirmation(true)
                 setTimeout(() => setShowJobConfirmation(false), 3000)
-              }).catch(() => {})
+              }).catch((err: unknown) => {
+                clearJobsError()
+                setJobErrorMessage(
+                  getErrorMessage(err, 'Could not update this appointment. Ask an admin if you need permission changes.')
+                )
+                setShowJobError(true)
+              })
             } else {
               performJobUpdate({ ...rest, notifyClient: notify })
             }

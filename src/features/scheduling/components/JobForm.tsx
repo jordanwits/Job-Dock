@@ -42,6 +42,7 @@ import { services as apiServices } from '@/lib/api/services'
 import { format, addWeeks, addMonths } from 'date-fns'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import { getTeamAssignmentRoleValidationMessage } from '@/lib/utils/assignmentRoleValidation'
 
 interface JobFormProps {
   job?: Job
@@ -656,6 +657,14 @@ const JobForm = ({
     // Clear any previous submit-level error (invalid form, etc.)
     if (submitError) setSubmitError(null)
 
+    if (canShowAssignee) {
+      const roleMsg = getTeamAssignmentRoleValidationMessage(assignments, jobRoles)
+      if (roleMsg) {
+        setSubmitError(roleMsg)
+        return
+      }
+    }
+
     // Helper function to safely convert price to number
     const convertPrice = (price: any): number | undefined => {
       if (price === undefined || price === null || price === '') {
@@ -1118,8 +1127,10 @@ const JobForm = ({
         name="contactId"
         control={control}
         render={({ field }) => (
-          <Select
+          <SearchableSelect
             label={jobSelectionMode === 'independent' ? 'Contact (optional)' : 'Contact *'}
+            placeholder="Select a contact"
+            searchPlaceholder="Search by name or company..."
             value={field.value}
             onChange={field.onChange}
             error={errors.contactId?.message}
@@ -1262,6 +1273,7 @@ const JobForm = ({
                                   setValue('assignedTo', newAssignments)
                                 }}
                                 options={[
+                                  { value: '', label: 'Select role' },
                                   { value: 'custom', label: 'Custom...' },
                                   ...jobRoles.map(r => ({ value: r.id, label: r.title })),
                                 ]}

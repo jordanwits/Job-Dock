@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { jobLogsService, timeEntriesService } from '@/lib/api/services'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
 import type { JobLog, CreateJobLogData, JobLogUpdatePayload, TimeEntry } from '../types/jobLog'
 
 interface JobLogState {
@@ -53,9 +54,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
     try {
       const jobLogs = await jobLogsService.getAll()
       set({ jobLogs, isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to fetch jobs',
+        error: getErrorMessage(error, 'Failed to fetch jobs'),
         isLoading: false,
       })
     }
@@ -66,9 +67,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
     try {
       const jobLog = await jobLogsService.getById(id)
       set({ selectedJobLog: jobLog, isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to fetch job',
+        error: getErrorMessage(error, 'Failed to fetch job'),
         isLoading: false,
       })
     }
@@ -83,9 +84,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
         isLoading: false,
       }))
       return newJobLog
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to create job',
+        error: getErrorMessage(error, 'Failed to create job'),
         isLoading: false,
       })
       throw error
@@ -103,9 +104,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
         selectedJobLog: state.selectedJobLog?.id === id ? updatedJobLog : state.selectedJobLog,
         ...(silent ? {} : { isLoading: false }),
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to update job',
+        error: getErrorMessage(error, 'Failed to update job'),
         ...(silent ? {} : { isLoading: false }),
       })
       throw error
@@ -121,9 +122,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
         selectedJobLog: state.selectedJobLog?.id === id ? null : state.selectedJobLog,
         isLoading: false,
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to delete job',
+        error: getErrorMessage(error, 'Failed to delete job'),
         isLoading: false,
       })
       throw error
@@ -136,9 +137,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
       await jobLogsService.uploadPhoto(jobLogId, file)
       await get().getJobLogById(jobLogId)
       set({ isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to upload photo',
+        error: getErrorMessage(error, 'Failed to upload photo'),
         isLoading: false,
       })
       throw error
@@ -171,9 +172,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
 
       await get().getJobLogById(jobLogId)
       set({ isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to delete photo',
+        error: getErrorMessage(error, 'Failed to delete photo'),
         isLoading: false,
       })
       throw error
@@ -186,9 +187,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
       await jobLogsService.updatePhoto(jobLogId, photoId, data)
       await get().getJobLogById(jobLogId)
       set({ isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to update photo',
+        error: getErrorMessage(error, 'Failed to update photo'),
         isLoading: false,
       })
       throw error
@@ -204,9 +205,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
       }
       set({ isLoading: false })
       return entry
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to create time entry',
+        error: getErrorMessage(error, 'Failed to create time entry'),
         isLoading: false,
       })
       throw error
@@ -222,9 +223,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
         await get().getJobLogById(logId)
       }
       set({ isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to update time entry',
+        error: getErrorMessage(error, 'Failed to update time entry'),
         isLoading: false,
       })
       throw error
@@ -240,9 +241,9 @@ export const useJobLogStore = create<JobLogState>((set, get) => ({
         await get().getJobLogById(logId)
       }
       set({ isLoading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.message || error.message || 'Failed to delete time entry',
+        error: getErrorMessage(error, 'Failed to delete time entry'),
         isLoading: false,
       })
       throw error

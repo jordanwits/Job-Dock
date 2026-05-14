@@ -93,7 +93,9 @@ function serializeSavedLineItem(item: SavedLineItem) {
   }
 }
 
-function serializeSavedLineItemImportResponse(data: ReturnType<typeof getSavedLineItemImportSessionData>) {
+function serializeSavedLineItemImportResponse(
+  data: ReturnType<typeof getSavedLineItemImportSessionData>
+) {
   return {
     ...data,
     pendingConflicts: data.pendingConflicts.map(c => ({
@@ -1004,7 +1006,10 @@ const serializeInvoice = (
   createdAt: invoice.createdAt.toISOString(),
   updatedAt: invoice.updatedAt.toISOString(),
   convertedFromQuoteNumber: (invoice as any).convertedFromQuoteNumber ?? undefined,
-  convertedFromQuoteTotal: (invoice as any).convertedFromQuoteTotal != null ? toNumber((invoice as any).convertedFromQuoteTotal) : undefined,
+  convertedFromQuoteTotal:
+    (invoice as any).convertedFromQuoteTotal != null
+      ? toNumber((invoice as any).convertedFromQuoteTotal)
+      : undefined,
   convertedFromQuoteCreatedAt: (invoice as any).convertedFromQuoteCreatedAt?.toISOString(),
   ...withContactInfo(invoice.contact),
 })
@@ -1307,8 +1312,7 @@ export const dataServices = {
         throw new ApiError('Contact not found', 404)
       }
       // Convert empty strings to null for optional fields so clearing works (undefined is stripped from JSON)
-      const emptyToNull = (v: unknown) =>
-        v === '' || v === undefined ? null : (v as string)
+      const emptyToNull = (v: unknown) => (v === '' || v === undefined ? null : (v as string))
       const data: Record<string, unknown> = {
         firstName: payload.firstName,
         lastName: payload.lastName,
@@ -1328,9 +1332,10 @@ export const dataServices = {
       }
       // Omit undefined so Prisma only updates provided fields
       const prune = (obj: Record<string, unknown>) =>
-        Object.fromEntries(
-          Object.entries(obj).filter(([, v]) => v !== undefined)
-        ) as Record<string, unknown>
+        Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Record<
+          string,
+          unknown
+        >
       return prisma.contact.update({
         where: { id },
         data: prune(data),
@@ -1759,7 +1764,8 @@ export const dataServices = {
       try {
         const contact = updatedQuote.contact
         const clientName = contact
-          ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() || 'Client'
+          ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() ||
+            'Client'
           : 'Client'
         await sendQuoteAcceptedNotificationToUsers({
           tenantId,
@@ -1821,7 +1827,8 @@ export const dataServices = {
       try {
         const contact = updatedQuote.contact
         const clientName = contact
-          ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() || 'Client'
+          ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() ||
+            'Client'
           : 'Client'
         await sendQuoteDeclinedNotificationToAdmins({
           tenantId,
@@ -1942,8 +1949,11 @@ export const dataServices = {
           trackResponse: payload.trackResponse !== undefined ? payload.trackResponse : true,
           trackPayment: payload.trackPayment !== undefined ? payload.trackPayment : true,
           convertedFromQuoteNumber: payload.convertedFromQuoteNumber || null,
-          convertedFromQuoteTotal: payload.convertedFromQuoteTotal != null ? payload.convertedFromQuoteTotal : null,
-          convertedFromQuoteCreatedAt: payload.convertedFromQuoteCreatedAt ? new Date(payload.convertedFromQuoteCreatedAt) : null,
+          convertedFromQuoteTotal:
+            payload.convertedFromQuoteTotal != null ? payload.convertedFromQuoteTotal : null,
+          convertedFromQuoteCreatedAt: payload.convertedFromQuoteCreatedAt
+            ? new Date(payload.convertedFromQuoteCreatedAt)
+            : null,
           lineItems: {
             create: lineItems.map((item: any) => ({
               description: item.description,
@@ -2210,9 +2220,7 @@ export const dataServices = {
         data: {
           approvalStatus: approvalStatus,
           approvalAt: new Date(),
-          ...(approvalStatus === 'declined'
-            ? { clientDeclineReason: storedDeclineReason }
-            : {}),
+          ...(approvalStatus === 'declined' ? { clientDeclineReason: storedDeclineReason } : {}),
         } as any,
         include: { contact: true, lineItems: true },
       })
@@ -2224,7 +2232,8 @@ export const dataServices = {
         try {
           const contact = updatedInvoice.contact
           const clientName = contact
-            ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() || 'Client'
+            ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() ||
+              'Client'
             : 'Client'
           await sendInvoiceAcceptedNotificationToUsers({
             tenantId,
@@ -2239,7 +2248,8 @@ export const dataServices = {
         try {
           const contact = updatedInvoice.contact
           const clientName = contact
-            ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() || 'Client'
+            ? `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() ||
+              'Client'
             : 'Client'
           await sendInvoiceDeclinedNotificationToAdmins({
             tenantId,
@@ -2383,18 +2393,17 @@ export const dataServices = {
             currentUserId,
             currentUserRole
           )
-          const contactName =
-            (job as any)?.contact
-              ? `${(job as any).contact.firstName ?? ''} ${(job as any).contact.lastName ?? ''}`.trim()
-              : (b as any).contact
-                ? `${(b as any).contact.firstName ?? ''} ${(b as any).contact.lastName ?? ''}`.trim()
-                : undefined
+          const contactName = (job as any)?.contact
+            ? `${(job as any).contact.firstName ?? ''} ${(job as any).contact.lastName ?? ''}`.trim()
+            : (b as any).contact
+              ? `${(b as any).contact.firstName ?? ''} ${(b as any).contact.lastName ?? ''}`.trim()
+              : undefined
           return {
             id: isIndependent ? b.id : job!.id,
             tenantId: isIndependent ? b.tenantId : job!.tenantId,
             title: isIndependent ? (b.title ?? 'Untitled') : job!.title,
             description: isIndependent ? undefined : job!.description,
-            contactId: isIndependent ? b.contactId ?? undefined : job!.contactId,
+            contactId: isIndependent ? (b.contactId ?? undefined) : job!.contactId,
             contactName,
             serviceId: b.serviceId,
             serviceName: b.service?.name,
@@ -2412,28 +2421,40 @@ export const dataServices = {
             assignedToName,
             bookingId: b.id,
             isIndependent: !!isIndependent,
-            archivedAt: b.archivedAt?.toISOString() ?? null,
+            archivedAt:
+              b.archivedAt?.toISOString() ?? (job as any)?.archivedAt?.toISOString() ?? null,
             deletedAt: b.deletedAt?.toISOString() ?? null,
             createdById: b.createdById ?? (job as any)?.createdById,
-            createdByName: ((job as any)?.createdBy as any)?.name ?? ((b.createdBy as any)?.name),
+            createdByName: ((job as any)?.createdBy as any)?.name ?? (b.createdBy as any)?.name,
             createdAt: (isIndependent ? b.createdAt : job!.createdAt).toISOString(),
             updatedAt: (isIndependent ? b.updatedAt : job!.updatedAt).toISOString(),
           }
         })
       )
 
-      // When includeUnlinkedJobs is true (e.g. for "link to existing job" dropdown), also include jobs without bookings
-      if (!includeUnlinkedJobs) {
-        return jobsFromBookings
-      }
       const jobIdsWithBookings = new Set(
         bookings.map(b => b.jobId).filter((id): id is string => id != null)
       )
+
+      // When includeArchived is set, also surface archived jobs that have no active bookings
+      // (e.g. jobs archived from the Jobs page that never had a booking, or whose only
+      // bookings are also archived). This keeps the calendar Archive tab in sync with
+      // archives created from the Jobs page.
+      if (!includeUnlinkedJobs && !includeArchived) {
+        return jobsFromBookings
+      }
+
+      const jobsWithoutBookingsWhere: Prisma.JobWhereInput = {
+        tenantId,
+        id: { notIn: Array.from(jobIdsWithBookings) },
+      }
+      if (!includeUnlinkedJobs && includeArchived) {
+        // Only pull bookingless jobs that are themselves archived
+        jobsWithoutBookingsWhere.archivedAt = { not: null }
+      }
+
       const jobsWithoutBookings = await prisma.job.findMany({
-        where: {
-          tenantId,
-          id: { notIn: Array.from(jobIdsWithBookings) },
-        },
+        where: jobsWithoutBookingsWhere,
         include: {
           contact: true,
           createdBy: { select: { name: true } },
@@ -2496,7 +2517,8 @@ export const dataServices = {
             assignedTo: assignedToWithPrivacy ?? job.assignedTo,
             assignedToName,
             bookingId: firstBooking?.id ?? null,
-            archivedAt: firstBooking?.archivedAt?.toISOString() ?? null,
+            archivedAt:
+              firstBooking?.archivedAt?.toISOString() ?? job.archivedAt?.toISOString() ?? null,
             deletedAt: firstBooking?.deletedAt?.toISOString() ?? null,
             createdById: job.createdById,
             createdByName: (job.createdBy as any)?.name,
@@ -2557,6 +2579,10 @@ export const dataServices = {
         ...job,
         assignedToName,
         assignedTo: assignedToWithPrivacy || job.assignedTo,
+        archivedAt:
+          (job as any).archivedAt?.toISOString() ??
+          primaryBooking?.archivedAt?.toISOString() ??
+          null,
         serviceId: primaryBooking?.serviceId ?? (job as any).serviceId ?? null,
         service: primaryBooking?.service ?? (job as any).service ?? null,
         startTime: primaryBooking?.startTime?.toISOString() ?? null,
@@ -3235,13 +3261,31 @@ export const dataServices = {
       const primaryBooking = job.bookings[0]
 
       if (deleteAll && primaryBooking?.recurrenceId) {
+        // Recurring series: archive all bookings in the series and all jobs they belong to.
+        const seriesBookings = await prisma.booking.findMany({
+          where: { recurrenceId: primaryBooking.recurrenceId, tenantId },
+          select: { jobId: true },
+        })
+        const jobIds = Array.from(
+          new Set(seriesBookings.map(b => b.jobId).filter((v): v is string => !!v))
+        )
         await prisma.booking.updateMany({
           where: { recurrenceId: primaryBooking.recurrenceId, tenantId },
           data: { archivedAt: now },
         })
+        if (jobIds.length > 0) {
+          await prisma.job.updateMany({
+            where: { id: { in: jobIds }, tenantId },
+            data: { archivedAt: now },
+          })
+        }
       } else {
         await prisma.booking.updateMany({
           where: { jobId: id },
+          data: { archivedAt: now },
+        })
+        await prisma.job.update({
+          where: { id },
           data: { archivedAt: now },
         })
       }
@@ -3255,7 +3299,7 @@ export const dataServices = {
       if (!job) throw new ApiError('Job not found', 404)
 
       const primaryBooking = job.bookings[0]
-      const hasArchived = job.bookings.some((b: any) => b.archivedAt)
+      const hasArchived = !!job.archivedAt || job.bookings.some((b: any) => b.archivedAt)
 
       if (hasArchived) {
         try {
@@ -3304,16 +3348,21 @@ export const dataServices = {
         include: { bookings: true, contact: true },
       })
       if (!job) throw new ApiError('Job not found', 404)
-      const hasArchived = job.bookings.some((b: any) => b.archivedAt)
+      const hasArchived = !!job.archivedAt || job.bookings.some((b: any) => b.archivedAt)
       if (!hasArchived) throw new ApiError('Job is not archived', 400)
 
       await prisma.booking.updateMany({
         where: { jobId: id },
         data: { archivedAt: null },
       })
-      const b = job.bookings[0]
+      const restored = await prisma.job.update({
+        where: { id },
+        data: { archivedAt: null },
+        include: { bookings: { orderBy: { startTime: 'asc' } }, contact: true },
+      })
+      const b = restored.bookings[0]
       return {
-        ...job,
+        ...restored,
         serviceId: b?.serviceId,
         service: null,
         startTime: b?.startTime?.toISOString() ?? null,
@@ -3850,7 +3899,8 @@ export const dataServices = {
 
       if (isIndependent) {
         // Independent appointment: no job, title required, contact optional
-        const title = payload.title && typeof payload.title === 'string' ? payload.title.trim() : null
+        const title =
+          payload.title && typeof payload.title === 'string' ? payload.title.trim() : null
         if (!title) throw new ApiError('title is required for independent appointments', 400)
 
         const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
@@ -3875,7 +3925,9 @@ export const dataServices = {
         }
 
         const contactId =
-          payload.contactId && typeof payload.contactId === 'string' ? payload.contactId.trim() : null
+          payload.contactId && typeof payload.contactId === 'string'
+            ? payload.contactId.trim()
+            : null
         if (contactId) {
           const contact = await prisma.contact.findFirst({
             where: { id: contactId, tenantId },
@@ -4019,9 +4071,8 @@ export const dataServices = {
         )
       }
 
-      const normalizedAssignedTo = payload.assignedTo !== undefined
-        ? normalizeAssignedTo(payload.assignedTo)
-        : null
+      const normalizedAssignedTo =
+        payload.assignedTo !== undefined ? normalizeAssignedTo(payload.assignedTo) : null
       if (normalizedAssignedTo) await validateAssignedTo(tenantId, normalizedAssignedTo)
 
       const requestedStart =
@@ -4035,7 +4086,10 @@ export const dataServices = {
       const toBeScheduled = payload.toBeScheduled
       if (toBeScheduled === false && (requestedStart || requestedEnd)) {
         if (!requestedStart || !requestedEnd) {
-          throw new ApiError('Both startTime and endTime must be provided for scheduled appointments', 400)
+          throw new ApiError(
+            'Both startTime and endTime must be provided for scheduled appointments',
+            400
+          )
         }
       }
       if (toBeScheduled !== true && requestedStart && !requestedEnd) {
@@ -4051,8 +4105,12 @@ export const dataServices = {
         ...(payload.status !== undefined && { status: payload.status }),
         ...(payload.price !== undefined && { price: payload.price }),
         ...(payload.breaks !== undefined && { breaks: payload.breaks }),
-        ...(normalizedAssignedTo !== null && { assignedTo: normalizedAssignedTo as unknown as Prisma.InputJsonValue }),
-        ...(payload.createdById !== undefined && { createdById: payload.createdById ?? payload._actingUserId ?? null }),
+        ...(normalizedAssignedTo !== null && {
+          assignedTo: normalizedAssignedTo as unknown as Prisma.InputJsonValue,
+        }),
+        ...(payload.createdById !== undefined && {
+          createdById: payload.createdById ?? payload._actingUserId ?? null,
+        }),
       }
       if (toBeScheduled !== undefined) updateData.toBeScheduled = toBeScheduled
       if (requestedStart !== undefined) updateData.startTime = requestedStart ?? null
@@ -4066,7 +4124,13 @@ export const dataServices = {
 
       // Reschedule notification for independent bookings: when notifyClient is true and date/time changed
       const timesChanged = payload.startTime !== undefined || payload.endTime !== undefined
-      if (payload.notifyClient === true && timesChanged && updated.startTime && updated.endTime && updated.contact) {
+      if (
+        payload.notifyClient === true &&
+        timesChanged &&
+        updated.startTime &&
+        updated.endTime &&
+        updated.contact
+      ) {
         try {
           const contact = updated.contact as (Contact & { notificationPreference?: string }) | null
           const pref = contact?.notificationPreference ?? 'both'
@@ -4130,7 +4194,10 @@ export const dataServices = {
             console.log('✅ Independent booking reschedule SMS sent successfully')
           }
         } catch (rescheduleError) {
-          console.error('❌ Failed to send independent booking reschedule notification:', rescheduleError)
+          console.error(
+            '❌ Failed to send independent booking reschedule notification:',
+            rescheduleError
+          )
         }
       }
 
@@ -4144,7 +4211,8 @@ export const dataServices = {
         contactName: updated.contact
           ? `${updated.contact.firstName ?? ''} ${updated.contact.lastName ?? ''}`.trim()
           : undefined,
-        createdByName: (updated as { createdBy?: { name: string } | null }).createdBy?.name ?? undefined,
+        createdByName:
+          (updated as { createdBy?: { name: string } | null }).createdBy?.name ?? undefined,
       }
     },
     delete: async (tenantId: string, id: string) => {
@@ -5173,8 +5241,10 @@ export const dataServices = {
         throw new ApiError('Invalid or incomplete checkout session', 400)
       }
       const plan = (session.metadata?.plan as 'single' | 'team' | 'team-plus') || 'single'
-      const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id
-      const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id
+      const customerId =
+        typeof session.customer === 'string' ? session.customer : session.customer?.id
+      const subscriptionId =
+        typeof session.subscription === 'string' ? session.subscription : session.subscription?.id
       return {
         email: session.customer_details.email,
         customerId: customerId || null,
@@ -5391,7 +5461,10 @@ export const dataServices = {
               `Updated tenant ${tenantId} with subscription ${session.subscription}, tier ${subscriptionTier}`
             )
           } else if (plan && session.customer_details?.email) {
-            const baseUrl = (process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')
+            const baseUrl = (process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(
+              /\/$/,
+              ''
+            )
             const signupUrl = `${baseUrl}/auth/signup/complete?session_id=${session.id}`
             const payload = buildSignupCompleteEmail({
               to: session.customer_details.email,
@@ -5498,10 +5571,21 @@ export const dataServices = {
     },
   },
   'job-logs': {
-    getAll: async (tenantId: string, currentUserId?: string, currentUserRole?: string) => {
+    getAll: async (
+      tenantId: string,
+      currentUserId?: string,
+      currentUserRole?: string,
+      canSeeOtherJobs?: boolean,
+      options?: { includeArchived?: boolean; onlyArchived?: boolean }
+    ) => {
       await ensureTenantExists(tenantId)
-      const jobs = await prisma.job.findMany({
-        where: { tenantId },
+      const archivedFilter: Prisma.JobWhereInput = options?.onlyArchived
+        ? { archivedAt: { not: null } }
+        : options?.includeArchived
+          ? {}
+          : { archivedAt: null }
+      const allJobs = await prisma.job.findMany({
+        where: { tenantId, ...archivedFilter },
         include: {
           contact: true,
           createdBy: { select: { name: true } },
@@ -5514,6 +5598,14 @@ export const dataServices = {
         },
         orderBy: { updatedAt: 'desc' },
       })
+      const jobs =
+        currentUserId && canSeeOtherJobs !== true
+          ? allJobs.filter(job => {
+              if (job.createdById === currentUserId) return true
+              const userIds = extractUserIds(job.assignedTo)
+              return userIds.includes(currentUserId)
+            })
+          : allJobs
       const jobIds = jobs.map(j => j.id)
       const documents = await prisma.document.findMany({
         where: { tenantId, entityType: 'job', entityId: { in: jobIds } },
@@ -5560,6 +5652,7 @@ export const dataServices = {
           return {
             ...job,
             pinnedAt: job.pinnedAt?.toISOString() ?? null,
+            archivedAt: job.archivedAt?.toISOString() ?? null,
             assignedToName,
             assignedToUsers,
             assignedTo: assignedToWithPrivacy || job.assignedTo,
@@ -5606,6 +5699,7 @@ export const dataServices = {
                   id: job.contact.id,
                   name: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
                   email: job.contact.email,
+                  phone: job.contact.phone,
                 }
               : null,
             timeEntries: job.timeEntries.map((te: any) => ({
@@ -5627,7 +5721,8 @@ export const dataServices = {
       tenantId: string,
       id: string,
       currentUserId?: string,
-      currentUserRole?: string
+      currentUserRole?: string,
+      canSeeOtherJobs?: boolean
     ) => {
       await ensureTenantExists(tenantId)
       const job = await prisma.job.findFirst({
@@ -5644,6 +5739,12 @@ export const dataServices = {
         },
       })
       if (!job) throw new ApiError('Job not found', 404)
+      if (currentUserId && canSeeOtherJobs !== true) {
+        const canSee =
+          job.createdById === currentUserId ||
+          extractUserIds(job.assignedTo).includes(currentUserId)
+        if (!canSee) throw new ApiError('Job not found', 404)
+      }
       const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
       const assignedToUsers = await getAssignedToUsers(tenantId, job.assignedTo)
       const assignedToWithPrivacy = getAssignedToWithPrivacy(
@@ -5680,6 +5781,7 @@ export const dataServices = {
       return {
         ...job,
         pinnedAt: job.pinnedAt?.toISOString() ?? null,
+        archivedAt: job.archivedAt?.toISOString() ?? null,
         assignedToName,
         assignedToUsers,
         assignedTo: assignedToWithPrivacy || job.assignedTo,
@@ -5726,6 +5828,7 @@ export const dataServices = {
               firstName: job.contact.firstName,
               lastName: job.contact.lastName,
               email: job.contact.email,
+              phone: job.contact.phone,
               name: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
             }
           : null,
@@ -5970,7 +6073,17 @@ export const dataServices = {
         .filter(Boolean)
         .join(', ')
       const updatedPrimary = (updated as any).bookings?.[0]
-      const uContact = (updated as { contact?: { id: string; firstName: string; lastName: string; email?: string | null } | null }).contact
+      const uContact = (
+        updated as {
+          contact?: {
+            id: string
+            firstName: string
+            lastName: string
+            email?: string | null
+            phone?: string | null
+          } | null
+        }
+      ).contact
       return {
         ...updated,
         pinnedAt: updated.pinnedAt?.toISOString() ?? null,
@@ -5981,6 +6094,7 @@ export const dataServices = {
               firstName: uContact.firstName,
               lastName: uContact.lastName,
               email: uContact.email ?? undefined,
+              phone: uContact.phone,
               name: `${uContact.firstName} ${uContact.lastName}`.trim(),
             }
           : null,
@@ -6917,11 +7031,7 @@ export const dataServices = {
       if (session.tenantId !== tenantId) {
         throw new ApiError('Unauthorized', 403)
       }
-      await resolveSavedLineItemConflict(
-        payload.sessionId,
-        payload.conflictId,
-        payload.resolution
-      )
+      await resolveSavedLineItemConflict(payload.sessionId, payload.conflictId, payload.resolution)
       return serializeSavedLineItemImportResponse(
         getSavedLineItemImportSessionData(payload.sessionId)
       )

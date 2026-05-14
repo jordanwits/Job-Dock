@@ -30,6 +30,7 @@ import { getTeamMemberColors } from '@/lib/utils/teamColors'
 import type { User } from '@/features/auth'
 import { services } from '@/lib/api/services'
 import { useTheme } from '@/contexts/ThemeContext'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
 
 interface CalendarProps {
   jobs: Job[]
@@ -41,6 +42,8 @@ interface CalendarProps {
   onDateClick: (date: Date) => void
   onUnscheduledDrop?: (jobId: string, targetDate: Date, targetHour?: number, bookingId?: string) => void
   onUpdateSuccess?: (message: string) => void
+  /** When scheduling updates fail (e.g. permissions), surface a message instead of failing silently */
+  onUpdateError?: (message: string) => void
   user?: User | null
 }
 
@@ -68,9 +71,33 @@ const Calendar = ({
   onDateClick,
   onUnscheduledDrop,
   onUpdateSuccess,
+  onUpdateError,
   user,
 }: CalendarProps) => {
   const { theme } = useTheme()
+  const reportScheduleUpdateError = useCallback(
+    (err: unknown, fallback: string) => {
+      onUpdateError?.(getErrorMessage(err, fallback))
+    },
+    [onUpdateError]
+  )
+
+  const canUserEditJob = useCallback((job: Job): boolean => {
+    if (!user) return true
+    if (user.role === 'admin' || user.role === 'owner') return true
+    if (user.canEditJobs === false) return false
+    if (user.canEditAssignedJobsOnly !== false) {
+      if (job.createdById === user.id) return true
+      try {
+        const raw = job.assignedTo
+        const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (Array.isArray(arr)) return arr.some((a: any) => a.userId === user.id)
+      } catch {}
+      return false
+    }
+    return true
+  }, [user])
+
   // Determine if we should use team member colors (for admin/owner)
   const useTeamColors = user?.role === 'admin' || user?.role === 'owner'
 
@@ -532,6 +559,18 @@ const Calendar = ({
 
       const { job, originalStartTime, originalEndTime } = dragState
 
+      if (!canUserEditJob(job)) {
+        reportScheduleUpdateError(null, 'You can only edit jobs you are assigned to')
+        isDraggingRef.current = false
+        dragOriginRef.current = null
+        setJustFinishedDrag(true)
+        setDragGhost(null)
+        setDragState({ job: null, type: null, startY: 0, startX: 0, grabOffsetY: 0, slotHeight: 60, isDragging: false, hasMoved: false, originalStartTime: null, originalEndTime: null })
+        setDragTargetDay(null)
+        setTimeout(() => setJustFinishedDrag(false), 50)
+        return
+      }
+
       try {
         const originalStart = new Date(originalStartTime!)
         const originalEnd = new Date(originalEndTime!)
@@ -565,7 +604,9 @@ const Calendar = ({
             updateIndependentBooking(job.id, {
               startTime: newStartTime.toISOString(),
               endTime: newEndTime.toISOString(),
-            }).catch((err) => console.error('Failed to update appointment:', err))
+            }).catch(err =>
+              reportScheduleUpdateError(err, 'Could not reschedule this appointment. If this keeps happening, ask an admin to check your permissions.')
+            )
           } else {
             const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
               id: job.id,
@@ -579,7 +620,7 @@ const Calendar = ({
           }
         }
       } catch (error) {
-        console.error('Failed to update job:', error)
+        reportScheduleUpdateError(error, 'Could not move this job on the calendar.')
       }
 
       // Clear drag state and preview
@@ -609,7 +650,7 @@ const Calendar = ({
         setJustFinishedDrag(false)
       }, 100)
     },
-    [dragState, previewStartTime, dragTargetDay]
+    [dragState, previewStartTime, dragTargetDay, reportScheduleUpdateError]
   )
 
   const handleResizeDrop = useCallback(
@@ -617,6 +658,17 @@ const Calendar = ({
       if (!dragState.job || dragState.type !== 'resize' || !dragState.job.startTime) return
 
       const { job, originalEndTime } = dragState
+
+      if (!canUserEditJob(job)) {
+        reportScheduleUpdateError(null, 'You can only edit jobs you are assigned to')
+        isDraggingRef.current = false
+        dragOriginRef.current = null
+        setJustFinishedDrag(true)
+        setDragState({ job: null, type: null, startY: 0, startX: 0, grabOffsetY: 0, slotHeight: 60, isDragging: false, hasMoved: false, originalStartTime: null, originalEndTime: null })
+        setDragTargetDay(null)
+        setTimeout(() => setJustFinishedDrag(false), 50)
+        return
+      }
 
       try {
         // Snap to 15-minute increments
@@ -632,7 +684,9 @@ const Calendar = ({
           updateIndependentBooking(job.id, {
             startTime: job.startTime ?? undefined,
             endTime: newEndTime.toISOString(),
-          }).catch((err) => console.error('Failed to update appointment:', err))
+          }).catch(err =>
+            reportScheduleUpdateError(err, 'Could not update this appointment. If this keeps happening, ask an admin to check your permissions.')
+          )
         } else {
           const payload: { id: string; endTime: string; startTime?: string; bookingId?: string; isIndependent?: boolean } = {
             id: job.id,
@@ -645,7 +699,7 @@ const Calendar = ({
           setShowNotifyClientModal(true)
         }
       } catch (error) {
-        console.error('Failed to resize job:', error)
+        reportScheduleUpdateError(error, 'Could not resize this job on the calendar.')
       }
 
       // Clear drag state and preview
@@ -671,7 +725,7 @@ const Calendar = ({
         setJustFinishedDrag(false)
       }, 50)
     },
-    [dragState]
+    [dragState, reportScheduleUpdateError]
   )
 
   useEffect(() => {
@@ -897,23 +951,28 @@ const Calendar = ({
           const newStartTime = addDays(originalStart, dayOffset)
           const newEndTime = addDays(originalEnd, dayOffset)
           const job = dragState.job
-          const hasContact = !!(job.contactId && job.contactId.trim())
-
-          if (job.isIndependent && !hasContact) {
-            updateIndependentBooking(job.id, {
-              startTime: newStartTime.toISOString(),
-              endTime: newEndTime.toISOString(),
-            }).catch((err) => console.error('Failed to update appointment:', err))
+          if (!canUserEditJob(job)) {
+            reportScheduleUpdateError(null, 'You can only edit jobs you are assigned to')
           } else {
-            const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
-              id: job.id,
-              startTime: newStartTime.toISOString(),
-              endTime: newEndTime.toISOString(),
+            const hasContact = !!(job.contactId && job.contactId.trim())
+            if (job.isIndependent && !hasContact) {
+              updateIndependentBooking(job.id, {
+                startTime: newStartTime.toISOString(),
+                endTime: newEndTime.toISOString(),
+              }).catch(err =>
+                reportScheduleUpdateError(err, 'Could not reschedule this appointment. If this keeps happening, ask an admin to check your permissions.')
+              )
+            } else {
+              const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
+                id: job.id,
+                startTime: newStartTime.toISOString(),
+                endTime: newEndTime.toISOString(),
+              }
+              if (job.bookingId) payload.bookingId = job.bookingId
+              if (job.isIndependent) payload.isIndependent = true
+              setPendingUpdatePayload(payload)
+              setShowNotifyClientModal(true)
             }
-            if (job.bookingId) payload.bookingId = job.bookingId
-            if (job.isIndependent) payload.isIndependent = true
-            setPendingUpdatePayload(payload)
-            setShowNotifyClientModal(true)
           }
         }
 
@@ -959,22 +1018,28 @@ const Calendar = ({
         const newEndTime = new Date(newStartTime.getTime() + duration)
 
         const job = dragState.job
-        const hasContact = !!(job.contactId && job.contactId.trim())
-        if (job.isIndependent && !hasContact) {
-          updateIndependentBooking(job.id, {
-            startTime: newStartTime.toISOString(),
-            endTime: newEndTime.toISOString(),
-          }).catch((err) => console.error('Failed to update appointment:', err))
+        if (!canUserEditJob(job)) {
+          reportScheduleUpdateError(null, 'You can only edit jobs you are assigned to')
         } else {
-          const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
-            id: job.id,
-            startTime: newStartTime.toISOString(),
-            endTime: newEndTime.toISOString(),
+          const hasContact = !!(job.contactId && job.contactId.trim())
+          if (job.isIndependent && !hasContact) {
+            updateIndependentBooking(job.id, {
+              startTime: newStartTime.toISOString(),
+              endTime: newEndTime.toISOString(),
+            }).catch(err =>
+              reportScheduleUpdateError(err, 'Could not reschedule this appointment. If this keeps happening, ask an admin to check your permissions.')
+            )
+          } else {
+            const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
+              id: job.id,
+              startTime: newStartTime.toISOString(),
+              endTime: newEndTime.toISOString(),
+            }
+            if (job.bookingId) payload.bookingId = job.bookingId
+            if (job.isIndependent) payload.isIndependent = true
+            setPendingUpdatePayload(payload)
+            setShowNotifyClientModal(true)
           }
-          if (job.bookingId) payload.bookingId = job.bookingId
-          if (job.isIndependent) payload.isIndependent = true
-          setPendingUpdatePayload(payload)
-          setShowNotifyClientModal(true)
         }
 
         // Clear drag state
@@ -1029,6 +1094,7 @@ const Calendar = ({
     handleMoveDrop,
     handleResizeDrop,
     updateJob,
+    reportScheduleUpdateError,
   ])
 
   const renderDayView = () => {
@@ -1663,7 +1729,7 @@ const Calendar = ({
                                     {job.title}
                                   </span>
                                   {job.contactName && (
-                                    <span className="shrink-0 truncate text-[9px] font-normal opacity-90 md:text-[10px]">
+                                    <span className="hidden shrink-0 truncate text-[9px] font-normal opacity-90 md:inline md:text-[10px]">
                                       {' - '}
                                       {job.contactName}
                                     </span>
@@ -1812,7 +1878,7 @@ const Calendar = ({
                                       </span>
                                       {job.contactName && (
                                         <span className={cn(
-                                          'shrink-0 truncate text-[10px] font-normal md:text-xs',
+                                          'hidden shrink-0 truncate text-[10px] font-normal md:inline md:text-xs',
                                           theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
                                         )}>
                                           {' - '}
@@ -2129,25 +2195,31 @@ const Calendar = ({
                       ? jobs.find(j => j.id === monthJobId && j.bookingId === monthBookingId)
                       : jobs.find(j => j.id === monthJobId)
                     if (originalJob && originalJob.startTime && originalJob.endTime) {
-                      const duration =
-                        new Date(originalJob.endTime).getTime() -
-                        new Date(originalJob.startTime).getTime()
-                      const newEndTime = new Date(newStartTime.getTime() + duration)
-                      if (originalJob.isIndependent && !originalJob.contactId) {
-                        updateIndependentBooking(monthJobId, {
-                          startTime: newStartTime.toISOString(),
-                          endTime: newEndTime.toISOString(),
-                        }).catch((err) => console.error('Failed to update appointment:', err))
+                      if (!canUserEditJob(originalJob)) {
+                        reportScheduleUpdateError(null, 'You can only edit jobs you are assigned to')
                       } else {
-                        const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
-                          id: monthJobId,
-                          startTime: newStartTime.toISOString(),
-                          endTime: newEndTime.toISOString(),
+                        const duration =
+                          new Date(originalJob.endTime).getTime() -
+                          new Date(originalJob.startTime).getTime()
+                        const newEndTime = new Date(newStartTime.getTime() + duration)
+                        if (originalJob.isIndependent && !originalJob.contactId) {
+                          updateIndependentBooking(monthJobId, {
+                            startTime: newStartTime.toISOString(),
+                            endTime: newEndTime.toISOString(),
+                          }).catch(err =>
+                            reportScheduleUpdateError(err, 'Could not reschedule this appointment. If this keeps happening, ask an admin to check your permissions.')
+                          )
+                        } else {
+                          const payload: { id: string; startTime: string; endTime: string; bookingId?: string; isIndependent?: boolean } = {
+                            id: monthJobId,
+                            startTime: newStartTime.toISOString(),
+                            endTime: newEndTime.toISOString(),
+                          }
+                          if (originalJob.bookingId) payload.bookingId = originalJob.bookingId
+                          if (originalJob.isIndependent) payload.isIndependent = true
+                          setPendingUpdatePayload(payload)
+                          setShowNotifyClientModal(true)
                         }
-                        if (originalJob.bookingId) payload.bookingId = originalJob.bookingId
-                        if (originalJob.isIndependent) payload.isIndependent = true
-                        setPendingUpdatePayload(payload)
-                        setShowNotifyClientModal(true)
                       }
                     }
                     return
@@ -2683,11 +2755,15 @@ const Calendar = ({
             if (isIndependent) {
               updateIndependentBooking(rest.id, { startTime: rest.startTime as string, endTime: rest.endTime as string, notifyClient: false })
                 .then(() => onUpdateSuccess?.('Appointment updated successfully'))
-                .catch((error) => console.error('Failed to update appointment:', error))
+                .catch(error =>
+                  reportScheduleUpdateError(error, 'Could not update this appointment. If this keeps happening, ask an admin to check your permissions.')
+                )
             } else {
               updateJob({ ...rest, notifyClient: false })
                 .then(() => onUpdateSuccess?.('Job updated successfully'))
-                .catch((error) => console.error('Failed to update job:', error))
+                .catch(error =>
+                  reportScheduleUpdateError(error, 'Could not update this job. If this keeps happening, ask an admin to check your permissions.')
+                )
             }
           }
           setShowNotifyClientModal(false)
@@ -2700,11 +2776,15 @@ const Calendar = ({
             if (isIndependent) {
               updateIndependentBooking(rest.id, { startTime: rest.startTime as string, endTime: rest.endTime as string, notifyClient: notify })
                 .then(() => onUpdateSuccess?.(successMessage))
-                .catch((error) => console.error('Failed to update appointment:', error))
+                .catch(error =>
+                  reportScheduleUpdateError(error, 'Could not update this appointment. If this keeps happening, ask an admin to check your permissions.')
+                )
             } else {
               updateJob({ ...rest, notifyClient: notify })
                 .then(() => onUpdateSuccess?.(successMessage))
-                .catch((error) => console.error('Failed to update job:', error))
+                .catch(error =>
+                  reportScheduleUpdateError(error, 'Could not update this job. If this keeps happening, ask an admin to check your permissions.')
+                )
             }
           }
           setShowNotifyClientModal(false)

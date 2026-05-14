@@ -34,68 +34,78 @@ const ContactCard = ({ contact, isSelected, onToggleSelect }: ContactCardProps) 
 
   const fullName = `${contact.firstName} ${contact.lastName}`
 
+  const statusBadge = (
+    <span
+      className={cn(
+        'px-2 py-1 text-xs font-medium rounded border shrink-0',
+        statusColors[contact.status]
+      )}
+    >
+      {contact.status}
+    </span>
+  )
+
   return (
     <Card
       className={cn(
-        "cursor-pointer hover:border-primary-gold transition-colors relative",
-        isSelected && "ring-2 ring-primary-gold"
+        'cursor-pointer hover:border-primary-gold transition-colors',
+        isSelected && 'ring-2 ring-primary-gold'
       )}
       onClick={() => setSelectedContact(contact)}
     >
       <div className="space-y-3">
-        {/* Selection Bullet Point */}
         {onToggleSelect && (
-          <div 
-            className="absolute top-3 left-3 z-10"
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleSelect(contact.id, e)
-            }}
-          >
+          <div className="flex justify-between items-start gap-3">
             <div
-              className={cn(
-                "w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center",
-                isSelected 
-                  ? "bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50" 
-                  : theme === 'dark'
-                    ? "border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10"
-                    : "border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100"
-              )}
+              className="shrink-0 z-10"
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleSelect(contact.id, e)
+              }}
             >
-              {isSelected && (
-                <div className={cn(
-                  "w-2.5 h-2.5 rounded-full",
-                  theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
-                )} />
-              )}
+              <div
+                className={cn(
+                  'w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center',
+                  isSelected
+                    ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
+                    : theme === 'dark'
+                      ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
+                      : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100'
+                )}
+              >
+                {isSelected && (
+                  <div className={cn(
+                    'w-2.5 h-2.5 rounded-full',
+                    theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
+                  )} />
+                )}
+              </div>
             </div>
+            {statusBadge}
           </div>
         )}
-        
-        {/* Header */}
-        <div className={cn("flex items-start justify-between", onToggleSelect && "pl-8")}>
-          <div>
+
+        <div
+          className={cn(
+            'min-w-0',
+            !onToggleSelect && 'flex items-start justify-between gap-3'
+          )}
+        >
+          <div className={cn('min-w-0', !onToggleSelect && 'flex-1')}>
             <h3 className={cn(
-              "text-lg font-semibold",
+              'text-lg font-semibold',
               theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
             )}>
               {fullName}
             </h3>
             {contact.jobTitle && (
               <p className={cn(
-                "text-sm",
+                'text-sm',
                 theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
               )}>{contact.jobTitle}</p>
             )}
           </div>
-          <span
-            className={cn(
-              'px-2 py-1 text-xs font-medium rounded border',
-              statusColors[contact.status]
-            )}
-          >
-            {contact.status}
-          </span>
+          {!onToggleSelect && statusBadge}
         </div>
 
         {/* Company */}

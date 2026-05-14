@@ -410,9 +410,12 @@ const realServicesService = {
 }
 
 const realJobLogsService = {
-  getAll: async () => {
+  getAll: async (options?: { includeArchived?: boolean; onlyArchived?: boolean }) => {
+    const params: Record<string, string | number> = { _ts: Date.now() }
+    if (options?.includeArchived) params.includeArchived = 'true'
+    if (options?.onlyArchived) params.onlyArchived = 'true'
     // Cache-bust to avoid any intermediate stale caching (especially after photo deletes)
-    const response = await apiClient.get('/job-logs', { params: { _ts: Date.now() } })
+    const response = await apiClient.get('/job-logs', { params })
     return response.data
   },
 
@@ -602,6 +605,8 @@ const realUsersService = {
       canScheduleAppointments?: boolean
       canSeeOtherJobs?: boolean
       canSeeJobPrices?: boolean
+      canEditJobs?: boolean
+      canEditAssignedJobsOnly?: boolean
     }
   ) => {
     const payload: any = { role }
@@ -610,6 +615,8 @@ const realUsersService = {
       if (permissions.canScheduleAppointments !== undefined) payload.canScheduleAppointments = permissions.canScheduleAppointments
       if (permissions.canSeeOtherJobs !== undefined) payload.canSeeOtherJobs = permissions.canSeeOtherJobs
       if (permissions.canSeeJobPrices !== undefined) payload.canSeeJobPrices = permissions.canSeeJobPrices
+      if (permissions.canEditJobs !== undefined) payload.canEditJobs = permissions.canEditJobs
+      if (permissions.canEditAssignedJobsOnly !== undefined) payload.canEditAssignedJobsOnly = permissions.canEditAssignedJobsOnly
     }
     const response = await apiClient.patch(`/users/${userId}`, payload)
     return response.data

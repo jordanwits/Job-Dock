@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 import { jobLogSchema, type JobLogFormData } from '../schemas/jobLogSchemas'
 import type { JobLog, JobAssignment } from '../types/jobLog'
 import { Input, Button, Select, Textarea } from '@/components/ui'
+import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import { getTeamAssignmentRoleValidationMessage } from '@/lib/utils/assignmentRoleValidation'
 import { PayChangeEffectiveDateModal } from './PayChangeEffectiveDateModal'
 
 function hasPayChangeWithTimeEntries(
@@ -74,6 +76,7 @@ const JobLogForm = ({
   const [selectedContactId, setSelectedContactId] = useState<string>(jobLog?.contactId ?? '')
   const [showPayChangeModal, setShowPayChangeModal] = useState(false)
   const [pendingFormData, setPendingFormData] = useState<any>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string>(
     jobLog?.status && ['active', 'completed', 'inactive', 'archived'].includes(jobLog.status)
       ? jobLog.status === 'archived'
@@ -282,6 +285,16 @@ const JobLogForm = ({
   }, [assignments, setValue])
 
   const handleFormSubmit = async (data: JobLogFormData) => {
+    if (submitError) setSubmitError(null)
+
+    if (canShowAssignee) {
+      const roleMsg = getTeamAssignmentRoleValidationMessage(assignments, jobRoles)
+      if (roleMsg) {
+        setSubmitError(roleMsg)
+        return
+      }
+    }
+
     // Convert empty/undefined assignedTo to null so backend clears it
     // Ensure price is explicitly included and properly normalized
     const normalizedAssignedTo =
@@ -346,6 +359,27 @@ const JobLogForm = ({
     await onSubmit(formData)
   }
 
+  const handleInvalidSubmit = (invalid: Record<string, unknown>) => {
+    const messages: string[] = []
+    const walk = (obj: unknown, path: string) => {
+      if (!obj || typeof obj !== 'object') return
+      const o = obj as Record<string, unknown>
+      if (typeof o.message === 'string') {
+        messages.push(path ? `${path}: ${o.message}` : o.message)
+      }
+      for (const key of Object.keys(o)) {
+        if (key === 'message' || key === 'type' || key === 'ref') continue
+        walk(o[key], path ? `${path}.${key}` : key)
+      }
+    }
+    walk(invalid, '')
+    setSubmitError(
+      messages.length > 0
+        ? `Fix these fields: ${messages.slice(0, 3).join(' | ')}`
+        : 'Form is invalid. Please review the fields and try again.'
+    )
+  }
+
   const handlePayChangeModalConfirm = async (effectiveDate: string) => {
     if (!pendingFormData) return
     const dataWithEffective = { ...pendingFormData, payChangeEffectiveDate: effectiveDate }
@@ -358,7 +392,7 @@ const JobLogForm = ({
   const showSimplifiedForm = isSimpleCreate && !jobLog
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5 sm:space-y-4">
+    <form onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} className="space-y-5 sm:space-y-4">
       <Input
         label="Title"
         {...register('title')}
@@ -381,31 +415,26 @@ const JobLogForm = ({
 
       {/* Contact field - shown in both simplified and full forms */}
       {showSimplifiedForm ? (
-        <div>
-          <label
-            className={cn(
-              'block text-sm font-medium mb-2',
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}
-          >
-            Contact *
-          </label>
-          <Select
-            value={selectedContactId}
-            onChange={e => {
-              const v = e.target.value
-              setSelectedContactId(v)
-              setValue('contactId', v)
-            }}
-            options={[
-              { value: '', label: 'Select a contact' },
-              ...contacts.map(c => ({
-                value: c.id,
-                label: `${c.firstName} ${c.lastName}`,
-              })),
-            ]}
-          />
-        </div>
+        <SearchableSelect
+          label="Contact *"
+          placeholder="Select a contact"
+          searchPlaceholder="Search by name or company..."
+          value={selectedContactId}
+          onChange={v => {
+            setSelectedContactId(v)
+            setValue('contactId', v)
+          }}
+          options={[
+            { value: '', label: 'Select a contact' },
+            ...contacts.map(c => ({
+              value: c.id,
+              label:
+                `${c.firstName} ${c.lastName}${c.company ? ` - ${c.company}` : ''}`.trim() ||
+                c.email ||
+                c.id,
+            })),
+          ]}
+        />
       ) : null}
 
       {/* All other fields - only show when NOT in simplified create mode */}
@@ -505,31 +534,26 @@ const JobLogForm = ({
               options={statusOptions.map(o => ({ value: o.value, label: o.label }))}
             />
           </div>
-          <div>
-            <label
-              className={cn(
-                'block text-sm font-medium mb-2',
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}
-            >
-              Contact (optional)
-            </label>
-            <Select
-              value={selectedContactId}
-              onChange={e => {
-                const v = e.target.value
-                setSelectedContactId(v)
-                setValue('contactId', v)
-              }}
-              options={[
-                { value: '', label: 'None' },
-                ...contacts.map(c => ({
-                  value: c.id,
-                  label: `${c.firstName} ${c.lastName}`,
-                })),
-              ]}
-            />
-          </div>
+          <SearchableSelect
+            label="Contact (optional)"
+            placeholder="None"
+            searchPlaceholder="Search by name or company..."
+            value={selectedContactId}
+            onChange={v => {
+              setSelectedContactId(v)
+              setValue('contactId', v)
+            }}
+            options={[
+              { value: '', label: 'None' },
+              ...contacts.map(c => ({
+                value: c.id,
+                label:
+                  `${c.firstName} ${c.lastName}${c.company ? ` - ${c.company}` : ''}`.trim() ||
+                  c.email ||
+                  c.id,
+              })),
+            ]}
+          />
         </>
       )}
       {!showSimplifiedForm && canShowAssignee && (
@@ -677,6 +701,7 @@ const JobLogForm = ({
                                   setValue('assignedTo', newAssignments)
                                 }}
                                 options={[
+                                  { value: '', label: 'Select role' },
                                   { value: 'custom', label: 'Custom...' },
                                   ...jobRoles.map(r => ({ value: r.id, label: r.title })),
                                 ]}
@@ -875,6 +900,11 @@ const JobLogForm = ({
             <p className="text-red-500 text-xs mt-1">{errors.assignedTo.message}</p>
           )}
         </div>
+      )}
+      {submitError && (
+        <p className="text-sm text-red-500" role="alert">
+          {submitError}
+        </p>
       )}
       <div className="flex gap-3 pt-4">
         <Button type="submit" disabled={isLoading}>

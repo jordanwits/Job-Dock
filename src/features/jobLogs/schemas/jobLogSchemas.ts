@@ -1,8 +1,10 @@
 import { z } from 'zod'
 
+// Rows are synced from custom UI (placeholders allowed). Submission validates in the form handler.
 const jobAssignmentSchema = z.object({
-  userId: z.string().min(1, 'User ID is required'),
-  role: z.string().min(1, 'Role is required'),
+  userId: z.string().optional(),
+  roleId: z.string().optional(),
+  role: z.string().optional(),
   price: z.number().nullable().optional(),
   payType: z.enum(['job', 'hourly']).optional(),
   hourlyRate: z.number().nullable().optional(),

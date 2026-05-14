@@ -1,9 +1,10 @@
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useRef, useState } from 'react'
 import { invoiceSchema, type InvoiceFormData } from '../schemas/invoiceSchemas'
 import { Invoice } from '../types/invoice'
 import { Input, Button, DatePicker, Select, Modal, Checkbox } from '@/components/ui'
+import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import ContactForm from '@/features/crm/components/ContactForm'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -104,7 +105,6 @@ const InvoiceForm = ({
   const watchedTaxRatePercent = Number(watch('taxRate')) || 0
   const watchedTaxRate = watchedTaxRatePercent / 100
   const watchedDiscount = Number(watch('discount')) || 0
-  const contactIdValue = watch('contactId')
   const statusValue = watch('status')
   const paymentStatusValue = watch('paymentStatus')
 
@@ -223,26 +223,33 @@ const InvoiceForm = ({
         )}
         {/* Contact Selection */}
         <div>
-          <Select
-            label="Contact *"
-            {...register('contactId')}
-            value={contactIdValue}
-            error={errors.contactId?.message}
-            onChange={e => {
-              if (e.target.value === '__create_new__') {
-                setShowCreateContact(true)
-              } else {
-                setValue('contactId', e.target.value)
-              }
-            }}
-            options={[
-              { value: '', label: 'Select a contact' },
-              { value: '__create_new__', label: '+ Create New Contact' },
-              ...contacts.map(contact => ({
-                value: contact.id,
-                label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
-              })),
-            ]}
+          <Controller
+            name="contactId"
+            control={control}
+            render={({ field }) => (
+              <SearchableSelect
+                label="Contact *"
+                placeholder="Select a contact"
+                searchPlaceholder="Search by name or company..."
+                value={field.value}
+                onChange={value => {
+                  if (value === '__create_new__') {
+                    setShowCreateContact(true)
+                  } else {
+                    field.onChange(value)
+                  }
+                }}
+                error={errors.contactId?.message}
+                options={[
+                  { value: '', label: 'Select a contact' },
+                  { value: '__create_new__', label: '+ Create New Contact' },
+                  ...contacts.map(contact => ({
+                    value: contact.id,
+                    label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
+                  })),
+                ]}
+              />
+            )}
           />
         </div>
 

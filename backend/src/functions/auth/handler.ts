@@ -201,6 +201,8 @@ const appUserSelect = {
   canScheduleAppointments: true,
   canSeeOtherJobs: true,
   canSeeJobPrices: true,
+  canEditJobs: true,
+  canEditAssignedJobsOnly: true,
   onboardingCompletedAt: true,
 } as const
 
@@ -214,6 +216,8 @@ type AppUserRow = {
   canScheduleAppointments: boolean
   canSeeOtherJobs: boolean
   canSeeJobPrices: boolean
+  canEditJobs: boolean
+  canEditAssignedJobsOnly: boolean
   onboardingCompletedAt: Date | null
 }
 
@@ -465,6 +469,8 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         canScheduleAppointments: user.canScheduleAppointments ?? true,
         canSeeOtherJobs: user.canSeeOtherJobs ?? false,
         canSeeJobPrices: user.canSeeJobPrices ?? true,
+        canEditJobs: user.canEditJobs ?? true,
+        canEditAssignedJobsOnly: user.canEditAssignedJobsOnly ?? true,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
@@ -537,6 +543,8 @@ async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<AP
         canScheduleAppointments: user.canScheduleAppointments ?? true,
         canSeeOtherJobs: user.canSeeOtherJobs ?? false,
         canSeeJobPrices: user.canSeeJobPrices ?? true,
+        canEditJobs: user.canEditJobs ?? true,
+        canEditAssignedJobsOnly: user.canEditAssignedJobsOnly ?? true,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })
@@ -581,6 +589,8 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         canScheduleAppointments: true,
         canSeeOtherJobs: true,
         canSeeJobPrices: true,
+        canEditJobs: true,
+        canEditAssignedJobsOnly: true,
         onboardingCompletedAt: true,
       },
     })
@@ -603,6 +613,8 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         canScheduleAppointments: user.canScheduleAppointments ?? true,
         canSeeOtherJobs: user.canSeeOtherJobs ?? false,
         canSeeJobPrices: user.canSeeJobPrices ?? true,
+        canEditJobs: user.canEditJobs ?? true,
+        canEditAssignedJobsOnly: user.canEditAssignedJobsOnly ?? true,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
     })

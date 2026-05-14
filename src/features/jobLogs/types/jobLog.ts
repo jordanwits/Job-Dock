@@ -88,6 +88,8 @@ export interface JobLog {
   status: 'active' | 'completed' | 'inactive'
   /** ISO timestamp when pinned to dashboard; null/undefined when not pinned */
   pinnedAt?: string | null
+  /** ISO timestamp when archived from the Jobs page; null/undefined when active */
+  archivedAt?: string | null
   createdAt: string
   updatedAt: string
   job?: {
@@ -105,6 +107,7 @@ export interface JobLog {
     id: string
     name: string
     email?: string
+    phone?: string | null
   } | null
   timeEntries?: TimeEntry[]
   photos?: JobLogPhoto[]

@@ -25,7 +25,10 @@ interface JobLogDetailProps {
   jobLog: JobLog
   onBack: () => void
   onEdit: () => void
-  onDelete: () => void
+  /** Calendar-style soft archive (booking or job removal when unscheduled) */
+  onArchiveRequest: () => void
+  /** Permanent removal (booking when present, else full job delete) */
+  onPermanentDeleteRequest: () => void
   isEditing: boolean
   onCancelEdit: () => void
   onSaveEdit: (data: {
@@ -73,7 +76,8 @@ const JobLogDetail = ({
   jobLog,
   onBack,
   onEdit,
-  onDelete,
+  onArchiveRequest,
+  onPermanentDeleteRequest,
   isEditing,
   onCancelEdit,
   onSaveEdit,
@@ -111,6 +115,7 @@ const JobLogDetail = ({
     (jobLog.bookings && jobLog.bookings.length > 0 ? jobLog.bookings[0]?.invoiceId : null)
   const [activeTab, setActiveTab] = useState<Tab>('notes')
   const [showMenu, setShowMenu] = useState(false)
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false)
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const canAccessQuotes = user?.role !== 'employee'
   const canEditJobs =
@@ -879,11 +884,25 @@ const JobLogDetail = ({
                 <button
                   onClick={() => {
                     setShowMenu(false)
-                    onDelete()
+                    onArchiveRequest()
+                  }}
+                  className={cn(
+                    'w-full text-left px-4 py-2.5 text-sm transition-colors',
+                    theme === 'dark'
+                      ? 'text-primary-light hover:bg-primary-blue/20'
+                      : 'text-primary-lightText hover:bg-gray-100'
+                  )}
+                >
+                  Archive
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMenu(false)
+                    onPermanentDeleteRequest()
                   }}
                   className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/20"
                 >
-                  Delete
+                  Delete permanently
                 </button>
               </div>
             </>
@@ -1283,14 +1302,115 @@ const JobLogDetail = ({
                 Edit
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-400 border-red-500/50 hover:bg-red-500/10"
-              onClick={onDelete}
-            >
-              Delete
-            </Button>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-400 border-red-500/50 hover:bg-red-500/10"
+                onClick={() => setShowDeleteMenu(!showDeleteMenu)}
+              >
+                Delete
+                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </Button>
+              {showDeleteMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowDeleteMenu(false)} />
+                  <div
+                    className={cn(
+                      'absolute right-0 top-full mt-2 w-64 rounded-lg shadow-xl border py-2 z-50',
+                      theme === 'dark'
+                        ? 'bg-primary-dark/95 backdrop-blur-sm border-primary-light/20'
+                        : 'bg-white border-gray-200'
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDeleteMenu(false)
+                        onArchiveRequest()
+                      }}
+                      className={cn(
+                        'w-full text-left px-4 py-3 text-sm transition-colors flex items-start gap-3 group',
+                        theme === 'dark'
+                          ? 'text-primary-light hover:bg-primary-light/10'
+                          : 'text-primary-lightText hover:bg-gray-100'
+                      )}
+                    >
+                      <svg
+                        className={cn(
+                          'w-5 h-5 flex-shrink-0 mt-0.5',
+                          theme === 'dark'
+                            ? 'text-primary-light/70 group-hover:text-primary-light'
+                            : 'text-gray-500 group-hover:text-primary-lightText'
+                        )}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 8h14M5 8a2 2 0 110-4m14 4a2 2 0 100-4m-9 4v12m4-12v12"
+                        />
+                      </svg>
+                      <div>
+                        <div className="font-medium">Archive</div>
+                        <div
+                          className={cn(
+                            'text-xs mt-0.5',
+                            theme === 'dark'
+                              ? 'text-primary-light/60'
+                              : 'text-primary-lightTextSecondary'
+                          )}
+                        >
+                          Can be restored later
+                        </div>
+                      </div>
+                    </button>
+                    <div
+                      className={cn(
+                        'border-t my-1',
+                        theme === 'dark' ? 'border-primary-light/10' : 'border-gray-200'
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDeleteMenu(false)
+                        onPermanentDeleteRequest()
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-start gap-3 group"
+                    >
+                      <svg
+                        className="w-5 h-5 flex-shrink-0 mt-0.5 group-hover:text-red-300"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                      <div>
+                        <div className="font-medium">Delete permanently</div>
+                        <div className="text-xs text-red-400/60 mt-0.5">Cannot be undone</div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Desktop: Timer and Job Completed buttons - separate row, aligned right */}
@@ -1643,6 +1763,22 @@ const JobLogDetail = ({
                   >
                     {' '}
                     · {jobLog.contact.email}
+                  </span>
+                )}
+                {jobLog.contact.phone?.trim() && (
+                  <span
+                    className={cn(
+                      theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
+                    )}
+                  >
+                    {' '}
+                    ·{' '}
+                    <a
+                      href={`tel:${jobLog.contact.phone.replace(/\s/g, '')}`}
+                      className="text-primary-gold hover:underline"
+                    >
+                      {jobLog.contact.phone.trim()}
+                    </a>
                   </span>
                 )}
               </dd>

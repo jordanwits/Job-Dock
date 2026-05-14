@@ -16,6 +16,8 @@ interface TeamMember {
   canScheduleAppointments?: boolean
   canSeeOtherJobs?: boolean
   canSeeJobPrices?: boolean
+  canEditJobs?: boolean
+  canEditAssignedJobsOnly?: boolean
   color?: string | null
   createdAt: string
 }
@@ -160,10 +162,12 @@ export const TeamMembersSection = () => {
     try {
       // Preserve existing permissions when changing role
       const permissions = member ? {
-        canCreateJobs: member.canCreateJobs ?? true,
-        canScheduleAppointments: member.canScheduleAppointments ?? true,
+        canCreateJobs: member.canCreateJobs ?? false,
+        canScheduleAppointments: member.canScheduleAppointments ?? false,
         canSeeOtherJobs: member.canSeeOtherJobs ?? false,
-        canSeeJobPrices: member.canSeeJobPrices ?? true,
+        canSeeJobPrices: member.canSeeJobPrices ?? false,
+        canEditJobs: member.canEditJobs ?? false,
+        canEditAssignedJobsOnly: member.canEditAssignedJobsOnly ?? false,
       } : undefined
       await services.users.updateRole(userId, role, permissions)
       await loadMembers()
@@ -174,7 +178,7 @@ export const TeamMembersSection = () => {
 
   const handlePermissionChange = async (
     userId: string,
-    permission: 'canCreateJobs' | 'canScheduleAppointments' | 'canSeeOtherJobs' | 'canSeeJobPrices',
+    permission: 'canCreateJobs' | 'canScheduleAppointments' | 'canSeeOtherJobs' | 'canSeeJobPrices' | 'canEditJobs' | 'canEditAssignedJobsOnly',
     value: boolean,
     currentRole: string
   ) => {
@@ -183,12 +187,14 @@ export const TeamMembersSection = () => {
       setError(null)
       const member = members.find(m => m.id === userId)
       if (!member) return
-      
+
       const permissions = {
-        canCreateJobs: permission === 'canCreateJobs' ? value : (member.canCreateJobs ?? true),
-        canScheduleAppointments: permission === 'canScheduleAppointments' ? value : (member.canScheduleAppointments ?? true),
+        canCreateJobs: permission === 'canCreateJobs' ? value : (member.canCreateJobs ?? false),
+        canScheduleAppointments: permission === 'canScheduleAppointments' ? value : (member.canScheduleAppointments ?? false),
         canSeeOtherJobs: permission === 'canSeeOtherJobs' ? value : (member.canSeeOtherJobs ?? false),
-        canSeeJobPrices: permission === 'canSeeJobPrices' ? value : (member.canSeeJobPrices ?? true),
+        canSeeJobPrices: permission === 'canSeeJobPrices' ? value : (member.canSeeJobPrices ?? false),
+        canEditJobs: permission === 'canEditJobs' ? value : (member.canEditJobs ?? false),
+        canEditAssignedJobsOnly: permission === 'canEditAssignedJobsOnly' ? value : (member.canEditAssignedJobsOnly ?? false),
       }
       
       await services.users.updateRole(userId, currentRole as 'admin' | 'employee', permissions)
@@ -494,7 +500,7 @@ export const TeamMembersSection = () => {
                     <label className="flex items-start gap-3 cursor-pointer group">
                       <div className="mt-0.5 flex-shrink-0">
                         <Checkbox
-                          checked={m.canCreateJobs ?? true}
+                          checked={m.canCreateJobs ?? false}
                           onChange={(e) => handlePermissionChange(m.id, 'canCreateJobs', e.target.checked, m.role)}
                           disabled={updatingPermissions === m.id}
                         />
@@ -513,7 +519,7 @@ export const TeamMembersSection = () => {
                     <label className="flex items-start gap-3 cursor-pointer group">
                       <div className="mt-0.5 flex-shrink-0">
                         <Checkbox
-                          checked={m.canScheduleAppointments ?? true}
+                          checked={m.canScheduleAppointments ?? false}
                           onChange={(e) => handlePermissionChange(m.id, 'canScheduleAppointments', e.target.checked, m.role)}
                           disabled={updatingPermissions === m.id}
                         />
@@ -553,7 +559,7 @@ export const TeamMembersSection = () => {
                         <label className="flex items-start gap-3 cursor-pointer group">
                           <div className="mt-0.5 flex-shrink-0">
                             <Checkbox
-                              checked={m.canSeeJobPrices ?? true}
+                              checked={m.canSeeJobPrices ?? false}
                               onChange={(e) => handlePermissionChange(m.id, 'canSeeJobPrices', e.target.checked, m.role)}
                               disabled={updatingPermissions === m.id}
                             />
@@ -569,29 +575,95 @@ export const TeamMembersSection = () => {
                             )}>Allow this team member to see job prices and assignment prices</span>
                           </div>
                         </label>
+                        <div>
+                          <label className="flex items-start gap-3 cursor-pointer group">
+                            <div className="mt-0.5 flex-shrink-0">
+                              <Checkbox
+                                checked={m.canEditJobs ?? false}
+                                onChange={(e) => handlePermissionChange(m.id, 'canEditJobs', e.target.checked, m.role)}
+                                disabled={updatingPermissions === m.id}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <span className={cn(
+                                "text-sm block",
+                                theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                              )}>Can edit jobs</span>
+                              <span className={cn(
+                                "text-xs mt-0.5 block",
+                                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                              )}>Allow this team member to edit and delete jobs</span>
+                            </div>
+                          </label>
+                          {(m.canEditJobs ?? false) && (
+                            <div className="ml-7 mt-2">
+                              <label className="flex items-start gap-3 cursor-pointer group">
+                                <div className="mt-0.5 flex-shrink-0">
+                                  <Checkbox
+                                    checked={m.canEditAssignedJobsOnly ?? false}
+                                    onChange={(e) => handlePermissionChange(m.id, 'canEditAssignedJobsOnly', e.target.checked, m.role)}
+                                    disabled={updatingPermissions === m.id}
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <span className={cn(
+                                    "text-sm block",
+                                    theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                                  )}>Assigned jobs only</span>
+                                  <span className={cn(
+                                    "text-xs mt-0.5 block",
+                                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                                  )}>When checked, they can only edit jobs they are assigned to. Uncheck to allow editing all jobs.</span>
+                                </div>
+                              </label>
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
                     {m.role === 'admin' && (
-                      <div className="flex items-start gap-3">
-                        <div className={cn(
-                          "mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 border-primary-blue flex items-center justify-center",
-                          theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
-                        )}>
-                          <svg className="w-3 h-3 text-primary-gold" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
+                      <>
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 border-primary-blue flex items-center justify-center",
+                            theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
+                          )}>
+                            <svg className="w-3 h-3 text-primary-gold" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <span className={cn(
+                              "text-sm block",
+                              theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                            )}>Can see other people's jobs</span>
+                            <span className={cn(
+                              "text-xs mt-0.5 block italic",
+                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                            )}>Admins can see all jobs by default</span>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <span className={cn(
-                            "text-sm block",
-                            theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                          )}>Can see other people's jobs</span>
-                          <span className={cn(
-                            "text-xs mt-0.5 block italic",
-                            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                          )}>Admins can see all jobs by default</span>
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 border-primary-blue flex items-center justify-center",
+                            theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
+                          )}>
+                            <svg className="w-3 h-3 text-primary-gold" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <span className={cn(
+                              "text-sm block",
+                              theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
+                            )}>Can edit jobs</span>
+                            <span className={cn(
+                              "text-xs mt-0.5 block italic",
+                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+                            )}>Admins can edit all jobs by default</span>
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
                 </div>

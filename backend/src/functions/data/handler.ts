@@ -475,6 +475,17 @@ We look forward to working with you!',
             tenantId,
             role,
             onboardingCompletedAt: new Date(),
+            // Invited employees: start with all granular permissions off (admins keep schema defaults).
+            ...(role === 'employee'
+              ? {
+                  canCreateJobs: false,
+                  canScheduleAppointments: false,
+                  canSeeOtherJobs: false,
+                  canSeeJobPrices: false,
+                  canEditJobs: false,
+                  canEditAssignedJobsOnly: false,
+                }
+              : {}),
           },
         })
 
@@ -534,8 +545,10 @@ We look forward to working with you!',
             canScheduleAppointments: true,
             canSeeOtherJobs: true,
             canSeeJobPrices: true,
+            canEditJobs: true,
+            canEditAssignedJobsOnly: true,
             color: true,
-            createdAt: true 
+            createdAt: true
           },
         })
         return successResponse(
@@ -575,7 +588,13 @@ We look forward to working with you!',
         if (body?.canSeeJobPrices !== undefined) {
           updateData.canSeeJobPrices = Boolean(body.canSeeJobPrices)
         }
-        
+        if (body?.canEditJobs !== undefined) {
+          updateData.canEditJobs = Boolean(body.canEditJobs)
+        }
+        if (body?.canEditAssignedJobsOnly !== undefined) {
+          updateData.canEditAssignedJobsOnly = Boolean(body.canEditAssignedJobsOnly)
+        }
+
         // Update color if provided
         if (body?.color !== undefined) {
           // Allow null to clear color, or validate it's a string
@@ -918,7 +937,7 @@ We look forward to working with you!',
     const isEmployeeJobAccessResource = (r: string) =>
       employeeJobAccessResources.includes(r as any)
 
-    let currentUser: { id: string; role: string; canSeeOtherJobs?: boolean } | null = null
+    let currentUser: { id: string; role: string; canSeeOtherJobs?: boolean; canEditJobs?: boolean; canEditAssignedJobsOnly?: boolean } | null = null
     const authHeader = event.headers?.Authorization || event.headers?.authorization
     if (
       authHeader &&
@@ -934,12 +953,14 @@ We look forward to working with you!',
       const user = await prisma.user.findUnique({
         where: { cognitoId: context.userId },
         select: { 
-          id: true, 
+          id: true,
           role: true,
           canCreateJobs: true,
           canScheduleAppointments: true,
           canSeeOtherJobs: true,
           canSeeJobPrices: true,
+          canEditJobs: true,
+          canEditAssignedJobsOnly: true,
         },
       })
       currentUser = user
@@ -964,36 +985,33 @@ We look forward to working with you!',
       }
     }
 
-    // Check edit/delete permissions: users without canCreateJobs cannot edit jobs
-    // Users without canSeeOtherJobs can only edit their own jobs
+    // Check edit/delete permissions using canEditJobs / canEditAssignedJobsOnly
     if (
       currentUser &&
-      resource === 'jobs' &&
+      (resource === 'jobs' || resource === 'job-logs') &&
       id &&
       (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH' || event.httpMethod === 'DELETE')
     ) {
-      // First check: users without canCreateJobs cannot edit jobs at all
       const isAdminOrOwner = currentUser.role === 'admin' || currentUser.role === 'owner'
-      const canCreate = isAdminOrOwner || currentUser.canCreateJobs || currentUser.canScheduleAppointments
-      
-      if (!canCreate) {
-        return errorResponse('You do not have permission to edit jobs', 403)
-      }
-      
-      // Second check: users without canSeeOtherJobs can only edit their own jobs
-      const canSeeOther = isAdminOrOwner || currentUser.canSeeOtherJobs
-      
-      if (!canSeeOther) {
-        const { default: prisma } = await import('../../lib/db')
-        const job = await prisma.job.findFirst({
-          where: { id, tenantId },
-          select: { createdById: true },
-        })
-        if (!job) {
-          return errorResponse('Job not found', 404)
+      if (!isAdminOrOwner) {
+        if (currentUser.canEditJobs === false) {
+          return errorResponse('You do not have permission to edit jobs', 403)
         }
-        if (job.createdById !== currentUser.id) {
-          return errorResponse('You can only move, edit, or delete appointments you created. Ask an admin or owner to make changes to this one.', 403)
+        if (currentUser.canEditAssignedJobsOnly !== false) {
+          const { default: prisma } = await import('../../lib/db')
+          const job = await prisma.job.findFirst({
+            where: { id, tenantId },
+            select: { createdById: true, assignedTo: true },
+          })
+          if (!job) {
+            return errorResponse('Job not found', 404)
+          }
+          const raw = job.assignedTo
+          const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []
+          const assignedIds: string[] = Array.isArray(parsed) ? parsed.map((a: any) => a.userId).filter(Boolean) : []
+          if (!assignedIds.includes(currentUser.id) && job.createdById !== currentUser.id) {
+            return errorResponse('You can only edit jobs you are assigned to', 403)
+          }
         }
       }
     }
@@ -1335,7 +1353,8 @@ async function handleGet(
         tenantId,
         id,
         currentUserId,
-        currentUserRole
+        currentUserRole,
+        currentUserCanSeeOtherJobs
       )
     }
     return service.getById(tenantId, id)
@@ -1363,10 +1382,14 @@ async function handleGet(
   }
 
   if (resource === 'job-logs') {
+    const includeArchived = event.queryStringParameters?.includeArchived === 'true'
+    const onlyArchived = event.queryStringParameters?.onlyArchived === 'true'
     return (service as typeof dataServices['job-logs']).getAll(
       tenantId,
       currentUserId,
-      currentUserRole
+      currentUserRole,
+      currentUserCanSeeOtherJobs,
+      { includeArchived, onlyArchived }
     )
   }
 
