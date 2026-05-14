@@ -91,6 +91,14 @@ const realAuthService = {
     return response.data
   },
 
+  confirmResetPassword: async (token: string, newPassword: string) => {
+    const response = await publicApiClient.post('/auth/confirm-reset-password', {
+      token,
+      newPassword,
+    })
+    return response.data
+  },
+
   respondToNewPasswordChallenge: async (session: string, email: string, newPassword: string) => {
     const response = await publicApiClient.post('/auth/respond-to-challenge', {
       session,

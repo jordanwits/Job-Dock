@@ -78,6 +78,19 @@ model User {
   @@map("users")
 }
 
+model PasswordResetToken {
+  id          String   @id @default(uuid())
+  email       String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
 model Contact {
   id             String          @id @default(uuid())
   tenantId       String

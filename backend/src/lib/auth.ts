@@ -13,8 +13,6 @@ import {
   RespondToAuthChallengeCommand,
   SignUpCommand,
   ConfirmSignUpCommand,
-  ForgotPasswordCommand,
-  ConfirmForgotPasswordCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import { CognitoJwtVerifier } from 'aws-jwt-verify'
 import prisma from './db'
@@ -223,6 +221,20 @@ export async function refreshAccessToken(refreshToken: string) {
     // Note: Cognito doesn't return a new refresh token unless the old one is expired
     RefreshToken: refreshToken,
   }
+}
+
+/**
+ * Set a user's password directly as an admin (used after our own token-based
+ * password reset flow validates the user's reset link).
+ */
+export async function adminSetPassword(email: string, newPassword: string) {
+  const command = new AdminSetUserPasswordCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: email,
+    Password: newPassword,
+    Permanent: true,
+  })
+  await cognitoClient.send(command)
 }
 
 /**

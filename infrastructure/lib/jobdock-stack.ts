@@ -324,7 +324,8 @@ export class JobDockStack extends cdk.Stack {
       'cognito-idp:AdminGetUser',
       'cognito-idp:AdminUpdateUserAttributes',
       'cognito-idp:AdminDeleteUser',
-      'cognito-idp:AdminConfirmSignUp'
+      'cognito-idp:AdminConfirmSignUp',
+      'cognito-idp:AdminSetUserPassword'
     )
 
     // ============================================
@@ -653,6 +654,8 @@ export class JobDockStack extends cdk.Stack {
     authResource.addResource('respond-to-challenge').addMethod('POST', authIntegration)
     authResource.addResource('refresh').addMethod('POST', authIntegration)
     authResource.addResource('logout').addMethod('POST', authIntegration)
+    authResource.addResource('reset-password').addMethod('POST', authIntegration)
+    authResource.addResource('confirm-reset-password').addMethod('POST', authIntegration)
 
     const healthResource = this.api.root.addResource('health')
     healthResource.addMethod('GET', authIntegration)

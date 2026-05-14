@@ -236,6 +236,53 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
 }
 
 /**
+ * Send a password reset email containing a one-time magic link.
+ */
+export async function sendPasswordResetEmail(args: {
+  to: string
+  resetUrl: string
+  expiresInMinutes: number
+}): Promise<void> {
+  const { to, resetUrl, expiresInMinutes } = args
+  const safeUrl = escapeHtmlForEmail(resetUrl)
+  const htmlBody = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+      <h1 style="font-size:20px;margin:0 0 16px">Reset your JobDock password</h1>
+      <p style="margin:0 0 16px;line-height:1.5">
+        We received a request to reset your password. Click the button below to choose a new one.
+        This link expires in ${expiresInMinutes} minutes.
+      </p>
+      <p style="margin:24px 0">
+        <a href="${safeUrl}"
+           style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600">
+          Reset password
+        </a>
+      </p>
+      <p style="margin:16px 0;font-size:13px;color:#555;line-height:1.5">
+        If the button doesn't work, paste this URL into your browser:<br/>
+        <span style="word-break:break-all">${safeUrl}</span>
+      </p>
+      <p style="margin:24px 0 0;font-size:13px;color:#555">
+        If you didn't request this, you can safely ignore this email.
+      </p>
+    </div>
+  `
+  const textBody =
+    `Reset your JobDock password\n\n` +
+    `We received a request to reset your password. Use this link to choose a new one ` +
+    `(expires in ${expiresInMinutes} minutes):\n\n${resetUrl}\n\n` +
+    `If you didn't request this, you can safely ignore this email.`
+
+  await sendEmail({
+    to,
+    subject: 'Reset your JobDock password',
+    htmlBody,
+    textBody,
+    fromName: 'JobDock',
+  })
+}
+
+/**
  * Send an email with attachments using Resend
  */
 export async function sendEmailWithAttachments(payload: EmailWithAttachment): Promise<void> {

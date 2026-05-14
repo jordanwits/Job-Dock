@@ -9,6 +9,7 @@ import {
   CognitoIdentityProviderClient,
   AdminConfirmSignUpCommand,
   AdminGetUserCommand,
+  AdminUpdateUserAttributesCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import {
   registerUser,
@@ -16,12 +17,16 @@ import {
   refreshAccessToken,
   verifyToken,
   respondToNewPasswordChallenge,
+  adminSetPassword,
   type CognitoUser,
 } from '../../lib/auth'
 import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
 import prisma from '../../lib/db'
 import { dataServices } from '../../lib/dataService'
-import { randomUUID } from 'crypto'
+import { sendPasswordResetEmail } from '../../lib/email'
+import { randomUUID, randomBytes, createHash } from 'crypto'
+
+const PASSWORD_RESET_TOKEN_TTL_MINUTES = 60
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -56,6 +61,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await handleRefresh(event)
       case 'POST /auth/logout':
         return await handleLogout(event)
+      case 'POST /auth/reset-password':
+        return await handleResetPassword(event)
+      case 'POST /auth/confirm-reset-password':
+        return await handleConfirmResetPassword(event)
       default:
         return errorResponse('Route not found', 404)
     }
@@ -111,6 +120,15 @@ async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       new AdminConfirmSignUpCommand({
         UserPoolId: USER_POOL_ID,
         Username: email,
+      })
+    )
+
+    // 1.6. Mark email as verified so password reset can send emails
+    await cognitoClient.send(
+      new AdminUpdateUserAttributesCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+        UserAttributes: [{ Name: 'email_verified', Value: 'true' }],
       })
     )
 
@@ -319,6 +337,14 @@ async function handleCompleteSignup(event: APIGatewayProxyEvent): Promise<APIGat
       new AdminConfirmSignUpCommand({
         UserPoolId: USER_POOL_ID,
         Username: email,
+      })
+    )
+
+    await cognitoClient.send(
+      new AdminUpdateUserAttributesCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+        UserAttributes: [{ Name: 'email_verified', Value: 'true' }],
       })
     )
 
@@ -583,6 +609,121 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
   } catch (error: any) {
     console.error('Token refresh error:', error)
     return errorResponse(error.message || 'Token refresh failed', 401)
+  }
+}
+
+function hashResetToken(rawToken: string): string {
+  return createHash('sha256').update(rawToken).digest('hex')
+}
+
+/**
+ * Step 1 of password reset: user submits their email.
+ * We generate a one-time token, store its hash, email the link via Resend,
+ * and always return success to avoid leaking which emails are registered.
+ */
+async function handleResetPassword(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const body = JSON.parse(event.body || '{}')
+  const rawEmail = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+
+  if (!rawEmail) {
+    return errorResponse('Email is required', 400)
+  }
+
+  const genericResponse = successResponse({
+    message: 'If an account exists for that email, a reset link has been sent.',
+  })
+
+  try {
+    // Only send a link to emails we actually know about. We still return the same
+    // generic response regardless so we don't leak account existence.
+    const user = await prisma.user.findFirst({
+      where: { email: rawEmail },
+      select: { email: true },
+    })
+
+    if (!user) {
+      return genericResponse
+    }
+
+    const rawToken = randomBytes(32).toString('hex')
+    const tokenHash = hashResetToken(rawToken)
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MINUTES * 60 * 1000)
+
+    await prisma.passwordResetToken.create({
+      data: {
+        email: rawEmail,
+        tokenHash,
+        expiresAt,
+      },
+    })
+
+    const appUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173'
+    const resetUrl = `${appUrl}/auth/reset-password?token=${rawToken}`
+
+    await sendPasswordResetEmail({
+      to: rawEmail,
+      resetUrl,
+      expiresInMinutes: PASSWORD_RESET_TOKEN_TTL_MINUTES,
+    })
+
+    return genericResponse
+  } catch (error: any) {
+    console.error('[ResetPassword] failed:', error?.name, error?.message)
+    // Still return the generic success: we don't want to leak existence,
+    // and the user can retry. Real failures will surface in logs/alerts.
+    return genericResponse
+  }
+}
+
+/**
+ * Step 2 of password reset: user submits the token from the email + new password.
+ * Validate the token, then set the new password in Cognito as admin.
+ */
+async function handleConfirmResetPassword(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const body = JSON.parse(event.body || '{}')
+  const token = typeof body.token === 'string' ? body.token.trim() : ''
+  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : ''
+
+  if (!token || !newPassword) {
+    return errorResponse('Reset token and new password are required', 400)
+  }
+
+  const tokenHash = hashResetToken(token)
+
+  try {
+    const record = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    })
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      return errorResponse('This reset link is invalid or has expired. Please request a new one.', 400)
+    }
+
+    await adminSetPassword(record.email, newPassword)
+
+    // Mark token used; also wipe any other outstanding tokens for this email.
+    await prisma.passwordResetToken.update({
+      where: { tokenHash },
+      data: { usedAt: new Date() },
+    })
+    await prisma.passwordResetToken.deleteMany({
+      where: { email: record.email, usedAt: null },
+    })
+
+    return successResponse({ message: 'Password reset successful' })
+  } catch (error: any) {
+    console.error('Confirm reset password error:', error)
+    const errorName = typeof error?.name === 'string' ? error.name : undefined
+    if (errorName === 'InvalidPasswordException') {
+      return errorResponse(
+        'Password does not meet requirements. Must be at least 12 characters with uppercase, lowercase, number, and special character (!@#$%^&*).',
+        400
+      )
+    }
+    if (errorName === 'UserNotFoundException') {
+      return errorResponse('This reset link is invalid or has expired. Please request a new one.', 400)
+    }
+    return errorResponse(error?.message || 'Failed to reset password', 500)
   }
 }
 

@@ -31,6 +31,16 @@ export const resetPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
 })
 
+export const confirmResetPasswordSchema = z
+  .object({
+    newPassword: passwordValidation,
+    confirmPassword: z.string(),
+  })
+  .refine(data => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  })
+
 export const newPasswordSchema = z
   .object({
     newPassword: z
@@ -62,4 +72,5 @@ export type LoginFormData = z.infer<typeof loginSchema>
 export type RegisterFormData = z.infer<typeof registerSchema>
 export type CompleteSignupFormData = z.infer<typeof completeSignupSchema>
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
+export type ConfirmResetPasswordFormData = z.infer<typeof confirmResetPasswordSchema>
 export type NewPasswordFormData = z.infer<typeof newPasswordSchema>

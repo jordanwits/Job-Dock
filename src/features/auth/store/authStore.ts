@@ -51,6 +51,7 @@ interface AuthState {
   refreshAccessToken: () => Promise<boolean>
   logout: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
+  confirmResetPassword: (token: string, newPassword: string) => Promise<void>
   clearError: () => void
   clearSession: () => void
   checkTokenValidity: () => boolean
@@ -295,6 +296,24 @@ export const useAuthStore = create<AuthState>()(
           const friendlyMessage = getErrorMessage(
             error,
             'Failed to send reset email. Please try again.'
+          )
+          set({
+            error: friendlyMessage,
+            isLoading: false,
+          })
+          throw error
+        }
+      },
+
+      confirmResetPassword: async (token: string, newPassword: string) => {
+        set({ isLoading: true, error: null })
+        try {
+          await authService.confirmResetPassword(token, newPassword)
+          set({ isLoading: false })
+        } catch (error: any) {
+          const friendlyMessage = getErrorMessage(
+            error,
+            'Failed to reset password. Please try again.'
           )
           set({
             error: friendlyMessage,

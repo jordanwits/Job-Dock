@@ -218,6 +218,11 @@ export const mockAuthService = {
     await delay(500)
     return { success: true, message: 'Password reset email sent' }
   },
+
+  confirmResetPassword: async (token: string, newPassword: string) => {
+    await delay(500)
+    return { success: true, message: 'Password reset successful' }
+  },
 }
 
 // Mock Contacts Service
