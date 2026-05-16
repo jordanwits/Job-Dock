@@ -54,7 +54,21 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const currentUserId = user?.id
   const canSeeJobPrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
-  const canEditJobs = isAdminOrOwner || user?.canCreateJobs || user?.canScheduleAppointments
+  const canEditJobs = (() => {
+    if (!user) return true
+    if (isAdminOrOwner) return true
+    if (user.canEditJobs === false) return false
+    if (user.canEditAssignedJobsOnly !== false) {
+      if (job.createdById === user.id) return true
+      try {
+        const raw = job.assignedTo
+        const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (Array.isArray(arr)) return arr.some((a: any) => a.userId === user.id)
+      } catch {}
+      return false
+    }
+    return true
+  })()
   
   useEffect(() => {
     if (job?.quoteId && quotes.length === 0) {
@@ -466,7 +480,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
           </Card>
         )}
 
-        {job.price && (
+        {job.price && canSeeJobPrices && (
           <Card>
             <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Price</h3>
             <p className={cn('text-lg font-semibold', textMain)}>

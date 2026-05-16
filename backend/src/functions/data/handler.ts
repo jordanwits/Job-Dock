@@ -1034,7 +1034,7 @@ We look forward to working with you!',
           ? payload.assignedTo.length > 0
           : typeof payload.assignedTo === 'string' && payload.assignedTo.trim() !== ''
         if (hasAssignee) {
-          if (currentUser.role === 'employee') {
+          if (currentUser.role === 'employee' && currentUser.canEditJobs === false) {
             return errorResponse('Only admins and owners can assign jobs to team members', 403)
           }
           const { default: prisma } = await import('../../lib/db')
@@ -1682,11 +1682,12 @@ async function handlePost(
       const { default: prisma } = await import('../../lib/db')
       const user = await prisma.user.findUnique({
         where: { cognitoId: context.userId },
-        select: { 
-          id: true, 
+        select: {
+          id: true,
           role: true,
           canCreateJobs: true,
           canScheduleAppointments: true,
+          canEditJobs: true,
         },
       })
       
@@ -1720,7 +1721,7 @@ async function handlePost(
             : typeof payload.assignedTo === 'string' && payload.assignedTo.trim() !== '')
         : false
       if (hasAssignee) {
-        if (user?.role === 'employee') {
+        if (user?.role === 'employee' && user?.canEditJobs === false) {
           throw new ApiError('Only admins and owners can assign jobs to team members', 403)
         }
         const tenant = await prisma.tenant.findUnique({

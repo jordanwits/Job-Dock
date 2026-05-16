@@ -1846,27 +1846,10 @@ const SchedulingPage = () => {
             setSelectedJob(null)
             setShowJobDetail(false)
           }}
-          onEdit={
-            user?.role !== 'employee' || selectedJob.createdById === user?.id
-              ? handleEditJob
-              : undefined
-          }
-          onDelete={
-            user?.role !== 'employee' || selectedJob.createdById === user?.id
-              ? handleDeleteJob
-              : undefined
-          }
-          onPermanentDelete={
-            user?.role !== 'employee' || selectedJob.createdById === user?.id
-              ? () => handleRequestPermanentDelete()
-              : undefined
-          }
-          onRestore={
-            !selectedJob.isIndependent &&
-            (user?.role !== 'employee' || selectedJob.createdById === user?.id)
-              ? handleRestoreJob
-              : undefined
-          }
+          onEdit={canUserEditJob(selectedJob) ? handleEditJob : undefined}
+          onDelete={canUserEditJob(selectedJob) ? handleDeleteJob : undefined}
+          onPermanentDelete={canUserEditJob(selectedJob) ? () => handleRequestPermanentDelete() : undefined}
+          onRestore={!selectedJob.isIndependent && canUserEditJob(selectedJob) ? handleRestoreJob : undefined}
           onConfirm={handleConfirmJob}
           onDecline={() => setShowDeclineModal(true)}
           onScheduleFollowup={handleScheduleFollowup}

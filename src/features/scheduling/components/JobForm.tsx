@@ -1342,7 +1342,7 @@ const JobForm = ({
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  value={assignment.hourlyRate ?? ''}
+                                  value={(!canSeeJobPrices && assignment.userId !== currentUserId) ? '' : (assignment.hourlyRate ?? '')}
                                   onChange={e => {
                                     const newAssignments = [...assignments]
                                     const hourlyRateValue =
@@ -1384,7 +1384,7 @@ const JobForm = ({
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  value={assignment.price ?? ''}
+                                  value={(!canSeeJobPrices && assignment.userId !== currentUserId) ? '' : (assignment.price ?? '')}
                                   onChange={e => {
                                     const newAssignments = [...assignments]
                                     const priceValue =
@@ -1748,29 +1748,30 @@ const JobForm = ({
           "block text-sm font-medium mb-2",
           theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
         )}>Price</label>
-        <div className="relative">
-          <span className={cn(
-            "absolute left-3 top-1/2 -translate-y-1/2",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>$</span>
-          <Input
-            {...register('price')}
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            className="pl-7"
-            error={errors.price?.message}
-            disabled={!canSeeJobPrices}
-          />
-        </div>
-        {!canSeeJobPrices ? (
-          <p className="text-xs text-yellow-400 mt-1">Insufficient permissions to view or edit prices</p>
+        {canSeeJobPrices ? (
+          <>
+            <div className="relative">
+              <span className={cn(
+                "absolute left-3 top-1/2 -translate-y-1/2",
+                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
+              )}>$</span>
+              <Input
+                {...register('price')}
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                className="pl-7"
+                error={errors.price?.message}
+              />
+            </div>
+            <p className={cn(
+              "text-xs mt-1",
+              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
+            )}>Optional job price or estimated cost</p>
+          </>
         ) : (
-          <p className={cn(
-            "text-xs mt-1",
-            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-          )}>Optional job price or estimated cost</p>
+          <p className="text-xs text-yellow-400">Insufficient permissions to view or edit prices</p>
         )}
       </div>
 
