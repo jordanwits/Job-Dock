@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { Card, Button, StatusBadgeSelect, Modal, Select } from '@/components/ui'
+import { Card, Button, StatusBadgeSelect, Modal, Select, ConfirmationDialog } from '@/components/ui'
 import { cn, getMapsHref } from '@/lib/utils'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
@@ -154,6 +154,60 @@ const JobLogDetail = ({
     }
   })
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [clockOutError, setClockOutError] = useState<string | null>(null)
+  const [conflictingTimer, setConflictingTimer] = useState<{
+    jobLogId: string
+    jobLogTitle: string
+    startTime: string
+    storedUserId?: string
+    timeEntryIds?: string[]
+    clockedInAll?: boolean
+    next: { type: 'single'; userId?: string } | { type: 'multi' }
+  } | null>(null)
+  const [conflictError, setConflictError] = useState<string | null>(null)
+
+  const extractErrorMessage = (e: unknown, fallback: string) =>
+    (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+      ?.message ||
+    (e as { message?: string })?.message ||
+    fallback
+
+  const detectConflictingTimer = () => {
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (!stored) return null
+      const parsed = JSON.parse(stored)
+      if (!parsed?.jobLogId || parsed.jobLogId === jobLog.id || !parsed.startTime) return null
+      return {
+        jobLogId: parsed.jobLogId as string,
+        jobLogTitle: (parsed.jobLogTitle as string | undefined) || 'another job',
+        startTime: parsed.startTime as string,
+        storedUserId: (parsed.userId as string | null | undefined) ?? undefined,
+        timeEntryIds: Array.isArray(parsed.timeEntryIds)
+          ? (parsed.timeEntryIds as string[])
+          : undefined,
+        clockedInAll: !!parsed.clockedInAll,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  const fetchConflictTitleIfMissing = (info: ReturnType<typeof detectConflictingTimer>) => {
+    if (!info || info.jobLogTitle !== 'another job') return
+    services.jobLogs
+      .getById(info.jobLogId)
+      .then(jl => {
+        const title = (jl as { title?: string } | null)?.title
+        if (!title) return
+        setConflictingTimer(prev =>
+          prev && prev.jobLogId === info.jobLogId ? { ...prev, jobLogTitle: title } : prev
+        )
+      })
+      .catch(() => {
+        /* keep the generic label */
+      })
+  }
 
   // Timer tick effect
   const tick = useCallback(() => {
@@ -175,11 +229,7 @@ const JobLogDetail = ({
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 
-  const handleStartTimer = (userId?: string) => {
-    // Don't overwrite if timer is already running - preserve the existing userId
-    if (isTimerRunning) {
-      return
-    }
+  const startSingleTimerLocal = (userId?: string) => {
     const targetUserId = userId || user?.id
     const start = new Date()
     setTimerStart(start)
@@ -189,6 +239,7 @@ const JobLogDetail = ({
         TIMER_STORAGE_KEY,
         JSON.stringify({
           jobLogId: jobLog.id,
+          jobLogTitle: jobLog.title,
           startTime: start.toISOString(),
           userId: targetUserId,
         })
@@ -196,6 +247,25 @@ const JobLogDetail = ({
     } catch {
       // ignore
     }
+  }
+
+  const handleStartTimer = (userId?: string) => {
+    setClockOutError(null)
+    // Don't overwrite if timer is already running for THIS job - preserve the existing userId
+    if (isTimerRunning) {
+      return
+    }
+    // If a timer is running on a DIFFERENT job, prompt the user before overwriting
+    // localStorage (otherwise the prior session's start time is lost and the entry
+    // is never saved — the root cause behind missing-entry reports).
+    const conflict = detectConflictingTimer()
+    if (conflict) {
+      setConflictError(null)
+      setConflictingTimer({ ...conflict, next: { type: 'single', userId } })
+      fetchConflictTitleIfMissing(conflict)
+      return
+    }
+    startSingleTimerLocal(userId)
   }
 
   useEffect(() => {
@@ -366,13 +436,13 @@ const JobLogDetail = ({
     handleStartTimer()
   }
 
-  const handleStartJobForSelected = async () => {
+  const doStartJobForSelected = async () => {
     const start = new Date()
     const startTime = start.toISOString()
 
     // Debug logging
     if (process.env.NODE_ENV === 'development') {
-      console.log('handleStartJobForSelected - selectedClockInUserId:', selectedClockInUserId)
+      console.log('doStartJobForSelected - selectedClockInUserId:', selectedClockInUserId)
     }
 
     if (selectedClockInUserId === 'all') {
@@ -383,7 +453,7 @@ const JobLogDetail = ({
 
       if (assignedUserIds.length === 0) {
         // No assigned members, just clock in self
-        handleStartTimer(currentUserId)
+        startSingleTimerLocal(currentUserId)
       } else {
         // Create time entries for ALL assigned members (NOT including current user if they're not assigned)
         // All entries will have the same startTime = endTime = now (zero duration).
@@ -413,6 +483,7 @@ const JobLogDetail = ({
                 TIMER_STORAGE_KEY,
                 JSON.stringify({
                   jobLogId: jobLog.id,
+                  jobLogTitle: jobLog.title,
                   startTime,
                   userId: isCurrentUserAssigned ? currentUserId : null, // Only store userId if user is assigned
                   timeEntryIds: createdEntryIds, // Store all entry IDs so we can update them together
@@ -429,7 +500,7 @@ const JobLogDetail = ({
           console.error('Failed to clock in all team members:', error)
           // Fallback: just clock in current user (only if they're assigned)
           if (isCurrentUserAssigned && currentUserId) {
-            handleStartTimer(currentUserId)
+            startSingleTimerLocal(currentUserId)
           }
         }
       }
@@ -442,7 +513,7 @@ const JobLogDetail = ({
           : null
 
       if (process.env.NODE_ENV === 'development') {
-        console.log('handleStartJobForSelected - single user selected:', {
+        console.log('doStartJobForSelected - single user selected:', {
           selectedClockInUserId,
           targetUserId,
           currentUserId: user?.id,
@@ -451,16 +522,16 @@ const JobLogDetail = ({
 
       if (targetUserId) {
         // Start timer for the selected user (could be admin or another user)
-        handleStartTimer(targetUserId)
+        startSingleTimerLocal(targetUserId)
         // Store the selected userId so it persists even after modal closes
         // This ensures handleStopTimer can use the correct userId
         setSelectedClockInUserId(targetUserId)
       } else {
         // No valid selection, fallback to clock in self
         if (process.env.NODE_ENV === 'development') {
-          console.warn('handleStartJobForSelected - no valid userId selected, falling back to self')
+          console.warn('doStartJobForSelected - no valid userId selected, falling back to self')
         }
-        handleStartTimer(user?.id)
+        startSingleTimerLocal(user?.id)
         setSelectedClockInUserId(user?.id || null)
       }
     }
@@ -469,7 +540,81 @@ const JobLogDetail = ({
     // Don't reset selectedClockInUserId here - keep it until timer stops
   }
 
+  const handleStartJobForSelected = async () => {
+    setClockOutError(null)
+    if (isTimerRunning) {
+      // Already running for this job; selector shouldn't be reachable but be defensive
+      setShowClockInSelector(false)
+      return
+    }
+    const conflict = detectConflictingTimer()
+    if (conflict) {
+      setShowClockInSelector(false)
+      setConflictError(null)
+      setConflictingTimer({ ...conflict, next: { type: 'multi' } })
+      fetchConflictTitleIfMissing(conflict)
+      return
+    }
+    await doStartJobForSelected()
+  }
+
+  const handleConfirmConflict = async () => {
+    if (!conflictingTimer) return
+    setConflictError(null)
+    try {
+      const endIso = new Date().toISOString()
+      if (
+        conflictingTimer.clockedInAll &&
+        conflictingTimer.timeEntryIds &&
+        conflictingTimer.timeEntryIds.length > 0
+      ) {
+        // "Clock in all" session: update all the pre-created entries to end now
+        await Promise.all(
+          conflictingTimer.timeEntryIds.map(id =>
+            updateTimeEntry(id, { endTime: endIso }, conflictingTimer.jobLogId)
+          )
+        )
+      } else if (conflictingTimer.storedUserId) {
+        // Regular single-user session: create the final entry now
+        await createTimeEntry({
+          jobLogId: conflictingTimer.jobLogId,
+          startTime: conflictingTimer.startTime,
+          endTime: endIso,
+          userId: conflictingTimer.storedUserId,
+        })
+      }
+      // If neither: nothing actionable to save (defensive). Fall through and clear.
+    } catch (e) {
+      console.error('Failed to save prior timer before starting new one:', e)
+      setConflictError(
+        extractErrorMessage(
+          e,
+          'Failed to save the previous timer. The new timer was not started.'
+        )
+      )
+      return
+    }
+    const next = conflictingTimer.next
+    setConflictingTimer(null)
+    try {
+      localStorage.removeItem(TIMER_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
+    if (next.type === 'single') {
+      startSingleTimerLocal(next.userId)
+    } else {
+      await doStartJobForSelected()
+    }
+  }
+
+  const handleCancelConflict = () => {
+    setConflictingTimer(null)
+    setConflictError(null)
+  }
+
   const handleStopTimer = async () => {
+    setClockOutError(null)
     let startTime: string
     let storedUserId: string | undefined
     let timeEntryIds: string[] | undefined
@@ -493,15 +638,22 @@ const JobLogDetail = ({
         } else if (timerStart) {
           startTime = timerStart.toISOString()
         } else {
+          setClockOutError(
+            'No active timer found for this job. The timer may have been started on a different job or device.'
+          )
           return
         }
       } else if (timerStart) {
         startTime = timerStart.toISOString()
       } else {
+        setClockOutError('No active timer found. Nothing to save.')
         return
       }
     } catch {
-      if (!timerStart) return
+      if (!timerStart) {
+        setClockOutError('Could not read timer state. Nothing to save.')
+        return
+      }
       startTime = timerStart.toISOString()
     }
     const end = new Date()
@@ -539,13 +691,8 @@ const JobLogDetail = ({
             )
           )
         )
-        // IMPORTANT: Don't create a new entry when clockedInAll is true - we only update existing ones
-        return
-      }
-
-      // Normal flow: create a new time entry (only if clockedInAll is false or timeEntryIds is missing)
-      // Only create entry if we have a valid targetUserId
-      if (targetUserId) {
+      } else if (targetUserId) {
+        // Normal flow: create a new time entry (only if clockedInAll is false or timeEntryIds is missing)
         await createTimeEntry({
           jobLogId: jobLog.id,
           startTime,
@@ -555,7 +702,7 @@ const JobLogDetail = ({
       } else {
         console.warn('handleStopTimer - No valid userId to create time entry for')
       }
-    } finally {
+      // Success: clear timer state and localStorage
       setIsTimerRunning(false)
       setTimerStart(null)
       setElapsedSeconds(0)
@@ -565,6 +712,29 @@ const JobLogDetail = ({
       } catch {
         // ignore
       }
+    } catch (e) {
+      // Failure: keep timer state and localStorage intact so the user can retry.
+      // Previously this was a try/finally that wiped state on error, silently losing entries.
+      console.error('Clock-out save failed:', e)
+      setClockOutError(
+        extractErrorMessage(
+          e,
+          'Failed to save time entry. Your timer is still running — please try again.'
+        )
+      )
+    }
+  }
+
+  const handleDiscardTimer = () => {
+    setIsTimerRunning(false)
+    setTimerStart(null)
+    setElapsedSeconds(0)
+    setSelectedClockInUserId('all')
+    setClockOutError(null)
+    try {
+      localStorage.removeItem(TIMER_STORAGE_KEY)
+    } catch {
+      // ignore
     }
   }
 
@@ -1856,23 +2026,42 @@ const JobLogDetail = ({
         </div>
 
         {activeTab === 'clock' && (
-          <TimeTracker
-            jobLogId={jobLog.id}
-            jobLogTitle={jobLog.title}
-            timeEntries={jobLog.timeEntries ?? []}
-            isAdmin={user?.role === 'admin' || user?.role === 'owner'}
-            currentUserId={user?.id}
-            assignedTo={parsedAssignments}
-            assignedToUsers={jobLog.assignedToUsers}
-            clockInFor={currentUserClockInFor}
-            externalTimerState={{
-              isRunning: isTimerRunning,
-              start: timerStart,
-              elapsed: elapsedSeconds,
-              onStart: handleStartTimer,
-              onStop: handleStopTimer,
-            }}
-          />
+          <>
+            {clockOutError && (
+              <div
+                role="alert"
+                className="mb-3 flex flex-wrap items-start gap-2 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-500"
+              >
+                <span className="flex-1">{clockOutError}</span>
+                {isTimerRunning && (
+                  <button
+                    type="button"
+                    onClick={handleDiscardTimer}
+                    className="underline hover:no-underline"
+                  >
+                    Discard timer
+                  </button>
+                )}
+              </div>
+            )}
+            <TimeTracker
+              jobLogId={jobLog.id}
+              jobLogTitle={jobLog.title}
+              timeEntries={jobLog.timeEntries ?? []}
+              isAdmin={user?.role === 'admin' || user?.role === 'owner'}
+              currentUserId={user?.id}
+              assignedTo={parsedAssignments}
+              assignedToUsers={jobLog.assignedToUsers}
+              clockInFor={currentUserClockInFor}
+              externalTimerState={{
+                isRunning: isTimerRunning,
+                start: timerStart,
+                elapsed: elapsedSeconds,
+                onStart: handleStartTimer,
+                onStop: handleStopTimer,
+              }}
+            />
+          </>
         )}
 
         {activeTab === 'photos' && (
@@ -1883,6 +2072,71 @@ const JobLogDetail = ({
           <JobLogNotes jobLogId={jobLog.id} initialNotes={jobLog.notes ?? ''} />
         )}
       </div>
+
+      <ConfirmationDialog
+        isOpen={conflictingTimer !== null}
+        onClose={handleCancelConflict}
+        onConfirm={handleConfirmConflict}
+        title="Switch to a new job?"
+        confirmText="Save & switch"
+        cancelText="Cancel"
+        message={
+          conflictingTimer &&
+          (() => {
+            const sec = Math.max(
+              0,
+              Math.floor(
+                (Date.now() - new Date(conflictingTimer.startTime).getTime()) / 1000
+              )
+            )
+            const formatDuration = (s: number) => {
+              if (s < 60) return null // "just now" handled inline
+              const m = Math.floor(s / 60)
+              if (m < 60) return m === 1 ? '1 minute' : `${m} minutes`
+              const h = Math.floor(m / 60)
+              const rem = m % 60
+              if (h < 24) {
+                if (rem === 0) return h === 1 ? '1 hour' : `${h} hours`
+                return `${h}h ${rem}m`
+              }
+              const d = Math.floor(h / 24)
+              return d === 1 ? '1 day' : `${d} days`
+            }
+            const duration = formatDuration(sec)
+            const priorTitle = conflictingTimer.jobLogTitle
+            return (
+              <div className="space-y-3 break-words">
+                <p>
+                  You're still clocked in on{' '}
+                  <span className="font-semibold break-words">{priorTitle}</span>
+                  {duration ? (
+                    <>
+                      {' '}— started <span className="font-semibold">{duration}</span> ago.
+                    </>
+                  ) : (
+                    <> — you just started.</>
+                  )}
+                </p>
+                <p>
+                  Save that time entry and start tracking{' '}
+                  <span className="font-semibold break-words">{jobLog.title}</span>?
+                </p>
+                <p className="text-xs opacity-70">
+                  Cancel to keep your current clock running and stay on {priorTitle}.
+                </p>
+                {conflictError && (
+                  <p
+                    role="alert"
+                    className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-sm text-red-500 break-words"
+                  >
+                    {conflictError}
+                  </p>
+                )}
+              </div>
+            )
+          })()
+        }
+      />
 
       <Modal
         isOpen={showClockInSelector}

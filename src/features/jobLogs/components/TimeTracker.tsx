@@ -219,6 +219,15 @@ const TimeTracker = ({
     }
   })
   const [internalElapsedSeconds, setInternalElapsedSeconds] = useState(0)
+  const [clockOutError, setClockOutError] = useState<string | null>(null)
+  const [conflictingTimer, setConflictingTimer] = useState<{
+    jobLogId: string
+    jobLogTitle: string
+    startTime: string
+    storedUserId?: string
+    newUserId?: string
+  } | null>(null)
+  const [conflictError, setConflictError] = useState<string | null>(null)
 
   // Use external timer state if provided, otherwise use internal state
   const isTimerRunning = externalTimerState ? externalTimerState.isRunning : internalIsTimerRunning
@@ -513,12 +522,14 @@ const TimeTracker = ({
     return null
   }
 
-  const handleStartTimer = (userId?: string) => {
+  const extractErrorMessage = (e: unknown, fallback: string) =>
+    (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+      ?.message ||
+    (e as { message?: string })?.message ||
+    fallback
+
+  const startLocalTimer = (userId?: string) => {
     const targetUserId = userId || effectiveCurrentUserId
-    if (externalTimerState) {
-      externalTimerState.onStart(targetUserId)
-      return
-    }
     const start = new Date()
     setInternalTimerStart(start)
     setInternalIsTimerRunning(true)
@@ -528,6 +539,7 @@ const TimeTracker = ({
         TIMER_STORAGE_KEY,
         JSON.stringify({
           jobLogId,
+          jobLogTitle, // stored so a future conflict prompt can name this job
           startTime: start.toISOString(),
           userId: targetUserId,
         })
@@ -535,6 +547,91 @@ const TimeTracker = ({
     } catch {
       // ignore
     }
+  }
+
+  const handleStartTimer = (userId?: string) => {
+    setClockOutError(null)
+    const targetUserId = userId || effectiveCurrentUserId
+    if (externalTimerState) {
+      externalTimerState.onStart(targetUserId)
+      return
+    }
+    // If a timer is already running on a different job, prompt the user before
+    // overwriting it — otherwise the prior session's start time is lost and the
+    // entry is never saved (the root cause behind a class of missing-entry reports).
+    try {
+      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed?.jobLogId && parsed.jobLogId !== jobLogId && parsed.startTime) {
+          const storedTitle: string | undefined = parsed.jobLogTitle
+          setConflictError(null)
+          setConflictingTimer({
+            jobLogId: parsed.jobLogId,
+            jobLogTitle: storedTitle || 'another job',
+            startTime: parsed.startTime,
+            storedUserId: parsed.userId,
+            newUserId: targetUserId,
+          })
+          // Best-effort title fetch for older sessions that didn't persist the title.
+          if (!storedTitle) {
+            services.jobLogs
+              .getById(parsed.jobLogId)
+              .then(jl => {
+                const title = (jl as { title?: string } | null)?.title
+                if (!title) return
+                setConflictingTimer(prev =>
+                  prev && prev.jobLogId === parsed.jobLogId
+                    ? { ...prev, jobLogTitle: title }
+                    : prev
+                )
+              })
+              .catch(() => {
+                /* keep the generic label */
+              })
+          }
+          return
+        }
+      }
+    } catch {
+      // localStorage unreadable — fall through and start normally
+    }
+    startLocalTimer(targetUserId)
+  }
+
+  const handleConfirmConflict = async () => {
+    if (!conflictingTimer) return
+    setConflictError(null)
+    try {
+      await createTimeEntry({
+        jobLogId: conflictingTimer.jobLogId,
+        startTime: conflictingTimer.startTime,
+        endTime: new Date().toISOString(),
+        userId: conflictingTimer.storedUserId,
+      })
+    } catch (e) {
+      console.error('Failed to save prior timer before starting new one:', e)
+      setConflictError(
+        extractErrorMessage(
+          e,
+          'Failed to save the previous timer. The new timer was not started.'
+        )
+      )
+      return
+    }
+    const newUserId = conflictingTimer.newUserId
+    setConflictingTimer(null)
+    try {
+      localStorage.removeItem(TIMER_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
+    startLocalTimer(newUserId)
+  }
+
+  const handleCancelConflict = () => {
+    setConflictingTimer(null)
+    setConflictError(null)
   }
 
   const handleStartTimerClick = () => {
@@ -569,8 +666,19 @@ const TimeTracker = ({
   }
 
   const handleStopTimer = async () => {
+    setClockOutError(null)
     if (externalTimerState) {
-      await externalTimerState.onStop()
+      try {
+        await externalTimerState.onStop()
+      } catch (e) {
+        console.error('Clock-out failed:', e)
+        setClockOutError(
+          extractErrorMessage(
+            e,
+            'Failed to save time entry. Your timer is still running — please try again.'
+          )
+        )
+      }
       return
     }
     // Use localStorage as source of truth for start time (survives navigation/refresh)
@@ -587,15 +695,22 @@ const TimeTracker = ({
         } else if (internalTimerStart) {
           startTime = internalTimerStart.toISOString()
         } else {
+          setClockOutError(
+            'No active timer found for this job. The timer may have been started on a different job or device.'
+          )
           return
         }
       } else if (internalTimerStart) {
         startTime = internalTimerStart.toISOString()
       } else {
+        setClockOutError('No active timer found. Nothing to save.')
         return
       }
     } catch {
-      if (!internalTimerStart) return
+      if (!internalTimerStart) {
+        setClockOutError('Could not read timer state. Nothing to save.')
+        return
+      }
       startTime = internalTimerStart.toISOString()
     }
     const end = new Date()
@@ -607,7 +722,7 @@ const TimeTracker = ({
         endTime: end.toISOString(),
         userId: targetUserId, // Pass userId for backend validation
       })
-    } finally {
+      // Success: clear timer state and localStorage
       setInternalIsTimerRunning(false)
       setInternalTimerStart(null)
       setInternalElapsedSeconds(0)
@@ -617,6 +732,29 @@ const TimeTracker = ({
       } catch {
         // ignore
       }
+    } catch (e) {
+      // Failure: keep timer state and localStorage intact so the user can retry.
+      // Previously this was a try/finally that wiped state on error, silently losing entries.
+      console.error('Clock-out save failed:', e)
+      setClockOutError(
+        extractErrorMessage(
+          e,
+          'Failed to save time entry. Your timer is still running — please try again.'
+        )
+      )
+    }
+  }
+
+  const handleDiscardTimer = () => {
+    setInternalIsTimerRunning(false)
+    setInternalTimerStart(null)
+    setInternalElapsedSeconds(0)
+    setSelectedClockInUserId(null)
+    setClockOutError(null)
+    try {
+      localStorage.removeItem(TIMER_STORAGE_KEY)
+    } catch {
+      // ignore
     }
   }
 
@@ -1414,6 +1552,24 @@ const TimeTracker = ({
         )}
       </div>
 
+      {clockOutError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-start gap-2 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-500"
+        >
+          <span className="flex-1">{clockOutError}</span>
+          {isTimerRunning && (
+            <button
+              type="button"
+              onClick={handleDiscardTimer}
+              className="underline hover:no-underline"
+            >
+              Discard timer
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Time entries list */}
       {entriesByUser && entriesByUser.length > 0 ? (
         // Grouped view: by team member (for admins and employees with team permissions)
@@ -1481,6 +1637,71 @@ const TimeTracker = ({
         message="Are you sure you want to delete this time entry?"
         confirmText="Delete"
         confirmVariant="danger"
+      />
+
+      <ConfirmationDialog
+        isOpen={conflictingTimer !== null}
+        onClose={handleCancelConflict}
+        onConfirm={handleConfirmConflict}
+        title="Switch to a new job?"
+        confirmText="Save & switch"
+        cancelText="Cancel"
+        message={
+          conflictingTimer &&
+          (() => {
+            const sec = Math.max(
+              0,
+              Math.floor(
+                (Date.now() - new Date(conflictingTimer.startTime).getTime()) / 1000
+              )
+            )
+            const formatDuration = (s: number) => {
+              if (s < 60) return null
+              const m = Math.floor(s / 60)
+              if (m < 60) return m === 1 ? '1 minute' : `${m} minutes`
+              const h = Math.floor(m / 60)
+              const rem = m % 60
+              if (h < 24) {
+                if (rem === 0) return h === 1 ? '1 hour' : `${h} hours`
+                return `${h}h ${rem}m`
+              }
+              const d = Math.floor(h / 24)
+              return d === 1 ? '1 day' : `${d} days`
+            }
+            const duration = formatDuration(sec)
+            const priorTitle = conflictingTimer.jobLogTitle
+            return (
+              <div className="space-y-3 break-words">
+                <p>
+                  You're still clocked in on{' '}
+                  <span className="font-semibold break-words">{priorTitle}</span>
+                  {duration ? (
+                    <>
+                      {' '}— started <span className="font-semibold">{duration}</span> ago.
+                    </>
+                  ) : (
+                    <> — you just started.</>
+                  )}
+                </p>
+                <p>
+                  Save that time entry and start tracking{' '}
+                  <span className="font-semibold break-words">{jobLogTitle}</span>?
+                </p>
+                <p className="text-xs opacity-70">
+                  Cancel to keep your current clock running and stay on {priorTitle}.
+                </p>
+                {conflictError && (
+                  <p
+                    role="alert"
+                    className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-sm text-red-500 break-words"
+                  >
+                    {conflictError}
+                  </p>
+                )}
+              </div>
+            )
+          })()
+        }
       />
 
       <Modal
