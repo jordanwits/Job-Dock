@@ -27,7 +27,9 @@ interface TimeTrackerProps {
   }
 }
 
-const TIMER_STORAGE_KEY = 'joblog-active-timer'
+const TIMER_STORAGE_PREFIX = 'joblog-active-timer'
+const getTimerStorageKey = (userId: string | undefined): string | null =>
+  userId ? `${TIMER_STORAGE_PREFIX}-${userId}` : null
 
 function TimeNumberInput({
   value,
@@ -195,22 +197,24 @@ const TimeTracker = ({
   const effectiveCurrentUserId = currentUserId ?? user?.id
   const effectiveClockInFor = clockInFor ?? 'self'
 
+  const timerStorageKey = getTimerStorageKey(user?.id)
+
   // Internal timer state (only used if externalTimerState is not provided)
   const [internalIsTimerRunning, setInternalIsTimerRunning] = useState(() => {
-    if (externalTimerState) return false
+    if (externalTimerState || !timerStorageKey) return false
     try {
-      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      const stored = localStorage.getItem(timerStorageKey)
       if (!stored) return false
       const { jobLogId: storedId, startTime } = JSON.parse(stored)
-      return storedId === jobLogId && startTime
+      return storedId === jobLogId && !!startTime
     } catch {
       return false
     }
   })
   const [internalTimerStart, setInternalTimerStart] = useState<Date | null>(() => {
-    if (externalTimerState) return null
+    if (externalTimerState || !timerStorageKey) return null
     try {
-      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      const stored = localStorage.getItem(timerStorageKey)
       if (!stored) return null
       const { jobLogId: storedId, startTime } = JSON.parse(stored)
       return storedId === jobLogId && startTime ? new Date(startTime) : null
@@ -534,9 +538,10 @@ const TimeTracker = ({
     setInternalTimerStart(start)
     setInternalIsTimerRunning(true)
     setSelectedClockInUserId(targetUserId || null)
+    if (!timerStorageKey) return
     try {
       localStorage.setItem(
-        TIMER_STORAGE_KEY,
+        timerStorageKey,
         JSON.stringify({
           jobLogId,
           jobLogTitle, // stored so a future conflict prompt can name this job
@@ -560,7 +565,7 @@ const TimeTracker = ({
     // overwriting it — otherwise the prior session's start time is lost and the
     // entry is never saved (the root cause behind a class of missing-entry reports).
     try {
-      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      const stored = timerStorageKey ? localStorage.getItem(timerStorageKey) : null
       if (stored) {
         const parsed = JSON.parse(stored)
         if (parsed?.jobLogId && parsed.jobLogId !== jobLogId && parsed.startTime) {
@@ -621,10 +626,12 @@ const TimeTracker = ({
     }
     const newUserId = conflictingTimer.newUserId
     setConflictingTimer(null)
-    try {
-      localStorage.removeItem(TIMER_STORAGE_KEY)
-    } catch {
-      // ignore
+    if (timerStorageKey) {
+      try {
+        localStorage.removeItem(timerStorageKey)
+      } catch {
+        // ignore
+      }
     }
     startLocalTimer(newUserId)
   }
@@ -685,7 +692,7 @@ const TimeTracker = ({
     let startTime: string
     let storedUserId: string | undefined
     try {
-      const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+      const stored = timerStorageKey ? localStorage.getItem(timerStorageKey) : null
       if (stored) {
         const parsed = JSON.parse(stored)
         const { jobLogId: storedId, startTime: storedStart, userId: storedUser } = parsed
@@ -727,10 +734,12 @@ const TimeTracker = ({
       setInternalTimerStart(null)
       setInternalElapsedSeconds(0)
       setSelectedClockInUserId(null)
-      try {
-        localStorage.removeItem(TIMER_STORAGE_KEY)
-      } catch {
-        // ignore
+      if (timerStorageKey) {
+        try {
+          localStorage.removeItem(timerStorageKey)
+        } catch {
+          // ignore
+        }
       }
     } catch (e) {
       // Failure: keep timer state and localStorage intact so the user can retry.
@@ -751,10 +760,12 @@ const TimeTracker = ({
     setInternalElapsedSeconds(0)
     setSelectedClockInUserId(null)
     setClockOutError(null)
-    try {
-      localStorage.removeItem(TIMER_STORAGE_KEY)
-    } catch {
-      // ignore
+    if (timerStorageKey) {
+      try {
+        localStorage.removeItem(timerStorageKey)
+      } catch {
+        // ignore
+      }
     }
   }
 
