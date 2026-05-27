@@ -15,6 +15,52 @@ interface ParsedPath {
   action?: string
 }
 
+/**
+ * Authorize the unauthenticated debug/migration endpoints (/__migrate, /__sms-status).
+ * Requires the caller to present `x-migrate-secret` matching MIGRATE_SECRET. When
+ * MIGRATE_SECRET is not configured the endpoints are disabled entirely (fail closed),
+ * so they are never reachable anonymously in production.
+ */
+function isDebugEndpointAuthorized(event: APIGatewayProxyEvent): boolean {
+  const expected = (process.env.MIGRATE_SECRET || '').trim()
+  if (!expected) return false
+  const headers = event.headers ?? {}
+  const provided = (headers['x-migrate-secret'] || headers['X-Migrate-Secret'] || '').trim()
+  return provided.length === expected.length && provided === expected
+}
+
+/**
+ * Remove pricing fields from a job/job-log UPDATE payload for an employee who cannot see job
+ * prices. Dropping `assignedTo` entirely leaves the stored assignments (and their pay) untouched
+ * — important because privacy-stripped assignments echoed back would otherwise null out pay —
+ * and dropping top-level `price` leaves the stored price unchanged (update only writes it when
+ * the field is present).
+ */
+function stripPricingFieldsForUpdate(payload: any): void {
+  if (!payload || typeof payload !== 'object') return
+  delete payload.price
+  delete payload.assignedTo
+}
+
+/**
+ * Remove pricing fields from a job/job-log CREATE payload for an employee who cannot see job
+ * prices. The assignment entries are kept (so the creator can still assign/self-assign) but
+ * their pay fields are dropped, so a price-blind employee can never set pay.
+ */
+function stripPricingFieldsForCreate(payload: any): void {
+  if (!payload || typeof payload !== 'object') return
+  delete payload.price
+  if (Array.isArray(payload.assignedTo)) {
+    payload.assignedTo = payload.assignedTo.map((a: any) => {
+      if (a && typeof a === 'object') {
+        const { price, hourlyRate, ...rest } = a
+        return rest
+      }
+      return a
+    })
+  }
+}
+
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   if (event.httpMethod === 'OPTIONS') {
     return corsResponse()
@@ -36,8 +82,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
   }
 
-  // SMS config diagnostic (no auth - for debugging Twilio setup)
+  // SMS config diagnostic (debug only - gated behind MIGRATE_SECRET; disabled when unset)
   if (event.path?.includes('/__sms-status') && event.httpMethod === 'GET') {
+    if (!isDebugEndpointAuthorized(event)) {
+      return errorResponse('Not found', 404)
+    }
     try {
       const { isSmsConfigured } = await import('../../lib/sms')
       const hasSid = !!(process.env.TWILIO_ACCOUNT_SID || '').trim()
@@ -54,8 +103,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
   }
 
-  // Special migration endpoint
+  // Special migration endpoint (runs raw DDL - gated behind MIGRATE_SECRET; disabled when unset)
   if (event.path?.includes('/__migrate') && event.httpMethod === 'POST') {
+    if (!isDebugEndpointAuthorized(event)) {
+      return errorResponse('Not found', 404)
+    }
     try {
       console.log('Running database migration...')
       const { default: prisma } = await import('../../lib/db')
@@ -253,8 +305,13 @@ We look forward to working with you!',
         return errorResponse('Missing stripe-signature header', 400)
       }
 
-      // Use raw body if available, otherwise use event.body
-      const rawBody = event.body || ''
+      // Stripe verifies the signature against the EXACT bytes it sent. API Gateway may deliver
+      // the body base64-encoded (event.isBase64Encoded), so decode it back to the raw UTF-8
+      // payload before verification — otherwise every legitimate webhook fails the signature
+      // check and subscription provisioning/cancellation silently breaks.
+      const rawBody = event.isBase64Encoded
+        ? Buffer.from(event.body || '', 'base64').toString('utf8')
+        : event.body || ''
 
       const result = await dataServices.billing.handleWebhook(rawBody, signature)
       return successResponse(result)
@@ -1357,6 +1414,15 @@ async function handleGet(
         currentUserCanSeeOtherJobs
       )
     }
+    // Pass user context so employees only see their own time-entry pay rate.
+    if (resource === 'time-entries') {
+      return (service as typeof dataServices['time-entries']).getById(
+        tenantId,
+        id,
+        currentUserId,
+        currentUserRole
+      )
+    }
     return service.getById(tenantId, id)
   }
 
@@ -1688,9 +1754,15 @@ async function handlePost(
           canCreateJobs: true,
           canScheduleAppointments: true,
           canEditJobs: true,
+          canSeeJobPrices: true,
         },
       })
-      
+
+      // Employees who can't see job prices must not set pricing on create.
+      if (user?.role === 'employee' && user?.canSeeJobPrices === false) {
+        stripPricingFieldsForCreate(payload)
+      }
+
       // Check if user can create jobs OR schedule appointments
       // If they can schedule appointments, they can create jobs (both scheduled and unscheduled)
       const hasStartTime = payload?.startTime !== null && payload?.startTime !== undefined
@@ -1747,9 +1819,15 @@ async function handlePost(
         const { default: prisma } = await import('../../lib/db')
         const user = await prisma.user.findFirst({
           where: { cognitoId: context.userId },
-          select: { id: true },
+          select: { id: true, role: true, canSeeJobPrices: true },
         })
-        if (user) payload._actingUserId = user.id
+        if (user) {
+          payload._actingUserId = user.id
+          // Employees who can't see job prices must not set pricing on create.
+          if (user.role === 'employee' && user.canSeeJobPrices === false) {
+            stripPricingFieldsForCreate(payload)
+          }
+        }
       } catch {
         /* ignore */
       }
@@ -1804,14 +1882,21 @@ async function handlePut(
       const { default: prisma } = await import('../../lib/db')
       const user = await prisma.user.findFirst({
         where: { cognitoId: context.userId },
-        select: { 
+        select: {
           id: true,
+          role: true,
           canScheduleAppointments: true,
+          canSeeJobPrices: true,
         },
       })
       if (user) {
         payload._actingUserId = user.id
-        
+
+        // Employees who can't see job prices must not set/overwrite pricing on update.
+        if (user.role === 'employee' && user.canSeeJobPrices === false) {
+          stripPricingFieldsForUpdate(payload)
+        }
+
         // Check scheduling permissions when updating jobs with times
         if (service === dataServices.jobs) {
           const hasStartTime = payload?.startTime !== null && payload?.startTime !== undefined

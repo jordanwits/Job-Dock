@@ -4,7 +4,7 @@
  * Automatically refreshes JWT tokens before expiration to maintain seamless sessions
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/features/auth/store/authStore'
 import { getTokenTimeRemaining } from '@/lib/utils/tokenUtils'
@@ -12,7 +12,9 @@ import { getTokenTimeRemaining } from '@/lib/utils/tokenUtils'
 const SessionMonitor = () => {
   const navigate = useNavigate()
   const { isAuthenticated, checkTokenValidity, clearSession, refreshAccessToken } = useAuthStore()
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  // A ref (not state) so that toggling it does NOT re-run the effect below — otherwise the
+  // 30s interval would tear down and rebuild (and re-run the on-mount refresh) on every refresh.
+  const isRefreshingRef = useRef(false)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -31,9 +33,9 @@ const SessionMonitor = () => {
       const remaining = getTokenTimeRemaining(token)
 
       // Auto-refresh token when less than 5 minutes remaining
-      if (remaining > 0 && remaining <= 300 && !isRefreshing) {
+      if (remaining > 0 && remaining <= 300 && !isRefreshingRef.current) {
         console.log(`Token expiring in ${remaining}s, refreshing automatically...`)
-        setIsRefreshing(true)
+        isRefreshingRef.current = true
 
         try {
           const success = await refreshAccessToken()
@@ -54,7 +56,7 @@ const SessionMonitor = () => {
               encodeURIComponent('Your session has expired. Please log in again.')
           )
         } finally {
-          setIsRefreshing(false)
+          isRefreshingRef.current = false
         }
         return
       }
@@ -114,7 +116,7 @@ const SessionMonitor = () => {
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener('pageshow', handlePageShow)
     }
-  }, [isAuthenticated, checkTokenValidity, clearSession, refreshAccessToken, navigate, isRefreshing])
+  }, [isAuthenticated, checkTokenValidity, clearSession, refreshAccessToken, navigate])
 
   // No UI needed - everything happens in the background
   return null

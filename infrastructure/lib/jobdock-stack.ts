@@ -551,6 +551,12 @@ export class JobDockStack extends cdk.Stack {
         JOBDOCK_PLATFORM_ADMIN_EMAILS: process.env.JOBDOCK_PLATFORM_ADMIN_EMAILS || '',
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
         JOBDOCK_SUPPORT_ENGINEER_EMAIL: process.env.JOBDOCK_SUPPORT_ENGINEER_EMAIL || '',
+        // HMAC signing secrets for public token flows (no insecure in-code fallback).
+        // These MUST be set in the deploy environment or the approval/photo features fail closed.
+        APPROVAL_SECRET: process.env.APPROVAL_SECRET || '',
+        PHOTO_ACCESS_SECRET: process.env.PHOTO_ACCESS_SECRET || '',
+        // Gates the ad-hoc /__migrate and /__sms-status debug endpoints. When unset, both are disabled.
+        MIGRATE_SECRET: process.env.MIGRATE_SECRET || '',
       },
     })
 

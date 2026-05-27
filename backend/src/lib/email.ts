@@ -29,12 +29,33 @@ export interface EmailPayload {
   replyTo?: string // Email address for replies
 }
 
-function escapeHtmlForEmail(s: string): string {
-  return s
+function escapeHtmlForEmail(s: unknown): string {
+  if (s === null || s === undefined) return ''
+  return String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * Escape a value for safe use inside an HTML attribute such as href="mailto:..." / "tel:...".
+ * Strips CR/LF and other control chars (header/attribute breakout) then HTML-escapes.
+ */
+function escapeAttr(s: unknown): string {
+  if (s === null || s === undefined) return ''
+  // eslint-disable-next-line no-control-regex
+  return escapeHtmlForEmail(String(s).replace(/[\r\n\t]/g, ''))
+}
+
+/**
+ * Sanitize a value used in an email header-bearing field (subject, fromName, reply-to).
+ * Removes CR/LF (header injection) and angle brackets (display-name/address spoofing).
+ */
+function sanitizeHeaderValue(s: unknown): string {
+  if (s === null || s === undefined) return ''
+  return String(s).replace(/[\r\n]/g, ' ').replace(/[<>]/g, '').trim()
 }
 
 /**
@@ -162,18 +183,20 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
   if (EMAIL_PROVIDER === 'resend' && resendClient) {
     // Send via Resend
     try {
-      // Build FROM address with optional display name
-      const fromAddress = fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS
+      // Build FROM address with optional display name. Sanitize header-bearing fields to block
+      // CRLF header injection and angle-bracket display-name/address spoofing.
+      const safeFromName = sanitizeHeaderValue(fromName)
+      const fromAddress = safeFromName ? `${safeFromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS
 
       console.log(`📧 Attempting to send email via Resend to ${to}: ${subject}`)
 
       const result = await resendClient.emails.send({
         from: fromAddress,
         to,
-        subject,
+        subject: sanitizeHeaderValue(subject),
         html: htmlBody,
         ...(textBody && { text: textBody }),
-        ...(replyTo && { reply_to: replyTo }),
+        ...(replyTo && { reply_to: sanitizeHeaderValue(replyTo) }),
       })
 
       // Log full response for debugging
@@ -303,8 +326,10 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
 
   if (EMAIL_PROVIDER === 'resend' && resendClient) {
     try {
-      // Build FROM address with optional display name
-      const fromAddress = fromName ? `${fromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS
+      // Build FROM address with optional display name. Sanitize header-bearing fields to block
+      // CRLF header injection and angle-bracket display-name/address spoofing.
+      const safeFromName = sanitizeHeaderValue(fromName)
+      const fromAddress = safeFromName ? `${safeFromName} <${EMAIL_FROM_ADDRESS}>` : EMAIL_FROM_ADDRESS
 
       console.log(`📧 Attempting to send email with attachments via Resend to ${to}: ${subject}`)
 
@@ -317,10 +342,10 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
       const result = await resendClient.emails.send({
         from: fromAddress,
         to,
-        subject,
+        subject: sanitizeHeaderValue(subject),
         html: htmlBody,
         ...(textBody && { text: textBody }),
-        ...(replyTo && { reply_to: replyTo }),
+        ...(replyTo && { reply_to: sanitizeHeaderValue(replyTo) }),
         ...(resendAttachments.length > 0 && { attachments: resendAttachments }),
       })
 
@@ -490,7 +515,15 @@ export function buildClientConfirmationEmail(data: {
   jobId?: string
   rescheduleToken?: string
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location, tenantName, breaks, timezoneOffset = -8, companyName, logoUrl, settings, jobId, rescheduleToken } = data
+  const { clientName: rawClientName, serviceName: rawServiceName, startTime, endTime, location: rawLocation, tenantName: rawTenantName, breaks, timezoneOffset = -8, companyName: rawCompanyName, logoUrl, settings, jobId, rescheduleToken } = data
+
+  // HTML-escape dynamic values before templating. clientName/location originate from the
+  // unauthenticated public booking form; company/tenant names are tenant-controlled.
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const serviceName = escapeHtmlForEmail(rawServiceName) // body use; subject uses rawServiceName
+  const location = escapeHtmlForEmail(rawLocation)
+  const tenantName = escapeHtmlForEmail(rawTenantName)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   // Get local time components
   const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
@@ -505,7 +538,7 @@ export function buildClientConfirmationEmail(data: {
   const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
   const endTimeStr = formatTime12Hour(endLocal.hours, endLocal.minutes)
 
-  const subject = `Your booking is confirmed - ${serviceName}`
+  const subject = `Your booking is confirmed - ${rawServiceName}`
 
   // Build breaks section if present
   let breaksHtml = ''
@@ -516,7 +549,7 @@ export function buildClientConfirmationEmail(data: {
         const bEndUTC = new Date(b.endTime)
         const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
         const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
-        const reason = b.reason ? ` (${b.reason})` : ''
+        const reason = b.reason ? ` (${escapeHtmlForEmail(b.reason)})` : ''
         if (isMultiDay) {
           return `<li style="margin: 5px 0;">${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}</li>`
         } else {
@@ -627,7 +660,7 @@ export function buildClientConfirmationEmail(data: {
         const bEndUTC = new Date(b.endTime)
         const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
         const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
-        const reason = b.reason ? ` (${b.reason})` : ''
+        const reason = b.reason ? ` (${escapeHtmlForEmail(b.reason)})` : ''
         if (isMultiDay) {
           return `  - ${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}`
         } else {
@@ -714,7 +747,7 @@ export function buildClientRescheduleEmail(data: {
         const bEndUTC = new Date(b.endTime)
         const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
         const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
-        const reason = b.reason ? ` (${b.reason})` : ''
+        const reason = b.reason ? ` (${escapeHtmlForEmail(b.reason)})` : ''
         if (isMultiDay) {
           return `<li style="margin: 5px 0;">${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}</li>`
         } else {
@@ -812,7 +845,7 @@ export function buildClientRescheduleEmail(data: {
         const bEndUTC = new Date(b.endTime)
         const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
         const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
-        const reason = b.reason ? ` (${b.reason})` : ''
+        const reason = b.reason ? ` (${escapeHtmlForEmail(b.reason)})` : ''
         if (isMultiDay) {
           return `  - ${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}`
         } else {
@@ -982,19 +1015,31 @@ export function buildContractorNotificationEmail(data: {
   }
 }): EmailPayload {
   const {
-    contractorName,
-    serviceName,
-    clientName,
-    clientEmail,
-    clientPhone,
+    contractorName: rawContractorName,
+    serviceName: rawServiceName,
+    clientName: rawClientName,
+    clientEmail: rawClientEmail,
+    clientPhone: rawClientPhone,
     startTime,
     endTime,
-    location,
+    location: rawLocation,
     isPending,
     companyName,
     logoUrl,
     settings,
   } = data
+
+  // HTML-escape every dynamic value before it goes into the template. Booking fields
+  // (clientName/email/phone/location) come from the unauthenticated public booking form, so
+  // they are untrusted. Escaped text values are reused below; href values use escapeAttr.
+  const contractorName = escapeHtmlForEmail(rawContractorName)
+  const serviceName = escapeHtmlForEmail(rawServiceName) // body use; subject uses rawServiceName
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const clientEmail = escapeHtmlForEmail(rawClientEmail)
+  const clientEmailHref = escapeAttr(rawClientEmail)
+  const clientPhone = escapeHtmlForEmail(rawClientPhone)
+  const clientPhoneHref = escapeAttr(rawClientPhone)
+  const location = escapeHtmlForEmail(rawLocation)
 
   // Get local time components (using default timezone offset)
   const startLocal = getLocalTimeComponents(startTime, -8)
@@ -1004,8 +1049,8 @@ export function buildContractorNotificationEmail(data: {
   const endTimeStr = formatTime12Hour(endLocal.hours, endLocal.minutes)
 
   const subject = isPending
-    ? `New booking request for ${serviceName}`
-    : `New booking for ${serviceName}`
+    ? `New booking request for ${rawServiceName}`
+    : `New booking for ${rawServiceName}`
 
   const displayCompanyName = companyName || 'JobDock'
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
@@ -1025,7 +1070,7 @@ export function buildContractorNotificationEmail(data: {
             <tr>
               <td style="padding: 8px 0;">
                 <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Email</p>
-                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;"><a href="mailto:${clientEmail}" style="color: #D4AF37; text-decoration: none;">${clientEmail}</a></p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;"><a href="mailto:${clientEmailHref}" style="color: #D4AF37; text-decoration: none;">${clientEmail}</a></p>
               </td>
             </tr>
             ` : ''}
@@ -1033,7 +1078,7 @@ export function buildContractorNotificationEmail(data: {
             <tr>
               <td style="padding: 8px 0;">
                 <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.5;">Phone</p>
-                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;"><a href="tel:${clientPhone}" style="color: #D4AF37; text-decoration: none;">${clientPhone}</a></p>
+                <p style="margin: 4px 0 0 0; color: #0B132B; font-size: 16px; font-weight: 500; line-height: 1.4;"><a href="tel:${clientPhoneHref}" style="color: #D4AF37; text-decoration: none;">${clientPhone}</a></p>
               </td>
             </tr>
             ` : ''}
@@ -1322,7 +1367,7 @@ export function buildClientBookingConfirmedEmail(data: {
         const bEndUTC = new Date(b.endTime)
         const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
         const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
-        const reason = b.reason ? ` (${b.reason})` : ''
+        const reason = b.reason ? ` (${escapeHtmlForEmail(b.reason)})` : ''
         if (isMultiDay) {
           return `<li style="margin: 5px 0;">${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}</li>`
         } else {
@@ -1424,7 +1469,7 @@ export function buildClientBookingConfirmedEmail(data: {
         const bEndUTC = new Date(b.endTime)
         const bStartLocal = getLocalTimeComponents(bStartUTC, timezoneOffset)
         const bEndLocal = getLocalTimeComponents(bEndUTC, timezoneOffset)
-        const reason = b.reason ? ` (${b.reason})` : ''
+        const reason = b.reason ? ` (${escapeHtmlForEmail(b.reason)})` : ''
         if (isMultiDay) {
           return `  - ${formatDateLong(bStartLocal.year, bStartLocal.month, bStartLocal.day)} – ${formatDateLong(bEndLocal.year, bEndLocal.month, bEndLocal.day)}${reason}`
         } else {

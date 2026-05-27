@@ -155,6 +155,20 @@ if (-not $SkipInfrastructure) {
         } else {
             Write-Host "[INFO] Twilio vars not set - SMS notifications will be skipped" -ForegroundColor Gray
         }
+        # HMAC signing secrets for public token flows (APPROVAL_SECRET, PHOTO_ACCESS_SECRET are
+        # REQUIRED - the approval/photo features fail closed without them). MIGRATE_SECRET is
+        # optional and only enables the gated /__migrate and /__sms-status debug endpoints.
+        foreach ($secretVar in @('APPROVAL_SECRET', 'PHOTO_ACCESS_SECRET', 'MIGRATE_SECRET')) {
+            if ($envContent -match "(?m)^\s*$secretVar\s*=\s*([^\r\n#]+)") {
+                $val = $matches[1].Trim() -replace '^["'']|["'']$', ''
+                Set-Item -Path "Env:$secretVar" -Value $val
+            }
+        }
+        if ($env:APPROVAL_SECRET -and $env:PHOTO_ACCESS_SECRET) {
+            Write-Host "[SUCCESS] APPROVAL_SECRET and PHOTO_ACCESS_SECRET loaded from $envFileToRead" -ForegroundColor Green
+        } else {
+            Write-Host "[ERROR] APPROVAL_SECRET / PHOTO_ACCESS_SECRET missing - quote/invoice approval links and photo viewing will FAIL until these are set in $envFileToRead!" -ForegroundColor Red
+        }
     } else {
         Write-Host "[WARNING] No .env.local or .env file found" -ForegroundColor Yellow
     }
