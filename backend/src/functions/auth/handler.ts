@@ -99,7 +99,11 @@ function buildRouteKey(event: APIGatewayProxyEvent): string {
 
 async function handleRegister(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}')
-  const { email, password, name, companyName, plan } = body
+  const { email: rawEmail, password, name, companyName, plan } = body
+  // Normalize at signup so the Cognito username and DB row are always lowercase.
+  // The pool is case-sensitive, so storing lowercase here is what prevents the
+  // mixed-case login/reset mismatches for new accounts.
+  const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
 
   if (!email || !password || !name) {
     return errorResponse('Missing required fields', 400)
@@ -325,7 +329,8 @@ async function handleCompleteSignup(event: APIGatewayProxyEvent): Promise<APIGat
   }
   try {
     const info = await dataServices.billing.getSignupSessionInfo(sessionId)
-    const email = info.email
+    // Normalize so the Cognito username and DB row are stored lowercase.
+    const email = (info.email || '').trim().toLowerCase()
     const plan = info.plan
     const priceId =
       plan === 'team-plus'
@@ -414,19 +419,30 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
   }
 
   try {
-    console.log(`[Login] Starting login for: ${email}`)
+    // The Cognito pool is case-sensitive and usernames are stored as-typed at
+    // signup, so a user who registered with capitals (e.g. "Luey42n@gmail.com")
+    // must authenticate against that exact form. Resolve the typed email to the
+    // canonical stored email (case-insensitive) and use it for Cognito; fall back
+    // to the typed value if we don't recognize it.
+    const dbUser = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { email: true },
+    })
+    const loginEmail = dbUser?.email ?? email
+
+    console.log(`[Login] Starting login for: ${loginEmail}`)
 
     // 1. Authenticate with Cognito
     const cognitoStart = Date.now()
     console.log(`[Login] Step 1: Authenticating with Cognito...`)
-    const authResult = await loginUser(email, password)
+    const authResult = await loginUser(loginEmail, password)
     console.log(`[Login] Step 1 complete: Cognito auth took ${Date.now() - cognitoStart}ms`)
 
     if ('challengeRequired' in authResult && authResult.challengeRequired === 'NEW_PASSWORD_REQUIRED') {
       return successResponse({
         challengeRequired: 'NEW_PASSWORD_REQUIRED',
         session: authResult.session,
-        email,
+        email: loginEmail,
       })
     }
 

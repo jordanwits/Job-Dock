@@ -146,7 +146,9 @@ export interface EmailWithAttachment {
  * Send an email using Resend or log to console in dev mode
  */
 export async function sendEmail(payload: EmailPayload): Promise<void> {
-  const { to, subject, htmlBody, textBody, fromName, replyTo } = payload
+  const { to: rawTo, subject, htmlBody, textBody, fromName, replyTo } = payload
+  // Always send to a normalized lowercase address.
+  const to = typeof rawTo === 'string' ? rawTo.trim().toLowerCase() : rawTo
 
   // In production, do not silently "succeed" if Resend is selected but not configured.
   if (EMAIL_PROVIDER === 'resend' && !RESEND_API_KEY) {
@@ -286,7 +288,9 @@ export async function sendPasswordResetEmail(args: {
  * Send an email with attachments using Resend
  */
 export async function sendEmailWithAttachments(payload: EmailWithAttachment): Promise<void> {
-  const { to, subject, htmlBody, textBody, fromName, replyTo, attachments = [] } = payload
+  const { to: rawTo, subject, htmlBody, textBody, fromName, replyTo, attachments = [] } = payload
+  // Always send to a normalized lowercase address.
+  const to = typeof rawTo === 'string' ? rawTo.trim().toLowerCase() : rawTo
 
   // In production, do not silently "succeed" if Resend is selected but not configured.
   if (EMAIL_PROVIDER === 'resend' && !RESEND_API_KEY) {
