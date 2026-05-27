@@ -648,8 +648,11 @@ async function handleResetPassword(event: APIGatewayProxyEvent): Promise<APIGate
   try {
     // Only send a link to emails we actually know about. We still return the same
     // generic response regardless so we don't leak account existence.
+    // Match case-insensitively: emails are stored as-typed at signup, so a user
+    // who registered with capitals (e.g. "Luey42n@gmail.com") must still be found
+    // from the lowercased input.
     const user = await prisma.user.findFirst({
-      where: { email: rawEmail },
+      where: { email: { equals: rawEmail, mode: 'insensitive' } },
       select: { email: true },
     })
 
@@ -657,13 +660,18 @@ async function handleResetPassword(event: APIGatewayProxyEvent): Promise<APIGate
       return genericResponse
     }
 
+    // Use the email exactly as stored. The Cognito user pool is case-sensitive,
+    // so the confirm step's adminSetPassword(record.email) must use this canonical
+    // form to match the Cognito username, not the lowercased input.
+    const canonicalEmail = user.email
+
     const rawToken = randomBytes(32).toString('hex')
     const tokenHash = hashResetToken(rawToken)
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MINUTES * 60 * 1000)
 
     await prisma.passwordResetToken.create({
       data: {
-        email: rawEmail,
+        email: canonicalEmail,
         tokenHash,
         expiresAt,
       },
@@ -673,7 +681,7 @@ async function handleResetPassword(event: APIGatewayProxyEvent): Promise<APIGate
     const resetUrl = `${appUrl}/auth/reset-password?token=${rawToken}`
 
     await sendPasswordResetEmail({
-      to: rawEmail,
+      to: canonicalEmail,
       resetUrl,
       expiresInMinutes: PASSWORD_RESET_TOKEN_TTL_MINUTES,
     })
