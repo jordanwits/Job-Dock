@@ -2113,7 +2113,10 @@ export async function sendQuoteAcceptedNotificationToUsers(data: {
   const prisma = (await import('./db')).default
 
   const users = await prisma.user.findMany({
-    where: { tenantId: data.tenantId },
+    where: {
+      tenantId: data.tenantId,
+      role: { in: ['admin', 'owner'] },
+    },
     select: { id: true, name: true, email: true },
   })
 
@@ -2167,7 +2170,10 @@ export async function sendInvoiceAcceptedNotificationToUsers(data: {
   const prisma = (await import('./db')).default
 
   const users = await prisma.user.findMany({
-    where: { tenantId: data.tenantId },
+    where: {
+      tenantId: data.tenantId,
+      role: { in: ['admin', 'owner'] },
+    },
     select: { id: true, name: true, email: true },
   })
 
