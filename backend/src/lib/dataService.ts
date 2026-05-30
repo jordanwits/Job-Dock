@@ -30,6 +30,7 @@ import {
   sendInvoiceDeclinedNotificationToAdmins,
 } from './email'
 import { helpService } from './helpChat'
+import { assistantChatService } from './assistantChat'
 import {
   sendSms,
   buildBookingConfirmationSms,
@@ -7062,6 +7063,7 @@ export const dataServices = {
     },
   },
   help: helpService,
+  assistant: assistantChatService,
 }
 
 /** Remove all users except the owner (for Single-tier downgrade). Also deletes from Cognito. */

@@ -142,6 +142,9 @@ export const mockAuthService = {
           email: 'jordan@westwavecreative.com',
           name: 'Jordan',
           tenantId: 'tenant-1',
+          // Skip the first-run onboarding tour in local mock mode.
+          // Set this to null if you ever want to test the onboarding flow.
+          onboardingCompletedAt: '2024-01-01T00:00:00.000Z',
         },
       }
     }
@@ -154,6 +157,7 @@ export const mockAuthService = {
           email: 'demo@jobdock.com',
           name: 'Demo User',
           tenantId: 'tenant-1',
+          onboardingCompletedAt: '2024-01-01T00:00:00.000Z',
         },
       }
     }
@@ -319,10 +323,17 @@ export const mockQuotesService = {
 
     const quoteNumber = `QT-${new Date().getFullYear()}-${String(mockStorage.quotes.length + 1).padStart(3, '0')}`
 
+    // Get contact info so the quote displays the customer name/title properly
+    const contact = mockStorage.contacts.find(c => c.id === data.contactId)
+
     const newQuote = {
       id: String(mockStorage.quotes.length + 1),
       quoteNumber,
+      title: data.title || '',
       contactId: data.contactId,
+      contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : undefined,
+      contactEmail: contact?.email,
+      contactCompany: contact?.company,
       lineItems,
       subtotal,
       taxRate,
@@ -336,6 +347,7 @@ export const mockQuotesService = {
       updatedAt: new Date().toISOString(),
     }
     mockStorage.quotes.push(newQuote)
+    saveMockStorage()
     return newQuote
   },
 
@@ -380,6 +392,7 @@ export const mockQuotesService = {
 
     updatedQuote.updatedAt = new Date().toISOString()
     mockStorage.quotes[index] = updatedQuote
+    saveMockStorage()
     return updatedQuote
   },
 
@@ -388,6 +401,7 @@ export const mockQuotesService = {
     const index = mockStorage.quotes.findIndex(q => q.id === id)
     if (index === -1) throw new Error('Quote not found')
     mockStorage.quotes.splice(index, 1)
+    saveMockStorage()
     return { success: true }
   },
 
@@ -474,6 +488,7 @@ export const mockInvoicesService = {
     const newInvoice = {
       id: String(mockStorage.invoices.length + 1),
       invoiceNumber,
+      title: data.title || '',
       contactId: data.contactId,
       contactName: contact ? `${contact.firstName} ${contact.lastName}` : undefined,
       contactEmail: contact?.email,
@@ -494,6 +509,7 @@ export const mockInvoicesService = {
       updatedAt: new Date().toISOString(),
     }
     mockStorage.invoices.push(newInvoice)
+    saveMockStorage()
     return newInvoice
   },
 
@@ -547,6 +563,7 @@ export const mockInvoicesService = {
 
     updatedInvoice.updatedAt = new Date().toISOString()
     mockStorage.invoices[index] = updatedInvoice
+    saveMockStorage()
     return updatedInvoice
   },
 
@@ -555,6 +572,7 @@ export const mockInvoicesService = {
     const index = mockStorage.invoices.findIndex(i => i.id === id)
     if (index === -1) throw new Error('Invoice not found')
     mockStorage.invoices.splice(index, 1)
+    saveMockStorage()
     return { success: true }
   },
 

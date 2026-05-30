@@ -71,6 +71,13 @@ apiClient.interceptors.response.use(
   async error => {
     const originalRequest = error.config
 
+    // In mock data mode the real backend is unreachable, so non-mocked
+    // endpoints (e.g. settings) will error. Never tear down the mock session
+    // or redirect to login because of those — just let the caller handle it.
+    if (appEnv.isMock) {
+      return Promise.reject(error)
+    }
+
     // Check for authentication errors - safely extract error message
     let errorMessage = ''
     try {

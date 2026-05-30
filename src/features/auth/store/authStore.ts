@@ -5,6 +5,7 @@ import { refreshAuth } from '@/lib/api/authApi'
 import { registerSessionClearHandler, registerTokenRefreshHandler } from '@/lib/auth/sessionBridge'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { isTokenExpired } from '@/lib/utils/tokenUtils'
+import { appEnv } from '@/lib/env'
 
 export interface User {
   id: string
@@ -234,6 +235,14 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshAccessToken: async () => {
+        // In mock data mode there is no real backend to refresh against, and the
+        // mock token isn't a real JWT, so a refresh attempt would fail and clear
+        // the session. Treat the mock session as always valid. (Matches the same
+        // guard in SessionMonitor and the apiClient interceptor.)
+        if (appEnv.isMock) {
+          return true
+        }
+
         const currentRefreshToken = get().refreshToken || localStorage.getItem('refresh_token')
 
         if (!currentRefreshToken) {

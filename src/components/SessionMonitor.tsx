@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/features/auth/store/authStore'
 import { getTokenTimeRemaining } from '@/lib/utils/tokenUtils'
+import { appEnv } from '@/lib/env'
 
 const SessionMonitor = () => {
   const navigate = useNavigate()
@@ -16,6 +17,13 @@ const SessionMonitor = () => {
 
   useEffect(() => {
     if (!isAuthenticated) {
+      return
+    }
+
+    // In mock data mode there is no real backend to refresh against and the
+    // mock token isn't a real JWT, so the refresh/expiry machinery would
+    // immediately 401 and clear the session. Keep mock sessions alive.
+    if (appEnv.isMock) {
       return
     }
 
