@@ -4,7 +4,8 @@ import Sidebar from './Sidebar'
 import { settingsApi } from '@/lib/api/settings'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
-import { HelpChatWidget } from '@/components/help/HelpChatWidget'
+import { AssistantWidget } from '@/features/assistant/AssistantWidget'
+import { DataRefreshListener } from '@/features/assistant/DataRefreshListener'
 
 export interface AppLayoutProps {
   children: ReactNode
@@ -84,7 +85,8 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
           </div>
         </main>
       </div>
-      <HelpChatWidget enabled={!!user} />
+      <AssistantWidget enabled={!!user} />
+      {user && <DataRefreshListener />}
     </div>
   )
 }

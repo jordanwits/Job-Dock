@@ -1533,6 +1533,21 @@ async function handlePost(
     throw new ApiError('Invalid action for help', 400)
   }
 
+  if (resource === 'assistant' && id === 'chat') {
+    const payload = parseBody(event)
+    // Require an authenticated tenant user — this proxies the OpenAI key.
+    const context = await extractContext(event)
+    const { default: prisma } = await import('../../lib/db')
+    const user = await prisma.user.findFirst({
+      where: { cognitoId: context.userId, tenantId },
+      select: { id: true },
+    })
+    if (!user) {
+      throw new ApiError('User not found', 404)
+    }
+    return dataServices.assistant.chat(tenantId, user.id, payload)
+  }
+
   if (resource === 'services' && id && action === 'book') {
     const payload = parseBody(event)
     // Try to extract contractor email from the logged-in user
