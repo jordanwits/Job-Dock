@@ -119,7 +119,7 @@ if (-not $SkipInfrastructure) {
     Write-Host ""
     
     Write-Host ""
-    Write-Host "Loading RESEND_API_KEY from .env.local or .env..." -ForegroundColor Yellow
+    Write-Host "Loading environment variables from .env.local or .env..." -ForegroundColor Yellow
     $envFileToRead = $null
     if (Test-Path ".env.local") {
         $envFileToRead = ".env.local"
@@ -128,46 +128,41 @@ if (-not $SkipInfrastructure) {
     }
 
     if ($envFileToRead) {
-        $envContent = Get-Content $envFileToRead -Raw
-        # Match RESEND_API_KEY=value (handles quoted and unquoted values, comments)
-        if ($envContent -match '(?m)^\s*RESEND_API_KEY\s*=\s*([^\r\n#]+)') {
-            $keyValue = $matches[1].Trim()
-            # Remove quotes if present
-            $keyValue = $keyValue -replace '^["'']|["'']$', ''
-            $env:RESEND_API_KEY = $keyValue
-            if ($keyValue -and $keyValue.Length -gt 0) {
-                Write-Host "[SUCCESS] RESEND_API_KEY loaded from $envFileToRead (${keyValue.Length} chars)" -ForegroundColor Green
-            } else {
-                Write-Host "[WARNING] RESEND_API_KEY found but value is empty in $envFileToRead" -ForegroundColor Yellow
+        # Generic pass: load ALL KEY=VALUE pairs so no var gets clobbered when CDK redeploys the Lambda env.
+        Get-Content $envFileToRead | ForEach-Object {
+            if ($_ -match '^\s*([A-Z][A-Z0-9_]*)\s*=\s*([^#\r\n]*)') {
+                $varName  = $matches[1]
+                $varValue = $matches[2].Trim() -replace '^["'']|["'']$', ''
+                if ($varValue) { Set-Item -Path "Env:$varName" -Value $varValue }
             }
-        } else {
-            Write-Host "[WARNING] RESEND_API_KEY not found in $envFileToRead" -ForegroundColor Yellow
         }
-        # Load Twilio vars for SMS (optional)
-        foreach ($twilioVar in @('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER')) {
-            if ($envContent -match "(?m)^\s*$twilioVar\s*=\s*([^\r\n#]+)") {
-                $val = $matches[1].Trim() -replace '^["'']|["'']$', ''
-                Set-Item -Path "Env:$twilioVar" -Value $val
-            }
+        Write-Host "[SUCCESS] Loaded all KEY=VALUE pairs from $envFileToRead" -ForegroundColor Green
+
+        # Validate the vars that cause hard failures if missing.
+        if ($env:RESEND_API_KEY -and $env:RESEND_API_KEY.Length -gt 0) {
+            Write-Host "[SUCCESS] RESEND_API_KEY present ($($env:RESEND_API_KEY.Length) chars)" -ForegroundColor Green
+        } else {
+            Write-Host "[WARNING] RESEND_API_KEY not found in $envFileToRead — emails will not send!" -ForegroundColor Yellow
         }
         if ($env:TWILIO_ACCOUNT_SID -and $env:TWILIO_AUTH_TOKEN -and $env:TWILIO_PHONE_NUMBER) {
-            Write-Host "[SUCCESS] Twilio SMS vars loaded from $envFileToRead" -ForegroundColor Green
+            Write-Host "[SUCCESS] Twilio SMS vars present" -ForegroundColor Green
         } else {
-            Write-Host "[INFO] Twilio vars not set - SMS notifications will be skipped" -ForegroundColor Gray
-        }
-        # HMAC signing secrets for public token flows (APPROVAL_SECRET, PHOTO_ACCESS_SECRET are
-        # REQUIRED - the approval/photo features fail closed without them). MIGRATE_SECRET is
-        # optional and only enables the gated /__migrate and /__sms-status debug endpoints.
-        foreach ($secretVar in @('APPROVAL_SECRET', 'PHOTO_ACCESS_SECRET', 'MIGRATE_SECRET')) {
-            if ($envContent -match "(?m)^\s*$secretVar\s*=\s*([^\r\n#]+)") {
-                $val = $matches[1].Trim() -replace '^["'']|["'']$', ''
-                Set-Item -Path "Env:$secretVar" -Value $val
-            }
+            Write-Host "[INFO] Twilio vars not set — SMS notifications will be skipped" -ForegroundColor Gray
         }
         if ($env:APPROVAL_SECRET -and $env:PHOTO_ACCESS_SECRET) {
-            Write-Host "[SUCCESS] APPROVAL_SECRET and PHOTO_ACCESS_SECRET loaded from $envFileToRead" -ForegroundColor Green
+            Write-Host "[SUCCESS] APPROVAL_SECRET and PHOTO_ACCESS_SECRET present" -ForegroundColor Green
         } else {
-            Write-Host "[ERROR] APPROVAL_SECRET / PHOTO_ACCESS_SECRET missing - quote/invoice approval links and photo viewing will FAIL until these are set in $envFileToRead!" -ForegroundColor Red
+            Write-Host "[ERROR] APPROVAL_SECRET / PHOTO_ACCESS_SECRET missing — quote/invoice approval and photo viewing will FAIL!" -ForegroundColor Red
+        }
+        if ($env:OPENAI_API_KEY -and $env:OPENAI_API_KEY.Length -gt 0) {
+            Write-Host "[SUCCESS] OPENAI_API_KEY present ($($env:OPENAI_API_KEY.Length) chars)" -ForegroundColor Green
+        } else {
+            Write-Host "[WARNING] OPENAI_API_KEY not set — AI assistant will not work in production" -ForegroundColor Yellow
+        }
+        if ($env:STRIPE_SECRET_KEY -and $env:STRIPE_SECRET_KEY.Length -gt 0) {
+            Write-Host "[SUCCESS] STRIPE_SECRET_KEY present" -ForegroundColor Green
+        } else {
+            Write-Host "[WARNING] STRIPE_SECRET_KEY not set — billing will not work" -ForegroundColor Yellow
         }
     } else {
         Write-Host "[WARNING] No .env.local or .env file found" -ForegroundColor Yellow
@@ -229,6 +224,13 @@ if (-not $SkipInfrastructure) {
         } else {
             Write-Host "[WARNING] Twilio SMS vars are NOT set in production Lambda - SMS will not send" -ForegroundColor Yellow
             Write-Host "   Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER to .env.local and redeploy" -ForegroundColor Gray
+        }
+        $openaiKey = $config.OPENAI_API_KEY
+        if ($openaiKey -and $openaiKey -ne "null" -and $openaiKey.Length -gt 0) {
+            Write-Host "[SUCCESS] OPENAI_API_KEY is set in production Lambda ($($openaiKey.Length) chars)" -ForegroundColor Green
+        } else {
+            Write-Host "[ERROR] OPENAI_API_KEY is NOT set in production Lambda — AI assistant will not work!" -ForegroundColor Red
+            Write-Host "   Add OPENAI_API_KEY to .env.local and redeploy." -ForegroundColor Yellow
         }
     } else {
         Write-Host "[WARNING] Could not verify Lambda configuration (stack may still be deploying)" -ForegroundColor Yellow
