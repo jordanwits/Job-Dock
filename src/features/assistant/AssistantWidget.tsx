@@ -446,9 +446,9 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
                   : 'border-gray-200 bg-white text-primary-lightTextSecondary'
               )}
             >
-              The assistant isn’t configured yet. Add{' '}
-              <code className="font-mono text-xs">VITE_OPENAI_API_KEY</code> to your{' '}
-              <code className="font-mono text-xs">.env.local</code> and restart the dev server.
+              Assistant unavailable in dev mode. Add{‘ ‘}
+              <code className="font-mono text-xs">VITE_OPENAI_API_KEY</code> to your{‘ ‘}
+              <code className="font-mono text-xs">.env.local</code> and restart — dev only, never needed in production.
             </div>
           ) : (
             <form
