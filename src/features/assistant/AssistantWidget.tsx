@@ -1,4 +1,4 @@
-import { FormEvent, useState, useRef, useEffect, useCallback } from 'react'
+﻿import { FormEvent, useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Button, Modal, Textarea } from '@/components/ui'
 import { helpApi } from '@/lib/api/help'
@@ -24,14 +24,14 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
   const [toolStatus, setToolStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null)
-  // Report a problem (escalation to engineering) — reuses the help backend.
+  // Report a problem (escalation to engineering) - reuses the help backend.
   const [reportOpen, setReportOpen] = useState(false)
   const [reportNote, setReportNote] = useState('')
   const [reportLoading, setReportLoading] = useState(false)
   const [reportNotice, setReportNotice] = useState<string | null>(null)
   const [reportSessionId, setReportSessionId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
-  // The input text when voice input started — spoken words are appended to it.
+  // The input text when voice input started - spoken words are appended to it.
   const speechBaseRef = useRef('')
 
   const configured = isAssistantConfigured()
@@ -262,7 +262,7 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
                 )}
               >
                 <p className="text-sm leading-relaxed">
-                  Ask me how something works, or tell me what to do — I can answer JobDock questions
+                  Ask me how something works, or tell me what to do - I can answer JobDock questions
                   and take actions for you. Try{' '}
                   <span className="font-medium text-current">“How do I send a quote?”</span> or{' '}
                   <span className="font-medium text-current">
@@ -388,7 +388,7 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
                   theme === 'dark' ? 'text-primary-light/65' : 'text-primary-lightTextSecondary'
                 )}
               >
-                Found a bug or stuck on something? Add an optional note — we’ll include this
+                Found a bug or stuck on something? Add an optional note - we’ll include this
                 conversation and send it to our engineering team.
               </p>
               <Textarea
@@ -446,9 +446,11 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
                   : 'border-gray-200 bg-white text-primary-lightTextSecondary'
               )}
             >
-              Assistant unavailable in dev mode. Add{‘ ‘}
-              <code className="font-mono text-xs">VITE_OPENAI_API_KEY</code> to your{‘ ‘}
-              <code className="font-mono text-xs">.env.local</code> and restart — dev only, never needed in production.
+              Assistant unavailable in dev mode. To test locally add{" "}
+              <code className="font-mono text-xs">VITE_OPENAI_API_KEY</code>{" "}
+              to{" "}
+              <code className="font-mono text-xs">.env.local</code>{" "}
+              and restart. (Dev-only key - not needed in production.)
             </div>
           ) : (
             <form
