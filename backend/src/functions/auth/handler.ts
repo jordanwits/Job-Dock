@@ -681,6 +681,21 @@ async function handleResetPassword(event: APIGatewayProxyEvent): Promise<APIGate
     // form to match the Cognito username, not the lowercased input.
     const canonicalEmail = user.email
 
+    // Rate limit reset emails per address to prevent inbox-bombing and email-quota abuse.
+    // Uses the existing (indexed) password_reset_tokens table — no extra infrastructure/cost.
+    // We still return the same generic response so account existence is never leaked.
+    const RESET_MAX_PER_HOUR = 5
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+    const recentRequests = await prisma.passwordResetToken.count({
+      where: { email: canonicalEmail, createdAt: { gte: oneHourAgo } },
+    })
+    if (recentRequests >= RESET_MAX_PER_HOUR) {
+      console.warn(
+        `[ResetPassword] rate limit reached for ${canonicalEmail} (${recentRequests} requests in last hour); skipping send`
+      )
+      return genericResponse
+    }
+
     const rawToken = randomBytes(32).toString('hex')
     const tokenHash = hashResetToken(rawToken)
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MINUTES * 60 * 1000)

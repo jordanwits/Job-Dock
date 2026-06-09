@@ -447,6 +447,29 @@ function getAssignedToWithPrivacy(
   }))
 }
 
+// Decide whether a viewer may see a time entry's hourlyRate (pay).
+// Mirrors getAssignedToWithPrivacy's model: admins/owners see every rate; an employee
+// sees only the rate on their OWN entries, never a teammate's pay.
+function canViewTimeEntryRate(
+  currentUserRole: string | undefined,
+  currentUserId: string | undefined,
+  entryUserId: string | null | undefined
+): boolean {
+  if (currentUserRole === 'admin' || currentUserRole === 'owner') return true
+  return !!currentUserId && !!entryUserId && currentUserId === entryUserId
+}
+
+// Map a time entry's hourlyRate to a number only when the viewer is allowed to see it,
+// otherwise undefined (field omitted from the response).
+function visibleHourlyRate(
+  te: { hourlyRate?: any; userId?: string | null },
+  currentUserRole: string | undefined,
+  currentUserId: string | undefined
+): number | undefined {
+  if (!canViewTimeEntryRate(currentUserRole, currentUserId, te.userId)) return undefined
+  return te.hourlyRate != null ? Number(te.hourlyRate) : undefined
+}
+
 // Send assignment notification email (call after successful create/update)
 async function sendAssignmentNotification(params: {
   tenantId: string
@@ -1155,7 +1178,9 @@ export const dataServices = {
 
       // Generate unique key
       const { randomUUID } = await import('crypto')
-      const ext = filename.split('.').pop()
+      // Sanitize the client-supplied extension so it can't inject path segments into the key.
+      const rawExt = (filename?.split('.').pop() || '').toLowerCase()
+      const ext = /^[a-z0-9]{1,5}$/.test(rawExt) ? rawExt : type === 'logo' ? 'png' : 'pdf'
       const folder =
         type === 'logo'
           ? `logos/${tenantId}`
@@ -1191,6 +1216,15 @@ export const dataServices = {
       await ensureTenantExists(tenantId)
 
       const { key, type } = payload
+
+      // The key is client-supplied after the presigned upload. It MUST live under this
+      // tenant's own prefix (the only place getUploadUrl signs a PUT), otherwise a tenant
+      // could point its logo/template at another tenant's S3 object and read it via the
+      // signed URL returned below.
+      const expectedPrefix = type === 'logo' ? `logos/${tenantId}/` : `pdf-templates/${tenantId}/`
+      if (typeof key !== 'string' || !key.startsWith(expectedPrefix)) {
+        throw new ApiError('Invalid file key', 400)
+      }
 
       // Get existing settings to delete old file if it exists
       const settings = await prisma.tenantSettings.findUnique({
@@ -2601,7 +2635,7 @@ export const dataServices = {
           endTime: te.endTime.toISOString(),
           userId: te.userId ?? undefined,
           userName: te.user?.name ?? undefined,
-          hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
+          hourlyRate: visibleHourlyRate(te, currentUserRole, currentUserId),
         })),
       }
     },
@@ -4282,11 +4316,14 @@ export const dataServices = {
       })
     },
     getById: async (tenantId: string, id: string) => {
-      // For public booking, look up service by ID only (ignore tenantId parameter)
-      // The service ID is globally unique
-      const service = await prisma.service.findUnique({
-        where: { id },
-      })
+      // Public booking resolves requests with a placeholder tenant and legitimately
+      // needs to look up a service by its (globally unique) id alone so the booking
+      // page can render. For every authenticated caller we MUST scope by tenantId,
+      // otherwise any user could read another tenant's service by guessing its id.
+      const isPublicLookup = tenantId === 'public-booking-placeholder'
+      const service = isPublicLookup
+        ? await prisma.service.findUnique({ where: { id } })
+        : await prisma.service.findFirst({ where: { id, tenantId } })
       if (!service) throw new Error('Service not found')
       return service
     },
@@ -5710,7 +5747,7 @@ export const dataServices = {
               notes: te.notes,
               userId: te.userId ?? undefined,
               userName: te.user?.name ?? undefined,
-              hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
+              hourlyRate: visibleHourlyRate(te, currentUserRole, currentUserId),
             })),
             photos,
           }
@@ -5838,7 +5875,7 @@ export const dataServices = {
           endTime: te.endTime.toISOString(),
           breakMinutes: te.breakMinutes,
           notes: te.notes,
-          hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
+          hourlyRate: visibleHourlyRate(te, currentUserRole, currentUserId),
           createdAt: te.createdAt.toISOString(),
           updatedAt: te.updatedAt.toISOString(),
           userId: te.userId ?? undefined,
@@ -6168,7 +6205,10 @@ export const dataServices = {
         throw new ApiError('Invalid file type. Only PNG, JPEG, JPG, and WebP are allowed.', 400)
       }
       const { randomUUID } = await import('crypto')
-      const ext = payload.filename.split('.').pop()
+      // Sanitize the client-supplied extension so it can't inject path segments
+      // (e.g. "photo.png/../../other") into the S3 key.
+      const rawExt = (payload.filename?.split('.').pop() || '').toLowerCase()
+      const ext = /^[a-z0-9]{1,5}$/.test(rawExt) ? rawExt : 'jpg'
       const key = `jobs/${tenantId}/${jobId}/${randomUUID()}.${ext}`
       const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
       const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner')
@@ -6201,6 +6241,14 @@ export const dataServices = {
         where: { id: jobId, tenantId },
       })
       if (!job) throw new ApiError('Job not found', 404)
+      // The key is supplied by the client after the presigned upload. It MUST live
+      // under this tenant+job's prefix (the only place getUploadUrl will sign a PUT),
+      // otherwise a tenant could register a Document row pointing at another tenant's
+      // S3 object and read it back through the public photo proxy.
+      const expectedPrefix = `jobs/${tenantId}/${jobId}/`
+      if (typeof payload.key !== 'string' || !payload.key.startsWith(expectedPrefix)) {
+        throw new ApiError('Invalid file key', 400)
+      }
       const user = await prisma.user.findFirst({
         where: { tenantId },
         select: { id: true },
@@ -6382,10 +6430,15 @@ export const dataServices = {
         endTime: te.endTime.toISOString(),
         userId: te.userId ?? undefined,
         userName: te.user?.name ?? undefined,
-        hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
+        hourlyRate: visibleHourlyRate(te, currentUserRole, currentUserId),
       }))
     },
-    getById: async (tenantId: string, id: string) => {
+    getById: async (
+      tenantId: string,
+      id: string,
+      currentUserId?: string,
+      currentUserRole?: string
+    ) => {
       await ensureTenantExists(tenantId)
       const te = await prisma.timeEntry.findFirst({
         where: { id, tenantId },
@@ -6407,7 +6460,7 @@ export const dataServices = {
         endTime: te.endTime.toISOString(),
         userId: te.userId ?? undefined,
         userName: te.user?.name ?? undefined,
-        hourlyRate: te.hourlyRate != null ? Number(te.hourlyRate) : undefined,
+        hourlyRate: visibleHourlyRate(te, currentUserRole, currentUserId),
       }
     },
     create: async (
@@ -6590,6 +6643,24 @@ export const dataServices = {
           // 'everyone' allows editing any entry - no additional check needed
         }
       }
+
+      // If the entry is being reassigned to a different user, that user must belong to this
+      // tenant. (create validates this; update previously wrote payload.userId blindly, which
+      // let a time entry be attributed to an arbitrary or cross-tenant user id.)
+      if (
+        payload.userId !== undefined &&
+        payload.userId !== null &&
+        payload.userId !== existing.userId
+      ) {
+        const targetUser = await prisma.user.findFirst({
+          where: { id: payload.userId, tenantId },
+          select: { id: true },
+        })
+        if (!targetUser) {
+          throw new ApiError('User not found', 404)
+        }
+      }
+
       const updated = await prisma.timeEntry.update({
         where: { id },
         data: {

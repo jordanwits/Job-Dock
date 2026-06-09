@@ -48,29 +48,9 @@ const QuoteApprovalPage = () => {
 
       if (cancelled) return
       setLoadingBranding(false)
-
-      if (action === 'decline') {
-        return
-      }
-
-      setSubmitting(true)
-      try {
-        const response = await publicApiClient.post(`/quotes/${id}/approve-public?token=${token}`, {})
-        if (cancelled) return
-        setQuoteNumber(response.data.quoteNumber || id)
-        setSuccess(true)
-      } catch (err: unknown) {
-        console.error('Approval error:', err)
-        const ax = err as { response?: { data?: { error?: { message?: string }; message?: string } } }
-        setError(
-          ax.response?.data?.error?.message ||
-            ax.response?.data?.message ||
-            (err instanceof Error ? err.message : null) ||
-            'Failed to process your response. The link may be invalid or expired.'
-        )
-      } finally {
-        if (!cancelled) setSubmitting(false)
-      }
+      // NOTE: we intentionally do NOT auto-submit the acceptance here. Merely opening the
+      // emailed link must not accept the quote — the customer confirms with an explicit click
+      // below (handleAcceptSubmit). This also avoids a double-accept on React StrictMode/remount.
     }
 
     run()
@@ -78,6 +58,28 @@ const QuoteApprovalPage = () => {
       cancelled = true
     }
   }, [id, token, action])
+
+  const handleAcceptSubmit = async () => {
+    if (!id || !token || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const response = await publicApiClient.post(`/quotes/${id}/approve-public?token=${token}`, {})
+      setQuoteNumber(response.data.quoteNumber || id)
+      setSuccess(true)
+    } catch (err: unknown) {
+      console.error('Approval error:', err)
+      const ax = err as { response?: { data?: { error?: { message?: string }; message?: string } } }
+      setError(
+        ax.response?.data?.error?.message ||
+          ax.response?.data?.message ||
+          (err instanceof Error ? err.message : null) ||
+          'Failed to process your response. The link may be invalid or expired.'
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const handleDeclineSubmit = async () => {
     if (!id || !token) return
@@ -173,6 +175,24 @@ const QuoteApprovalPage = () => {
                 className="w-full sm:w-auto px-6 py-3 bg-red-600/90 text-white font-semibold rounded-lg hover:bg-red-600 disabled:opacity-50 min-h-[48px]"
               >
                 Submit decline
+              </button>
+            </div>
+          </div>
+        ) : action === 'accept' ? (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-primary-light">Accept this quote?</h2>
+            <p className="text-sm text-primary-light/70">
+              Confirm below to accept the quote. The contractor will be notified.
+            </p>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center pt-2">
+              <button
+                type="button"
+                onClick={handleAcceptSubmit}
+                disabled={submitting}
+                className="w-full sm:w-auto px-6 py-3 bg-primary-gold text-primary-dark font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 min-h-[48px]"
+              >
+                {submitting ? 'Processing…' : 'Accept quote'}
               </button>
             </div>
           </div>

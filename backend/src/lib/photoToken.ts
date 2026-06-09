@@ -1,12 +1,28 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 
-const SECRET = process.env.PHOTO_ACCESS_SECRET || process.env.DATABASE_PASSWORD || 'photo-access-fallback'
 const TTL_SEC = 3600 // 1 hour
+
+/**
+ * Resolve the HMAC signing secret for photo-access tokens.
+ *
+ * No insecure fallback: this secret gates the public photo proxy. Previously it fell
+ * back to DATABASE_PASSWORD (coupling two unrelated secrets) and then to a guessable
+ * literal. We now require a dedicated secret and fail closed if it is missing.
+ */
+function getPhotoSecret(): string {
+  const secret = process.env.PHOTO_ACCESS_SECRET
+  if (!secret) {
+    throw new Error(
+      'PHOTO_ACCESS_SECRET is not configured. Set PHOTO_ACCESS_SECRET in the Lambda environment.'
+    )
+  }
+  return secret
+}
 
 export function createPhotoToken(photoId: string, jobLogId: string): string {
   const exp = Math.floor(Date.now() / 1000) + TTL_SEC
   const payload = `${photoId}:${jobLogId}:${exp}`
-  const sig = createHmac('sha256', SECRET).update(payload).digest('base64url')
+  const sig = createHmac('sha256', getPhotoSecret()).update(payload).digest('base64url')
   return `${Buffer.from(payload).toString('base64url')}.${sig}`
 }
 
@@ -19,7 +35,7 @@ export function verifyPhotoToken(token: string, photoId: string, jobLogId: strin
     if (pId !== photoId || jId !== jobLogId) return false
     const exp = parseInt(expStr, 10)
     if (exp < Date.now() / 1000) return false
-    const expected = createHmac('sha256', SECRET).update(payload).digest('base64url')
+    const expected = createHmac('sha256', getPhotoSecret()).update(payload).digest('base64url')
     const sigBuf = Buffer.from(sig)
     const expBuf = Buffer.from(expected)
     if (sigBuf.length !== expBuf.length) return false
