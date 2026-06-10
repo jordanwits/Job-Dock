@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Card, Button, Input, Modal, ConfirmationDialog } from '@/components/ui'
@@ -84,10 +84,20 @@ export function SavedLineItemsSection() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const errorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     void fetchItems()
   }, [fetchItems])
+
+  useEffect(() => {
+    if (error && createOpen) {
+      const id = requestAnimationFrame(() => {
+        errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+      return () => cancelAnimationFrame(id)
+    }
+  }, [error, createOpen])
 
   useEffect(() => {
     setSelectedIds(previous => {
@@ -182,7 +192,7 @@ export function SavedLineItemsSection() {
         </p>
       </div>
 
-      {error && (
+      {error && !createOpen && (
         <Card className="bg-red-500/10 border-red-500/30 p-4 flex justify-between items-center gap-4">
           <p className="text-red-400 text-sm">{error}</p>
           <Button variant="ghost" className="text-xs shrink-0" onClick={() => clearError()}>
@@ -194,6 +204,7 @@ export function SavedLineItemsSection() {
       <div className="flex flex-wrap gap-2">
         <Button
           onClick={() => {
+            clearError()
             createForm.reset({
               description: '',
               defaultQuantity: 1,
@@ -362,6 +373,7 @@ export function SavedLineItemsSection() {
       <Modal
         isOpen={createOpen}
         onClose={() => {
+          clearError()
           setCreateOpen(false)
           createForm.reset({
             description: '',
@@ -396,8 +408,20 @@ export function SavedLineItemsSection() {
             error={createForm.formState.errors.unitPrice?.message}
             theme={theme}
           />
+          {error && (
+            <div ref={errorRef} className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+              <p className="text-sm text-red-400 font-medium">✗ {error}</p>
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                clearError()
+                setCreateOpen(false)
+              }}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading} className="bg-primary-gold text-primary-dark">

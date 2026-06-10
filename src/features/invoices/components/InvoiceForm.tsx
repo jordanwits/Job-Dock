@@ -39,7 +39,7 @@ const InvoiceForm = ({
   defaultPrice,
 }: InvoiceFormProps) => {
   const { theme } = useTheme()
-  const { contacts, fetchContacts, createContact } = useContactStore()
+  const { contacts, fetchContacts, createContact, error: contactError, clearError: clearContactError } = useContactStore()
   const [showCreateContact, setShowCreateContact] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
   const [saveAndSendError, setSaveAndSendError] = useState<string | null>(null)
@@ -577,14 +577,21 @@ const InvoiceForm = ({
       {/* Create Contact Modal */}
       <Modal
         isOpen={showCreateContact}
-        onClose={() => setShowCreateContact(false)}
+        onClose={() => {
+          clearContactError()
+          setShowCreateContact(false)
+        }}
         title="Create New Contact"
         size="lg"
       >
         <ContactForm
           onSubmit={handleCreateContact}
-          onCancel={() => setShowCreateContact(false)}
+          onCancel={() => {
+            clearContactError()
+            setShowCreateContact(false)
+          }}
           isLoading={isCreatingContact}
+          error={contactError}
         />
       </Modal>
     </>

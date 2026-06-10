@@ -308,7 +308,7 @@ export const TeamMembersSection = () => {
         )}
       </div>
       <div className="space-y-4">
-        {error && (
+        {error && !inviteModal && (
           <div className="text-red-400 text-sm">{error}</div>
         )}
 
@@ -329,7 +329,7 @@ export const TeamMembersSection = () => {
             )}>
               Invite team members to collaborate. Admins have full access; employees can track hours and add notes on jobs.
             </p>
-            <Button variant="primary" onClick={() => setInviteModal(true)} className="w-full sm:w-auto flex-shrink-0">
+            <Button variant="primary" onClick={() => { setError(null); setInviteModal(true) }} className="w-full sm:w-auto flex-shrink-0">
               Invite team member
             </Button>
           </div>
@@ -887,8 +887,19 @@ export const TeamMembersSection = () => {
                   { value: 'employee', label: 'Employee (jobs, hours, photos, notes)' },
                 ]}
               />
+              {error && (
+                <div className="p-3 rounded-lg border border-red-500 bg-red-500/10">
+                  <p className="text-sm text-red-400 font-medium">✗ {error}</p>
+                </div>
+              )}
               <div className="flex gap-2 justify-end">
-                <Button variant="secondary" onClick={() => setInviteModal(false)}>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setError(null)
+                    setInviteModal(false)
+                  }}
+                >
                   Cancel
                 </Button>
                 <Button variant="primary" onClick={handleInvite} disabled={inviting}>

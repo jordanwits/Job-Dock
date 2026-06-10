@@ -1,6 +1,6 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { contactSchema, type ContactFormData } from '../schemas/contactSchemas'
 import { Contact } from '../types/contact'
 import { Input, Button, Select, PhoneInput } from '@/components/ui'
@@ -12,11 +12,22 @@ interface ContactFormProps {
   onSubmit: (data: ContactFormData, scheduleJob?: boolean) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
+  error?: string | null
 }
 
-const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProps) => {
+const ContactForm = ({ contact, onSubmit, onCancel, isLoading, error }: ContactFormProps) => {
   const { theme } = useTheme()
   const [scheduleJobAfterCreate, setScheduleJobAfterCreate] = useState(false)
+  const errorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (error) {
+      const id = requestAnimationFrame(() => {
+        errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+      return () => cancelAnimationFrame(id)
+    }
+  }, [error])
   
   const {
     register,
@@ -92,6 +103,11 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      {error && (
+        <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+          <p className="text-sm text-red-400 font-medium">✗ {error}</p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           label="First Name *"
@@ -253,6 +269,12 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading }: ContactFormProp
               </p>
             </div>
           </label>
+        </div>
+      )}
+
+      {error && (
+        <div ref={errorRef} className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+          <p className="text-sm text-red-400 font-medium">✗ {error}</p>
         </div>
       )}
 

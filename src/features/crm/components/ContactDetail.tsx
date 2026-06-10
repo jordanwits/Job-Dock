@@ -35,7 +35,7 @@ const ContactDetail = ({
 }: ContactDetailProps) => {
   const navigate = useNavigate()
   const { theme } = useTheme()
-  const { updateContact, deleteContact, isLoading } = useContactStore()
+  const { updateContact, deleteContact, isLoading, error: contactError, clearError: clearContactError } = useContactStore()
   const { createQuote, sendQuote, isLoading: quoteLoading } = useQuoteStore()
   const {
     createJob,
@@ -581,6 +581,7 @@ const ContactDetail = ({
       <Modal
         isOpen={isOpen}
         onClose={() => {
+          clearContactError()
           setIsEditing(false)
           onClose()
         }}
@@ -590,8 +591,12 @@ const ContactDetail = ({
         <ContactForm
           contact={contact}
           onSubmit={handleUpdate}
-          onCancel={() => setIsEditing(false)}
+          onCancel={() => {
+            clearContactError()
+            setIsEditing(false)
+          }}
           isLoading={isLoading}
+          error={contactError}
         />
       </Modal>
     )

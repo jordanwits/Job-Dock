@@ -109,8 +109,8 @@ const CRMPage = () => {
         </div>
       </div>
 
-      {/* Error Display */}
-      {error && (
+      {/* Error Display - hidden while the create/edit modal is open (the form shows its own error) */}
+      {error && !showCreateForm && !selectedContact && (
         <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20">
           <div className="flex items-center justify-between">
             <p className="text-sm text-red-400">{error}</p>
@@ -153,6 +153,7 @@ const CRMPage = () => {
             clearError()
           }}
           isLoading={isLoading}
+          error={error}
         />
       </Modal>
 

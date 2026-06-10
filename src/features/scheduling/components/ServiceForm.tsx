@@ -1,6 +1,6 @@
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { serviceSchema, type ServiceFormData } from '../schemas/serviceSchemas'
 import { Service } from '../types/service'
 import { Input, Button, TimePicker, Checkbox } from '@/components/ui'
@@ -12,6 +12,7 @@ interface ServiceFormProps {
   onSubmit: (data: ServiceFormData) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
+  error?: string | null
 }
 
 const DAYS_OF_WEEK = [
@@ -24,8 +25,19 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Saturday' },
 ]
 
-const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProps) => {
+const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceFormProps) => {
   const { theme } = useTheme()
+  const errorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (error) {
+      const id = requestAnimationFrame(() => {
+        errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+      return () => cancelAnimationFrame(id)
+    }
+  }, [error])
+
   const {
     register,
     handleSubmit,
@@ -94,6 +106,11 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProp
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {error && (
+        <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+          <p className="text-sm text-red-400 font-medium">✗ {error}</p>
+        </div>
+      )}
       <div className="space-y-4">
         <Input
           label="Service Name *"
@@ -287,6 +304,12 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading }: ServiceFormProp
           min={1}
         />
       </div>
+
+      {error && (
+        <div ref={errorRef} className="p-4 rounded-lg border border-red-500 bg-red-500/10">
+          <p className="text-sm text-red-400 font-medium">✗ {error}</p>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">
