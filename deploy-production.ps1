@@ -140,29 +140,29 @@ if (-not $SkipInfrastructure) {
 
         # Validate the vars that cause hard failures if missing.
         if ($env:RESEND_API_KEY -and $env:RESEND_API_KEY.Length -gt 0) {
-            Write-Host "[SUCCESS] RESEND_API_KEY present ($($env:RESEND_API_KEY.Length) chars)" -ForegroundColor Green
+            Write-Host "[SUCCESS] RESEND_API_KEY present - $($env:RESEND_API_KEY.Length) chars" -ForegroundColor Green
         } else {
-            Write-Host "[WARNING] RESEND_API_KEY not found in $envFileToRead — emails will not send!" -ForegroundColor Yellow
+            Write-Host "[WARNING] RESEND_API_KEY not found in $envFileToRead - emails will not send!" -ForegroundColor Yellow
         }
         if ($env:TWILIO_ACCOUNT_SID -and $env:TWILIO_AUTH_TOKEN -and $env:TWILIO_PHONE_NUMBER) {
             Write-Host "[SUCCESS] Twilio SMS vars present" -ForegroundColor Green
         } else {
-            Write-Host "[INFO] Twilio vars not set — SMS notifications will be skipped" -ForegroundColor Gray
+            Write-Host "[INFO] Twilio vars not set - SMS notifications will be skipped" -ForegroundColor Gray
         }
         if ($env:APPROVAL_SECRET -and $env:PHOTO_ACCESS_SECRET) {
             Write-Host "[SUCCESS] APPROVAL_SECRET and PHOTO_ACCESS_SECRET present" -ForegroundColor Green
         } else {
-            Write-Host "[ERROR] APPROVAL_SECRET / PHOTO_ACCESS_SECRET missing — quote/invoice approval and photo viewing will FAIL!" -ForegroundColor Red
+            Write-Host "[ERROR] APPROVAL_SECRET / PHOTO_ACCESS_SECRET missing - quote/invoice approval and photo viewing will FAIL!" -ForegroundColor Red
         }
         if ($env:OPENAI_API_KEY -and $env:OPENAI_API_KEY.Length -gt 0) {
-            Write-Host "[SUCCESS] OPENAI_API_KEY present ($($env:OPENAI_API_KEY.Length) chars)" -ForegroundColor Green
+            Write-Host "[SUCCESS] OPENAI_API_KEY present - $($env:OPENAI_API_KEY.Length) chars" -ForegroundColor Green
         } else {
-            Write-Host "[WARNING] OPENAI_API_KEY not set — AI assistant will not work in production" -ForegroundColor Yellow
+            Write-Host "[WARNING] OPENAI_API_KEY not set - AI assistant will not work in production" -ForegroundColor Yellow
         }
         if ($env:STRIPE_SECRET_KEY -and $env:STRIPE_SECRET_KEY.Length -gt 0) {
             Write-Host "[SUCCESS] STRIPE_SECRET_KEY present" -ForegroundColor Green
         } else {
-            Write-Host "[WARNING] STRIPE_SECRET_KEY not set — billing will not work" -ForegroundColor Yellow
+            Write-Host "[WARNING] STRIPE_SECRET_KEY not set - billing will not work" -ForegroundColor Yellow
         }
     } else {
         Write-Host "[WARNING] No .env.local or .env file found" -ForegroundColor Yellow
@@ -227,9 +227,9 @@ if (-not $SkipInfrastructure) {
         }
         $openaiKey = $config.OPENAI_API_KEY
         if ($openaiKey -and $openaiKey -ne "null" -and $openaiKey.Length -gt 0) {
-            Write-Host "[SUCCESS] OPENAI_API_KEY is set in production Lambda ($($openaiKey.Length) chars)" -ForegroundColor Green
+            Write-Host "[SUCCESS] OPENAI_API_KEY is set in production Lambda - $($openaiKey.Length) chars" -ForegroundColor Green
         } else {
-            Write-Host "[ERROR] OPENAI_API_KEY is NOT set in production Lambda — AI assistant will not work!" -ForegroundColor Red
+            Write-Host "[ERROR] OPENAI_API_KEY is NOT set in production Lambda - AI assistant will not work!" -ForegroundColor Red
             Write-Host "   Add OPENAI_API_KEY to .env.local and redeploy." -ForegroundColor Yellow
         }
     } else {
