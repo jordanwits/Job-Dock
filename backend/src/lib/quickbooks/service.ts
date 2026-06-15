@@ -6,7 +6,7 @@ import { loadQuickBooksConfig, QBO_SCOPE_PAYMENTS } from './config'
 import { buildAuthorizeUrl, verifyState, exchangeCodeForTokens, revokeToken } from './oauth'
 import { saveTokens, getConnectionRecord } from './client'
 import { decryptToken } from './crypto'
-import { pushInvoice, reconcileInvoice } from './sync'
+import { pushInvoice, reconcileInvoice, reconcilePayment } from './sync'
 import type { QuickBooksStatus, SyncInvoiceResult } from './types'
 
 async function getPrisma(): Promise<any> {
@@ -102,14 +102,21 @@ export async function handleWebhook(
       const seen = await prisma.quickBooksWebhookEvent.findUnique({ where: { eventId } })
       if (seen) continue
 
-      // v1 cares about Invoice/Payment changes for reconciliation.
-      if (entity.name === 'Invoice') {
-        await reconcileInvoice(connection.tenantId, String(entity.id))
-      } else if (entity.name === 'Payment') {
-        // TODO(quickbooks): resolve the affected invoice(s) from the QB Payment and reconcile.
+      // v1 cares about Invoice/Payment changes for reconciliation. Isolate failures per entity:
+      // on error, leave the event unrecorded so Intuit's retry can reprocess it.
+      try {
+        if (entity.name === 'Invoice') {
+          await reconcileInvoice(connection.tenantId, String(entity.id))
+        } else if (entity.name === 'Payment') {
+          await reconcilePayment(connection.tenantId, String(entity.id))
+        }
+        await prisma.quickBooksWebhookEvent.create({ data: { eventId, realmId } })
+      } catch (err: any) {
+        console.error(
+          `QuickBooks webhook: failed to process ${entity.name} ${entity.id}:`,
+          err?.message
+        )
       }
-
-      await prisma.quickBooksWebhookEvent.create({ data: { eventId, realmId } })
     }
   }
 
