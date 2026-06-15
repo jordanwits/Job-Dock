@@ -1357,10 +1357,26 @@ async function handleGet(
     
     // Get branding info - need to access settings service directly
     const branding = await dataServices.settings.getPublic(tenantId)
-    
+
+    // For invoices, surface the QuickBooks hosted "Pay now" link so the customer can pay online
+    // directly from the public invoice page. Only when the invoice is still owed and the link is a
+    // real Intuit-hosted page (not the sandbox/unenrolled placeholder).
+    let payUrl: string | undefined
+    if (resourceType === 'invoice') {
+      const prisma = (await import('../../lib/db')).default
+      const inv = await prisma.invoice.findFirst({
+        where: { id, tenantId },
+        select: { quickbooksInvoiceUrl: true, paymentStatus: true },
+      })
+      if (inv && inv.paymentStatus !== 'paid' && quickbooks.isUsablePayUrl(inv.quickbooksInvoiceUrl)) {
+        payUrl = inv.quickbooksInvoiceUrl ?? undefined
+      }
+    }
+
     return {
       tenantId,
       ...branding,
+      ...(payUrl ? { payUrl } : {}),
     }
   }
 

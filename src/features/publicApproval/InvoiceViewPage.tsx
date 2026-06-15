@@ -14,6 +14,7 @@ const InvoiceViewPage = () => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null)
   const [companyDisplayName, setCompanyDisplayName] = useState<string | null>(null)
+  const [payUrl, setPayUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<'accept' | 'decline' | null>(null)
   const [success, setSuccess] = useState<'accept' | 'decline' | null>(null)
@@ -39,6 +40,7 @@ const InvoiceViewPage = () => {
         if (brandingRes.data.companyDisplayName || brandingRes.data.tenantName) {
           setCompanyDisplayName(brandingRes.data.companyDisplayName || brandingRes.data.tenantName || null)
         }
+        if (brandingRes.data.payUrl) setPayUrl(brandingRes.data.payUrl)
         if (pdfRes.data.pdfUrl) setPdfUrl(pdfRes.data.pdfUrl)
       } catch (err: any) {
         console.error('Failed to load invoice:', err)
@@ -145,7 +147,17 @@ const InvoiceViewPage = () => {
               ? `Thank you for approving invoice ${invoiceNumber}. The contractor has been notified.`
               : `Invoice ${invoiceNumber} has been declined. The contractor has been notified and will reach out to you.`}
           </p>
-          {success === 'accept' && (
+          {success === 'accept' && payUrl && (
+            <a
+              href={payUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-6 px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors min-h-[48px]"
+            >
+              Pay Now
+            </a>
+          )}
+          {success === 'accept' && !payUrl && (
             <p className="text-sm text-primary-light/60 mt-4">
               Note: This approval does not constitute payment. Please remit payment according to the invoice terms.
             </p>
@@ -198,6 +210,19 @@ const InvoiceViewPage = () => {
             </div>
           )}
         </div>
+
+        {payUrl && (
+          <div className="mb-3 shrink-0 flex justify-center">
+            <a
+              href={payUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-8 py-3.5 sm:py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 active:scale-[0.98] transition-colors touch-manipulation min-h-[48px] text-center"
+            >
+              Pay Now
+            </a>
+          </div>
+        )}
 
         {declineStep === 'confirm' && (
           <div className="mb-4 space-y-2 shrink-0 max-w-xl mx-auto w-full">

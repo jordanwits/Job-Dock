@@ -50,6 +50,15 @@ export function loadQuickBooksConfig(): QuickBooksConfig {
   }
 }
 
+// A QuickBooks invoice "Pay now" link only works once the company has QuickBooks Payments
+// enrolled. In sandbox (and for production companies that have not enrolled) Intuit returns a
+// developer.intuit.com "coming soon" placeholder instead of a real hosted pay page. Never surface
+// that placeholder to a paying customer — treat only a real Intuit-hosted link as usable.
+export function isUsablePayUrl(url?: string | null): boolean {
+  if (!url) return false
+  return !/developer\.intuit\.com|comingSoon/i.test(url)
+}
+
 export function isConfigured(): boolean {
   const cfg = loadQuickBooksConfig()
   return Boolean(cfg.clientId && cfg.clientSecret)

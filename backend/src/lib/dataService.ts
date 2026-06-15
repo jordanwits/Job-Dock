@@ -1027,6 +1027,9 @@ const serializeInvoice = (
   paidAmount: toNumber(invoice.paidAmount),
   trackResponse: (invoice as any).trackResponse ?? true,
   trackPayment: (invoice as any).trackPayment ?? true,
+  quickbooksInvoiceId: (invoice as any).quickbooksInvoiceId ?? undefined,
+  quickbooksSyncStatus: (invoice as any).quickbooksSyncStatus ?? undefined,
+  quickbooksInvoiceUrl: (invoice as any).quickbooksInvoiceUrl ?? undefined,
   createdAt: invoice.createdAt.toISOString(),
   updatedAt: invoice.updatedAt.toISOString(),
   convertedFromQuoteNumber: (invoice as any).convertedFromQuoteNumber ?? undefined,
@@ -2176,11 +2179,16 @@ export const dataServices = {
         }
         if (wantsSms && invoice.contact.phone?.trim()) {
           const { createShortLink } = await import('./shortLinks')
+          const { isUsablePayUrl } = await import('./quickbooks/config')
           const smsViewUrl = viewUrl ? await createShortLink(viewUrl) : undefined
+          const canPay =
+            serializedInvoice.paymentStatus !== 'paid' &&
+            isUsablePayUrl(serializedInvoice.quickbooksInvoiceUrl)
           const smsBody = buildInvoiceNotificationSms({
             invoiceNumber: invoice.invoiceNumber,
             companyName,
             viewUrl: smsViewUrl,
+            canPay,
           })
           const smsSid = await sendSms(invoice.contact.phone, smsBody)
           if (smsSid) {
