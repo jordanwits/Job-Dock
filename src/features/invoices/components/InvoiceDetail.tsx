@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import InvoiceForm from './InvoiceForm'
 import { cn } from '@/lib/utils'
 import { ScheduleJobModal } from '@/features/scheduling'
+import { QuickBooksInvoicePanel } from '@/features/quickbooks'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { getSendValidationError } from '@/lib/utils/sendValidation'
@@ -409,6 +410,9 @@ const InvoiceDetail = ({
               )}
             </div>
           </div>
+
+          {/* QuickBooks: send this invoice for online payment */}
+          <QuickBooksInvoicePanel invoice={invoice} />
 
           {/* Send Error - Prominent placement for visibility */}
           {sendError && (

@@ -25,6 +25,7 @@ import {
 } from '@/features/marketing'
 import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/onboarding'
 import { BillingSuccessPage, BillingCancelledPage } from '@/features/billing/billingPages'
+import { QuickBooksCallbackPage } from '@/features/quickbooks'
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -108,6 +109,16 @@ function App() {
         {/* Stripe tester / billing return URLs (public) */}
         <Route path="/billing/success" element={<BillingSuccessPage />} />
         <Route path="/billing/cancelled" element={<BillingCancelledPage />} />
+
+        {/* QuickBooks OAuth callback (authenticated; exchanges the Intuit code) */}
+        <Route
+          path="/quickbooks/callback"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <QuickBooksCallbackPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Onboarding Route - Protected but no sidebar */}
         <Route
