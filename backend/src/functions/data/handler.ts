@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse, corsResponse, extractContext, binaryResponse } from '../../lib/middleware'
 import { dataServices } from '../../lib/dataService'
+import * as quickbooks from '../../lib/quickbooks'
 import { extractTenantId } from '../../lib/middleware'
 import { ensureTenantExists, getDefaultTenantId } from '../../lib/tenant'
 import { ApiError } from '../../lib/errors'
@@ -324,6 +325,25 @@ We look forward to working with you!',
     }
   }
 
+  // Special handling for QuickBooks webhook (no auth, raw body + Intuit HMAC signature)
+  if (event.path?.includes('/quickbooks/webhook') && event.httpMethod === 'POST') {
+    try {
+      const signature =
+        event.headers['intuit-signature'] || event.headers['Intuit-Signature'] || ''
+      const rawBody = event.isBase64Encoded
+        ? Buffer.from(event.body || '', 'base64').toString('utf8')
+        : event.body || ''
+      const result = await quickbooks.handleWebhook(rawBody, signature)
+      return successResponse(result)
+    } catch (error) {
+      console.error('QuickBooks webhook error:', error)
+      if (error instanceof ApiError) {
+        return errorResponse(error, error.statusCode)
+      }
+      return errorResponse(error instanceof Error ? error : 'Webhook processing failed', 500)
+    }
+  }
+
   try {
     const { resource, id, action } = parsePath(event)
     console.log('[HANDLER v2.1] Parsed path:', {
@@ -420,6 +440,54 @@ We look forward to working with you!',
       }
 
       return errorResponse('Billing route not found', 404)
+    }
+
+    // Handle QuickBooks integration endpoints (owner-only mutations; status readable by any user)
+    if (resource === 'quickbooks') {
+      const { default: prisma } = await import('../../lib/db')
+      const context = await extractContext(event)
+      const tenantId = context.tenantId
+      const userId = context.userId
+
+      const qbAction = id // second path segment is the action, mirroring billing routes
+
+      if (qbAction === 'status' && event.httpMethod === 'GET') {
+        return successResponse(await quickbooks.getStatus(tenantId))
+      }
+
+      // All other QuickBooks actions require the tenant owner.
+      const qbUser = await prisma.user.findUnique({
+        where: { cognitoId: userId },
+        select: { role: true },
+      })
+      if (!qbUser || qbUser.role !== 'owner') {
+        return errorResponse('Only tenant owners can manage QuickBooks', 403)
+      }
+
+      if (qbAction === 'connect-url' && event.httpMethod === 'GET') {
+        return successResponse(quickbooks.getConnectUrl(tenantId))
+      }
+
+      if (qbAction === 'connect' && event.httpMethod === 'POST') {
+        const body = parseBody(event)
+        const result = await quickbooks.connect(tenantId, userId, {
+          code: body?.code,
+          realmId: body?.realmId,
+          state: body?.state,
+        })
+        return successResponse(result)
+      }
+
+      if (qbAction === 'disconnect' && event.httpMethod === 'POST') {
+        return successResponse(await quickbooks.disconnect(tenantId))
+      }
+
+      if (qbAction === 'sync-invoice' && event.httpMethod === 'POST') {
+        const body = parseBody(event)
+        return successResponse(await quickbooks.syncInvoice(tenantId, body?.invoiceId))
+      }
+
+      return errorResponse('QuickBooks route not found', 404)
     }
 
     // Handle users/team endpoints (owner or admin, team tier for invite)

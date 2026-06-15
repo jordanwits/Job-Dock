@@ -8,6 +8,7 @@ import { CompanyBrandingSection } from './CompanyBrandingSection'
 import { EmailTemplatesSection } from './EmailTemplatesSection'
 import { PdfTemplatesSection } from './PdfTemplatesSection'
 import { BillingSection } from './BillingSection'
+import { QuickBooksSection } from './QuickBooksSection'
 import { TeamMembersSection } from './TeamMembersSection'
 import { HelpSection } from './HelpSection'
 import { FeedbackSection } from './FeedbackSection'
@@ -17,6 +18,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 
 type TabId =
   | 'billing'
+  | 'quickbooks'
   | 'team'
   | 'company'
   | 'email'
@@ -67,8 +69,13 @@ export const SettingsPage = () => {
     const subscribed = searchParams.get('subscribed')
     const upgraded = searchParams.get('upgraded')
     const canceled = searchParams.get('canceled')
+    const tab = searchParams.get('tab')
+    const connected = searchParams.get('connected')
     if (subscribed === '1' || upgraded === '1' || canceled === '1') {
       setActiveTab('billing')
+      setSearchParams({}, { replace: true })
+    } else if (tab === 'quickbooks' || connected === '1') {
+      setActiveTab('quickbooks')
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, setSearchParams])
@@ -173,6 +180,12 @@ export const SettingsPage = () => {
         id: 'billing',
         label: 'Billing & Subscription',
         component: <BillingSection />,
+        roles: ['owner'],
+      },
+      {
+        id: 'quickbooks',
+        label: 'QuickBooks',
+        component: <QuickBooksSection />,
         roles: ['owner'],
       },
       {

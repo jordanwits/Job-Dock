@@ -37,6 +37,7 @@ model Tenant {
   settings                 TenantSettings?
   jobRoles                 JobRole[]
   helpChatSessions         HelpChatSession[]
+  quickbooksConnection     QuickBooksConnection?
 
   @@index([subdomain])
   @@index([stripeCustomerId])
@@ -111,6 +112,7 @@ model Contact {
   notes                   String?
   status                  String          @default("lead")
   notificationPreference  String          @default("both") // 'email' | 'sms' | 'both'
+  quickbooksCustomerId    String?         // QuickBooks Customer Id (one-way push mapping)
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -194,6 +196,11 @@ model Invoice {
   paidAmount     Decimal           @default(0) @db.Decimal(10, 2)
   trackResponse  Boolean           @default(true)
   trackPayment   Boolean           @default(true)
+  // QuickBooks Online sync (one-way push). quickbooksSyncStatus: 'none' | 'synced' | 'error'
+  quickbooksInvoiceId    String?
+  quickbooksSyncStatus   String            @default("none")
+  quickbooksSyncedAt     DateTime?
+  quickbooksInvoiceUrl   String?           // Intuit-hosted "Pay now" link
   convertedFromQuoteNumber  String?
   convertedFromQuoteTotal   Decimal?         @db.Decimal(10, 2)
   convertedFromQuoteCreatedAt DateTime?
@@ -257,6 +264,7 @@ model Payment {
   method      String
   reference   String?
   notes       String?
+  quickbooksPaymentId String? // QuickBooks Payment Id for reconciled payments (dedupe)
   createdAt   DateTime @default(now())
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -481,6 +489,42 @@ model StripeWebhookEvent {
 
   @@index([stripeEventId])
   @@map("stripe_webhook_events")
+}
+
+/// Per-tenant QuickBooks Online OAuth connection (one-way push from JobDock).
+/// accessToken/refreshToken are encrypted at rest (AES-256-GCM) via lib/quickbooks/crypto.
+model QuickBooksConnection {
+  id                    String    @id @default(uuid())
+  tenantId              String    @unique
+  realmId               String    // QuickBooks company id
+  accessToken           String    // encrypted ciphertext
+  refreshToken          String    // encrypted ciphertext
+  accessTokenExpiresAt  DateTime
+  refreshTokenExpiresAt DateTime
+  paymentsConnected     Boolean   @default(false) // QuickBooks Payments scope granted + enrolled
+  status                String    @default("connected") // 'connected' | 'error' | 'disconnected'
+  scope                 String?   // granted OAuth scopes
+  lastSyncAt            DateTime?
+  lastRefreshedAt       DateTime?
+  lastErrorMessage      String?
+  connectedByUserId     String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([realmId])
+  @@map("quickbooks_connections")
+}
+
+/// Idempotency log for inbound QuickBooks webhooks (mirrors StripeWebhookEvent).
+model QuickBooksWebhookEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  realmId     String
+  processedAt DateTime @default(now())
+
+  @@index([realmId])
+  @@map("quickbooks_webhook_events")
 }
 
 model JobRole {

@@ -548,6 +548,13 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_JOBDOCK_SOLO_PRICE_ID: process.env.STRIPE_JOBDOCK_SOLO_PRICE_ID || '',
         STRIPE_JOBDOCK_TEAM_PRICE_ID: process.env.STRIPE_JOBDOCK_TEAM_PRICE_ID || '',
         STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID: process.env.STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID || '',
+        // QuickBooks Online integration (OAuth + QuickBooks Payments)
+        QUICKBOOKS_ENV: process.env.QUICKBOOKS_ENV || 'sandbox',
+        QUICKBOOKS_CLIENT_ID: process.env.QUICKBOOKS_CLIENT_ID || '',
+        QUICKBOOKS_CLIENT_SECRET: process.env.QUICKBOOKS_CLIENT_SECRET || '',
+        QUICKBOOKS_REDIRECT_URI: process.env.QUICKBOOKS_REDIRECT_URI || '',
+        QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN: process.env.QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN || '',
+        QUICKBOOKS_TOKEN_ENC_KEY: process.env.QUICKBOOKS_TOKEN_ENC_KEY || '',
         JOBDOCK_PLATFORM_ADMIN_EMAILS: process.env.JOBDOCK_PLATFORM_ADMIN_EMAILS || '',
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
         JOBDOCK_SUPPORT_ENGINEER_EMAIL: process.env.JOBDOCK_SUPPORT_ENGINEER_EMAIL || '',
@@ -650,6 +657,64 @@ export class JobDockStack extends cdk.Stack {
     })
 
     cleanupRule.addTarget(new targets.LambdaFunction(cleanupLambda))
+
+    // QuickBooks token-refresh Lambda - keeps OAuth refresh tokens alive for inactive tenants.
+    // (Active tenants are refreshed lazily on demand by lib/quickbooks/client.ts.)
+    const quickbooksRefreshLogGroup = new logs.LogGroup(this, 'QuickBooksTokenRefreshLogGroup', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: config.env !== 'prod' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN,
+    })
+    const quickbooksRefreshLambda = new lambdaNodejs.NodejsFunction(
+      this,
+      'QuickBooksTokenRefreshLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_22_X,
+        entry: path.resolve(
+          backendDir,
+          'src',
+          'functions',
+          'quickbooks-token-refresh',
+          'handler.ts'
+        ),
+        handler: 'handler',
+        bundling: commonBundlingOptions,
+        ...(config.env !== 'prod' && {
+          vpc: this.vpc,
+          vpcSubnets: privateSubnetSelection,
+          securityGroups: [lambdaSecurityGroup],
+        }),
+        role: lambdaRole,
+        timeout: cdk.Duration.minutes(5),
+        memorySize: 512,
+        environment: {
+          DATABASE_SECRET_ARN: this.database.secret?.secretArn ?? '',
+          DATABASE_ENDPOINT: databaseHost,
+          DATABASE_NAME: 'jobdock',
+          DATABASE_HOST: databaseHost,
+          DATABASE_USER: databaseUserSecret.toString(),
+          DATABASE_PASSWORD: databasePasswordSecret.toString(),
+          DATABASE_PORT: '5432',
+          DATABASE_OPTIONS: 'schema=public',
+          ENVIRONMENT: config.env,
+          QUICKBOOKS_ENV: process.env.QUICKBOOKS_ENV || 'sandbox',
+          QUICKBOOKS_CLIENT_ID: process.env.QUICKBOOKS_CLIENT_ID || '',
+          QUICKBOOKS_CLIENT_SECRET: process.env.QUICKBOOKS_CLIENT_SECRET || '',
+          QUICKBOOKS_TOKEN_ENC_KEY: process.env.QUICKBOOKS_TOKEN_ENC_KEY || '',
+        },
+        logGroup: quickbooksRefreshLogGroup,
+        description: 'Refreshes QuickBooks OAuth tokens for inactive tenants (daily)',
+      }
+    )
+
+    this.database.secret?.grantRead(quickbooksRefreshLambda)
+    this.database.grantConnect(quickbooksRefreshLambda, 'jobdock')
+
+    // Run daily at 3 AM UTC
+    const quickbooksRefreshRule = new events.Rule(this, 'QuickBooksTokenRefreshSchedule', {
+      schedule: events.Schedule.cron({ minute: '0', hour: '3' }),
+      description: 'Triggers daily QuickBooks token refresh for inactive tenants',
+    })
+    quickbooksRefreshRule.addTarget(new targets.LambdaFunction(quickbooksRefreshLambda))
 
     const authResource = this.api.root.addResource('auth')
     authResource.addResource('register').addMethod('POST', authIntegration)
