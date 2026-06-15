@@ -244,15 +244,72 @@ export async function pushInvoice(
   return { quickbooksInvoiceId, quickbooksInvoiceUrl }
 }
 
-// Reconcile a QuickBooks invoice's payment state back into JobDock (called from webhook/poll).
+// ─── Reconciliation (QuickBooks payment state -> JobDock) ────────────────────────
+
+// Sum the portion of a QB Payment that is applied to a specific QB invoice. A single QB
+// payment can be split across multiple invoices, each as its own Payment.Line with a LinkedTxn.
+function appliedAmountForInvoice(qbPayment: any, quickbooksInvoiceId: string): number {
+  let amount = 0
+  for (const line of qbPayment?.Line ?? []) {
+    for (const lt of line?.LinkedTxn ?? []) {
+      if (lt?.TxnType === 'Invoice' && String(lt?.TxnId) === String(quickbooksInvoiceId)) {
+        amount += Number(line?.Amount ?? 0)
+      }
+    }
+  }
+  return amount
+}
+
+// Insert (or keep in sync) a JobDock Payment row mirroring a QB payment applied to an invoice.
+// Deduped by (invoiceId, quickbooksPaymentId): a QB payment split across invoices yields one
+// row per invoice. Returns true when a new row was created.
+async function upsertPaymentRow(
+  prisma: any,
+  params: {
+    tenantId: string
+    invoiceId: string
+    quickbooksPaymentId: string
+    amount: number
+    paymentDate?: string | null
+    reference?: string | null
+  }
+): Promise<boolean> {
+  const existing = await prisma.payment.findFirst({
+    where: { invoiceId: params.invoiceId, quickbooksPaymentId: params.quickbooksPaymentId },
+  })
+  if (existing) {
+    // Keep the amount in sync in case the payment was edited in QuickBooks.
+    if (Number(existing.amount) !== params.amount) {
+      await prisma.payment.update({ where: { id: existing.id }, data: { amount: params.amount } })
+    }
+    return false
+  }
+  await prisma.payment.create({
+    data: {
+      tenantId: params.tenantId,
+      invoiceId: params.invoiceId,
+      amount: params.amount,
+      method: 'quickbooks',
+      reference: params.reference ?? params.quickbooksPaymentId,
+      quickbooksPaymentId: params.quickbooksPaymentId,
+      notes: 'Recorded via QuickBooks Payments',
+      ...(params.paymentDate ? { paymentDate: new Date(params.paymentDate) } : {}),
+    },
+  })
+  return true
+}
+
+// Reconcile a QuickBooks invoice's payment state back into JobDock (called from webhook/poll):
+// refresh paymentStatus/paidAmount and mirror its linked QB payments into JobDock Payment rows.
 export async function reconcileInvoice(tenantId: string, quickbooksInvoiceId: string): Promise<void> {
   const prisma = await getPrisma()
   const invoice = await prisma.invoice.findFirst({ where: { tenantId, quickbooksInvoiceId } })
   if (!invoice) return
 
   const qb = await qboRequest<any>(tenantId, 'GET', `/invoice/${quickbooksInvoiceId}?${MV}`)
-  const balance = Number(qb?.Invoice?.Balance ?? 0)
-  const total = Number(qb?.Invoice?.TotalAmt ?? invoice.total)
+  const inv = qb?.Invoice
+  const balance = Number(inv?.Balance ?? 0)
+  const total = Number(inv?.TotalAmt ?? invoice.total)
   const paymentStatus = balance <= 0 ? 'paid' : balance < total ? 'partial' : 'pending'
   const paidAmount = Math.max(0, total - balance)
 
@@ -261,6 +318,45 @@ export async function reconcileInvoice(tenantId: string, quickbooksInvoiceId: st
     data: { paymentStatus, paidAmount },
   })
 
-  // TODO(quickbooks): also read linked QB Payment(s) and insert JobDock Payment rows de-duped by
-  //   quickbooksPaymentId, so the invoice's payment history mirrors QuickBooks.
+  // Mirror linked QB payments into JobDock Payment rows so the invoice's payment history matches.
+  const paymentTxns = (inv?.LinkedTxn ?? []).filter((t: any) => t?.TxnType === 'Payment')
+  for (const t of paymentTxns) {
+    try {
+      const payRes = await qboRequest<any>(tenantId, 'GET', `/payment/${t.TxnId}?${MV}`)
+      const payment = payRes?.Payment
+      if (!payment) continue
+      const applied = appliedAmountForInvoice(payment, quickbooksInvoiceId)
+      if (applied <= 0) continue
+      await upsertPaymentRow(prisma, {
+        tenantId,
+        invoiceId: invoice.id,
+        quickbooksPaymentId: String(payment.Id),
+        amount: applied,
+        paymentDate: payment.TxnDate,
+        reference: payment.PaymentRefNum ?? String(payment.Id),
+      })
+    } catch (err: any) {
+      console.warn(`reconcileInvoice: failed to mirror QB payment ${t?.TxnId}:`, err?.message)
+    }
+  }
+}
+
+// Reconcile a QuickBooks Payment back into JobDock (called from the Payment webhook). Finds the
+// invoice(s) the payment is applied to and reconciles each; reconcileInvoice both refreshes the
+// invoice status and upserts the Payment row, so this stays DRY.
+export async function reconcilePayment(tenantId: string, quickbooksPaymentId: string): Promise<void> {
+  const payRes = await qboRequest<any>(tenantId, 'GET', `/payment/${quickbooksPaymentId}?${MV}`)
+  const payment = payRes?.Payment
+  if (!payment) return
+
+  const invoiceTxnIds = new Set<string>()
+  for (const line of payment.Line ?? []) {
+    for (const lt of line?.LinkedTxn ?? []) {
+      if (lt?.TxnType === 'Invoice' && lt?.TxnId) invoiceTxnIds.add(String(lt.TxnId))
+    }
+  }
+
+  for (const qbInvoiceId of invoiceTxnIds) {
+    await reconcileInvoice(tenantId, qbInvoiceId)
+  }
 }

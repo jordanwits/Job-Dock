@@ -716,6 +716,65 @@ export class JobDockStack extends cdk.Stack {
     })
     quickbooksRefreshRule.addTarget(new targets.LambdaFunction(quickbooksRefreshLambda))
 
+    // QuickBooks reconcile-poll Lambda - daily fallback for payment reconciliation. Webhooks are
+    // the primary path (data Lambda /quickbooks/webhook); this re-reads synced, unpaid invoices to
+    // catch anything a webhook missed.
+    const quickbooksReconcileLogGroup = new logs.LogGroup(this, 'QuickBooksReconcilePollLogGroup', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: config.env !== 'prod' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN,
+    })
+    const quickbooksReconcileLambda = new lambdaNodejs.NodejsFunction(
+      this,
+      'QuickBooksReconcilePollLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_22_X,
+        entry: path.resolve(
+          backendDir,
+          'src',
+          'functions',
+          'quickbooks-reconcile-poll',
+          'handler.ts'
+        ),
+        handler: 'handler',
+        bundling: commonBundlingOptions,
+        ...(config.env !== 'prod' && {
+          vpc: this.vpc,
+          vpcSubnets: privateSubnetSelection,
+          securityGroups: [lambdaSecurityGroup],
+        }),
+        role: lambdaRole,
+        timeout: cdk.Duration.minutes(5),
+        memorySize: 512,
+        environment: {
+          DATABASE_SECRET_ARN: this.database.secret?.secretArn ?? '',
+          DATABASE_ENDPOINT: databaseHost,
+          DATABASE_NAME: 'jobdock',
+          DATABASE_HOST: databaseHost,
+          DATABASE_USER: databaseUserSecret.toString(),
+          DATABASE_PASSWORD: databasePasswordSecret.toString(),
+          DATABASE_PORT: '5432',
+          DATABASE_OPTIONS: 'schema=public',
+          ENVIRONMENT: config.env,
+          QUICKBOOKS_ENV: process.env.QUICKBOOKS_ENV || 'sandbox',
+          QUICKBOOKS_CLIENT_ID: process.env.QUICKBOOKS_CLIENT_ID || '',
+          QUICKBOOKS_CLIENT_SECRET: process.env.QUICKBOOKS_CLIENT_SECRET || '',
+          QUICKBOOKS_TOKEN_ENC_KEY: process.env.QUICKBOOKS_TOKEN_ENC_KEY || '',
+        },
+        logGroup: quickbooksReconcileLogGroup,
+        description: 'Polls QuickBooks to reconcile payment status onto synced invoices (daily)',
+      }
+    )
+
+    this.database.secret?.grantRead(quickbooksReconcileLambda)
+    this.database.grantConnect(quickbooksReconcileLambda, 'jobdock')
+
+    // Run daily at 4 AM UTC (offset from the 3 AM token-refresh job)
+    const quickbooksReconcileRule = new events.Rule(this, 'QuickBooksReconcilePollSchedule', {
+      schedule: events.Schedule.cron({ minute: '0', hour: '4' }),
+      description: 'Triggers daily QuickBooks payment reconciliation poll',
+    })
+    quickbooksReconcileRule.addTarget(new targets.LambdaFunction(quickbooksReconcileLambda))
+
     const authResource = this.api.root.addResource('auth')
     authResource.addResource('register').addMethod('POST', authIntegration)
     authResource.addResource('signup-checkout').addMethod('POST', authIntegration)
