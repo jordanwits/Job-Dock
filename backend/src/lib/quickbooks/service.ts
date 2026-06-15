@@ -68,9 +68,13 @@ export async function disconnect(tenantId: string): Promise<{ success: true }> {
   return { success: true }
 }
 
-export async function syncInvoice(tenantId: string, invoiceId: string): Promise<SyncInvoiceResult> {
+export async function syncInvoice(
+  tenantId: string,
+  invoiceId: string,
+  opts: { sendEmail?: boolean } = {}
+): Promise<SyncInvoiceResult> {
   if (!invoiceId) throw new ApiError('invoiceId is required', 400)
-  return pushInvoice(tenantId, invoiceId)
+  return pushInvoice(tenantId, invoiceId, opts)
 }
 
 // Inbound Intuit webhook. Intuit signs the raw body with HMAC-SHA256 (base64) using the app's

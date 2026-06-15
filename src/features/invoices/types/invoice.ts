@@ -41,6 +41,9 @@ export interface Invoice {
   convertedFromQuoteNumber?: string
   convertedFromQuoteTotal?: number
   convertedFromQuoteCreatedAt?: string
+  quickbooksInvoiceId?: string | null
+  quickbooksSyncStatus?: string | null
+  quickbooksInvoiceUrl?: string | null
 }
 
 export interface CreateInvoiceData {

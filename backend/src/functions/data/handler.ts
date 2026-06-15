@@ -484,7 +484,7 @@ We look forward to working with you!',
 
       if (qbAction === 'sync-invoice' && event.httpMethod === 'POST') {
         const body = parseBody(event)
-        return successResponse(await quickbooks.syncInvoice(tenantId, body?.invoiceId))
+        return successResponse(await quickbooks.syncInvoice(tenantId, body?.invoiceId, { sendEmail: !!body?.sendEmail }))
       }
 
       return errorResponse('QuickBooks route not found', 404)
