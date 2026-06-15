@@ -195,10 +195,13 @@ export function buildInvoiceNotificationSms(params: {
   invoiceNumber: string
   companyName: string
   viewUrl?: string
+  canPay?: boolean
 }): string {
-  const { companyName, viewUrl } = params
+  const { companyName, viewUrl, canPay } = params
   if (viewUrl) {
-    return `${companyName}: Your invoice is ready. View: ${viewUrl}`
+    return canPay
+      ? `${companyName}: Your invoice is ready. View & pay online: ${viewUrl}`
+      : `${companyName}: Your invoice is ready. View: ${viewUrl}`
   }
   return `${companyName}: Your invoice is ready. Check email for details.`
 }

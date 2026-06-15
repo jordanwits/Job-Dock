@@ -3,4 +3,4 @@
 
 export * from './types'
 export * from './service'
-export { isConfigured } from './config'
+export { isConfigured, isUsablePayUrl } from './config'

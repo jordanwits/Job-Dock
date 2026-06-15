@@ -2769,6 +2769,14 @@ export async function sendInvoiceEmail(data: {
   const acceptUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}` : ''
   const declineUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}` : ''
 
+  // QuickBooks hosted "Pay now" link, shown only when the invoice is still owed and the link is a
+  // real Intuit-hosted page (not the sandbox/unenrolled placeholder).
+  const { isUsablePayUrl } = await import('./quickbooks/config')
+  const payUrl =
+    invoiceData.paymentStatus !== 'paid' && isUsablePayUrl(invoiceData.quickbooksInvoiceUrl)
+      ? (invoiceData.quickbooksInvoiceUrl as string)
+      : null
+
   // Fetch logo URL if available (7 days expiration for email)
   let logoUrl: string | null = null
   if (settings?.logoUrl) {
@@ -2817,7 +2825,29 @@ export async function sendInvoiceEmail(data: {
               <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">${displayTitle}</h2>
               
               ${bodyHtml}
-              
+
+              ${payUrl ? `
+              <!-- Pay Now -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0 0 0;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color: #16a34a; border-radius: 6px;">
+                          <a href="${payUrl}" style="display: inline-block; padding: 16px 48px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 17px; line-height: 1.5; border-radius: 6px;">Pay Now</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding: 10px 0 0 0;">
+                    <p style="margin: 0; color: #999999; font-size: 13px; line-height: 1.5;">Pay securely online by card or bank transfer.</p>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+
               ${trackResponse ? `
               <!-- Action Buttons -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
@@ -2902,6 +2932,8 @@ Hi ${clientName},
 
 Please find your invoice attached as a PDF document.
 
+${payUrl ? `Pay online (card or bank transfer): ${payUrl}
+` : ''}
 ${trackResponse ? `**PLEASE CONFIRM RECEIPT:**
 
 View invoice and respond: ${viewUrl}
