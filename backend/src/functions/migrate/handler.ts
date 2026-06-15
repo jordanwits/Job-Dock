@@ -1096,6 +1096,55 @@ END $$`,
     ],
     description: 'Add archivedAt to Job for first-class archive state on the Jobs page (cascades to bookings)',
   },
+  {
+    name: '20260615000000_add_quickbooks_integration',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "quickbooks_connections" (
+        "id" TEXT NOT NULL,
+        "tenantId" TEXT NOT NULL,
+        "realmId" TEXT NOT NULL,
+        "accessToken" TEXT NOT NULL,
+        "refreshToken" TEXT NOT NULL,
+        "accessTokenExpiresAt" TIMESTAMP(3) NOT NULL,
+        "refreshTokenExpiresAt" TIMESTAMP(3) NOT NULL,
+        "paymentsConnected" BOOLEAN NOT NULL DEFAULT false,
+        "status" TEXT NOT NULL DEFAULT 'connected',
+        "scope" TEXT,
+        "lastSyncAt" TIMESTAMP(3),
+        "lastRefreshedAt" TIMESTAMP(3),
+        "lastErrorMessage" TEXT,
+        "connectedByUserId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "quickbooks_connections_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE TABLE IF NOT EXISTS "quickbooks_webhook_events" (
+        "id" TEXT NOT NULL,
+        "eventId" TEXT NOT NULL,
+        "realmId" TEXT NOT NULL,
+        "processedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "quickbooks_webhook_events_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "quickbooks_connections_tenantId_key" ON "quickbooks_connections"("tenantId")`,
+      `CREATE INDEX IF NOT EXISTS "quickbooks_connections_realmId_idx" ON "quickbooks_connections"("realmId")`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "quickbooks_webhook_events_eventId_key" ON "quickbooks_webhook_events"("eventId")`,
+      `CREATE INDEX IF NOT EXISTS "quickbooks_webhook_events_realmId_idx" ON "quickbooks_webhook_events"("realmId")`,
+      `ALTER TABLE "contacts" ADD COLUMN IF NOT EXISTS "quickbooksCustomerId" TEXT`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "quickbooksInvoiceId" TEXT`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "quickbooksSyncStatus" TEXT NOT NULL DEFAULT 'none'`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "quickbooksSyncedAt" TIMESTAMP(3)`,
+      `ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "quickbooksInvoiceUrl" TEXT`,
+      `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "quickbooksPaymentId" TEXT`,
+      `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'quickbooks_connections_tenantId_fkey') THEN
+    ALTER TABLE "quickbooks_connections" ADD CONSTRAINT "quickbooks_connections_tenantId_fkey"
+      FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$`,
+    ],
+    description: 'QuickBooks Online integration: connection + webhook idempotency tables and sync columns on contacts/invoices/payments',
+  },
 ]
 
 export const handler = async (
