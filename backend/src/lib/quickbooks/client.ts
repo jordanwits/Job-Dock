@@ -101,9 +101,13 @@ export async function qboRequest<T = any>(
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   })
+  // Capture Intuit's transaction id (intuit_tid) from the response headers — Intuit support uses
+  // it to trace requests, so we log it on failures for troubleshooting.
+  const intuitTid = res.headers.get('intuit_tid') || 'n/a'
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`QuickBooks API ${method} ${path} failed (${res.status}): ${text}`)
+    console.error(`QuickBooks API ${method} ${path} failed (${res.status}) intuit_tid=${intuitTid}: ${text}`)
+    throw new Error(`QuickBooks API ${method} ${path} failed (${res.status}, intuit_tid=${intuitTid}): ${text}`)
   }
   return (await res.json()) as T
 }

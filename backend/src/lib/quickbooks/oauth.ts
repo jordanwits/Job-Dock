@@ -63,7 +63,9 @@ async function tokenRequest(body: URLSearchParams): Promise<OAuthTokenResponse> 
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`QuickBooks token request failed (${res.status}): ${text}`)
+    const intuitTid = res.headers.get('intuit_tid') || 'n/a'
+    console.error(`QuickBooks token request failed (${res.status}) intuit_tid=${intuitTid}: ${text}`)
+    throw new Error(`QuickBooks token request failed (${res.status}, intuit_tid=${intuitTid}): ${text}`)
   }
   return (await res.json()) as OAuthTokenResponse
 }
