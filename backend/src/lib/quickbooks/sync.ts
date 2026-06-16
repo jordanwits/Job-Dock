@@ -112,9 +112,59 @@ export async function ensureCustomer(tenantId: string, contactId: string): Promi
   return customerId
 }
 
+// A stored QuickBooks id (Customer / Invoice) can reference an entity that does not exist in the
+// currently-connected company — most commonly ids cached while connected to a different (e.g.
+// sandbox) company before a production cutover. QBO rejects these with 2500 "Invalid Reference Id"
+// or 610 "Object Not Found".
+function isStaleQbReferenceError(err: any): boolean {
+  const msg = String(err?.message ?? '')
+  return (
+    /Invalid Reference Id/i.test(msg) ||
+    /Object Not Found/i.test(msg) ||
+    /"code"\s*:\s*"(2500|610)"/.test(msg)
+  )
+}
+
+// Null out the QuickBooks ids cached on this invoice and its contact so the next push re-resolves
+// them (find-or-create) against the currently-connected company. Also drops the per-tenant Services
+// item cache, which may point at an item id from the previous company.
+async function clearStaleQbRefs(tenantId: string, invoiceId: string): Promise<void> {
+  const prisma = await getPrisma()
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, tenantId },
+    select: { contactId: true },
+  })
+  if (invoice?.contactId) {
+    await prisma.contact.updateMany({
+      where: { id: invoice.contactId, tenantId },
+      data: { quickbooksCustomerId: null },
+    })
+  }
+  await prisma.invoice.updateMany({
+    where: { id: invoiceId, tenantId },
+    data: { quickbooksInvoiceId: null, quickbooksInvoiceUrl: null },
+  })
+  servicesItemCache.delete(tenantId)
+}
+
 // Push a JobDock invoice to QuickBooks (create or update), enabling online card/ACH payment so
-// the client receives a payable invoice with an Intuit "Pay now" link.
+// the client receives a payable invoice with an Intuit "Pay now" link. Self-heals stale references
+// (ids saved against a previously-connected company) by clearing them and retrying the push once.
 export async function pushInvoice(
+  tenantId: string,
+  invoiceId: string,
+  opts: { sendEmail?: boolean } = {}
+): Promise<SyncInvoiceResult> {
+  try {
+    return await pushInvoiceInternal(tenantId, invoiceId, opts)
+  } catch (err) {
+    if (!isStaleQbReferenceError(err)) throw err
+    await clearStaleQbRefs(tenantId, invoiceId)
+    return await pushInvoiceInternal(tenantId, invoiceId, opts)
+  }
+}
+
+async function pushInvoiceInternal(
   tenantId: string,
   invoiceId: string,
   opts: { sendEmail?: boolean } = {}
