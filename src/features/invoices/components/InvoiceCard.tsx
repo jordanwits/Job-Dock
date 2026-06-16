@@ -3,7 +3,7 @@ import { useInvoiceStore } from '../store/invoiceStore'
 import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
-import { CLIENT_APPROVAL_LABELS, INVOICE_STATUS_LABELS } from '../types/invoice'
+import { INVOICE_STATUS_LABELS } from '../types/invoice'
 
 interface InvoiceCardProps {
   invoice: Invoice
@@ -48,30 +48,11 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
     paid: 'Paid',
   }
 
-  const approvalStatusColors = {
-    none: theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      : 'bg-gray-200 text-gray-600 border-gray-300',
-    accepted: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-    declined: theme === 'dark'
-      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-      : 'bg-red-100 text-red-700 border-red-300',
-  }
-
   // Only show status badge if it's not redundant with paymentStatus
   // Show status for: draft, overdue, cancelled
   // Hide status for: sent (since paymentStatus already shows pending/partial/paid)
   const shouldShowStatus =
     invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
-
-  // Show approval status for sent invoices only if trackResponse is enabled
-  const shouldShowApproval =
-    invoice.trackResponse !== false &&
-    invoice.status === 'sent' &&
-    invoice.approvalStatus &&
-    invoice.approvalStatus !== 'none'
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -162,16 +143,6 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
                 )}
               >
                 {INVOICE_STATUS_LABELS[invoice.status]}
-              </span>
-            )}
-            {shouldShowApproval && (
-              <span
-                className={cn(
-                  'px-2 py-1 text-xs font-medium rounded border',
-                  approvalStatusColors[invoice.approvalStatus!]
-                )}
-              >
-                Client {CLIENT_APPROVAL_LABELS[invoice.approvalStatus]}
               </span>
             )}
             {invoice.trackPayment !== false && (

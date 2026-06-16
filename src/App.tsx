@@ -13,7 +13,7 @@ import { JobLogsListPage, JobLogDetailPage } from '@/features/jobLogs'
 import { PublicBookingPage, PublicReschedulePage } from '@/features/booking'
 import { SettingsPage, ProfileSettingsPage } from '@/features/settings'
 import { LineItemsManagerPage } from '@/features/line-items/pages/LineItemsManagerPage'
-import { QuoteApprovalPage, InvoiceApprovalPage, QuoteViewPage, InvoiceViewPage, ShortLinkRedirect } from '@/features/publicApproval'
+import { QuoteApprovalPage, QuoteViewPage, InvoiceViewPage, ShortLinkRedirect } from '@/features/publicApproval'
 import { ReportsPage } from '@/features/reports'
 import {
   LandingPage,
@@ -97,7 +97,9 @@ function App() {
         <Route path="/public/quote/:id" element={<QuoteViewPage />} />
         <Route path="/public/quote/:id/:action" element={<QuoteApprovalPage />} />
         <Route path="/public/invoice/:id" element={<InvoiceViewPage />} />
-        <Route path="/public/invoice/:id/:action" element={<InvoiceApprovalPage />} />
+        {/* Invoices no longer use Accept/Decline. Old emailed accept/decline links still resolve to
+            the invoice view (with Pay Now). Quotes keep their own approval flow above. */}
+        <Route path="/public/invoice/:id/:action" element={<InvoiceViewPage />} />
 
         {/* Auth Routes - Always render, let pages handle redirect */}
         <Route path="/auth/login" element={<LoginPage />} />

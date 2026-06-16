@@ -311,9 +311,9 @@ const DashboardPage = () => {
     const sent = invoices.filter(i => i.status === 'sent').length
     const overdue = invoices.filter(i => i.status === 'overdue').length
     const draft = invoices.filter(i => i.status === 'draft').length
-    const clientApproved = invoices.filter(i => i.approvalStatus === 'accepted').length
-    const awaitingApproval = invoices.filter(
-      i => i.status === 'sent' && i.approvalStatus === 'none'
+    const paid = invoices.filter(i => i.paymentStatus === 'paid').length
+    const unpaid = invoices.filter(
+      i => i.paymentStatus !== 'paid' && i.status !== 'cancelled' && i.status !== 'draft'
     ).length
 
     // Calculate total outstanding
@@ -327,7 +327,7 @@ const DashboardPage = () => {
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 3)
 
-    return { sent, overdue, draft, clientApproved, awaitingApproval, outstanding, recentInvoices }
+    return { sent, overdue, draft, paid, unpaid, outstanding, recentInvoices }
   }, [invoices])
 
   const isLoading = isEmployee
@@ -842,7 +842,7 @@ const DashboardPage = () => {
                 </div>
               </div>
 
-              {/* Client Approval Status */}
+              {/* Payment Status */}
               <div className={cn(
                 "rounded-lg p-4 mb-5 ring-1",
                 theme === 'dark'
@@ -852,23 +852,23 @@ const DashboardPage = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className={cn(
                     theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>Client Approved</span>
+                  )}>Paid</span>
                   <span className={cn(
                     "font-semibold",
                     theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
                   )}>
-                    {invoiceMetrics.clientApproved}
+                    {invoiceMetrics.paid}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-3">
                   <span className={cn(
                     theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>Awaiting Approval</span>
+                  )}>Unpaid</span>
                   <span className={cn(
                     "font-semibold",
                     theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
                   )}>
-                    {invoiceMetrics.awaitingApproval}
+                    {invoiceMetrics.unpaid}
                   </span>
                 </div>
               </div>

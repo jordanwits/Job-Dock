@@ -120,8 +120,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     return filtered
   }, [invoices, statusFilter, paymentStatusFilter, searchQuery])
 
-  // Check if any invoices have tracking enabled to show columns
-  const hasAnyTrackResponse = filteredInvoices.some(inv => inv.trackResponse !== false)
+  // Check if any invoices have payment tracking enabled to show the payment column
   const hasAnyTrackPayment = filteredInvoices.some(inv => inv.trackPayment !== false)
 
   // Handle bulk delete
@@ -226,24 +225,6 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     pending: 'Unpaid',
     partial: 'Partial',
     paid: 'Paid',
-  }
-
-  const approvalStatusColors = {
-    none: theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      : 'bg-gray-200 text-gray-600 border-gray-300',
-    accepted: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-    declined: theme === 'dark'
-      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-      : 'bg-red-100 text-red-700 border-red-300',
-  }
-
-  const approvalStatusLabels = {
-    none: 'No Response',
-    accepted: 'Accepted',
-    declined: 'Declined',
   }
 
   const formatCurrency = (amount: number) => {
@@ -605,14 +586,6 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                     )}>
                       Total
                     </th>
-                    {hasAnyTrackResponse && (
-                      <th className={cn(
-                        "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
-                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                      )}>
-                        Response
-                      </th>
-                    )}
                     {hasAnyTrackPayment && (
                       <th className={cn(
                         "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider",
@@ -722,20 +695,6 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                             </div>
                           )}
                         </td>
-                        {hasAnyTrackResponse && (
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {invoice.trackResponse !== false && invoice.approvalStatus && (
-                              <span
-                                className={cn(
-                                  'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
-                                  approvalStatusColors[invoice.approvalStatus]
-                                )}
-                              >
-                                {approvalStatusLabels[invoice.approvalStatus]}
-                              </span>
-                            )}
-                          </td>
-                        )}
                         {hasAnyTrackPayment && (
                           <td className="px-4 py-3 whitespace-nowrap">
                             {invoice.trackPayment !== false && (
@@ -841,16 +800,6 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
                             day: 'numeric',
                           })}
                         </div>
-                      )}
-                      {invoice.trackResponse !== false && invoice.approvalStatus && (
-                        <span
-                          className={cn(
-                            'px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full border',
-                            approvalStatusColors[invoice.approvalStatus]
-                          )}
-                        >
-                          {approvalStatusLabels[invoice.approvalStatus]}
-                        </span>
                       )}
                       {invoice.trackPayment !== false && (
                         <span

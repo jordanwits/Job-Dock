@@ -2749,9 +2749,6 @@ export async function sendInvoiceEmail(data: {
       })
     : 'Upon Receipt'
 
-  // Check tracking flags (default to true for backward compatibility)
-  const trackResponse = invoiceData.trackResponse !== false
-
   const displayTitle = (invoiceData.title && invoiceData.title.trim()) ? invoiceData.title.trim() : invoiceData.invoiceNumber
 
   // Convert body template newlines to HTML
@@ -2760,14 +2757,11 @@ export async function sendInvoiceEmail(data: {
     .map(line => `<p>${line}</p>`)
     .join('')
 
-  // Use provided token or generate (allows reuse for SMS)
-  const approvalToken = trackResponse
-    ? (providedToken ?? generateApprovalToken('invoice', invoiceData.id, tenantId))
-    : null
+  // Invoices always link to the branded public invoice page (where the client taps "Pay Now").
+  // Accept/Decline is no longer offered for invoices; the approval token simply authorizes the view.
+  const approvalToken = providedToken ?? generateApprovalToken('invoice', invoiceData.id, tenantId)
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
-  const viewUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}?token=${approvalToken}` : ''
-  const acceptUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/accept?token=${approvalToken}` : ''
-  const declineUrl = trackResponse ? `${publicAppUrl}/public/invoice/${invoiceData.id}/decline?token=${approvalToken}` : ''
+  const viewUrl = `${publicAppUrl}/public/invoice/${invoiceData.id}?token=${approvalToken}`
 
   // QuickBooks hosted "Pay now" link, shown only when the invoice is still owed and the link is a
   // real Intuit-hosted page (not the sandbox/unenrolled placeholder).
@@ -2826,64 +2820,32 @@ export async function sendInvoiceEmail(data: {
               
               ${bodyHtml}
 
-              ${payUrl ? `
-              <!-- Pay Now -->
+              <!-- Primary CTA: branded invoice page (where the client taps "Pay Now") -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0 0 0;">
                 <tr>
                   <td align="center">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <td style="background-color: #16a34a; border-radius: 6px;">
-                          <a href="${payUrl}" style="display: inline-block; padding: 16px 48px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 17px; line-height: 1.5; border-radius: 6px;">Pay Now</a>
+                        <td style="background-color: #D4AF37; border-radius: 6px;">
+                          <a href="${viewUrl}" style="display: inline-block; padding: 16px 48px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 17px; line-height: 1.5; border-radius: 6px;">${payUrl ? 'View &amp; Pay Invoice' : 'View Invoice'}</a>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
+                ${payUrl ? `
                 <tr>
-                  <td align="center" style="padding: 10px 0 0 0;">
+                  <td align="center" style="padding: 14px 0 0 0;">
+                    <a href="${payUrl}" style="color: #16a34a; text-decoration: none; font-size: 14px; font-weight: 600;">Or pay now directly &rarr;</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding: 6px 0 0 0;">
                     <p style="margin: 0; color: #999999; font-size: 13px; line-height: 1.5;">Pay securely online by card or bank transfer.</p>
                   </td>
                 </tr>
+                ` : ''}
               </table>
-              ` : ''}
-
-              ${trackResponse ? `
-              <!-- Action Buttons -->
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
-                <tr>
-                  <td align="center" style="padding: 0 0 20px 0;">
-                    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; font-weight: 500; line-height: 1.5;">View your invoice and respond:</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                      <tr>
-                        <td align="center" style="padding: 0 8px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                            <tr>
-                              <td style="background-color: #D4AF37; border-radius: 6px;">
-                                <a href="${viewUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">View Invoice & Respond</a>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                        <td align="center" style="padding: 0 8px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                            <tr>
-                              <td style="background-color: #6c757d; border-radius: 6px;">
-                                <a href="${declineUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Quick Decline</a>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              ` : ''}
             </td>
           </tr>
           
@@ -2932,13 +2894,8 @@ Hi ${clientName},
 
 Please find your invoice attached as a PDF document.
 
+View your invoice: ${viewUrl}
 ${payUrl ? `Pay online (card or bank transfer): ${payUrl}
-` : ''}
-${trackResponse ? `**PLEASE CONFIRM RECEIPT:**
-
-View invoice and respond: ${viewUrl}
-
-Quick decline: ${declineUrl}
 ` : ''}
   `.trim()
 

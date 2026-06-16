@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { publicApiClient } from '@/lib/api/client'
-import { DeclineSuccessIcon } from './DeclineSuccessIcon'
 
-const DECLINE_REASON_MAX_LEN = 2000
-
+/**
+ * Public, unauthenticated invoice page. Clients reach it from the email/SMS link, see the branded
+ * invoice PDF, and tap "Pay Now" to pay online via QuickBooks. Invoices no longer use Accept/Decline
+ * (that remains a quotes-only flow) — paying the invoice is the only action here.
+ */
 const InvoiceViewPage = () => {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
@@ -16,11 +18,6 @@ const InvoiceViewPage = () => {
   const [companyDisplayName, setCompanyDisplayName] = useState<string | null>(null)
   const [payUrl, setPayUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState<'accept' | 'decline' | null>(null)
-  const [success, setSuccess] = useState<'accept' | 'decline' | null>(null)
-  const [invoiceNumber, setInvoiceNumber] = useState<string>('')
-  const [declineStep, setDeclineStep] = useState<'idle' | 'confirm'>('idle')
-  const [declineReason, setDeclineReason] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -58,39 +55,6 @@ const InvoiceViewPage = () => {
     load()
   }, [id, token])
 
-  const handleAction = async (action: 'accept' | 'decline') => {
-    if (!id || !token) return
-
-    if (action === 'decline' && declineStep === 'idle') {
-      setDeclineStep('confirm')
-      setError(null)
-      return
-    }
-
-    setSubmitting(action)
-    try {
-      const endpoint = action === 'accept'
-        ? `/invoices/${id}/approve-public`
-        : `/invoices/${id}/decline-public`
-      const trimmed = declineReason.trim().slice(0, DECLINE_REASON_MAX_LEN)
-      const body =
-        action === 'accept' ? {} : trimmed ? { declineReason: trimmed } : {}
-      const response = await publicApiClient.post(`${endpoint}?token=${token}`, body)
-      setInvoiceNumber(response.data.invoiceNumber || id)
-      setSuccess(action)
-    } catch (err: any) {
-      console.error('Approval error:', err)
-      setError(
-        err.response?.data?.error?.message ||
-          err.response?.data?.message ||
-          err.message ||
-          'Failed to process your response. The link may be invalid or expired.'
-      )
-    } finally {
-      setSubmitting(null)
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
@@ -102,7 +66,7 @@ const InvoiceViewPage = () => {
     )
   }
 
-  if (error && !success) {
+  if (error) {
     return (
       <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-6 sm:p-8 text-center">
@@ -112,57 +76,6 @@ const InvoiceViewPage = () => {
           <p className="text-sm text-primary-light/50 mt-6">
             Please contact the contractor directly if you need assistance.
           </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-6 sm:p-8 text-center">
-          <div className="mb-4 sm:mb-6">
-            {companyLogoUrl ? (
-              <img
-                src={companyLogoUrl}
-                alt={companyDisplayName || 'Company logo'}
-                className="h-10 sm:h-12 w-auto max-w-[160px] sm:max-w-[200px] mx-auto object-contain"
-              />
-            ) : companyDisplayName ? (
-              <h1 className="text-2xl sm:text-3xl font-bold text-primary-gold">{companyDisplayName}</h1>
-            ) : (
-              <h1 className="text-2xl sm:text-3xl font-bold text-primary-gold">JobDock</h1>
-            )}
-          </div>
-            {success === 'accept' ? (
-              <div className="text-4xl sm:text-5xl mb-4">✅</div>
-            ) : (
-              <DeclineSuccessIcon />
-            )}
-          <h2 className="text-xl sm:text-2xl font-semibold text-primary-light mb-2">
-            {success === 'accept' ? 'Invoice Approved!' : 'Invoice Declined'}
-          </h2>
-          <p className="text-primary-light/70 text-sm sm:text-base">
-            {success === 'accept'
-              ? `Thank you for approving invoice ${invoiceNumber}. The contractor has been notified.`
-              : `Invoice ${invoiceNumber} has been declined. The contractor has been notified and will reach out to you.`}
-          </p>
-          {success === 'accept' && payUrl && (
-            <a
-              href={payUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block mt-6 px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors min-h-[48px]"
-            >
-              Pay Now
-            </a>
-          )}
-          {success === 'accept' && !payUrl && (
-            <p className="text-sm text-primary-light/60 mt-4">
-              Note: This approval does not constitute payment. Please remit payment according to the invoice terms.
-            </p>
-          )}
-          <p className="text-sm text-primary-light/50 mt-6">You can safely close this window.</p>
         </div>
       </div>
     )
@@ -211,79 +124,27 @@ const InvoiceViewPage = () => {
           )}
         </div>
 
-        {payUrl && (
-          <div className="mb-3 shrink-0 flex justify-center">
+        {payUrl ? (
+          <div className="mb-3 shrink-0 flex flex-col items-center gap-2">
             <a
               href={payUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-8 py-3.5 sm:py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 active:scale-[0.98] transition-colors touch-manipulation min-h-[48px] text-center"
+              className="w-full sm:w-auto px-10 py-3.5 sm:py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 active:scale-[0.98] transition-colors touch-manipulation min-h-[48px] text-center"
             >
               Pay Now
             </a>
+            <p className="text-xs text-primary-light/50">Pay securely online by card or bank transfer.</p>
           </div>
-        )}
-
-        {declineStep === 'confirm' && (
-          <div className="mb-4 space-y-2 shrink-0 max-w-xl mx-auto w-full">
-            <label htmlFor="invoice-view-decline-reason" className="block text-sm text-primary-light/80">
-              Reason for declining <span className="text-primary-light/50">(optional)</span>
-            </label>
-            <textarea
-              id="invoice-view-decline-reason"
-              value={declineReason}
-              onChange={e => setDeclineReason(e.target.value.slice(0, DECLINE_REASON_MAX_LEN))}
-              rows={3}
-              placeholder="The contractor will see this in JobDock."
-              className="w-full rounded-lg border border-primary-light/20 bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/40 focus:border-primary-gold focus:outline-none focus:ring-1 focus:ring-primary-gold"
-            />
-            <p className="text-xs text-primary-light/50 text-right">
-              {declineReason.length}/{DECLINE_REASON_MAX_LEN}
+        ) : (
+          <div className="mb-3 shrink-0 text-center">
+            <p className="text-sm text-primary-light/60">
+              {companyDisplayName
+                ? `To pay this invoice, please contact ${companyDisplayName}.`
+                : 'To pay this invoice, please contact the contractor.'}
             </p>
           </div>
         )}
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 justify-center shrink-0">
-          <button
-            onClick={() => handleAction('accept')}
-            disabled={!!submitting || declineStep === 'confirm'}
-            className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-gold text-primary-dark font-semibold rounded-lg hover:bg-primary-gold/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
-          >
-            {submitting === 'accept' ? 'Processing...' : 'Approve Invoice'}
-          </button>
-          {declineStep === 'idle' ? (
-            <button
-              type="button"
-              onClick={() => handleAction('decline')}
-              disabled={!!submitting}
-              className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
-            >
-              Decline
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setDeclineStep('idle')
-                  setDeclineReason('')
-                }}
-                disabled={!!submitting}
-                className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 disabled:opacity-50 min-h-[48px]"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAction('decline')}
-                disabled={!!submitting}
-                className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-red-600/90 text-white font-semibold rounded-lg hover:bg-red-600 disabled:opacity-50 min-h-[48px]"
-              >
-                {submitting === 'decline' ? 'Processing...' : 'Confirm decline'}
-              </button>
-            </>
-          )}
-        </div>
       </main>
     </div>
   )

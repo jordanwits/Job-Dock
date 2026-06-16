@@ -2139,8 +2139,30 @@ export const dataServices = {
         throw new ApiError('Contact has no valid notification preference', 400)
       }
 
-      // Serialize the invoice for email
-      const serializedInvoice = serializeInvoice(invoice)
+      // QuickBooks: when the tenant has QuickBooks connected with Payments enabled, push the invoice
+      // to QuickBooks first so the email/SMS can carry a real Intuit "Pay Now" link. Best-effort —
+      // never block the send if QuickBooks is unavailable or the invoice can't be synced.
+      let invoiceForSend = invoice
+      try {
+        const quickbooks = await import('./quickbooks')
+        const qbStatus = await quickbooks.getStatus(tenantId)
+        if (qbStatus.connected && qbStatus.paymentsConnected) {
+          await quickbooks.syncInvoice(tenantId, id, { sendEmail: false })
+          const refreshed = await prisma.invoice.findFirst({
+            where: { id, tenantId },
+            include: { contact: true, lineItems: true },
+          })
+          if (refreshed) invoiceForSend = refreshed
+        }
+      } catch (err) {
+        console.error(
+          '[WARN] QuickBooks sync before invoice send failed; sending without a pay link:',
+          err instanceof Error ? err.message : err
+        )
+      }
+
+      // Serialize the invoice for email (reflects any fresh QuickBooks pay link from the sync above)
+      const serializedInvoice = serializeInvoice(invoiceForSend)
 
       // Get tenant settings for company name
       const settings = await prisma.tenantSettings.findUnique({
@@ -2152,15 +2174,12 @@ export const dataServices = {
       })
       const companyName = settings?.companyDisplayName || tenant?.name || 'JobDock'
 
-      const trackResponse = serializedInvoice.trackResponse !== false
-      const approvalToken = trackResponse
-        ? generateApprovalToken('invoice', invoice.id, tenantId)
-        : null
+      // Invoices always get a branded public view link — the client's path to the QuickBooks "Pay
+      // Now" button. The approval token secures the public page (accept/decline is no longer offered
+      // for invoices, but the same token mechanism authorizes the public view).
+      const approvalToken = generateApprovalToken('invoice', invoice.id, tenantId)
       const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
-      const viewUrl =
-        trackResponse && approvalToken
-          ? `${publicAppUrl}/public/invoice/${invoice.id}?token=${approvalToken}`
-          : ''
+      const viewUrl = `${publicAppUrl}/public/invoice/${invoice.id}?token=${approvalToken}`
 
       const sentVia: string[] = []
 

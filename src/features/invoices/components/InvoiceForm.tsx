@@ -91,7 +91,6 @@ const InvoiceForm = ({
       paymentTerms: invoice?.paymentTerms || 'Net 30',
       status: invoice?.status || 'draft',
       paymentStatus: invoice?.paymentStatus || 'pending',
-      trackResponse: invoice?.trackResponse ?? true,
       trackPayment: invoice?.trackPayment ?? true,
     },
   })
@@ -134,7 +133,6 @@ const InvoiceForm = ({
         paymentTerms: invoice.paymentTerms || 'Net 30',
         status: invoice.status,
         paymentStatus: invoice.paymentStatus,
-        trackResponse: invoice.trackResponse ?? true,
         trackPayment: invoice.trackPayment ?? true,
       })
     }
@@ -514,13 +512,6 @@ const InvoiceForm = ({
             Tracking Options
           </label>
           <div className="space-y-3">
-            <Checkbox
-              id="trackResponse"
-              label="Track Response (Include Accept/Decline buttons in email)"
-              checked={watch('trackResponse') ?? true}
-              onChange={e => setValue('trackResponse', e.target.checked)}
-              error={errors.trackResponse?.message}
-            />
             <Checkbox
               id="trackPayment"
               label="Track Payment (Enable payment status indicator)"

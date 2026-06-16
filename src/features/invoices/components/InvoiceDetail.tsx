@@ -1,4 +1,4 @@
-import { Invoice, InvoiceStatus, PaymentStatus, ApprovalStatus } from '../types/invoice'
+import { Invoice, InvoiceStatus, PaymentStatus } from '../types/invoice'
 import { useInvoiceStore } from '../store/invoiceStore'
 import { Modal, Button, StatusBadgeSelect, Input } from '@/components/ui'
 import { useState, useEffect } from 'react'
@@ -207,18 +207,6 @@ const InvoiceDetail = ({
       : 'bg-green-100 text-green-700 border-green-300',
   }
 
-  const approvalStatusColors = {
-    none: theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      : 'bg-gray-200 text-gray-600 border-gray-300',
-    accepted: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-    declined: theme === 'dark'
-      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-      : 'bg-red-100 text-red-700 border-red-300',
-  }
-
   const invoiceStatusOptions = [
     { value: 'draft', label: 'Draft' },
     { value: 'sent', label: 'Sent' },
@@ -232,12 +220,6 @@ const InvoiceDetail = ({
     { value: 'paid', label: 'Paid' },
   ]
 
-  const approvalStatusOptions = [
-    { value: 'none', label: 'No Response' },
-    { value: 'accepted', label: 'Accepted' },
-    { value: 'declined', label: 'Declined' },
-  ]
-
   const handleInvoiceStatusChange = async (newStatus: string) => {
     try {
       await updateInvoice({ id: invoice.id, status: newStatus as InvoiceStatus })
@@ -249,14 +231,6 @@ const InvoiceDetail = ({
   const handlePaymentStatusChange = async (newPaymentStatus: string) => {
     try {
       await updateInvoice({ id: invoice.id, paymentStatus: newPaymentStatus as PaymentStatus })
-    } catch (error) {
-      // Error handled by store
-    }
-  }
-
-  const handleApprovalStatusChange = async (newApprovalStatus: string) => {
-    try {
-      await updateInvoice({ id: invoice.id, approvalStatus: newApprovalStatus as ApprovalStatus })
     } catch (error) {
       // Error handled by store
     }
@@ -388,16 +362,6 @@ const InvoiceDetail = ({
                   size="md"
                 />
               )}
-              {invoice.trackResponse !== false && invoice.approvalStatus && (
-                <StatusBadgeSelect
-                  value={invoice.approvalStatus}
-                  options={approvalStatusOptions}
-                  colorClassesByValue={approvalStatusColors}
-                  onChange={handleApprovalStatusChange}
-                  isLoading={isLoading}
-                  size="md"
-                />
-              )}
               {invoice.trackPayment !== false && (
                 <StatusBadgeSelect
                   value={invoice.paymentStatus}
@@ -418,34 +382,6 @@ const InvoiceDetail = ({
           {sendError && (
             <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
               <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
-            </div>
-          )}
-
-          {invoice.approvalStatus === 'declined' && invoice.clientDeclineReason?.trim() && (
-            <div
-              className={cn(
-                'p-4 rounded-lg border',
-                theme === 'dark'
-                  ? 'border-amber-500/40 bg-amber-500/10'
-                  : 'border-amber-200 bg-amber-50'
-              )}
-            >
-              <p
-                className={cn(
-                  'text-sm font-medium',
-                  theme === 'dark' ? 'text-amber-200' : 'text-amber-900'
-                )}
-              >
-                Client decline note
-              </p>
-              <p
-                className={cn(
-                  'text-sm mt-2 whitespace-pre-wrap',
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                )}
-              >
-                {invoice.clientDeclineReason}
-              </p>
             </div>
           )}
 
