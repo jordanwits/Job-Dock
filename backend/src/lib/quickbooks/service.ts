@@ -14,6 +14,17 @@ async function getPrisma(): Promise<any> {
   return prisma as any
 }
 
+// Whether this connection carries QuickBooks Payments authorization. Intuit's token-bearer
+// response does NOT echo back a `scope` field for the QBO accounting/payment scopes, so the old
+// `tokens.scope` check was always falsy and `paymentsConnected` was permanently stuck false.
+// Derive it instead from the scopes JobDock requested (the consent screen grants them).
+// NOTE: this reflects that the payment scope was granted, not whether the company has finished
+// QuickBooks Payments merchant enrollment — the actual per-invoice pay link is still gated
+// separately by isUsablePayUrl().
+function paymentsScopeGranted(): boolean {
+  return loadQuickBooksConfig().scopes.includes(QBO_SCOPE_PAYMENTS)
+}
+
 export async function getStatus(tenantId: string): Promise<QuickBooksStatus> {
   const record = await getConnectionRecord(tenantId)
   if (!record || record.status === 'disconnected') {
@@ -22,7 +33,7 @@ export async function getStatus(tenantId: string): Promise<QuickBooksStatus> {
   return {
     connected: record.status === 'connected',
     realmId: record.realmId,
-    paymentsConnected: !!record.paymentsConnected,
+    paymentsConnected: paymentsScopeGranted(),
     status: record.status,
     lastSyncAt: record.lastSyncAt ? record.lastSyncAt.toISOString() : null,
     lastErrorMessage: record.lastErrorMessage ?? null,
@@ -43,7 +54,7 @@ export async function connect(
   if (!verifyState(params.state, tenantId)) throw new ApiError('Invalid OAuth state', 400)
 
   const tokens = await exchangeCodeForTokens(params.code)
-  const paymentsConnected = (tokens.scope || '').includes(QBO_SCOPE_PAYMENTS)
+  const paymentsConnected = paymentsScopeGranted()
   await saveTokens(tenantId, params.realmId, tokens, {
     connectedByUserId: userId,
     paymentsConnected,
