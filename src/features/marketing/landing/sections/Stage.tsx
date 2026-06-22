@@ -22,7 +22,16 @@ const Stage = ({ index, stage, showInlinePhone, id }: StageProps) => {
   const phoneLeft = stage.side === 'left'
 
   return (
-    <section id={id} className="relative flex min-h-[100svh] scroll-mt-24 items-center overflow-x-clip py-24">
+    <section id={id} className="relative isolate flex min-h-[72svh] scroll-mt-24 items-center overflow-x-clip py-16">
+      {/* Subtle grain texture */}
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.22] mix-blend-soft-light [background-size:180px_180px]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+        aria-hidden
+      />
       <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 md:px-8 lg:grid-cols-2 lg:gap-16">
         {/* Phone slot */}
         <div className={cn('relative order-2 flex items-center justify-center', phoneLeft ? 'lg:order-1' : 'lg:order-2')}>
@@ -33,7 +42,7 @@ const Stage = ({ index, stage, showInlinePhone, id }: StageProps) => {
               <Screen />
             </PhoneFrame>
           ) : (
-            <div className="hidden h-[clamp(420px,66vh,620px)] w-full lg:block" aria-hidden />
+            <div className="hidden h-[clamp(400px,56vh,560px)] w-full lg:block" aria-hidden />
           )}
         </div>
 

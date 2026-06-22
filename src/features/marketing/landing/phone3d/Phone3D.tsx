@@ -27,6 +27,8 @@ interface Sample {
   progress: number
   presence: number
   cx: number[]
+  /** Pixels the final stage's centre has scrolled above viewport centre (0 until past it). */
+  tail: number
 }
 
 function sampleScroll(): Sample {
@@ -41,7 +43,7 @@ function sampleScroll(): Sample {
     cy.push(r.top + r.height / 2)
     cx.push(r.left + r.width / 2)
   })
-  if (!cy.length) return { progress: 0, presence: 0, cx }
+  if (!cy.length) return { progress: 0, presence: 0, cx, tail: 0 }
 
   let i = 0
   for (let k = 0; k < cy.length; k++) {
@@ -53,13 +55,20 @@ function sampleScroll(): Sample {
     progress = i + (span > 0 ? Math.max(0, Math.min(1, (center - cy[i]) / span)) : 0)
   }
 
+  // Bottom-out: once the final stage passes above viewport centre, the phone stops advancing
+  // the journey and instead rides up with that section (rather than hovering at screen centre),
+  // so it scrolls out of view naturally and returns when the user scrolls back up.
+  const tail = Math.max(0, center - cy[cy.length - 1])
+
   let presence = 1
   if (region) {
     const rr = region.getBoundingClientRect()
-    if (rr.bottom < center) presence = Math.max(0, 1 - (center - rr.bottom) / (vh * 0.55))
-    else if (rr.top > center) presence = Math.max(0, 1 - (rr.top - center) / (vh * 0.55))
+    // Fade in as the region approaches from below. No fade-out at the bottom: once the phone
+    // reaches the final (reports) stage it stays full-size and pinned until the user scrolls
+    // back up.
+    if (rr.top > center) presence = Math.max(0, 1 - (rr.top - center) / (vh * 0.55))
   }
-  return { progress, presence, cx }
+  return { progress, presence, cx, tail }
 }
 
 export default function Phone3D() {
@@ -107,12 +116,14 @@ export default function Phone3D() {
   useFrame(state => {
     const g = group.current
     if (!g) return
-    const { progress, presence, cx } = sampleScroll()
+    const { progress, presence, cx, tail } = sampleScroll()
 
     const cam = camera as THREE.PerspectiveCamera
     const halfH = Math.tan((cam.fov * Math.PI) / 180 / 2) * cam.position.z
     const halfW = halfH * (size.width / size.height)
     const pxToWorld = (px: number) => ((px / size.width) * 2 - 1) * halfW
+    // World units per screen pixel (full viewport height = 2·halfH world units).
+    const worldPerPx = (2 * halfH) / size.height
 
     const i = Math.floor(progress)
     const t = smoothstep(progress - i)
@@ -132,7 +143,9 @@ export default function Phone3D() {
     pres.current += (presence - pres.current) * LERP
 
     const bob = Math.sin(state.clock.elapsedTime * 0.9) * 0.03
-    g.position.set(worldX.current, bob, 0)
+    // Glued 1:1 to scroll past the bottom-out point, so it tracks the reports section up and away.
+    const tailY = tail * worldPerPx
+    g.position.set(worldX.current, bob + tailY, 0)
     g.rotation.set(-0.04, rotY.current, 0)
     g.scale.setScalar(Math.max(0.0001, pres.current) * SCALE)
 

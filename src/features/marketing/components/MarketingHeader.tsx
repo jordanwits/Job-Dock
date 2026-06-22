@@ -60,7 +60,7 @@ const MarketingHeader = () => {
   return (
     <header
       className={`fixed top-0 z-50 w-full transition-all duration-300 pt-[env(safe-area-inset-top,0px)] sm:pt-0 ${
-        isFilled ? 'border-b border-slate-200/70 bg-white/85 shadow-sm backdrop-blur-xl' : 'bg-transparent'
+        isFilled ? 'bg-white/85 shadow-sm backdrop-blur-xl' : 'bg-transparent'
       }`}
     >
       <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
@@ -69,7 +69,7 @@ const MarketingHeader = () => {
           <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-100">
             <img src="/TJD Icon transparent.png" alt="JobDock logo" className="h-6 w-auto" />
           </div>
-          <span className="truncate text-xl font-extrabold tracking-tight text-slate-900">
+          <span className={`truncate text-xl font-extrabold tracking-tight ${isFilled ? 'text-slate-900' : 'text-white'}`}>
             {publicSiteConfig.companyName}
           </span>
         </Link>
@@ -80,7 +80,7 @@ const MarketingHeader = () => {
             <button
               key={link.target}
               onClick={() => handleSectionClick(link.target)}
-              className="group relative pb-1 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900"
+              className={`group relative pb-1 text-sm font-semibold transition-colors ${isFilled ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
             >
               {link.label}
               <span className="absolute bottom-0 left-0 h-0.5 w-0 bg-teal-500 transition-all duration-300 group-hover:w-full" />
@@ -88,7 +88,7 @@ const MarketingHeader = () => {
           ))}
           <Link
             to="/auth/login"
-            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${isFilled ? 'text-slate-700 hover:bg-slate-100' : 'text-white/90 hover:bg-white/10'}`}
           >
             Log in
           </Link>
@@ -110,7 +110,7 @@ const MarketingHeader = () => {
           </Link>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="hamburger-button rounded-lg p-2 text-slate-700 transition-colors hover:bg-slate-100"
+            className={`hamburger-button rounded-lg p-2 transition-colors ${isFilled ? 'text-slate-700 hover:bg-slate-100' : 'text-white hover:bg-white/10'}`}
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
