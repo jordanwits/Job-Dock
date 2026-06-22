@@ -10,7 +10,7 @@ interface MarketingLayoutProps {
 
 const MarketingLayout = ({ children, hideHeader, hideFooter }: MarketingLayoutProps) => {
   return (
-    <div className="min-h-screen bg-primary-light flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       {!hideHeader && <MarketingHeader />}
       <main className="flex-1">{children}</main>
       {!hideFooter && <MarketingFooter />}

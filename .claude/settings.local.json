@@ -9,7 +9,16 @@
       "Bash(node .claude/skills/impeccable/scripts/context.mjs)",
       "Bash(node .claude/skills/impeccable/scripts/context-signals.mjs)",
       "PowerShell($tokens = $null; $errors = $null; [System.Management.Automation.Language.Parser]::ParseFile\\(\"G:\\\\JobDock\\\\deploy-production.ps1\", [ref]$tokens, [ref]$errors\\); if \\($errors.Count -eq 0\\) { \"No parse errors\" } else { $errors | ForEach-Object { \"ERROR: $\\($_.Message\\) at line $\\($_.Extent.StartLineNumber\\)\" } })",
-      "PowerShell($tok = $null; $err = $null; [void][System.Management.Automation.Language.Parser]::ParseFile\\(\"G:\\\\JobDock\\\\deploy-production.ps1\", [ref]$tok, [ref]$err\\); Write-Host \"Parse errors: $\\($err.Count\\)\")"
+      "PowerShell($tok = $null; $err = $null; [void][System.Management.Automation.Language.Parser]::ParseFile\\(\"G:\\\\JobDock\\\\deploy-production.ps1\", [ref]$tok, [ref]$err\\); Write-Host \"Parse errors: $\\($err.Count\\)\")",
+      "Bash(Get-ChildItem -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Get-ChildItem -Path \"G:\\\\JobDock\" -Recurse -Directory -Depth 2)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(Head -50)",
+      "PowerShell(Get-ChildItem -Path \"G:\\\\JobDock\\\\backend\\\\src\" -Recurse | Where-Object {$_.Extension -in @\\('.ts', '.tsx'\\)} | Select-Object -ExpandProperty FullName)",
+      "PowerShell(ls -Path 'G:\\\\JobDock\\\\backend\\\\src' -Recurse | Where-Object { $_.Extension -in '.ts', '.js' } | Select-Object -First 40 -ExpandProperty FullName)",
+      "PowerShell(head -20)",
+      "Bash(xargs grep -l \"stripe\\\\|Stripe\\\\|payment\\\\|Payment\")"
     ]
   }
 }

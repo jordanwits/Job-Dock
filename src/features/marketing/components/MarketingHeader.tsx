@@ -2,20 +2,25 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { publicSiteConfig } from '../content/publicSiteConfig'
 
+const NAV_LINKS = [
+  { label: 'Features', target: 'features' },
+  { label: 'Pricing', target: 'pricing' },
+]
+
 const MarketingHeader = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [isScrolled, setIsScrolled] = useState(false)
-  const alwaysFilled = pathname === '/auth/signup'
-  const isFilled = alwaysFilled || isScrolled
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20)
-    }
+  // The header is transparent only while resting at the top of the bright landing hero.
+  const isLanding = pathname === '/'
+  const isFilled = !isLanding || isScrolled
 
-    window.addEventListener('scroll', handleScroll)
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20)
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -23,22 +28,16 @@ const MarketingHeader = () => {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement
-      if (
-        isMobileMenuOpen &&
-        !target.closest('.mobile-menu') &&
-        !target.closest('.hamburger-button')
-      ) {
+      if (isMobileMenuOpen && !target.closest('.mobile-menu') && !target.closest('.hamburger-button')) {
         setIsMobileMenuOpen(false)
       }
     }
-
     if (isMobileMenuOpen) {
       document.addEventListener('click', handleClickOutside)
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
     }
-
     return () => {
       document.removeEventListener('click', handleClickOutside)
       document.body.style.overflow = ''
@@ -50,7 +49,8 @@ const MarketingHeader = () => {
     if (pathname === '/') {
       const element = document.getElementById(id)
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        element.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
       }
     } else {
       navigate(`/#${id}`)
@@ -60,127 +60,66 @@ const MarketingHeader = () => {
   return (
     <header
       className={`fixed top-0 z-50 w-full transition-all duration-300 pt-[env(safe-area-inset-top,0px)] sm:pt-0 ${
-        isFilled ? 'bg-white backdrop-blur-sm shadow-md' : 'bg-transparent'
+        isFilled ? 'border-b border-slate-200/70 bg-white/85 shadow-sm backdrop-blur-xl' : 'bg-transparent'
       }`}
     >
       <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 z-50 min-w-0 max-w-[140px] sm:max-w-[200px]">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm">
-            <img src="/TJD Icon transparent.png" alt="JobDock Logo" className="h-6 w-auto" />
+        <Link to="/" className="z-50 flex min-w-0 max-w-[160px] items-center gap-2 sm:max-w-[220px]">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-100">
+            <img src="/TJD Icon transparent.png" alt="JobDock logo" className="h-6 w-auto" />
           </div>
-          <span
-            className={`text-xl font-bold transition-colors truncate min-w-0 ${
-              isFilled ? 'text-primary-dark' : 'text-white'
-            }`}
-          >
+          <span className="truncate text-xl font-extrabold tracking-tight text-slate-900">
             {publicSiteConfig.companyName}
           </span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
-          <button
-            onClick={() => handleSectionClick('features')}
-            className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isFilled
-                ? 'text-primary-dark/70 hover:text-primary-dark'
-                : 'text-white/80 hover:text-white'
-            }`}
-          >
-            Features
-            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
-          </button>
-          <button
-            onClick={() => handleSectionClick('how-it-works')}
-            className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isFilled
-                ? 'text-primary-dark/70 hover:text-primary-dark'
-                : 'text-white/80 hover:text-white'
-            }`}
-          >
-            How It Works
-            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
-          </button>
-          <button
-            onClick={() => handleSectionClick('benefits')}
-            className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isFilled
-                ? 'text-primary-dark/70 hover:text-primary-dark'
-                : 'text-white/80 hover:text-white'
-            }`}
-          >
-            Benefits
-            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
-          </button>
-          <button
-            onClick={() => handleSectionClick('why-us')}
-            className={`relative text-sm font-medium transition-colors pb-1 group ${
-              isFilled
-                ? 'text-primary-dark/70 hover:text-primary-dark'
-                : 'text-white/80 hover:text-white'
-            }`}
-          >
-            Why Us
-            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary-gold transition-all duration-300 group-hover:w-full"></span>
-          </button>
-          <Link to="/auth/login">
+        <nav className="hidden items-center gap-7 md:flex">
+          {NAV_LINKS.map((link) => (
             <button
-              className={`text-sm font-medium px-4 py-2 rounded-lg transition-all ${
-                isFilled
-                  ? 'text-primary-dark hover:text-primary-blue hover:bg-primary-blue/5'
-                  : 'text-white hover:bg-white/10'
-              }`}
+              key={link.target}
+              onClick={() => handleSectionClick(link.target)}
+              className="group relative pb-1 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900"
             >
-              Login
+              {link.label}
+              <span className="absolute bottom-0 left-0 h-0.5 w-0 bg-teal-500 transition-all duration-300 group-hover:w-full" />
             </button>
+          ))}
+          <Link
+            to="/auth/login"
+            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+          >
+            Log in
           </Link>
-          <Link to="/auth/signup">
-            <button className="text-sm font-semibold text-primary-dark bg-primary-gold hover:bg-primary-gold/90 px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all hover:scale-105">
-              Get Started
-            </button>
+          <Link
+            to="/auth/signup"
+            className="rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-teal-500/25 transition-all hover:-translate-y-0.5 hover:bg-teal-600"
+          >
+            Start free
           </Link>
         </nav>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden flex items-center gap-2">
-          <Link to="/auth/login">
-            <button
-              className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all ${
-                isFilled
-                  ? 'text-primary-dark border border-primary-dark hover:bg-primary-blue/5'
-                  : 'text-white border border-white hover:bg-white/10'
-              }`}
-            >
-              Login
-            </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <Link
+            to="/auth/signup"
+            className="rounded-full bg-teal-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-teal-500/25"
+          >
+            Start free
           </Link>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`hamburger-button p-2 rounded-lg transition-colors ${
-              isFilled
-                ? 'text-primary-dark hover:bg-primary-blue/5'
-                : 'text-white hover:bg-white/10'
-            }`}
+            className="hamburger-button rounded-lg p-2 text-slate-700 transition-colors hover:bg-slate-100"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             )}
           </button>
@@ -189,36 +128,30 @@ const MarketingHeader = () => {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="mobile-menu md:hidden fixed inset-x-0 top-20 bg-white shadow-2xl animate-slide-down border-t border-gray-200">
-          <nav className="container mx-auto px-4 py-6 flex flex-col gap-4">
-            <button
-              onClick={() => handleSectionClick('features')}
-              className="text-left px-4 py-3 text-base font-medium text-gray-900 hover:bg-primary-gold/10 rounded-lg transition-colors"
-            >
-              Features
-            </button>
-            <button
-              onClick={() => handleSectionClick('how-it-works')}
-              className="text-left px-4 py-3 text-base font-medium text-gray-900 hover:bg-primary-gold/10 rounded-lg transition-colors"
-            >
-              How It Works
-            </button>
-            <button
-              onClick={() => handleSectionClick('benefits')}
-              className="text-left px-4 py-3 text-base font-medium text-gray-900 hover:bg-primary-gold/10 rounded-lg transition-colors"
-            >
-              Benefits
-            </button>
-            <button
-              onClick={() => handleSectionClick('why-us')}
-              className="text-left px-4 py-3 text-base font-medium text-gray-900 hover:bg-primary-gold/10 rounded-lg transition-colors"
-            >
-              Why Us
-            </button>
-            <Link to="/auth/register" onClick={() => setIsMobileMenuOpen(false)}>
-              <button className="w-full text-center px-6 py-3 text-base font-semibold text-gray-900 bg-primary-gold hover:bg-primary-gold/90 rounded-lg shadow-md transition-all">
-                Get Started
+        <div className="mobile-menu animate-slide-down fixed inset-x-0 top-20 border-t border-slate-200 bg-white shadow-2xl md:hidden">
+          <nav className="container mx-auto flex flex-col gap-2 px-4 py-6">
+            {NAV_LINKS.map((link) => (
+              <button
+                key={link.target}
+                onClick={() => handleSectionClick(link.target)}
+                className="rounded-lg px-4 py-3 text-left text-base font-semibold text-slate-800 transition-colors hover:bg-teal-50"
+              >
+                {link.label}
               </button>
+            ))}
+            <Link
+              to="/auth/login"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="rounded-lg px-4 py-3 text-left text-base font-semibold text-slate-800 transition-colors hover:bg-teal-50"
+            >
+              Log in
+            </Link>
+            <Link
+              to="/auth/signup"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="mt-1 rounded-full bg-teal-500 px-6 py-3 text-center text-base font-bold text-white shadow-md"
+            >
+              Start free
             </Link>
           </nav>
         </div>

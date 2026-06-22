@@ -20,12 +20,14 @@ input:-webkit-autofill {
 @layer base {
   html {
     overflow-x: hidden;
+    overflow-x: clip; /* clip prevents an x-axis scroll container so position: sticky still works */
     max-width: 100vw;
   }
 
   body {
     @apply text-primary-light font-sans antialiased;
     overflow-x: hidden;
+    overflow-x: clip; /* clip prevents an x-axis scroll container so position: sticky still works */
     max-width: 100vw;
     position: relative;
     background-color: #0b132b; /* Default dark background */
@@ -41,6 +43,7 @@ input:-webkit-autofill {
 
   #root {
     overflow-x: hidden;
+    overflow-x: clip; /* clip prevents an x-axis scroll container so position: sticky still works */
     max-width: 100vw;
   }
 
@@ -342,6 +345,89 @@ input:-webkit-autofill {
   /* Industrial accent line */
   .border-industrial {
     border-image: linear-gradient(to right, transparent, rgba(212, 175, 55, 0.5), transparent) 1;
+  }
+
+  /* ===== Landing page (cleaning rebuild) ambient motion + textures ===== */
+  @keyframes jdFloat {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translate3d(0, -16px, 0);
+    }
+  }
+
+  @keyframes jdFloatSlow {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translate3d(0, -26px, 0);
+    }
+  }
+
+  @keyframes jdDrift {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(3%, -2%, 0) scale(1.08);
+    }
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes jdSheen {
+    0% {
+      transform: translateX(-120%);
+    }
+    60%,
+    100% {
+      transform: translateX(220%);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .jd-float {
+      animation: jdFloat 7s ease-in-out infinite;
+    }
+    .jd-float-slow {
+      animation: jdFloatSlow 11s ease-in-out infinite;
+    }
+    .jd-drift {
+      animation: jdDrift 24s ease-in-out infinite;
+    }
+    .jd-sheen::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        100deg,
+        transparent 30%,
+        rgba(255, 255, 255, 0.55) 50%,
+        transparent 70%
+      );
+      transform: translateX(-120%);
+      animation: jdSheen 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+  }
+
+  /* Soft dotted texture for bright sections */
+  .jd-dot-grid {
+    background-image: radial-gradient(rgba(13, 148, 136, 0.16) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+  }
+
+  /* Fresh aurora wash used behind immersive bright sections */
+  .jd-aurora {
+    background:
+      radial-gradient(60% 50% at 18% 12%, rgba(45, 212, 191, 0.22), transparent 60%),
+      radial-gradient(55% 45% at 85% 18%, rgba(56, 189, 248, 0.2), transparent 62%),
+      radial-gradient(60% 60% at 70% 95%, rgba(45, 212, 191, 0.16), transparent 60%);
   }
 
   /* Safe area insets for mobile notches - no bottom so content reaches edge when in app */
