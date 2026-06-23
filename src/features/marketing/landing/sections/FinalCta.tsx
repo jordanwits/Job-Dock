@@ -12,18 +12,6 @@ const FinalCta = () => {
       {/* Floating light orbs */}
       <ParallaxLayer speed={0.16} className="pointer-events-none absolute -left-10 top-6 h-56 w-56 rounded-full bg-white/15 blur-3xl" aria-hidden />
       <ParallaxLayer speed={-0.12} className="pointer-events-none absolute -right-12 bottom-0 h-72 w-72 rounded-full bg-sky-300/25 blur-3xl" aria-hidden />
-      <div className="jd-dot-grid absolute inset-0 opacity-20" aria-hidden />
-
-      {/* Floating sparkles */}
-      <ParallaxLayer speed={0.3} className="pointer-events-none absolute left-[12%] top-[22%]" aria-hidden>
-        <span className="jd-float block h-3 w-3 rounded-full bg-white/70" />
-      </ParallaxLayer>
-      <ParallaxLayer speed={0.45} className="pointer-events-none absolute right-[18%] top-[30%]" aria-hidden>
-        <span className="jd-float-slow block h-2 w-2 rounded-full bg-white/80" />
-      </ParallaxLayer>
-      <ParallaxLayer speed={0.25} className="pointer-events-none absolute left-[24%] bottom-[20%]" aria-hidden>
-        <span className="jd-float block h-2.5 w-2.5 rounded-full bg-white/60" />
-      </ParallaxLayer>
 
       <div className="relative mx-auto max-w-3xl px-5 text-center md:px-8">
         <Reveal from="up">

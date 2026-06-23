@@ -50,7 +50,7 @@ const Hero = ({ showInlinePhone }: { showInlinePhone: boolean }) => {
               <LandingButton to="/auth/signup" variant="primary" size="lg" withArrow className="w-full sm:w-auto">
                 {hero.primaryCta}
               </LandingButton>
-              <LandingButton onClick={() => scrollToId('features')} variant="ghost" size="lg" className="w-full sm:w-auto">
+              <LandingButton onClick={() => scrollToId('features')} variant="ghost" size="lg" className="w-full bg-white hover:bg-white/70 sm:w-auto">
                 {hero.secondaryCta}
               </LandingButton>
             </div>
