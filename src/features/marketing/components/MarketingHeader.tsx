@@ -4,6 +4,7 @@ import { publicSiteConfig } from '../content/publicSiteConfig'
 
 const NAV_LINKS = [
   { label: 'Features', target: 'features' },
+  { label: 'Reviews', target: 'reviews' },
   { label: 'Pricing', target: 'pricing' },
 ]
 

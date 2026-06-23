@@ -31,7 +31,7 @@ const PhoneScene = () => {
         dpr={[1, 2]}
         camera={{ position: [0, 0, 5], fov: 30 }}
         gl={{ alpha: true, antialias: true }}
-        style={{ background: 'transparent' }}
+        style={{ background: 'transparent', pointerEvents: 'none' }}
       >
         {/* No lights or environment: the phone uses unlit (MeshBasic) materials. */}
         <Suspense fallback={null}>

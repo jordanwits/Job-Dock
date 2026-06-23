@@ -17,7 +17,7 @@ const avatarGradients = ['from-teal-300 to-sky-400', 'from-amber-300 to-rose-400
 
 const Testimonials = () => {
   return (
-    <section className="relative bg-gradient-to-b from-sky-50/60 to-white py-20 md:py-28">
+    <section id="reviews" className="relative scroll-mt-24 bg-gradient-to-b from-sky-50/60 to-white py-20 md:py-28">
       <div className="mx-auto max-w-6xl px-5 md:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal from="up">
@@ -32,7 +32,7 @@ const Testimonials = () => {
           </Reveal>
         </div>
 
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
+        <div className="mx-auto mt-14 grid max-w-md gap-6 lg:max-w-none lg:grid-cols-3">
           {testimonials.items.map((t, i) => (
             <Reveal key={t.author} from="up" delay={i * 100}>
               <figure className="flex h-full flex-col rounded-3xl border border-slate-100 bg-white p-7 shadow-sm">

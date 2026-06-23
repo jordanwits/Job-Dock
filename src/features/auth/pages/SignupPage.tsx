@@ -29,6 +29,14 @@ const SignupPage = () => {
     }
   }, [searchParams])
 
+  // Preselect a plan when arriving from a landing-page pricing CTA (/auth/signup?plan=team).
+  useEffect(() => {
+    const plan = searchParams.get('plan')
+    if (plan && SIGNUP_PLANS.some(p => p.id === plan)) {
+      setSelectedPlan(plan as PlanTier)
+    }
+  }, [searchParams])
+
   const onPlanSelect = (planId: PlanTier) => {
     setSelectedPlan(planId)
   }

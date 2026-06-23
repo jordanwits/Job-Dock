@@ -94,7 +94,7 @@ export const landingContent = {
   ],
 
   testimonials: {
-    title: 'Cleaning owners, not generic “service pros.”',
+    title: 'The people who cleaned up their business.',
     note: 'Illustrative examples',
     items: [
       {
@@ -122,21 +122,10 @@ export const landingContent = {
   },
 
   pricing: {
-    title: 'Everything you need to run the business, starting at $29/month.',
+    title: 'Simple plans that grow with your crew.',
     subtitle:
-      'One plan, one app, every feature above. No per-quote fees, no per-clean fees. Less than one recurring client pays you in a month.',
-    price: '$29',
-    period: '/month',
-    includes: [
-      'Unlimited quotes, invoices & clients',
-      'Recurring cleans & online booking',
-      'Job logs, before/after photos & time tracking',
-      'Card & ACH payments (QuickBooks + Stripe)',
-      'Reports & CSV exports',
-    ],
-    primaryCta: 'Start free',
-    secondaryCta: 'See full pricing',
-    chips: ['No card required to start', 'Cancel anytime', 'Your data exports anytime'],
+      'Start solo, add your team when you’re ready. Every plan includes a 14-day free trial — no per-quote fees, no per-clean fees.',
+    chips: ['14-day free trial', 'Cancel anytime', 'Your data exports anytime'],
   },
 
   finalCta: {

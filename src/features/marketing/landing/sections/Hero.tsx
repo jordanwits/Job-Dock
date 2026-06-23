@@ -23,7 +23,7 @@ const Hero = ({ showInlinePhone }: { showInlinePhone: boolean }) => {
         {/* Copy */}
         <div className="order-1 text-center lg:text-left">
           <Reveal from="up" delay={80}>
-            <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight text-white [text-wrap:balance] sm:text-5xl lg:text-6xl">
+            <h1 className="text-[1.75rem] font-extrabold leading-[1.08] tracking-tight text-white [text-wrap:balance] min-[390px]:text-4xl min-[390px]:leading-[1.05] sm:text-5xl lg:text-6xl">
               {hero.titleTop}{' '}
               <span className="relative whitespace-nowrap text-teal-300">
                 {hero.titleHighlight}
@@ -46,7 +46,7 @@ const Hero = ({ showInlinePhone }: { showInlinePhone: boolean }) => {
             </p>
           </Reveal>
           <Reveal from="up" delay={240}>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
               <LandingButton to="/auth/signup" variant="primary" size="lg" withArrow className="w-full sm:w-auto">
                 {hero.primaryCta}
               </LandingButton>
