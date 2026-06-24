@@ -11,9 +11,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Check localStorage first, default to 'dark'
+    // Check localStorage first, default to 'light' (matches the marketing site)
     const savedTheme = localStorage.getItem('theme') as Theme | null
-    return savedTheme || 'dark'
+    return savedTheme || 'light'
   })
 
   useEffect(() => {
@@ -24,11 +24,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme])
 
   const toggleTheme = () => {
-    setTheme(prev => {
-      const newTheme = prev === 'dark' ? 'light' : 'dark'
-      console.log('Theme toggled:', prev, '->', newTheme)
-      return newTheme
-    })
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
   }
 
   return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>

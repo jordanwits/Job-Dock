@@ -1,26 +1,92 @@
-import { useEffect, useMemo, useCallback, useRef, type KeyboardEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useCallback, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
-import { Card, Button } from '@/components/ui'
-import { format, startOfMonth, endOfMonth, addDays } from 'date-fns'
+import { format, startOfMonth, endOfMonth, addDays, isSameDay } from 'date-fns'
 import { getUpcomingBookingListInstant } from '@/features/scheduling/utils/upcomingBookingDisplay'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/contexts/ThemeContext'
-import { QUOTE_STATUS_LABELS } from '@/features/quotes/types/quote'
 import type { JobLog } from '@/features/jobLogs/types/jobLog'
+import {
+  HeroMetric,
+  KpiStrip,
+  KpiItem,
+  SectionHeader,
+  Panel,
+  StatSplit,
+  ProgressBar,
+  Dot,
+  StatusPill,
+  EmptyState,
+  CalendarIcon,
+  BriefcaseIcon,
+  DocumentIcon,
+  ReceiptIcon,
+  PlusIcon,
+  type Tone,
+} from './components/DashboardWidgets'
 
 const isStandaloneMode = (): boolean => {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
   )
 }
 
-function DashboardJobLogRow({ jobLog, theme }: { jobLog: JobLog; theme: 'dark' | 'light' }) {
+const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
+
+// CTA button styled on design tokens (shared ui/Button left untouched for now).
+const accentButtonClass =
+  'inline-flex items-center gap-1.5 rounded-lg bg-accent-strong px-3.5 py-2 text-sm font-semibold text-accent-contrast transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+
+// Status → semantic tone.
+const apptTone = (status: string): Tone => {
+  switch (status) {
+    case 'in-progress':
+    case 'pending-confirmation':
+      return 'warning'
+    case 'cancelled':
+      return 'danger'
+    case 'completed':
+      return 'success'
+    default:
+      return 'info' // active, scheduled
+  }
+}
+const apptLabel = (status: string): string =>
+  status === 'pending-confirmation' ? 'pending' : status.replace('-', ' ')
+
+const jobLogTone = (label: string): Tone =>
+  label === 'active' ? 'success' : label === 'completed' ? 'info' : 'neutral'
+
+const quoteTone = (status: string): Tone => {
+  switch (status) {
+    case 'accepted':
+      return 'success'
+    case 'rejected':
+      return 'danger'
+    case 'sent':
+      return 'info'
+    default:
+      return 'neutral'
+  }
+}
+
+// Routine states get a quiet dot; urgency (danger) gets a filled pill.
+function ApptStatus({ status }: { status: string }) {
+  const tone = apptTone(status)
+  const label = apptLabel(status)
+  if (tone === 'danger') return <StatusPill tone="danger">{label}</StatusPill>
+  return (
+    <span className="flex shrink-0 items-center gap-2 text-[13px] text-ink-muted">
+      <Dot tone={tone} />
+      <span className="hidden capitalize sm:inline">{label}</span>
+    </span>
+  )
+}
+
+function JobRow({ jobLog }: { jobLog: JobLog }) {
   const totalMinutes =
     jobLog.timeEntries?.reduce((sum, te) => {
       const start = new Date(te.startTime).getTime()
@@ -30,67 +96,30 @@ function DashboardJobLogRow({ jobLog, theme }: { jobLog: JobLog; theme: 'dark' |
     }, 0) ?? 0
   const hours = Math.floor(totalMinutes / 60)
   const mins = Math.round(totalMinutes % 60)
-  const statusLabel = (jobLog.status === 'archived' ? 'inactive' : jobLog.status) || 'active'
-  const statusColors: Record<string, string> = {
-    active:
-      theme === 'dark'
-        ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
-        : 'bg-green-100 text-green-700 ring-1 ring-green-300',
-    completed:
-      theme === 'dark'
-        ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-        : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
-    inactive:
-      theme === 'dark'
-        ? 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20'
-        : 'bg-gray-200 text-gray-600 ring-1 ring-gray-300',
-  }
+  // `archived` can appear at runtime even though it's not in the status union.
+  const rawStatus = jobLog.status as string
+  const statusLabel = (rawStatus === 'archived' ? 'inactive' : rawStatus) || 'active'
+  const meta =
+    jobLog.timeEntries && jobLog.timeEntries.length > 0
+      ? `${hours}h ${mins}m`
+      : format(new Date(jobLog.createdAt), 'MMM d')
+
   return (
     <Link
       to={`/app/job-logs/${jobLog.id}`}
-      className={cn(
-        'block text-sm p-3 rounded-lg transition-all',
-        theme === 'dark'
-          ? 'bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10'
-          : 'bg-gray-100 hover:bg-gray-200 border border-transparent hover:border-gray-200/30'
-      )}
+      className="flex items-center justify-between gap-3 rounded-sm py-2.5 transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
-      <div className="flex items-center justify-between">
-        <span
-          className={cn(
-            'font-medium truncate',
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}
-        >
-          {jobLog.title}
-        </span>
-        <span
-          className={cn(
-            'text-xs px-2.5 py-1 rounded-full font-medium capitalize whitespace-nowrap',
-            statusColors[statusLabel] || statusColors.inactive
-          )}
-        >
-          {statusLabel}
-        </span>
-      </div>
-      <p
-        className={cn(
-          'text-xs mt-1.5',
-          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-        )}
-      >
-        {jobLog.timeEntries && jobLog.timeEntries.length > 0
-          ? `${hours}h ${mins}m total`
-          : format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
-      </p>
+      <span className="truncate text-[15px] text-ink">{jobLog.title}</span>
+      <span className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
+        <Dot tone={jobLogTone(statusLabel)} />
+        <span className="font-mono tabular-nums">{meta}</span>
+      </span>
     </Link>
   )
 }
 
 const DashboardPage = () => {
-  const navigate = useNavigate()
   const { user, isAuthenticated, refreshAccessToken } = useAuthStore()
-  const { theme } = useTheme()
   const { jobs, fetchJobs, isLoading: jobsLoading } = useJobStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
   const { invoices, fetchInvoices, isLoading: invoicesLoading } = useInvoiceStore()
@@ -115,17 +144,14 @@ const DashboardPage = () => {
     const startDate = startOfMonth(now)
     const endDate = endOfMonth(addDays(now, 30)) // Fetch current and next month
 
-    const promises: Promise<void>[] = [
-      fetchJobs(startDate, endDate),
-      fetchJobLogs(),
-    ]
+    const promises: Promise<void>[] = [fetchJobs(startDate, endDate), fetchJobLogs()]
     if (!isEmployee) {
       promises.push(fetchQuotes())
       promises.push(fetchInvoices())
     }
 
     const results = await Promise.allSettled(promises)
-    const allSucceeded = results.every((r) => r.status === 'fulfilled')
+    const allSucceeded = results.every(r => r.status === 'fulfilled')
     if (allSucceeded) {
       lastFetchAtRef.current = Date.now()
     }
@@ -150,16 +176,12 @@ const DashboardPage = () => {
       // After resume, stores may be empty if iOS cleared in-memory state; treat as stale.
       const { jobLogs: storedJobLogs } = useJobLogStore.getState()
       const { jobs: storedJobs } = useJobStore.getState()
-      const storesEmpty =
-        storedJobLogs.length === 0 && storedJobs.length === 0
+      const storesEmpty = storedJobLogs.length === 0 && storedJobs.length === 0
 
       // In PWA/standalone mode (e.g., iPhone home screen app), always force refresh
       // on visibility change since iOS can hold stale in-memory state after backgrounding.
       const shouldRefresh =
-        forceRefresh ||
-        isStale ||
-        storesEmpty ||
-        (isStandalone && reason === 'visibility')
+        forceRefresh || isStale || storesEmpty || (isStandalone && reason === 'visibility')
       if (!shouldRefresh) return
 
       inFlightRef.current = true
@@ -241,9 +263,8 @@ const DashboardPage = () => {
     }
   }, [refreshAndFetchIfStale, isStandalone])
 
-  // Get upcoming appointments (next 7 days) - limit for compact display
-  const upcomingJobsLimit = 5
-  const upcomingJobs = useMemo(() => {
+  // Upcoming appointments (next 7 days) — full window for counts, sliced for display.
+  const upcoming = useMemo(() => {
     const now = new Date()
     const nextWeek = addDays(now, 7)
 
@@ -255,10 +276,10 @@ const DashboardPage = () => {
       entries.push({ job, displayAt })
     }
 
-    return entries
-      .sort((a, b) => a.displayAt.getTime() - b.displayAt.getTime())
-      .slice(0, upcomingJobsLimit)
-  }, [jobs, upcomingJobsLimit])
+    entries.sort((a, b) => a.displayAt.getTime() - b.displayAt.getTime())
+    const todayCount = entries.filter(e => isSameDay(e.displayAt, now)).length
+    return { list: entries.slice(0, 5), count: entries.length, todayCount }
+  }, [jobs])
 
   // Quote metrics
   const quoteMetrics = useMemo(() => {
@@ -267,7 +288,6 @@ const DashboardPage = () => {
     const rejected = quotes.filter(q => q.status === 'rejected').length
     const draft = quotes.filter(q => q.status === 'draft').length
 
-    // Recent quotes activity (last 3)
     const recentQuotes = quotes
       .filter(q => q.status === 'sent' || q.status === 'accepted' || q.status === 'rejected')
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
@@ -283,10 +303,7 @@ const DashboardPage = () => {
     const completed = jobLogs.filter(j => norm(j.status) === 'completed')
     const pinnedJobs = [...jobLogs]
       .filter(j => Boolean(j.pinnedAt))
-      .sort(
-        (a, b) =>
-          new Date(b.pinnedAt!).getTime() - new Date(a.pinnedAt!).getTime()
-      )
+      .sort((a, b) => new Date(b.pinnedAt!).getTime() - new Date(a.pinnedAt!).getTime())
     const pinnedIds = new Set(pinnedJobs.map(j => j.id))
     const recentJobs = [...jobLogs]
       .filter(j => !pinnedIds.has(j.id))
@@ -308,628 +325,341 @@ const DashboardPage = () => {
 
   // Invoice metrics
   const invoiceMetrics = useMemo(() => {
-    const sent = invoices.filter(i => i.status === 'sent').length
     const overdue = invoices.filter(i => i.status === 'overdue').length
-    const draft = invoices.filter(i => i.status === 'draft').length
     const paid = invoices.filter(i => i.paymentStatus === 'paid').length
     const unpaid = invoices.filter(
       i => i.paymentStatus !== 'paid' && i.status !== 'cancelled' && i.status !== 'draft'
     ).length
 
-    // Calculate total outstanding
+    const isOutstanding = (i: (typeof invoices)[number]) =>
+      i.paymentStatus !== 'paid' && i.status !== 'cancelled' && i.status !== 'draft'
+
     const outstanding = invoices
-      .filter(i => i.paymentStatus !== 'paid' && i.status !== 'cancelled' && i.status !== 'draft')
+      .filter(isOutstanding)
+      .reduce((sum, i) => sum + (i.total - i.paidAmount), 0)
+    const overdueAmount = invoices
+      .filter(i => i.status === 'overdue')
       .reduce((sum, i) => sum + (i.total - i.paidAmount), 0)
 
-    // Recent sent/overdue invoices (last 3)
-    const recentInvoices = invoices
-      .filter(i => i.status === 'sent' || i.status === 'overdue')
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 3)
-
-    return { sent, overdue, draft, paid, unpaid, outstanding, recentInvoices }
+    return { overdue, paid, unpaid, outstanding, overdueAmount }
   }, [invoices])
 
   const isLoading = isEmployee
     ? jobsLoading || jobLogsLoading
     : jobsLoading || jobLogsLoading || quotesLoading || invoicesLoading
 
-  const statTileClass = (clickable: boolean) =>
-    cn(
-      'rounded-lg p-4 ring-1',
-      theme === 'dark'
-        ? 'bg-primary-dark/50 ring-white/5'
-        : 'bg-gray-100 ring-gray-200/20',
-      clickable
-        ? theme === 'dark'
-          ? 'cursor-pointer hover:bg-primary-dark hover:ring-1 hover:ring-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-blue/40'
-          : 'cursor-pointer hover:bg-gray-200 border border-transparent hover:border-gray-200/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-blue/50'
-        : 'cursor-default'
-    )
+  const firstName = user?.name?.split(' ')[0]
+  const paidTotal = invoiceMetrics.paid + invoiceMetrics.unpaid
+  const paidPct = paidTotal > 0 ? Math.round((invoiceMetrics.paid / paidTotal) * 100) : 0
+  const combinedJobs = [...jobMetrics.pinnedJobs, ...jobMetrics.recentJobs].slice(0, 4)
 
-  const statTileProps = (clickable: boolean, path: string) =>
-    clickable
-      ? {
-          role: 'button' as const,
-          tabIndex: 0 as const,
-          onClick: () => navigate(path),
-          onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              navigate(path)
+  // ── Zone 1: greeting + hero metric ───────────────────────────────────────
+  const heroMetric = isEmployee ? (
+    <HeroMetric
+      label="This week"
+      amount={upcoming.count}
+      format={n => String(Math.round(n))}
+      caption={
+        upcoming.count === 0 ? (
+          'No appointments scheduled in the next 7 days.'
+        ) : (
+          <>
+            {upcoming.todayCount} today · {jobMetrics.activeCount} active{' '}
+            {jobMetrics.activeCount === 1 ? 'job' : 'jobs'}
+          </>
+        )
+      }
+    />
+  ) : (
+    <HeroMetric
+      label="Outstanding"
+      amount={invoiceMetrics.outstanding}
+      format={money}
+      caption={
+        invoiceMetrics.outstanding === 0 ? (
+          "You're all caught up — every invoice is paid."
+        ) : (
+          <>
+            across {invoiceMetrics.unpaid} unpaid{' '}
+            {invoiceMetrics.unpaid === 1 ? 'invoice' : 'invoices'}
+            {invoiceMetrics.overdue > 0 && (
+              <>
+                {' · '}
+                <span className="font-medium text-danger">{invoiceMetrics.overdue} overdue</span>
+                {' worth '}
+                <span className="font-mono tabular-nums">{money(invoiceMetrics.overdueAmount)}</span>
+              </>
+            )}
+          </>
+        )
+      }
+    />
+  )
+
+  // ── Zone 2: secondary KPI strip ──────────────────────────────────────────
+  const kpiStrip = isEmployee ? (
+    <KpiStrip className="max-w-xl">
+      <KpiItem index={0} label="Today" value={upcoming.todayCount} caption="appointments" to="/app/job-logs" />
+      <KpiItem index={1} label="Active jobs" value={jobMetrics.activeCount} caption="in progress" to="/app/job-logs?status=active" />
+      <KpiItem index={2} label="Completed" value={jobMetrics.completedCount} caption="to date" to="/app/job-logs?status=completed" />
+    </KpiStrip>
+  ) : (
+    <KpiStrip className="max-w-xl">
+      <KpiItem index={0} label="This week" value={upcoming.count} caption="appointments" to="/app/job-logs" />
+      <KpiItem index={1} label="Active jobs" value={jobMetrics.activeCount} caption="in progress" to="/app/job-logs?status=active" />
+      <KpiItem index={2} label="Pending quotes" value={quoteMetrics.pending} caption="awaiting reply" to="/app/quotes?status=sent" />
+    </KpiStrip>
+  )
+
+  // ── Zone 3: contained lists ──────────────────────────────────────────────
+  const appointmentsSection = (
+    <section>
+      <SectionHeader
+        title={isEmployee ? 'Your appointments' : 'Upcoming appointments'}
+        viewAllHref="/app/job-logs"
+        viewAllLabel="View schedule"
+      />
+      {upcoming.list.length === 0 ? (
+        <Panel>
+          <EmptyState
+            icon={<CalendarIcon className="h-6 w-6" />}
+            title="No appointments in the next 7 days. Your schedule is clear."
+            action={
+              <Link to="/app/scheduling" className={accentButtonClass}>
+                <PlusIcon className="h-4 w-4" />
+                Schedule a job
+              </Link>
             }
-          },
-        }
-      : {}
+          />
+        </Panel>
+      ) : (
+        <Panel className="px-5 sm:px-6">
+          <div className="divide-y divide-line">
+            {upcoming.list.map(({ job, displayAt }) => (
+              <Link
+                key={job.id}
+                to={`/app/job-logs/${job.id}`}
+                className="flex items-center gap-4 rounded-sm py-3.5 transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <div className="w-9 shrink-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-ink-subtle">
+                    {format(displayAt, 'EEE')}
+                  </p>
+                  <p className="font-mono text-lg font-semibold leading-none text-ink">
+                    {format(displayAt, 'd')}
+                  </p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-ink">{job.title}</p>
+                  <p className="mt-0.5 truncate text-sm text-ink-muted">
+                    {format(displayAt, 'h:mm a')}
+                    {job.contactName ? ` · ${job.contactName}` : ''}
+                  </p>
+                </div>
+                <ApptStatus status={job.status} />
+              </Link>
+            ))}
+          </div>
+        </Panel>
+      )}
+    </section>
+  )
+
+  const jobsSection = (
+    <section className={isEmployee ? 'max-w-md' : ''}>
+      <SectionHeader title="Jobs" viewAllHref="/app/job-logs" />
+      <Panel className="p-5">
+        {jobLogs.length === 0 ? (
+          <EmptyState
+            icon={<BriefcaseIcon className="h-6 w-6" />}
+            title="No jobs yet. Create one to track time and before/after photos."
+            action={
+              <Link to="/app/job-logs" className={accentButtonClass}>
+                <PlusIcon className="h-4 w-4" />
+                Create job
+              </Link>
+            }
+          />
+        ) : (
+          <>
+            <StatSplit
+              items={[
+                { value: jobMetrics.activeCount, label: 'Active' },
+                { value: jobMetrics.completedCount, label: 'Completed' },
+              ]}
+            />
+            {combinedJobs.length > 0 && (
+              <div className="mt-4 divide-y divide-line border-t border-line">
+                {combinedJobs.map(jobLog => (
+                  <JobRow key={jobLog.id} jobLog={jobLog} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </Panel>
+    </section>
+  )
+
+  const quotesSection = (
+    <section>
+      <SectionHeader title="Quotes" viewAllHref="/app/quotes" />
+      <Panel className="p-5">
+        {quotes.length === 0 ? (
+          <EmptyState
+            icon={<DocumentIcon className="h-6 w-6" />}
+            title="No quotes yet. Send one to win your next job."
+            action={
+              <Link to="/app/quotes" className={accentButtonClass}>
+                <PlusIcon className="h-4 w-4" />
+                New quote
+              </Link>
+            }
+          />
+        ) : (
+          <>
+            <StatSplit
+              items={
+                quoteMetrics.rejected > 0
+                  ? [
+                      { value: quoteMetrics.pending, label: 'Pending' },
+                      { value: quoteMetrics.accepted, label: 'Accepted' },
+                      { value: quoteMetrics.rejected, label: 'Declined', tone: 'danger' },
+                    ]
+                  : [
+                      { value: quoteMetrics.pending, label: 'Pending' },
+                      { value: quoteMetrics.accepted, label: 'Accepted' },
+                    ]
+              }
+            />
+            {quoteMetrics.recentQuotes.length > 0 && (
+              <div className="mt-4 divide-y divide-line border-t border-line">
+                {quoteMetrics.recentQuotes.map(quote => (
+                  <div key={quote.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="truncate text-[15px] text-ink">{quote.quoteNumber}</span>
+                    <span className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
+                      <Dot tone={quoteTone(quote.status)} />
+                      <span className="font-mono tabular-nums">${quote.total.toFixed(0)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </Panel>
+    </section>
+  )
+
+  const invoicesSection = (
+    <section>
+      <SectionHeader title="Invoices" viewAllHref="/app/invoices" />
+      <Panel className="p-5">
+        {invoices.length === 0 ? (
+          <EmptyState
+            icon={<ReceiptIcon className="h-6 w-6" />}
+            title="No invoices yet. Send one to get paid by card or ACH."
+            action={
+              <Link to="/app/invoices" className={accentButtonClass}>
+                <PlusIcon className="h-4 w-4" />
+                New invoice
+              </Link>
+            }
+          />
+        ) : (
+          <>
+            <StatSplit
+              items={[
+                { value: money(invoiceMetrics.outstanding), label: 'Outstanding', tone: 'accent' },
+                {
+                  value: invoiceMetrics.overdue,
+                  label: 'Overdue',
+                  tone: invoiceMetrics.overdue > 0 ? 'danger' : 'ink',
+                },
+              ]}
+            />
+            {paidTotal > 0 && (
+              <div className="mt-5 border-t border-line pt-4">
+                <div className="flex items-baseline justify-between text-[13px]">
+                  <span className="text-ink-muted">Paid this month</span>
+                  <span className="font-mono font-medium tabular-nums text-ink">
+                    {invoiceMetrics.paid} / {paidTotal}
+                  </span>
+                </div>
+                <div className="mt-2.5">
+                  <ProgressBar value={paidPct} />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </Panel>
+    </section>
+  )
+
+  // ── Skeleton ──────────────────────────────────────────────────────────────
+  const skeleton = (
+    <>
+      <div className="mt-7 space-y-3.5">
+        <div className="h-3 w-24 animate-pulse rounded bg-surface-2" />
+        <div className="h-14 w-52 animate-pulse rounded-lg bg-surface-2 sm:h-16" />
+        <div className="h-4 w-72 max-w-full animate-pulse rounded bg-surface-2" />
+      </div>
+      <div className="mt-11 grid max-w-xl grid-cols-3 gap-5">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="space-y-2.5">
+            <div className="h-3 w-16 animate-pulse rounded bg-surface-2" />
+            <div className="h-7 w-10 animate-pulse rounded bg-surface-2" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-14 space-y-12">
+        <div>
+          <div className="mb-3.5 h-4 w-44 animate-pulse rounded bg-surface-2" />
+          <div className="h-52 animate-pulse rounded-xl bg-surface shadow-card" />
+        </div>
+        <div className="grid gap-x-8 gap-y-10 md:grid-cols-3">
+          {[0, 1, 2].map(i => (
+            <div key={i}>
+              <div className="mb-3.5 h-4 w-24 animate-pulse rounded bg-surface-2" />
+              <div className="h-40 animate-pulse rounded-xl bg-surface shadow-card" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className={cn(
-          "text-3xl font-bold tracking-tight",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
-          Welcome back{user?.name ? <span className="text-primary-gold">, {user.name.split(' ')[0]}</span> : ''}
+    <div className="mx-auto max-w-5xl">
+      {/* Zone 1 — greeting (always shown) */}
+      <div>
+        <p className="text-sm text-ink-muted">{format(new Date(), 'EEEE, MMMM d')}</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">
+          Welcome back{firstName ? <>, {firstName}</> : ''}
         </h1>
-        <p className={cn(
-          "text-base",
-          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-        )}>
-          {isEmployee
-            ? "Here's your schedule and upcoming appointments"
-            : "Here's what's happening with your business today"}
-        </p>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Skeleton cards */}
-          <div className={cn(
-            "lg:row-span-2 rounded-xl border p-6 shadow-sm",
-            theme === 'dark'
-              ? 'border-white/5 bg-primary-dark-secondary/50 shadow-black/20'
-              : 'border-gray-200 bg-primary-lightSecondary shadow-gray-200/50'
-          )}>
-            <div className={cn(
-              "h-6 w-48 rounded animate-pulse mb-6",
-              theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-            )}></div>
-            <div className="space-y-4">
-              {[1, 2, 3].map(i => (
-                <div key={i} className={cn(
-                  "h-20 rounded-lg animate-pulse",
-                  theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-                )}></div>
-              ))}
-            </div>
-          </div>
-          <div className={cn(
-            "rounded-xl border p-6 shadow-sm",
-            theme === 'dark'
-              ? 'border-white/5 bg-primary-dark-secondary/50 shadow-black/20'
-              : 'border-gray-200 bg-primary-lightSecondary shadow-gray-200/50'
-          )}>
-            <div className={cn(
-              "h-6 w-48 rounded animate-pulse mb-6",
-              theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-            )}></div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className={cn(
-                "h-20 rounded-lg animate-pulse",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
-              <div className={cn(
-                "h-20 rounded-lg animate-pulse",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
-            </div>
-          </div>
-          <div className={cn(
-            "rounded-xl border p-6 shadow-sm",
-            theme === 'dark'
-              ? 'border-white/5 bg-primary-dark-secondary/50 shadow-black/20'
-              : 'border-gray-200 bg-primary-lightSecondary shadow-gray-200/50'
-          )}>
-            <div className={cn(
-              "h-6 w-32 rounded animate-pulse mb-6",
-              theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-            )}></div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className={cn(
-                "h-20 rounded-lg animate-pulse",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
-              <div className={cn(
-                "h-20 rounded-lg animate-pulse",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
-            </div>
-          </div>
-          <div className={cn(
-            "rounded-xl border p-6 shadow-sm",
-            theme === 'dark'
-              ? 'border-white/5 bg-primary-dark-secondary/50 shadow-black/20'
-              : 'border-gray-200 bg-primary-lightSecondary shadow-gray-200/50'
-          )}>
-            <div className={cn(
-              "h-6 w-32 rounded animate-pulse mb-6",
-              theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-            )}></div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className={cn(
-                "h-20 rounded-lg animate-pulse",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
-              <div className={cn(
-                "h-20 rounded-lg animate-pulse",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
-            </div>
-          </div>
-        </div>
+        skeleton
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Upcoming Appointments */}
-          <Card>
-            <div className={cn(
-              "flex items-center justify-between pb-3 mb-4 border-b",
-              theme === 'dark' ? 'border-white/5' : 'border-gray-200/20'
-            )}>
-              <h2 className={cn(
-                "text-lg font-semibold tracking-tight",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                {isEmployee ? 'Your Upcoming Appointments' : 'Upcoming Appointments'}
-              </h2>
-              <Link to="/app/job-logs">
-                <Button variant="ghost" size="sm">
-                  View All
-                </Button>
-              </Link>
-            </div>
-            {upcomingJobs.length === 0 ? (
-              <div className="text-center py-6">
-                <p className={cn(
-                  "text-sm",
-                  theme === 'dark' ? 'text-primary-light/40' : 'text-primary-lightTextSecondary'
-                )}>
-                  No upcoming appointments in the next 7 days
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {upcomingJobs.map(({ job, displayAt }) => {
-                  const statusColors = {
-                    active: theme === 'dark'
-                      ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
-                      : 'bg-green-100 text-green-700 ring-1 ring-green-300',
-                    scheduled: theme === 'dark'
-                      ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
-                      : 'bg-green-100 text-green-700 ring-1 ring-green-300',
-                    'in-progress': theme === 'dark'
-                      ? 'bg-yellow-500/10 text-yellow-400 ring-1 ring-yellow-500/20'
-                      : 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-300',
-                    completed: theme === 'dark'
-                      ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
-                      : 'bg-green-100 text-green-700 ring-1 ring-green-300',
-                    cancelled: theme === 'dark'
-                      ? 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20'
-                      : 'bg-red-100 text-red-700 ring-1 ring-red-300',
-                    'pending-confirmation': theme === 'dark'
-                      ? 'bg-orange-500/10 text-orange-400 ring-1 ring-orange-500/20'
-                      : 'bg-orange-100 text-orange-700 ring-1 ring-orange-300',
-                  }
+        <>
+          <div className="mt-7">{heroMetric}</div>
+          <div className="mt-11">{kpiStrip}</div>
 
-                  return (
-                    <div
-                      key={job.id}
-                      onClick={() => navigate(`/app/job-logs/${job.id}`)}
-                      className={cn(
-                        "p-3 rounded-lg transition-all cursor-pointer",
-                        theme === 'dark'
-                          ? 'bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10'
-                          : 'bg-gray-100 hover:bg-gray-200 border border-transparent hover:border-gray-200/30'
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className={cn(
-                            "font-medium truncate",
-                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                          )}>{job.title}</h3>
-                          <p className={cn(
-                            "text-sm mt-1.5",
-                            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                          )}>
-                            {format(displayAt, 'MMM d, yyyy • h:mm a')}
-                          </p>
-                          {job.contactName && (
-                            <p className={cn(
-                              "text-sm mt-1",
-                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                            )}>{job.contactName}</p>
-                          )}
-                        </div>
-                        <span
-                          className={cn(
-                            'px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap',
-                            statusColors[job.status]
-                          )}
-                        >
-                          {job.status.replace('-', ' ')}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
+          <div className="mt-14 space-y-12">
+            {appointmentsSection}
+            {isEmployee ? (
+              jobsSection
+            ) : (
+              <div className="grid gap-x-8 gap-y-10 md:grid-cols-3">
+                {jobsSection}
+                {quotesSection}
+                {invoicesSection}
               </div>
             )}
-          </Card>
-
-          {/* Jobs */}
-          <Card>
-            <div className={cn(
-              "flex items-center justify-between pb-4 mb-5 border-b",
-              theme === 'dark' ? 'border-white/5' : 'border-gray-200/20'
-            )}>
-              <h2 className={cn(
-                "text-lg font-semibold tracking-tight",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>Jobs</h2>
-              <Link to="/app/job-logs">
-                <Button variant="ghost" size="sm">
-                  View All
-                </Button>
-              </Link>
-            </div>
-
-            {/* Job Stats */}
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <div
-                className={statTileClass(jobMetrics.activeCount > 0)}
-                {...statTileProps(jobMetrics.activeCount > 0, '/app/job-logs?status=active')}
-              >
-                <p className={cn(
-                  "text-xs font-medium uppercase tracking-wide",
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}>
-                  Active
-                </p>
-                <p className="text-2xl font-bold text-green-400 mt-2">{jobMetrics.activeCount}</p>
-              </div>
-              <div
-                className={statTileClass(jobMetrics.completedCount > 0)}
-                {...statTileProps(jobMetrics.completedCount > 0, '/app/job-logs?status=completed')}
-              >
-                <p className={cn(
-                  "text-xs font-medium uppercase tracking-wide",
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}>
-                  Completed
-                </p>
-                <p className="text-2xl font-bold text-primary-blue mt-2">
-                  {jobMetrics.completedCount}
-                </p>
-              </div>
-            </div>
-
-            {jobMetrics.pinnedJobs.length > 0 ? (
-              <div className="mb-5">
-                <p
-                  className={cn(
-                    'text-xs font-medium uppercase tracking-wide mb-3',
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}
-                >
-                  Pinned Jobs
-                </p>
-                <div className="space-y-2">
-                  {jobMetrics.pinnedJobs.map(jobLog => (
-                    <DashboardJobLogRow key={jobLog.id} jobLog={jobLog} theme={theme} />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Recent Jobs */}
-            {jobMetrics.recentJobs.length > 0 ? (
-              <div>
-                <p className={cn(
-                  "text-xs font-medium uppercase tracking-wide mb-3",
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}>
-                  Recent Jobs
-                </p>
-                <div className="space-y-2">
-                  {jobMetrics.recentJobs.map(jobLog => (
-                    <DashboardJobLogRow key={jobLog.id} jobLog={jobLog} theme={theme} />
-                  ))}
-                </div>
-              </div>
-            ) : jobMetrics.pinnedJobs.length === 0 ? (
-              <div className="text-center py-8">
-                <p className={cn(
-                  "text-sm",
-                  theme === 'dark' ? 'text-primary-light/40' : 'text-primary-lightTextSecondary'
-                )}>No jobs yet</p>
-                <Link to="/app/job-logs">
-                  <Button variant="ghost" size="sm" className="mt-2">
-                    Create Job
-                  </Button>
-                </Link>
-              </div>
-            ) : null}
-          </Card>
-
-          {/* Quotes - admin/owner only */}
-          {!isEmployee && (
-            <Card>
-              <div className={cn(
-                "flex items-center justify-between pb-4 mb-5 border-b",
-                theme === 'dark' ? 'border-white/5' : 'border-gray-200/20'
-              )}>
-                <h2 className={cn(
-                  "text-lg font-semibold tracking-tight",
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>Quotes</h2>
-                <Link to="/app/quotes">
-                  <Button variant="ghost" size="sm">
-                    View All
-                  </Button>
-                </Link>
-              </div>
-
-              {/* Quote Stats */}
-              <div
-                className={cn(
-                  'grid gap-3 mb-5 min-w-0',
-                  quoteMetrics.rejected > 0 ? 'grid-cols-3' : 'grid-cols-2'
-                )}
-              >
-                <div
-                  className={cn(statTileClass(quoteMetrics.pending > 0), 'min-w-0')}
-                  {...statTileProps(quoteMetrics.pending > 0, '/app/quotes?status=sent')}
-                >
-                  <p className={cn(
-                    "text-xs font-medium uppercase tracking-wide",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>
-                    Pending
-                  </p>
-                  <p className="text-2xl font-bold text-primary-blue mt-2">
-                    {quoteMetrics.pending}
-                  </p>
-                </div>
-                <div
-                  className={cn(statTileClass(quoteMetrics.accepted > 0), 'min-w-0')}
-                  {...statTileProps(quoteMetrics.accepted > 0, '/app/quotes?status=accepted')}
-                >
-                  <p className={cn(
-                    "text-xs font-medium uppercase tracking-wide",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>
-                    Accepted
-                  </p>
-                  <p className="text-2xl font-bold text-green-400 mt-2">{quoteMetrics.accepted}</p>
-                </div>
-                {quoteMetrics.rejected > 0 && (
-                  <div
-                    className={cn(statTileClass(true), 'min-w-0')}
-                    {...statTileProps(true, '/app/quotes?status=rejected')}
-                  >
-                    <p className={cn(
-                      "text-xs font-medium uppercase tracking-wide",
-                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                    )}>
-                      Declined
-                    </p>
-                    <p className="text-2xl font-bold text-red-400 mt-2">{quoteMetrics.rejected}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Recent Quotes */}
-              {quoteMetrics.recentQuotes.length > 0 && (
-                <div>
-                  <p className={cn(
-                    "text-xs font-medium uppercase tracking-wide mb-3",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>
-                    Recent Activity
-                  </p>
-                  <div className="space-y-2">
-                    {quoteMetrics.recentQuotes.map(quote => (
-                      <div
-                        key={quote.id}
-                        className={cn(
-                          "text-sm p-3 rounded-lg transition-all",
-                          theme === 'dark'
-                            ? 'bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10'
-                            : 'bg-gray-100 hover:bg-gray-200 border border-transparent hover:border-gray-200/30'
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={cn(
-                            "font-medium truncate",
-                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                          )}>
-                            {quote.quoteNumber}
-                          </span>
-                          <span
-                            className={cn(
-                              'text-xs px-2.5 py-1 rounded-full font-medium',
-                              quote.status === 'accepted' &&
-                                (theme === 'dark'
-                                  ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
-                                  : 'bg-green-100 text-green-700 ring-1 ring-green-300'),
-                              quote.status === 'rejected' &&
-                                (theme === 'dark'
-                                  ? 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20'
-                                  : 'bg-red-100 text-red-700 ring-1 ring-red-300'),
-                              quote.status === 'sent' &&
-                                (theme === 'dark'
-                                  ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-                                  : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300')
-                            )}
-                          >
-                            {QUOTE_STATUS_LABELS[quote.status]}
-                          </span>
-                        </div>
-                        <p className={cn(
-                          "text-xs mt-1.5",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>
-                          ${quote.total.toFixed(2)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-          )}
-
-          {/* Invoices Card - admin/owner only */}
-          {!isEmployee && (
-            <Card>
-              <div className={cn(
-                "flex items-center justify-between pb-4 mb-5 border-b",
-                theme === 'dark' ? 'border-white/5' : 'border-gray-200/20'
-              )}>
-                <h2 className={cn(
-                  "text-lg font-semibold tracking-tight",
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>
-                  Invoices
-                </h2>
-                <Link to="/app/invoices">
-                  <Button variant="ghost" size="sm">
-                    View All
-                  </Button>
-                </Link>
-              </div>
-
-              {/* Invoice Stats */}
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                <div className={cn(
-                  "rounded-lg p-4 ring-1",
-                  theme === 'dark'
-                    ? 'bg-primary-dark/50 ring-white/5'
-                    : 'bg-gray-100 ring-gray-200/20'
-                )}>
-                  <p className={cn(
-                    "text-xs font-medium uppercase tracking-wide",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>
-                    Outstanding
-                  </p>
-                  <p className="text-2xl font-bold text-primary-gold mt-2">
-                    ${invoiceMetrics.outstanding.toFixed(0)}
-                  </p>
-                </div>
-                <div
-                  className={statTileClass(invoiceMetrics.overdue > 0)}
-                  {...statTileProps(invoiceMetrics.overdue > 0, '/app/invoices?status=overdue')}
-                >
-                  <p className={cn(
-                    "text-xs font-medium uppercase tracking-wide",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>
-                    Overdue
-                  </p>
-                  <p className="text-2xl font-bold text-red-400 mt-2">{invoiceMetrics.overdue}</p>
-                </div>
-              </div>
-
-              {/* Payment Status */}
-              <div className={cn(
-                "rounded-lg p-4 mb-5 ring-1",
-                theme === 'dark'
-                  ? 'bg-primary-dark/50 ring-white/5'
-                  : 'bg-gray-100 ring-gray-200/20'
-              )}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className={cn(
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>Paid</span>
-                  <span className={cn(
-                    "font-semibold",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>
-                    {invoiceMetrics.paid}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-3">
-                  <span className={cn(
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>Unpaid</span>
-                  <span className={cn(
-                    "font-semibold",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>
-                    {invoiceMetrics.unpaid}
-                  </span>
-                </div>
-              </div>
-
-              {/* Recent Invoices */}
-              {invoiceMetrics.recentInvoices.length > 0 && (
-                <div>
-                  <p className={cn(
-                    "text-xs font-medium uppercase tracking-wide mb-3",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>
-                    Recent Activity
-                  </p>
-                  <div className="space-y-2">
-                    {invoiceMetrics.recentInvoices.map(invoice => (
-                      <div
-                        key={invoice.id}
-                        className={cn(
-                          "text-sm p-3 rounded-lg transition-all",
-                          theme === 'dark'
-                            ? 'bg-primary-dark/50 hover:bg-primary-dark hover:ring-1 hover:ring-white/10'
-                            : 'bg-gray-100 hover:bg-gray-200 border border-transparent hover:border-gray-200/30'
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={cn(
-                            "font-medium truncate",
-                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                          )}>
-                            {invoice.invoiceNumber}
-                          </span>
-                          <span
-                            className={cn(
-                              'text-xs px-2.5 py-1 rounded-full font-medium',
-                              invoice.status === 'overdue' &&
-                                (theme === 'dark'
-                                  ? 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20'
-                                  : 'bg-red-100 text-red-700 ring-1 ring-red-300'),
-                              invoice.status === 'sent' &&
-                                (theme === 'dark'
-                                  ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-                                  : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300')
-                            )}
-                          >
-                            {invoice.status}
-                          </span>
-                        </div>
-                        <p className={cn(
-                          "text-xs mt-1.5",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>
-                          ${(invoice.total - invoice.paidAmount).toFixed(2)} due
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-          )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   )
