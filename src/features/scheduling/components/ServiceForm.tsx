@@ -3,9 +3,15 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useRef } from 'react'
 import { serviceSchema, type ServiceFormData } from '../schemas/serviceSchemas'
 import { Service } from '../types/service'
-import { Input, Button, TimePicker, Checkbox } from '@/components/ui'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import { TimePicker } from '@/components/ui'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  CheckboxField,
+  TextAreaField,
+  TextField,
+} from './schedulingUi'
 
 interface ServiceFormProps {
   service?: Service
@@ -26,7 +32,6 @@ const DAYS_OF_WEEK = [
 ]
 
 const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceFormProps) => {
-  const { theme } = useTheme()
   const errorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -107,40 +112,28 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceF
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {error && (
-        <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-          <p className="text-sm text-red-400 font-medium">✗ {error}</p>
-        </div>
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+          {error}
+        </Alert>
       )}
       <div className="space-y-4">
-        <Input
-          label="Service Name *"
+        <TextField
+          label="Service name *"
           {...register('name')}
           error={errors.name?.message}
           placeholder="e.g., Consultation, Site Visit"
         />
 
-        <div>
-          <label className={cn(
-            "block text-sm font-medium mb-2",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
-            Description
-          </label>
-          <textarea
-            {...register('description')}
-            rows={3}
-            className={cn(
-              "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
-              theme === 'dark'
-                ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-                : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-            )}
-            placeholder="Describe your service..."
-          />
-        </div>
+        <TextAreaField
+          label="Description"
+          rows={3}
+          {...register('description')}
+          error={errors.description?.message}
+          placeholder="Describe your service..."
+        />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <TextField
             label="Duration (minutes) *"
             type="number"
             {...register('duration', { valueAsNumber: true })}
@@ -149,7 +142,7 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceF
             step={15}
           />
 
-          <Input
+          <TextField
             label="Price ($)"
             type="number"
             {...register('price', { valueAsNumber: true })}
@@ -163,39 +156,35 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceF
       {/* Working Hours */}
       <div className="space-y-4">
         <div>
-          <h3 className={cn(
-            "text-lg font-semibold mb-1",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>Working Hours</h3>
-          <p className={cn(
-            "text-sm mb-4",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
+          <h3 className="mb-1 text-[15px] font-semibold tracking-tight text-ink">Working hours</h3>
+          <p className="text-sm leading-relaxed text-ink-muted">
             Set your availability for each day. Available time slots will be automatically generated based on your service duration and buffer time.
           </p>
         </div>
         <div className="space-y-2">
           {workingHoursFields.map((field, index) => (
-            <div key={field.id} className={cn(
-              "flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 rounded-lg border",
-              theme === 'dark' 
-                ? 'border-primary-blue bg-primary-dark-secondary' 
-                : 'border-gray-200/20 bg-gray-50'
-            )}>
+            <div
+              key={field.id}
+              className="flex flex-col items-stretch gap-3 rounded-xl border border-line bg-surface-2 p-4 sm:flex-row sm:items-center"
+            >
               <div className="w-full sm:w-24 sm:flex-shrink-0">
-                <label className={cn(
-                  "text-sm font-medium",
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>
+                <span className="text-sm font-medium text-ink">
                   {DAYS_OF_WEEK.find((d) => d.value === field.dayOfWeek)?.label}
-                </label>
+                </span>
               </div>
-              <Checkbox
-                  {...register(`availability.workingHours.${index}.isWorking`)}
-                label="Available"
-                />
+              <Controller
+                name={`availability.workingHours.${index}.isWorking`}
+                control={control}
+                render={({ field: cbField }) => (
+                  <CheckboxField
+                    checked={!!cbField.value}
+                    onChange={cbField.onChange}
+                    label="Available"
+                  />
+                )}
+              />
               {watch(`availability.workingHours.${index}.isWorking`) && (
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-shrink-0 items-center gap-2">
                   <div className="w-auto min-w-[100px]">
                     <Controller
                       name={`availability.workingHours.${index}.startTime`}
@@ -210,10 +199,7 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceF
                       )}
                     />
                   </div>
-                  <span className={cn(
-                    "whitespace-nowrap",
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>to</span>
+                  <span className="whitespace-nowrap text-ink-muted">to</span>
                   <div className="w-auto min-w-[100px]">
                     <Controller
                       name={`availability.workingHours.${index}.endTime`}
@@ -237,21 +223,18 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceF
 
       {/* Availability Settings */}
       <div className="space-y-4">
-        <h3 className={cn(
-          "text-lg font-semibold",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Availability Settings</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input
-            label="Buffer Time (minutes)"
+        <h3 className="text-[15px] font-semibold tracking-tight text-ink">Availability settings</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <TextField
+            label="Buffer time (minutes)"
             type="number"
             {...register('availability.bufferTime', { valueAsNumber: true })}
             error={errors.availability?.bufferTime?.message}
             min={0}
           />
 
-          <Input
-            label="Advance Booking Days"
+          <TextField
+            label="Advance booking days"
             type="number"
             {...register('availability.advanceBookingDays', { valueAsNumber: true })}
             error={errors.availability?.advanceBookingDays?.message}
@@ -259,45 +242,70 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceF
           />
         </div>
 
-        <Checkbox
-            {...register('availability.sameDayBooking')}
-          label="Allow same-day booking"
-          />
+        <Controller
+          name="availability.sameDayBooking"
+          control={control}
+          render={({ field }) => (
+            <CheckboxField
+              checked={!!field.value}
+              onChange={field.onChange}
+              label="Allow same-day booking"
+            />
+          )}
+        />
       </div>
 
       {/* Booking Settings */}
       <div className="space-y-4">
-        <h3 className={cn(
-          "text-lg font-semibold",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Booking Settings</h3>
-        <div className="space-y-2">
-          <Checkbox
-              {...register('bookingSettings.requireConfirmation')}
-            label="Require confirmation"
-            />
+        <h3 className="text-[15px] font-semibold tracking-tight text-ink">Booking settings</h3>
+        <div className="space-y-3">
+          <Controller
+            name="bookingSettings.requireConfirmation"
+            control={control}
+            render={({ field }) => (
+              <CheckboxField
+                checked={!!field.value}
+                onChange={field.onChange}
+                label="Require confirmation"
+              />
+            )}
+          />
 
-          <Checkbox
-              {...register('bookingSettings.allowCancellation')}
-            label="Allow cancellation"
-            />
+          <Controller
+            name="bookingSettings.allowCancellation"
+            control={control}
+            render={({ field }) => (
+              <CheckboxField
+                checked={!!field.value}
+                onChange={field.onChange}
+                label="Allow cancellation"
+              />
+            )}
+          />
 
-          <Checkbox
-              {...register('bookingSettings.requireContactInfo')}
-            label="Require contact information"
-            />
+          <Controller
+            name="bookingSettings.requireContactInfo"
+            control={control}
+            render={({ field }) => (
+              <CheckboxField
+                checked={!!field.value}
+                onChange={field.onChange}
+                label="Require contact information"
+              />
+            )}
+          />
         </div>
 
-        <Input
-          label="Cancellation Hours (hours before appointment)"
+        <TextField
+          label="Cancellation hours (hours before appointment)"
           type="number"
           {...register('bookingSettings.cancellationHours', { valueAsNumber: true })}
           error={errors.bookingSettings?.cancellationHours?.message}
           min={0}
         />
 
-        <Input
-          label="Max Bookings Per Slot"
+        <TextField
+          label="Max bookings per slot"
           type="number"
           {...register('bookingSettings.maxBookingsPerSlot', { valueAsNumber: true })}
           error={errors.bookingSettings?.maxBookingsPerSlot?.message}
@@ -306,22 +314,23 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceF
       </div>
 
       {error && (
-        <div ref={errorRef} className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-          <p className="text-sm text-red-400 font-medium">✗ {error}</p>
+        <div ref={errorRef}>
+          <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+            {error}
+          </Alert>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">
+      <div className="flex flex-col justify-end gap-3 pt-2 sm:flex-row">
+        <AppButton type="button" variant="ghost" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">
           Cancel
-        </Button>
-        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-          {isLoading ? 'Saving...' : service ? 'Update Service' : 'Create Service'}
-        </Button>
+        </AppButton>
+        <AppButton type="submit" disabled={isLoading} isLoading={isLoading} className="w-full sm:w-auto">
+          {isLoading ? 'Saving...' : service ? 'Update service' : 'Create service'}
+        </AppButton>
       </div>
     </form>
   )
 }
 
 export default ServiceForm
-

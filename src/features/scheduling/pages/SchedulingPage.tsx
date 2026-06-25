@@ -15,17 +15,24 @@ import DeleteRecurringJobModal from '../components/DeleteRecurringJobModal'
 import EditRecurringJobModal from '../components/EditRecurringJobModal'
 import PermanentDeleteRecurringJobModal from '../components/PermanentDeleteRecurringJobModal'
 import ArchivedJobsPage from '../components/ArchivedJobsPage'
-import { Button, Modal, Card, ConfirmationDialog } from '@/components/ui'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  AppModal,
+  CheckIcon,
+  ClockIcon,
+  TextField,
+  TextAreaField,
+  Tabs,
+} from '../components/schedulingUi'
 import NotifyClientModal from '../components/NotifyClientModal'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
 import { services } from '@/lib/api/services'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 
 const SchedulingPage = () => {
   const { user } = useAuthStore()
-  const { theme } = useTheme()
   const [isTeamAccount, setIsTeamAccount] = useState(false)
 
   useEffect(() => {
@@ -1090,7 +1097,7 @@ const SchedulingPage = () => {
       {/* Drag ghost overlay for "To Be Scheduled" chips */}
       {externalDragGhost?.isVisible && draggedJob && (
         <div
-          className="fixed pointer-events-none z-[9999] rounded-lg border border-amber-500/30 shadow-2xl opacity-95 bg-amber-500/10"
+          className="fixed pointer-events-none z-[9999] rounded-lg bg-warning-soft text-warning shadow-pop opacity-95 ring-1 ring-inset ring-warning/30"
           style={{
             left: 0,
             top: 0,
@@ -1101,23 +1108,9 @@ const SchedulingPage = () => {
           }}
         >
           <div className="inline-flex items-center gap-2 px-3 py-2 h-full">
-            <svg
-              className="w-4 h-4 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span className="font-medium truncate max-w-[200px] text-amber-400">
-              {draggedJob.title}
-            </span>
-            <span className="text-xs text-amber-400/60">({draggedJob.contactName})</span>
+            <ClockIcon className="h-4 w-4 flex-shrink-0" />
+            <span className="font-medium truncate max-w-[200px]">{draggedJob.title}</span>
+            <span className="font-mono tabular-nums text-xs opacity-70">({draggedJob.contactName})</span>
           </div>
         </div>
       )}
@@ -1125,95 +1118,62 @@ const SchedulingPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
         <div className="space-y-1">
-          <h1
-            className={cn(
-              'text-2xl md:text-3xl font-bold tracking-tight',
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}
-          >
-            <span className="text-primary-gold">Scheduling</span>
-          </h1>
-          <p
-            className={cn(
-              'text-sm md:text-base',
-              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-            )}
-          >
-            Manage your calendar, jobs, and services
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Scheduling</h1>
+          <p className="text-sm text-ink-muted">Manage your calendar, jobs, and services</p>
         </div>
         <div className="flex items-center gap-2">
           {(activeTab === 'calendar' || activeTab === 'upcoming-bookings') && (
             <>
               {user?.canScheduleAppointments !== false && (
-                <Button
+                <AppButton
                   onClick={() => setShowJobForm(true)}
                   className="w-full sm:w-auto"
                   title="Keyboard shortcut: Ctrl+N or ⌘N"
                 >
                   Schedule Job
-                </Button>
+                </AppButton>
               )}
               {activeTab === 'calendar' && (
-                <Button
+                <AppButton
                   onClick={handleOpenBookingLink}
-                  variant="secondary"
+                  variant="subtle"
                   className="w-full sm:w-auto"
                 >
                   {buttonLinkCopied ? (
                     <span className="flex items-center gap-1.5">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
+                      <CheckIcon className="h-4 w-4" />
                       <span>Copied!</span>
                     </span>
                   ) : (
                     'Copy Booking Link'
                   )}
-                </Button>
+                </AppButton>
               )}
             </>
           )}
           {activeTab === 'services' && user?.role !== 'employee' && (
             <>
-              <Button
+              <AppButton
                 onClick={() => setShowServiceForm(true)}
                 className="w-full sm:w-auto"
                 title="Keyboard shortcut: Ctrl+N or ⌘N"
               >
                 Create Service
-              </Button>
-              <Button
+              </AppButton>
+              <AppButton
                 onClick={handleOpenBookingLink}
-                variant="secondary"
+                variant="subtle"
                 className="w-full sm:w-auto"
               >
                 {buttonLinkCopied ? (
                   <span className="flex items-center gap-1.5">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+                    <CheckIcon className="h-4 w-4" />
                     <span>Copied!</span>
                   </span>
                 ) : (
                   'Copy Booking Link'
                 )}
-              </Button>
+              </AppButton>
             </>
           )}
         </div>
@@ -1221,140 +1181,87 @@ const SchedulingPage = () => {
 
       {/* Error Display - hidden while a form modal is open (the form shows its own error) */}
       {error && !showServiceForm && !showJobForm && (
-        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-red-400">{error}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                clearJobsError()
-                clearServicesError()
-              }}
-            >
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <div className="flex-shrink-0">
+          <Alert
+            tone="danger"
+            icon={<AlertIcon className="h-4 w-4" />}
+            onDismiss={() => {
+              clearJobsError()
+              clearServicesError()
+            }}
+          >
+            {error}
+          </Alert>
+        </div>
       )}
 
       {/* Job Confirmation Display */}
       {showJobConfirmation && (
-        <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-green-400">✓ {jobConfirmationMessage}</p>
-            <Button variant="ghost" size="sm" onClick={() => setShowJobConfirmation(false)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <div className="flex-shrink-0">
+          <Alert
+            tone="success"
+            icon={<CheckIcon className="h-4 w-4" />}
+            onDismiss={() => setShowJobConfirmation(false)}
+          >
+            {jobConfirmationMessage}
+          </Alert>
+        </div>
       )}
 
       {/* Job Error Display */}
       {showJobError && (
-        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-red-400">✗ {jobErrorMessage}</p>
-            <Button variant="ghost" size="sm" onClick={() => setShowJobError(false)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <div className="flex-shrink-0">
+          <Alert
+            tone="danger"
+            icon={<AlertIcon className="h-4 w-4" />}
+            onDismiss={() => setShowJobError(false)}
+          >
+            {jobErrorMessage}
+          </Alert>
+        </div>
       )}
 
       {/* Service Confirmation Display */}
       {showServiceConfirmation && (
-        <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-green-400">✓ {serviceConfirmationMessage}</p>
-            <Button variant="ghost" size="sm" onClick={() => setShowServiceConfirmation(false)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <div className="flex-shrink-0">
+          <Alert
+            tone="success"
+            icon={<CheckIcon className="h-4 w-4" />}
+            onDismiss={() => setShowServiceConfirmation(false)}
+          >
+            {serviceConfirmationMessage}
+          </Alert>
+        </div>
       )}
 
-      {/* Tabs - no horizontal scroll or wrap, fit within viewport via responsive sizing. Negative margin extends into container padding for more room. */}
+      {/* Tabs */}
       <div
-        className={cn(
-          'flex items-center gap-1 sm:gap-2 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6',
-          theme === 'dark' ? 'border-white/10' : 'border-gray-200'
-        )}
+        className="flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6 overflow-hidden"
         style={{ touchAction: 'none', overscrollBehavior: 'none' }}
       >
-        <button
-          onClick={() => {
-            setActiveTab('calendar')
+        <Tabs
+          value={activeTab}
+          onChange={value => {
+            setActiveTab(value as 'calendar' | 'upcoming-bookings' | 'services' | 'archived')
             const params = new URLSearchParams(searchParams)
-            params.set('tab', 'calendar')
+            params.set('tab', value)
             setSearchParams(params, { replace: true })
           }}
-          className={cn(
-            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
-            activeTab === 'calendar'
-              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-              : theme === 'dark'
-                ? 'text-primary-light/60 hover:text-primary-light/90'
-                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-          )}
-        >
-          Calendar
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('upcoming-bookings')
-            const params = new URLSearchParams(searchParams)
-            params.set('tab', 'upcoming-bookings')
-            setSearchParams(params, { replace: true })
-          }}
-          className={cn(
-            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
-            activeTab === 'upcoming-bookings'
-              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-              : theme === 'dark'
-                ? 'text-primary-light/60 hover:text-primary-light/90'
-                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-          )}
-        >
-          <span className="sm:hidden">Bookings</span>
-          <span className="hidden sm:inline">Upcoming Bookings</span>
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('services')
-            const params = new URLSearchParams(searchParams)
-            params.set('tab', 'services')
-            setSearchParams(params, { replace: true })
-          }}
-          className={cn(
-            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
-            activeTab === 'services'
-              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-              : theme === 'dark'
-                ? 'text-primary-light/60 hover:text-primary-light/90'
-                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-          )}
-        >
-          Services
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('archived')
-            const params = new URLSearchParams(searchParams)
-            params.set('tab', 'archived')
-            setSearchParams(params, { replace: true })
-          }}
-          className={cn(
-            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
-            activeTab === 'archived'
-              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-              : theme === 'dark'
-                ? 'text-primary-light/60 hover:text-primary-light/90'
-                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-          )}
-        >
-          Archive
-        </button>
+          tabs={[
+            { value: 'calendar', label: 'Calendar' },
+            {
+              value: 'upcoming-bookings',
+              label: (
+                <>
+                  <span className="sm:hidden">Bookings</span>
+                  <span className="hidden sm:inline">Upcoming Bookings</span>
+                </>
+              ),
+            },
+            { value: 'services', label: 'Services' },
+            { value: 'archived', label: 'Archive' },
+          ]}
+        />
       </div>
 
       {/* Content */}
@@ -1375,15 +1282,12 @@ const SchedulingPage = () => {
           <div className="h-full flex flex-col min-w-0">
             {/* To Be Scheduled List (inline at top when visible) */}
             {toBeScheduledJobs.length > 0 && (
-              <div
-                ref={toBeScheduledInlineRef}
-                className={cn(
-                  'border-b p-4',
-                  theme === 'dark' ? 'border-white/10' : 'border-gray-200'
-                )}
-              >
-                <h3 className="text-sm font-semibold text-primary-gold mb-3">
-                  To Be Scheduled ({toBeScheduledJobs.length})
+              <div ref={toBeScheduledInlineRef} className="border-b border-line p-4">
+                <h3 className="text-sm font-semibold text-ink mb-3">
+                  To Be Scheduled{' '}
+                  <span className="font-mono tabular-nums text-ink-muted">
+                    ({toBeScheduledJobs.length})
+                  </span>
                 </h3>
                 <div className="flex gap-2 flex-wrap">
                   {toBeScheduledJobs.map(job => {
@@ -1432,28 +1336,16 @@ const SchedulingPage = () => {
                           setSelectedJob(job)
                           setShowJobDetail(true)
                         }}
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all touch-none"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-warning-soft text-warning ring-1 ring-inset ring-warning/30 text-sm cursor-move hover:opacity-80 transition-all touch-none"
                         style={{
                           opacity: isDragging ? 0 : undefined,
                           pointerEvents: isDragging ? 'none' : undefined,
                         }}
                         title="Drag to calendar to schedule"
                       >
-                        <svg
-                          className="w-4 h-4 flex-shrink-0"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
+                        <ClockIcon className="h-4 w-4 flex-shrink-0" />
                         <span className="font-medium truncate max-w-[200px]">{job.title}</span>
-                        <span className="text-xs text-amber-400/60">({job.contactName})</span>
+                        <span className="text-xs opacity-70">({job.contactName})</span>
                       </div>
                     )
                   })}
@@ -1473,14 +1365,7 @@ const SchedulingPage = () => {
                     maxWidth: floatingToBeScheduledPos.maxWidth,
                   }}
                 >
-                  <div
-                    className={cn(
-                      'rounded-xl border border-amber-500/30 backdrop-blur-md shadow-lg ring-1',
-                      theme === 'dark'
-                        ? 'bg-primary-dark/95 ring-black/20'
-                        : 'bg-white/95 ring-gray-200/50'
-                    )}
-                  >
+                  <div className="rounded-xl bg-surface/95 backdrop-blur-md shadow-pop ring-1 ring-line">
                     <button
                       type="button"
                       onClick={() => setToBeScheduledOverlayOpen(v => !v)}
@@ -1488,43 +1373,17 @@ const SchedulingPage = () => {
                       aria-expanded={toBeScheduledOverlayOpen}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-400 flex-shrink-0">
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-warning-soft text-warning flex-shrink-0">
+                          <ClockIcon className="h-4 w-4" />
                         </span>
-                        <span className="text-sm font-semibold text-primary-gold truncate">
+                        <span className="text-sm font-semibold text-ink truncate">
                           To Be Scheduled
                         </span>
-                        <span
-                          className={cn(
-                            'text-xs flex-shrink-0',
-                            theme === 'dark'
-                              ? 'text-primary-light/60'
-                              : 'text-primary-lightTextSecondary'
-                          )}
-                        >
+                        <span className="font-mono tabular-nums text-xs text-ink-muted flex-shrink-0">
                           ({toBeScheduledJobs.length})
                         </span>
                       </div>
-                      <span
-                        className={cn(
-                          'flex-shrink-0',
-                          theme === 'dark'
-                            ? 'text-primary-light/60'
-                            : 'text-primary-lightTextSecondary'
-                        )}
-                      >
+                      <span className="text-sm text-ink-muted flex-shrink-0">
                         {toBeScheduledOverlayOpen ? 'Hide' : 'Show'}
                       </span>
                     </button>
@@ -1580,7 +1439,7 @@ const SchedulingPage = () => {
                                   setSelectedJob(job)
                                   setShowJobDetail(true)
                                 }}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 ring-1 ring-amber-500/10 text-amber-400 text-sm cursor-move hover:bg-amber-500/20 hover:ring-amber-500/20 transition-all touch-none"
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-warning-soft text-warning ring-1 ring-inset ring-warning/30 text-sm cursor-move hover:opacity-80 transition-all touch-none"
                                 style={{
                                   opacity: isDragging ? 0 : undefined,
                                   pointerEvents: isDragging ? 'none' : undefined,
@@ -1590,9 +1449,7 @@ const SchedulingPage = () => {
                                 <span className="font-medium truncate max-w-[220px]">
                                   {job.title}
                                 </span>
-                                <span className="text-xs text-amber-400/60">
-                                  ({job.contactName})
-                                </span>
+                                <span className="text-xs opacity-70">({job.contactName})</span>
                               </div>
                             )
                           })}
@@ -1667,7 +1524,7 @@ const SchedulingPage = () => {
       </div>
 
       {/* Job Form Modal */}
-      <Modal
+      <AppModal
         isOpen={showJobForm}
         onClose={() => {
           setShowJobForm(false)
@@ -1686,7 +1543,6 @@ const SchedulingPage = () => {
                 : 'Schedule Job'
         }
         size="xl"
-        fitContentOnMobile
       >
         <JobForm
           key={
@@ -1749,7 +1605,7 @@ const SchedulingPage = () => {
           existingJobId={!editingJob ? linkExistingJobId : undefined} // Pre-select job when scheduling from job detail
           // Don't use simplified form for Schedule Job button - show all fields
         />
-      </Modal>
+      </AppModal>
 
       <NotifyClientModal
         isOpen={showNotifyClientModal}
@@ -1896,7 +1752,7 @@ const SchedulingPage = () => {
       />
 
       {/* Decline Job Modal */}
-      <Modal
+      <AppModal
         isOpen={showDeclineModal}
         onClose={() => {
           setShowDeclineModal(false)
@@ -1904,40 +1760,9 @@ const SchedulingPage = () => {
         }}
         title="Decline Booking"
         size="md"
-      >
-        <div className="space-y-4">
-          <p
-            className={cn(
-              'text-sm',
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}
-          >
-            Are you sure you want to decline this booking? The client will be notified via email.
-          </p>
-          <div>
-            <label
-              className={cn(
-                'block text-sm font-medium mb-2',
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}
-            >
-              Reason (Optional)
-            </label>
-            <textarea
-              value={declineReason}
-              onChange={e => setDeclineReason(e.target.value)}
-              rows={3}
-              className={cn(
-                'w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold',
-                theme === 'dark'
-                  ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-                  : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-              )}
-              placeholder="Let the client know why you can't accommodate this booking..."
-            />
-          </div>
-          <div className="flex gap-3 justify-end">
-            <Button
+        footer={
+          <>
+            <AppButton
               variant="ghost"
               onClick={() => {
                 setShowDeclineModal(false)
@@ -1945,13 +1770,26 @@ const SchedulingPage = () => {
               }}
             >
               Cancel
-            </Button>
-            <Button onClick={handleDeclineJob} className="bg-red-600 hover:bg-red-700 text-white">
+            </AppButton>
+            <AppButton variant="danger" onClick={handleDeclineJob}>
               Decline Booking
-            </Button>
-          </div>
+            </AppButton>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink-muted">
+            Are you sure you want to decline this booking? The client will be notified via email.
+          </p>
+          <TextAreaField
+            label="Reason (Optional)"
+            value={declineReason}
+            onChange={e => setDeclineReason(e.target.value)}
+            rows={3}
+            placeholder="Let the client know why you can't accommodate this booking..."
+          />
         </div>
-      </Modal>
+      </AppModal>
 
       {/* Service Detail Modal */}
       {selectedService && (
@@ -1976,7 +1814,7 @@ const SchedulingPage = () => {
       )}
 
       {/* Service Form Modal */}
-      <Modal
+      <AppModal
         isOpen={showServiceForm}
         onClose={() => {
           setShowServiceForm(false)
@@ -1997,7 +1835,7 @@ const SchedulingPage = () => {
           isLoading={servicesLoading}
           error={servicesError}
         />
-      </Modal>
+      </AppModal>
 
       {/* Delete Recurring Job Modal */}
       {selectedJob && (
@@ -2025,18 +1863,9 @@ const SchedulingPage = () => {
 
       {/* Permanent Delete Confirmation Dialog */}
       {selectedJob && (
-        <ConfirmationDialog
+        <AppModal
           isOpen={showDeleteConfirm}
           onClose={() => setShowDeleteConfirm(false)}
-          onConfirm={async () => {
-            setShowDeleteConfirm(false)
-            try {
-              await handleDeleteSingleJob()
-            } catch (error) {
-              console.error('Failed to delete booking:', error)
-              // Error is already logged, user will see it via the store error state
-            }
-          }}
           title={
             selectedJob?.bookingId
               ? selectedJob?.toBeScheduled || !selectedJob?.startTime
@@ -2044,94 +1873,116 @@ const SchedulingPage = () => {
                 : 'Archive Job?'
               : 'Delete Job?'
           }
-          message={
-            <div className="space-y-3">
-              {selectedJob?.bookingId ? (
-                selectedJob?.toBeScheduled || !selectedJob?.startTime ? (
-                  <>
-                    <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                      Are you sure you want to delete this booking?
-                    </p>
-                    <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                      <p className={cn('text-sm mb-2', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
-                        <strong className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>Important:</strong> This will only
-                        delete the booking, not the job itself.
-                      </p>
-                      <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
-                        The job "{selectedJob?.title}" will remain in your jobs list and can be
-                        scheduled again later.
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>Are you sure you want to archive this job?</p>
-                    <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                      <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
-                        <strong className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>Job:</strong> {selectedJob?.title}
-                      </p>
-                      <p className={cn('text-sm mt-1', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
-                        Archived jobs can be restored later from the Archived tab.
-                      </p>
-                    </div>
-                  </>
-                )
-              ) : (
+          size="sm"
+          footer={
+            <>
+              <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </AppButton>
+              <AppButton
+                variant="danger"
+                onClick={async () => {
+                  setShowDeleteConfirm(false)
+                  try {
+                    await handleDeleteSingleJob()
+                  } catch (error) {
+                    console.error('Failed to delete booking:', error)
+                    // Error is already logged, user will see it via the store error state
+                  }
+                }}
+              >
+                {selectedJob?.bookingId
+                  ? selectedJob?.toBeScheduled || !selectedJob?.startTime
+                    ? 'Delete Booking'
+                    : 'Archive'
+                  : 'Delete Job'}
+              </AppButton>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            {selectedJob?.bookingId ? (
+              selectedJob?.toBeScheduled || !selectedJob?.startTime ? (
                 <>
-                  <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>This job has no booking. Delete the job?</p>
-                  <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                    <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
-                      This will permanently remove "{selectedJob?.title}" from your Jobs list and
-                      Scheduling.
+                  <p className="text-ink">Are you sure you want to delete this booking?</p>
+                  <div className="rounded-lg bg-info-soft p-3">
+                    <p className="text-sm mb-2 text-ink-muted">
+                      <strong className="text-ink">Important:</strong> This will only delete the
+                      booking, not the job itself.
+                    </p>
+                    <p className="text-sm text-ink-muted">
+                      The job "{selectedJob?.title}" will remain in your jobs list and can be
+                      scheduled again later.
                     </p>
                   </div>
                 </>
-              )}
-            </div>
-          }
-          confirmText={
-            selectedJob?.bookingId
-              ? selectedJob?.toBeScheduled || !selectedJob?.startTime
-                ? 'Delete Booking'
-                : 'Archive'
-              : 'Delete Job'
-          }
-          confirmVariant="danger"
-        />
+              ) : (
+                <>
+                  <p className="text-ink">Are you sure you want to archive this job?</p>
+                  <div className="rounded-lg bg-info-soft p-3">
+                    <p className="text-sm text-ink-muted">
+                      <strong className="text-ink">Job:</strong> {selectedJob?.title}
+                    </p>
+                    <p className="text-sm mt-1 text-ink-muted">
+                      Archived jobs can be restored later from the Archived tab.
+                    </p>
+                  </div>
+                </>
+              )
+            ) : (
+              <>
+                <p className="text-ink">This job has no booking. Delete the job?</p>
+                <div className="rounded-lg bg-info-soft p-3">
+                  <p className="text-sm text-ink-muted">
+                    This will permanently remove "{selectedJob?.title}" from your Jobs list and
+                    Scheduling.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </AppModal>
       )}
 
       {/* Permanent Delete Confirmation */}
       {selectedJob && (
-        <ConfirmationDialog
+        <AppModal
           isOpen={showPermanentDeleteConfirm}
           onClose={() => setShowPermanentDeleteConfirm(false)}
-          onConfirm={handleConfirmPermanentDelete}
-          title="⚠️ Permanently Delete Job?"
-          message={
-            <div className="space-y-3">
-              <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                Are you sure you want to <strong className="text-red-400">PERMANENTLY</strong>{' '}
-                delete this job?
-              </p>
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                <p className={cn('text-sm font-semibold mb-1', theme === 'dark' ? 'text-red-400' : 'text-red-600')}>
-                  ⚠️ This action cannot be undone!
-                </p>
-                <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
-                  The job will be removed from the database
-                  {selectedJob.archivedAt ? ' and S3 archive' : ''}.
-                </p>
-              </div>
-              <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                <p className={cn('text-sm', theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary')}>
-                  <strong className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>Job:</strong> {selectedJob.title}
-                </p>
-              </div>
-            </div>
+          title="Permanently Delete Job?"
+          size="sm"
+          footer={
+            <>
+              <AppButton variant="ghost" onClick={() => setShowPermanentDeleteConfirm(false)}>
+                Cancel
+              </AppButton>
+              <AppButton variant="danger" onClick={handleConfirmPermanentDelete}>
+                Delete Permanently
+              </AppButton>
+            </>
           }
-          confirmText="Delete Permanently"
-          confirmVariant="danger"
-        />
+        >
+          <div className="space-y-3">
+            <p className="text-ink">
+              Are you sure you want to <strong className="text-danger">PERMANENTLY</strong> delete
+              this job?
+            </p>
+            <div className="rounded-lg bg-danger-soft p-3">
+              <p className="text-sm font-semibold mb-1 text-danger">
+                This action cannot be undone!
+              </p>
+              <p className="text-sm text-ink-muted">
+                The job will be removed from the database
+                {selectedJob.archivedAt ? ' and S3 archive' : ''}.
+              </p>
+            </div>
+            <div className="rounded-lg bg-info-soft p-3">
+              <p className="text-sm text-ink-muted">
+                <strong className="text-ink">Job:</strong> {selectedJob.title}
+              </p>
+            </div>
+          </div>
+        </AppModal>
       )}
 
       {/* Permanent Delete Recurring Job Modal */}
@@ -2148,7 +1999,7 @@ const SchedulingPage = () => {
       )}
 
       {/* Booking Link Modal */}
-      <Modal
+      <AppModal
         isOpen={showLinkModal}
         onClose={() => {
           setShowLinkModal(false)
@@ -2158,27 +2009,12 @@ const SchedulingPage = () => {
         size="md"
       >
         <div className="space-y-4">
-          <p
-            className={cn(
-              'text-sm',
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}
-          >
+          <p className="text-sm text-ink-muted">
             Share this link with clients so they can view all your services and book appointments:
           </p>
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={bookingLink}
-              readOnly
-              className={cn(
-                'flex-1 rounded-lg border px-3 py-2 text-sm',
-                theme === 'dark'
-                  ? 'border-primary-blue bg-primary-dark-secondary text-primary-light'
-                  : 'border-gray-200 bg-white text-primary-lightText'
-              )}
-            />
-            <Button
+            <TextField type="text" value={bookingLink} readOnly className="flex-1" />
+            <AppButton
               size="sm"
               onClick={() => {
                 navigator.clipboard.writeText(bookingLink)
@@ -2189,39 +2025,22 @@ const SchedulingPage = () => {
             >
               {linkCopied ? (
                 <span className="flex items-center gap-1.5">
-                  <svg
-                    className="w-4 h-4 animate-scale-in"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                  <CheckIcon className="h-4 w-4" />
                   <span>Copied</span>
                 </span>
               ) : (
                 'Copy'
               )}
-            </Button>
+            </AppButton>
           </div>
-          <p
-            className={cn(
-              'text-xs',
-              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-            )}
-          >
+          <p className="text-xs text-ink-subtle">
             Clients can select a time and book without logging in.
           </p>
         </div>
-      </Modal>
+      </AppModal>
 
       {/* No Services Modal */}
-      <Modal
+      <AppModal
         isOpen={showNoServicesModal}
         onClose={() => setShowNoServicesModal(false)}
         title=""
@@ -2230,61 +2049,37 @@ const SchedulingPage = () => {
         <div className="space-y-6 py-2">
           {/* Icon and Title */}
           <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-amber-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-warning-soft text-warning flex items-center justify-center">
+              <AlertIcon className="h-8 w-8" />
             </div>
-            <h2
-              className={cn(
-                'text-xl font-semibold mb-2',
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}
-            >
-              No Services Set Up
-            </h2>
-            <p
-              className={cn(
-                'text-sm',
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}
-            >
+            <h2 className="text-xl font-semibold mb-2 text-ink">No Services Set Up</h2>
+            <p className="text-sm text-ink-muted">
               Oops! You haven't set up any services. Set up service now.
             </p>
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">
-            <Button
+            <AppButton
               variant="ghost"
               onClick={() => setShowNoServicesModal(false)}
-              className="flex-1"
+              fullWidth
             >
               Cancel
-            </Button>
-            <Button
+            </AppButton>
+            <AppButton
               onClick={() => {
                 setShowNoServicesModal(false)
                 setActiveTab('services')
                 setShowServiceForm(true)
               }}
-              className="flex-1 bg-primary-gold hover:bg-primary-gold/90 text-primary-dark font-medium"
+              fullWidth
             >
               Set Up Service Now
-            </Button>
+            </AppButton>
           </div>
         </div>
-      </Modal>
+      </AppModal>
     </div>
   )
 }

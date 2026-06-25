@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react'
-import { Modal, Button, Card } from '@/components/ui'
 import { format } from 'date-fns'
 import { jobsService } from '@/lib/api/services'
 import type { Job } from '../types/job'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/contexts/ThemeContext'
+import {
+  Alert,
+  AppButton,
+  AppModal,
+  ArchiveIcon,
+  CalendarIcon,
+  EmptyState,
+  RefreshIcon,
+  Spinner,
+  StatusBadge,
+  TrashIcon,
+  UserIcon,
+} from './schedulingUi'
+import { resolveJobStatus } from './schedulingStatus'
 
 interface ArchivedJobsModalProps {
   isOpen: boolean
@@ -17,7 +28,6 @@ interface ArchivedJobsModalProps {
 }
 
 const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect, onPermanentDelete, deletedJobId, deletedRecurrenceId }: ArchivedJobsModalProps) => {
-  const { theme } = useTheme()
   const [archivedJobs, setArchivedJobs] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,14 +60,14 @@ const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect, onPerma
       twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
       const twoYearsFromNow = new Date()
       twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2)
-      
+
       console.log('ArchivedJobsModal: Fetching with date range:', {
         start: twoYearsAgo.toISOString(),
         end: twoYearsFromNow.toISOString(),
         includeArchived: true
       })
       const jobs = await jobsService.getAll(twoYearsAgo, twoYearsFromNow, true, false) // includeArchived = true
-      
+
       console.log('ArchivedJobsModal: Fetched jobs:', jobs.length, jobs)
       // Filter to only show archived jobs
       const archived = jobs.filter((job: Job) => {
@@ -84,158 +94,115 @@ const ArchivedJobsModal = ({ isOpen, onClose, onJobRestore, onJobSelect, onPerma
     }
   }
 
-  const statusColors = {
-    active: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-    scheduled: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-    'in-progress': theme === 'dark'
-      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    completed: theme === 'dark'
-      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    cancelled: theme === 'dark'
-      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-      : 'bg-red-100 text-red-700 border-red-300',
-    'pending-confirmation': theme === 'dark'
-      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-      : 'bg-orange-100 text-orange-700 border-orange-300',
-  }
-
   return (
-    <Modal
+    <AppModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Archived Jobs"
+      title="Archived jobs"
       size="xl"
     >
       <div className="space-y-4">
-        <div className="text-sm text-primary-light/70">
+        <p className="text-sm text-ink-muted">
           These will be moved to long-term storage after 30 days. Restore any job back to your active calendar.
-        </div>
+        </p>
 
         {isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-primary-light/70">Loading archived jobs...</div>
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-ink-muted">
+            <Spinner />
+            Loading archived jobs...
           </div>
         )}
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400">
-            {error}
-          </div>
-        )}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {!isLoading && !error && archivedJobs.length === 0 && (
-          <div className="text-center py-12">
-            <svg className="w-16 h-16 mx-auto mb-4 text-primary-light/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-            </svg>
-            <p className="text-primary-light/50">No archived jobs found</p>
-          </div>
+          <EmptyState icon={<ArchiveIcon className="h-10 w-10" />} title="No archived jobs found." />
         )}
 
         {!isLoading && !error && archivedJobs.length > 0 && (
-          <div className="max-h-[500px] overflow-y-auto space-y-3 pr-2">
-            {archivedJobs.map((job) => (
-              <Card
-                key={job.id}
-                className="hover:border-primary-gold/50 transition-all cursor-pointer"
-                onClick={() => onJobSelect?.(job)}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-primary-light truncate">
-                        {job.title}
-                      </h3>
-                      <span
-                        className={cn(
-                          'px-2 py-0.5 rounded text-xs font-medium border flex-shrink-0',
-                          statusColors[job.status]
-                        )}
-                      >
-                        {job.status}
-                      </span>
-                    </div>
-
-                    {job.description && (
-                      <p className="text-sm text-primary-light/70 mb-2 line-clamp-1">
-                        {job.description}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-primary-light/60">
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {job.startTime ? (
-                          <span>{format(new Date(job.startTime), 'MMM d, yyyy')}</span>
-                        ) : (
-                          <span className="text-amber-400">To Be Scheduled</span>
-                        )}
+          <div className="max-h-[500px] space-y-3 overflow-y-auto pr-1">
+            {archivedJobs.map((job) => {
+              const status = resolveJobStatus(job.status)
+              return (
+                <div
+                  key={job.id}
+                  onClick={() => onJobSelect?.(job)}
+                  className="cursor-pointer rounded-xl border border-line bg-surface p-4 transition-colors hover:border-accent"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex items-center gap-2">
+                        <h3 className="truncate font-semibold text-ink">{job.title}</h3>
+                        <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
                       </div>
 
-                      {job.contactName && (
+                      {job.description && (
+                        <p className="mb-2 line-clamp-1 text-sm text-ink-muted">{job.description}</p>
+                      )}
+
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-subtle">
                         <div className="flex items-center gap-1.5">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <span className="truncate">{job.contactName}</span>
+                          <CalendarIcon className="h-4 w-4" />
+                          {job.startTime ? (
+                            <span className="font-mono tabular-nums">{format(new Date(job.startTime), 'MMM d, yyyy')}</span>
+                          ) : (
+                            <span className="text-warning">To be scheduled</span>
+                          )}
                         </div>
-                      )}
 
-                      {job.archivedAt && (
-                        <div className="flex items-center gap-1.5 text-primary-light/40">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                          </svg>
-                          <span>Archived {format(new Date(job.archivedAt), 'MMM d, yyyy')}</span>
-                        </div>
-                      )}
+                        {job.contactName && (
+                          <div className="flex items-center gap-1.5">
+                            <UserIcon className="h-4 w-4" />
+                            <span className="truncate">{job.contactName}</span>
+                          </div>
+                        )}
+
+                        {job.archivedAt && (
+                          <div className="flex items-center gap-1.5">
+                            <ArchiveIcon className="h-4 w-4" />
+                            <span>
+                              Archived{' '}
+                              <span className="font-mono tabular-nums">{format(new Date(job.archivedAt), 'MMM d, yyyy')}</span>
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
-                    {onPermanentDelete && (
-                      <Button
-                        variant="ghost"
+                    <div className="flex shrink-0 gap-2">
+                      {onPermanentDelete && (
+                        <AppButton
+                          variant="dangerGhost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onPermanentDelete(job)
+                          }}
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                          Delete forever
+                        </AppButton>
+                      )}
+                      <AppButton
+                        variant="subtle"
+                        size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          onPermanentDelete(job)
+                          handleRestore(job)
                         }}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        Delete Forever
-                      </Button>
-                    )}
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRestore(job)
-                      }}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                      </svg>
-                      Restore
-                    </Button>
+                        <RefreshIcon className="h-4 w-4" />
+                        Restore
+                      </AppButton>
+                    </div>
                   </div>
                 </div>
-              </Card>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
-    </Modal>
+    </AppModal>
   )
 }
 

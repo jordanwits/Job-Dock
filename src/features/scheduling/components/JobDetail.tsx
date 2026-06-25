@@ -1,5 +1,4 @@
 import { format } from 'date-fns'
-import { Modal, Button, Card } from '@/components/ui'
 import { useJobStore } from '../store/jobStore'
 import type { Job, JobAssignment } from '../types/job'
 import { cn, getMapsHref } from '@/lib/utils'
@@ -8,7 +7,18 @@ import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useAuthStore } from '@/features/auth/store/authStore'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useTheme } from '@/contexts/ThemeContext'
+import {
+  AppButton,
+  AppModal,
+  ArchiveIcon,
+  ChevronDownIcon,
+  ClockIcon,
+  RefreshIcon,
+  StatusBadge,
+  TrashIcon,
+  linkCls,
+} from './schedulingUi'
+import { resolveJobStatus } from './schedulingStatus'
 
 interface JobDetailProps {
   job: Job
@@ -26,16 +36,12 @@ interface JobDetailProps {
 }
 
 const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, onRestore, onConfirm, onDecline, onScheduleFollowup, onScheduleJob, showCreatedBy }: JobDetailProps) => {
-  const { theme } = useTheme()
   const navigate = useNavigate()
-  const textMain = theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-  const textMuted = theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-  const textSubtle = theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
   const { quotes, fetchQuotes } = useQuoteStore()
   const { invoices, fetchInvoices } = useInvoiceStore()
   const { user } = useAuthStore()
   const [showDeleteMenu, setShowDeleteMenu] = useState(false)
-  
+
   // Parse assignments from job (handle both old and new formats)
   const getAssignments = (): JobAssignment[] => {
     if (!job.assignedTo) return []
@@ -49,7 +55,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
     // Old format: single string
     return [{ userId: job.assignedTo as string, role: 'Team Member', price: null }]
   }
-  
+
   const assignments = getAssignments()
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
   const currentUserId = user?.id
@@ -69,7 +75,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
     }
     return true
   })()
-  
+
   useEffect(() => {
     if (job?.quoteId && quotes.length === 0) {
       fetchQuotes()
@@ -78,40 +84,12 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
       fetchInvoices()
     }
   }, [job, quotes.length, invoices.length, fetchQuotes, fetchInvoices])
-  
+
   const linkedQuote = job.quoteId ? quotes.find(q => q.id === job.quoteId) : null
   const linkedInvoice = job.invoiceId ? invoices.find(i => i.id === job.invoiceId) : null
-  
-  const statusColors = {
-    active: theme === 'dark'
-      ? 'border-green-500 bg-green-500/20 text-green-400'
-      : 'bg-green-100 text-green-700 border-green-300',
-    scheduled: theme === 'dark'
-      ? 'border-green-500 bg-green-500/20 text-green-400'
-      : 'bg-green-100 text-green-700 border-green-300',
-    'in-progress': theme === 'dark'
-      ? 'border-yellow-500 bg-yellow-500/20 text-yellow-400'
-      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    completed: theme === 'dark'
-      ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    cancelled: theme === 'dark'
-      ? 'border-red-500 bg-red-500/20 text-red-400'
-      : 'bg-red-100 text-red-700 border-red-300',
-    'pending-confirmation': theme === 'dark'
-      ? 'border-orange-500 bg-orange-500/20 text-orange-400'
-      : 'bg-orange-100 text-orange-700 border-orange-300',
-  }
 
-  const statusLabels = {
-    active: 'Active',
-    scheduled: 'Scheduled',
-    'in-progress': 'In Progress',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-    'pending-confirmation': 'Pending Confirmation',
-  }
-  
+  const { label: statusLabel, tone: statusTone } = resolveJobStatus(job.status)
+
   const isArchived = !!job.archivedAt
   const isUnscheduled = job.toBeScheduled || !job.startTime || !job.endTime
   const isIndependent = !!(job as { isIndependent?: boolean }).isIndependent
@@ -122,77 +100,72 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
   const durationMs = (startTime && endTime) ? (endTime.getTime() - startTime.getTime()) : 0
   const isMultiDay = durationMs >= 24 * 60 * 60 * 1000
 
+  const sectionHeaderCls = 'text-[11px] font-semibold uppercase tracking-wide text-ink-subtle'
+  const subPanelCls = 'rounded-xl border border-line bg-surface-2 p-4'
+
   return (
-    <Modal
+    <AppModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Job Details"
+      title="Job details"
       size="lg"
       footer={
-        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between w-full gap-3">
-          {/* Primary actions - shown on top on mobile */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+        <div className="flex w-full flex-col-reverse items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+          {/* Primary actions */}
+          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
             {isUnscheduled && onScheduleJob && !isArchived && (
-              <Button 
-                onClick={onScheduleJob}
-                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto justify-center"
-              >
-                Schedule Job
-              </Button>
+              <AppButton onClick={onScheduleJob} fullWidth className="sm:w-auto">
+                Schedule job
+              </AppButton>
             )}
             {!isUnscheduled && onScheduleFollowup && !isArchived && job.status !== 'pending-confirmation' && (
-              <Button 
-                onClick={onScheduleFollowup}
-                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto justify-center"
-              >
-                Schedule Follow-up
-              </Button>
+              <AppButton onClick={onScheduleFollowup} fullWidth className="sm:w-auto">
+                Schedule follow-up
+              </AppButton>
             )}
-            <Button 
+            <AppButton
+              variant="subtle"
               onClick={() => {
                 onClose()
                 navigate(`/app/job-logs/${job.id}`)
               }}
-              className="bg-primary-blue hover:bg-primary-blue/90 text-white w-full sm:w-auto justify-center"
+              fullWidth
+              className="sm:w-auto"
             >
               Details
-            </Button>
+            </AppButton>
           </div>
-          
-          {/* Secondary actions - shown on bottom on mobile */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+
+          {/* Secondary actions */}
+          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
             {isArchived ? (
               // Archived job actions
               <>
                 {onRestore && (
-                  <Button onClick={onRestore} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto justify-center">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                    </svg>
+                  <AppButton variant="subtle" onClick={onRestore} fullWidth className="sm:w-auto">
+                    <RefreshIcon className="h-4 w-4" />
                     Restore
-                  </Button>
+                  </AppButton>
                 )}
                 {onPermanentDelete && (
-                  <Button variant="ghost" onClick={onPermanentDelete} className="bg-red-500 text-white hover:bg-red-600 sm:bg-transparent sm:text-red-600 sm:hover:text-red-700 sm:hover:bg-red-50 w-full sm:w-auto justify-center">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    Delete Forever
-                  </Button>
+                  <AppButton variant="dangerGhost" onClick={onPermanentDelete} fullWidth className="sm:w-auto">
+                    <TrashIcon className="h-4 w-4" />
+                    Delete forever
+                  </AppButton>
                 )}
               </>
             ) : job.status === 'pending-confirmation' ? (
               // Pending confirmation actions
               <>
                 {onDecline && (
-                  <Button variant="ghost" onClick={onDecline} className="bg-red-500 text-white hover:bg-red-600 sm:bg-transparent sm:text-red-500 sm:hover:text-red-600 sm:hover:bg-red-50 w-full sm:w-auto justify-center">
+                  <AppButton variant="dangerGhost" onClick={onDecline} fullWidth className="sm:w-auto">
                     Decline
-                  </Button>
+                  </AppButton>
                 )}
                 {onConfirm && (
-                  <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto justify-center">
-                    Confirm Booking
-                  </Button>
+                  <AppButton onClick={onConfirm} fullWidth className="sm:w-auto">
+                    Confirm booking
+                  </AppButton>
                 )}
               </>
             ) : (
@@ -200,57 +173,49 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               <>
                 {(onDelete || onPermanentDelete) && (
                   <div className="relative w-full sm:w-auto">
-                    <Button 
-                      variant="ghost" 
+                    <AppButton
+                      variant="dangerGhost"
                       onClick={() => setShowDeleteMenu(!showDeleteMenu)}
-                      className="bg-red-500 text-white hover:bg-red-600 sm:bg-transparent sm:text-red-500 sm:hover:text-red-600 sm:hover:bg-red-50 w-full sm:w-auto justify-center"
+                      fullWidth
+                      className="sm:w-auto"
                     >
                       Delete
-                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </Button>
+                      <ChevronDownIcon className="h-4 w-4" />
+                    </AppButton>
                     {showDeleteMenu && (
                       <>
                         {/* Backdrop to close menu */}
-                        <div 
-                          className="fixed inset-0 z-40" 
-                          onClick={() => setShowDeleteMenu(false)}
-                        />
-                        <div className="absolute bottom-full left-0 mb-2 w-64 bg-primary-dark/95 backdrop-blur-sm rounded-lg shadow-xl border border-primary-light/20 py-2 z-50">
+                        <div className="fixed inset-0 z-40" onClick={() => setShowDeleteMenu(false)} />
+                        <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line">
                           {onDelete && (
                             <button
                               onClick={() => {
                                 setShowDeleteMenu(false)
                                 onDelete()
                               }}
-                              className="w-full text-left px-4 py-3 text-sm text-primary-light hover:bg-primary-light/10 transition-colors flex items-start gap-3 group"
+                              className="group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink transition-colors hover:bg-surface-2"
                             >
-                              <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-primary-light/70 group-hover:text-primary-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4m14 4a2 2 0 100-4m-9 4v12m4-12v12" />
-                              </svg>
+                              <ArchiveIcon className="mt-0.5 h-5 w-5 shrink-0 text-ink-subtle transition-colors group-hover:text-ink" />
                               <div>
-                                <div className="font-medium text-primary-light">Archive</div>
-                                <div className="text-xs text-primary-light/60 mt-0.5">Can be restored later</div>
+                                <div className="font-medium">Archive</div>
+                                <div className="mt-0.5 text-xs text-ink-subtle">Can be restored later</div>
                               </div>
                             </button>
                           )}
                           {onPermanentDelete && (
                             <>
-                              {onDelete && <div className="border-t border-primary-light/10 my-1" />}
+                              {onDelete && <div className="my-1 border-t border-line" />}
                               <button
                                 onClick={() => {
                                   setShowDeleteMenu(false)
                                   onPermanentDelete()
                                 }}
-                                className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-start gap-3 group"
+                                className="group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-danger transition-colors hover:bg-danger-soft"
                               >
-                                <svg className="w-5 h-5 flex-shrink-0 mt-0.5 group-hover:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
+                                <TrashIcon className="mt-0.5 h-5 w-5 shrink-0" />
                                 <div>
-                                  <div className="font-medium">Delete Permanently</div>
-                                  <div className="text-xs text-red-400/60 mt-0.5">Cannot be undone</div>
+                                  <div className="font-medium">Delete permanently</div>
+                                  <div className="mt-0.5 text-xs text-danger/70">Cannot be undone</div>
                                 </div>
                               </button>
                             </>
@@ -261,18 +226,9 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                   </div>
                 )}
                 {onEdit && !isArchived && canEditJobs && (
-                  <Button
-                    variant="ghost"
-                    onClick={onEdit}
-                    className={cn(
-                      'w-full sm:w-auto justify-center',
-                      theme === 'dark'
-                        ? 'bg-primary-light/10 text-primary-light hover:bg-primary-light/20 sm:bg-transparent sm:hover:bg-primary-light/5'
-                        : 'bg-gray-100 text-primary-lightText hover:bg-gray-200 sm:bg-transparent sm:hover:bg-gray-100'
-                    )}
-                  >
+                  <AppButton variant="subtle" onClick={onEdit} fullWidth className="sm:w-auto">
                     Edit
-                  </Button>
+                  </AppButton>
                 )}
               </>
             )}
@@ -280,32 +236,23 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
         </div>
       }
     >
-      <div className="space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className={cn('text-2xl font-bold mb-2', textMain)}>{job.title}</h2>
-            <div className="flex gap-2 flex-wrap items-center">
-              <span
-                className={cn(
-                  'inline-block px-3 py-1 rounded text-sm font-medium',
-                  statusColors[job.status]
-                )}
-              >
-                {statusLabels[job.status]}
-              </span>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold tracking-tight text-ink">{job.title}</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusBadge tone={statusTone}>{statusLabel}</StatusBadge>
               {showCreatedBy && job.createdByName && (
-                <span
-                className={cn(
-                  'inline-block w-fit px-3 py-1 rounded text-sm font-medium border border-primary-blue/30',
-                  theme === 'dark' ? 'bg-primary-blue/20 text-primary-light/90' : 'bg-blue-100 text-primary-lightText'
-                )}
-              >
+                <span className="inline-flex items-center rounded-full bg-info-soft px-2.5 py-0.5 text-[11px] font-semibold text-info">
                   Created by {job.createdByName}
                 </span>
               )}
               {isArchived && (
-                <span className="inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-gray-200 text-gray-700">
-                  📦 Archived {format(new Date(job.archivedAt!), 'MMM d, yyyy')}
+                <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-semibold text-ink-muted">
+                  <ArchiveIcon className="h-3.5 w-3.5" />
+                  Archived{' '}
+                  <span className="font-mono tabular-nums">{format(new Date(job.archivedAt!), 'MMM d, yyyy')}</span>
                 </span>
               )}
             </div>
@@ -313,74 +260,72 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
         </div>
 
         {job.description && (
-          <Card>
-            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Description</h3>
-            <p className={textMain}>{job.description}</p>
-          </Card>
+          <div className="border-t border-line pt-6">
+            <h3 className={sectionHeaderCls}>Description</h3>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink">{job.description}</p>
+          </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Schedule */}
+        <div className="grid grid-cols-1 gap-4 border-t border-line pt-6 sm:grid-cols-2">
           {isUnscheduled ? (
-            <Card className="sm:col-span-2">
-              <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Schedule</h3>
-              <p className={cn('text-lg flex items-center gap-2', theme === 'dark' ? 'text-amber-400' : 'text-amber-700')}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                To Be Scheduled
+            <div className={cn(subPanelCls, 'sm:col-span-2')}>
+              <h3 className={sectionHeaderCls}>Schedule</h3>
+              <p className="mt-1.5 flex items-center gap-2 text-base text-warning">
+                <ClockIcon className="h-5 w-5" />
+                To be scheduled
               </p>
-              <p className={cn('text-sm mt-1', textSubtle)}>Drag to calendar to schedule</p>
-            </Card>
+              <p className="mt-1 text-sm text-ink-subtle">Drag to calendar to schedule</p>
+            </div>
           ) : isMultiDay ? (
-            <Card className="sm:col-span-2">
-              <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Schedule</h3>
-              <p className={cn('text-lg', textMain)}>
+            <div className={cn(subPanelCls, 'sm:col-span-2')}>
+              <h3 className={sectionHeaderCls}>Schedule</h3>
+              <p className="mt-1.5 font-mono text-base tabular-nums text-ink">
                 {format(startTime!, 'MMM d, yyyy')} – {format(endTime!, 'MMM d, yyyy')}
               </p>
-              <p className={cn('text-sm mt-1', textSubtle)}>All-day job</p>
-            </Card>
+              <p className="mt-1 text-sm text-ink-subtle">All-day job</p>
+            </div>
           ) : (
             <>
-              <Card>
-                <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Start Time</h3>
-                <p className={textMain}>
+              <div className={subPanelCls}>
+                <h3 className={sectionHeaderCls}>Start time</h3>
+                <p className="mt-1.5 font-mono text-sm tabular-nums text-ink">
                   {format(startTime!, 'MMM d, yyyy h:mm a')}
                 </p>
-              </Card>
-
-              <Card>
-                <h3 className={cn('text-sm font-medium mb-2', textMuted)}>End Time</h3>
-                <p className={textMain}>
+              </div>
+              <div className={subPanelCls}>
+                <h3 className={sectionHeaderCls}>End time</h3>
+                <p className="mt-1.5 font-mono text-sm tabular-nums text-ink">
                   {format(endTime!, 'MMM d, yyyy h:mm a')}
                 </p>
-              </Card>
+              </div>
             </>
           )}
         </div>
 
-        <Card>
-          <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Contact</h3>
-          <div className="space-y-1">
+        {/* Contact */}
+        <div className="border-t border-line pt-6">
+          <h3 className={sectionHeaderCls}>Contact</h3>
+          <div className="mt-1 space-y-1">
             {job.contactName ? (
               <>
-                <p className={cn('font-medium', textMain)}>{job.contactName}</p>
-                {job.contactEmail && (
-                  <p className={cn('text-sm', textMuted)}>{job.contactEmail}</p>
-                )}
+                <p className="text-sm font-medium text-ink">{job.contactName}</p>
+                {job.contactEmail && <p className="text-sm text-ink-muted">{job.contactEmail}</p>}
                 {job.contactPhone && (
-                  <p className={cn('text-sm', textMuted)}>{job.contactPhone}</p>
+                  <p className="font-mono text-sm tabular-nums text-ink-muted">{job.contactPhone}</p>
                 )}
               </>
             ) : (
-              <p className={cn('text-sm italic', textSubtle)}>Contact information not available</p>
+              <p className="text-sm italic text-ink-subtle">Contact information not available</p>
             )}
           </div>
-        </Card>
+        </div>
 
+        {/* Assigned to */}
         {assignments.length > 0 && (
-          <Card>
-            <h3 className={cn('text-sm font-medium mb-3', textMuted)}>Assigned to</h3>
-            <div className="space-y-2 max-w-md">
+          <div className="border-t border-line pt-6">
+            <h3 className={sectionHeaderCls}>Assigned to</h3>
+            <div className="mt-2 max-w-md space-y-2">
               {assignments.map((assignment, index) => {
                 // Find name from assignedToName by index (approximate match)
                 const nameParts = job.assignedToName?.split(',') || []
@@ -400,23 +345,18 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                   <div
                     key={assignment.userId || index}
                     className={cn(
-                      "items-center rounded-md border",
-                      theme === 'dark'
-                        ? "bg-primary-dark-secondary/50 border-primary-blue/30"
-                        : "bg-gray-50 border-gray-200",
-                      hasPayInfo 
-                        ? "flex justify-between gap-3 p-2" 
-                        : "inline-flex px-2 py-1"
+                      'flex items-center rounded-xl border border-line bg-surface-2',
+                      hasPayInfo ? 'justify-between gap-3 px-3 py-2' : 'inline-flex px-3 py-1.5'
                     )}
                   >
                     <div className="min-w-0 flex-shrink">
-                      <span className={cn('font-medium', textMain)}>{displayName}</span>
+                      <span className="text-sm font-medium text-ink">{displayName}</span>
                       {assignment.role && assignment.role !== 'Team Member' && (
-                        <span className={cn('ml-2', theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary')}>({assignment.role})</span>
+                        <span className="ml-2 text-sm text-ink-muted">({assignment.role})</span>
                       )}
                     </div>
                     {hasPayInfo && (
-                      <span className="text-primary-gold font-semibold flex-shrink-0">
+                      <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-accent-strong">
                         {hasJobPrice ? `$${price!.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/job` : `$${hourlyRate!.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/hr`}
                       </span>
                     )}
@@ -424,118 +364,121 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                 )
               })}
             </div>
-          </Card>
+          </div>
         )}
 
         {job.serviceName && (
-          <Card>
-            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Service</h3>
-            <p className={textMain}>{job.serviceName}</p>
-          </Card>
+          <div className="border-t border-line pt-6">
+            <h3 className={sectionHeaderCls}>Service</h3>
+            <p className="mt-1 text-sm text-ink">{job.serviceName}</p>
+          </div>
         )}
 
         {/* Linked Quote or Invoice - hide for independent appointments */}
         {(linkedQuote || linkedInvoice) && !job.isIndependent && (
-          <Card>
-            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Linked Document</h3>
-            {linkedQuote && (
-              <button
-                onClick={() => {
-                  onClose()
-                  navigate(`/app/quotes?open=${linkedQuote.id}`)
-                }}
-                className="text-primary-gold hover:underline text-sm"
-              >
-                Quote {linkedQuote.quoteNumber}
-                {linkedQuote.title && ` — ${linkedQuote.title}`}
-              </button>
-            )}
-            {linkedInvoice && (
-              <button
-                onClick={() => {
-                  onClose()
-                  navigate(`/app/invoices?open=${linkedInvoice.id}`)
-                }}
-                className="text-primary-gold hover:underline text-sm"
-              >
-                Invoice {linkedInvoice.invoiceNumber}
-              </button>
-            )}
-          </Card>
+          <div className="border-t border-line pt-6">
+            <h3 className={sectionHeaderCls}>Linked document</h3>
+            <div className="mt-1">
+              {linkedQuote && (
+                <button
+                  onClick={() => {
+                    onClose()
+                    navigate(`/app/quotes?open=${linkedQuote.id}`)
+                  }}
+                  className={cn(linkCls, 'text-sm')}
+                >
+                  Quote <span className="font-mono tabular-nums">{linkedQuote.quoteNumber}</span>
+                  {linkedQuote.title && ` — ${linkedQuote.title}`}
+                </button>
+              )}
+              {linkedInvoice && (
+                <button
+                  onClick={() => {
+                    onClose()
+                    navigate(`/app/invoices?open=${linkedInvoice.id}`)
+                  }}
+                  className={cn(linkCls, 'text-sm')}
+                >
+                  Invoice <span className="font-mono tabular-nums">{linkedInvoice.invoiceNumber}</span>
+                </button>
+              )}
+            </div>
+          </div>
         )}
 
         {job.location && (
-          <Card>
-            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Location</h3>
-            <p className={textMain}>
+          <div className="border-t border-line pt-6">
+            <h3 className={sectionHeaderCls}>Location</h3>
+            <p className="mt-1 text-sm text-ink">
               <a
                 href={getMapsHref(job.location)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary-gold hover:underline"
+                className={linkCls}
               >
                 {job.location}
               </a>
             </p>
-          </Card>
+          </div>
         )}
 
         {job.price && canSeeJobPrices && (
-          <Card>
-            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Price</h3>
-            <p className={cn('text-lg font-semibold', textMain)}>
+          <div className="border-t border-line pt-6">
+            <h3 className={sectionHeaderCls}>Price</h3>
+            <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-accent-strong">
               ${job.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-          </Card>
+          </div>
         )}
 
         {/* Job Timeline with Breaks */}
         {job.breaks && job.breaks.length > 0 && !isUnscheduled && startTime && endTime && (
-          <Card>
-            <h3 className={cn('text-sm font-medium mb-3', textMuted)}>Job Timeline</h3>
-            <div className="space-y-3">
+          <div className="border-t border-line pt-6">
+            <h3 className={sectionHeaderCls}>Job timeline</h3>
+            <div className="mt-3 space-y-3">
               {(() => {
                 // Build timeline segments
                 const segments: Array<{ type: 'work' | 'break'; start: Date; end: Date; reason?: string }> = []
-                const sortedBreaks = [...job.breaks].sort((a, b) => 
+                const sortedBreaks = [...job.breaks].sort((a, b) =>
                   new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
                 )
-                
+
                 let currentTime = startTime
-                
+
                 sortedBreaks.forEach((breakItem) => {
                   const breakStart = new Date(breakItem.startTime)
                   const breakEnd = new Date(breakItem.endTime)
-                  
+
                   // Add work segment before break
                   if (currentTime < breakStart) {
                     segments.push({ type: 'work', start: currentTime, end: breakStart })
                   }
-                  
+
                   // Add break segment
                   segments.push({ type: 'break', start: breakStart, end: breakEnd, reason: breakItem.reason })
-                  
+
                   currentTime = breakEnd
                 })
-                
+
                 // Add final work segment if there's time remaining
                 if (currentTime < endTime) {
                   segments.push({ type: 'work', start: currentTime, end: endTime })
                 }
-                
+
                 return segments.map((segment, index) => (
                   <div key={index} className="flex items-start gap-3">
-                    <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                      segment.type === 'work' ? 'bg-green-500' : 'bg-orange-500'
-                    }`} />
+                    <div className={cn(
+                      'mt-2 h-2 w-2 shrink-0 rounded-full',
+                      segment.type === 'work' ? 'bg-success' : 'bg-warning'
+                    )} />
                     <div className="flex-1">
                       {segment.type === 'work' ? (
                         <div>
-                          <p className={cn('text-sm font-medium', textMain)}>
+                          <p className="text-sm font-medium text-ink">
                             {index === 0 ? 'Work starts' : 'Work resumes'}
                           </p>
-                          <p className={cn('text-xs', textMuted)}>
-                            {isMultiDay 
+                          <p className="font-mono text-xs tabular-nums text-ink-muted">
+                            {isMultiDay
                               ? `${format(segment.start, 'MMM d, yyyy')} – ${format(segment.end, 'MMM d, yyyy')}`
                               : `${format(segment.start, 'MMM d, h:mm a')} – ${format(segment.end, 'h:mm a')}`
                             }
@@ -543,17 +486,17 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                         </div>
                       ) : (
                         <div>
-<p className={cn('text-sm font-medium', theme === 'dark' ? 'text-orange-400' : 'text-orange-600')}>
-                          Paused{segment.reason && `: ${segment.reason}`}
-                        </p>
-                          <p className={cn('text-xs', textMuted)}>
+                          <p className="text-sm font-medium text-warning">
+                            Paused{segment.reason && `: ${segment.reason}`}
+                          </p>
+                          <p className="font-mono text-xs tabular-nums text-ink-muted">
                             {isMultiDay
                               ? `${format(segment.start, 'MMM d')} – ${format(segment.end, 'MMM d, yyyy')}`
                               : `${format(segment.start, 'MMM d, h:mm a')} – ${format(segment.end, 'h:mm a')}`
                             }
                           </p>
                           {index === segments.length - 2 && (
-                            <p className={cn('text-xs mt-1 font-medium', theme === 'dark' ? 'text-green-400' : 'text-green-600')}>
+                            <p className="mt-1 font-mono text-xs font-medium tabular-nums text-success">
                               → Returns {isMultiDay ? format(segment.end, 'MMM d, yyyy') : format(segment.end, 'MMM d, h:mm a')}
                             </p>
                           )}
@@ -564,19 +507,18 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                 ))
               })()}
             </div>
-          </Card>
+          </div>
         )}
 
         {job.notes && (
-          <Card>
-            <h3 className={cn('text-sm font-medium mb-2', textMuted)}>Notes</h3>
-            <p className={cn('whitespace-pre-wrap', textMain)}>{job.notes}</p>
-          </Card>
+          <div className="border-t border-line pt-6">
+            <h3 className={sectionHeaderCls}>Notes</h3>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink">{job.notes}</p>
+          </div>
         )}
       </div>
-    </Modal>
+    </AppModal>
   )
 }
 
 export default JobDetail
-

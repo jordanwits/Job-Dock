@@ -1,10 +1,10 @@
 import { format } from 'date-fns'
 import { useJobStore } from '../store/jobStore'
-import { Card } from '@/components/ui'
-import { cn } from '@/lib/utils'
 import type { Job, JobAssignment } from '../types/job'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/features/auth/store/authStore'
-import { useTheme } from '@/contexts/ThemeContext'
+import { CalendarIcon, StatusBadge } from './schedulingUi'
+import { resolveJobStatus } from './schedulingStatus'
 
 interface JobCardProps {
   job: Job
@@ -17,7 +17,6 @@ interface JobCardProps {
 const JobCard = ({ job, scheduledDisplayAt, showCreatedBy, onClick }: JobCardProps) => {
   const { setSelectedJob } = useJobStore()
   const { user } = useAuthStore()
-  const { theme } = useTheme()
 
   // Parse assignments from job (handle both old and new formats)
   const getAssignments = (): JobAssignment[] => {
@@ -91,44 +90,7 @@ const JobCard = ({ job, scheduledDisplayAt, showCreatedBy, onClick }: JobCardPro
   const displayPriceResult = getDisplayPrice()
   const displayPrice = displayPriceResult?.value ?? null
 
-  const getStatusColors = (status: string) => {
-    const baseColors: Record<string, { dark: string; light: string }> = {
-      active: {
-        dark: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
-        light: 'bg-blue-100 text-blue-700 border-blue-200',
-      },
-      scheduled: {
-        dark: 'bg-primary-blue/30 text-primary-light border-primary-blue/50',
-        light: 'bg-blue-100 text-blue-700 border-blue-200',
-      },
-      'in-progress': {
-        dark: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-        light: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-      },
-      completed: {
-        dark: 'bg-green-500/20 text-green-400 border-green-500/30',
-        light: 'bg-green-100 text-green-700 border-green-300',
-      },
-      cancelled: {
-        dark: 'bg-red-500/20 text-red-400 border-red-500/30',
-        light: 'bg-red-100 text-red-700 border-red-300',
-      },
-      'pending-confirmation': {
-        dark: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-        light: 'bg-orange-100 text-orange-700 border-orange-300',
-      },
-    }
-    return baseColors[status]?.[theme] || baseColors.active[theme]
-  }
-
-  const statusLabels = {
-    active: 'Active',
-    scheduled: 'Scheduled',
-    'in-progress': 'In Progress',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-    'pending-confirmation': 'Pending Confirmation',
-  }
+  const { label: statusLabel, tone: statusTone } = resolveJobStatus(job.status)
 
   const isArchived = !!job.archivedAt
 
@@ -140,11 +102,9 @@ const JobCard = ({ job, scheduledDisplayAt, showCreatedBy, onClick }: JobCardPro
   const scheduleAt = scheduledDisplayAt ?? (job.startTime ? new Date(job.startTime) : null)
 
   return (
-    <Card
-      className={cn(
-        'cursor-pointer hover:border-primary-gold transition-colors',
-        isArchived && 'opacity-75'
-      )}
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => {
         if (onClick) {
           onClick(job)
@@ -152,126 +112,78 @@ const JobCard = ({ job, scheduledDisplayAt, showCreatedBy, onClick }: JobCardPro
           setSelectedJob(job)
         }
       }}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          if (onClick) {
+            onClick(job)
+          } else {
+            setSelectedJob(job)
+          }
+        }
+      }}
+      className={cn(
+        'group relative flex cursor-pointer flex-col rounded-xl bg-surface p-5 shadow-card outline-none transition-shadow hover:shadow-pop focus-visible:ring-2 focus-visible:ring-accent',
+        isArchived && 'opacity-75'
+      )}
     >
-      <div className="space-y-3">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0 pr-2">
-            <h3 className={cn(
-              "text-lg font-semibold",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>
-              {job.title}
-              {isArchived && (
-                <span className={cn(
-                  "ml-2",
-                  theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                )}>• Archived</span>
-              )}
-            </h3>
-            {subtitle && (
-              <p className={cn(
-                "text-xs mt-1",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>{subtitle}</p>
-            )}
-            {hasAssignee && (
-              <span className={cn(
-                "text-xs mt-1 block",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                Assigned to {job.assignedToName}
-              </span>
-            )}
-            {showCreatedBy && job.createdByName && (
-              <span className={cn(
-                "text-xs mt-1 block",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                Created by {job.createdByName}
-              </span>
-            )}
-          </div>
-          <span
-            className={cn(
-              'px-2 py-1 text-xs font-medium rounded border flex-shrink-0',
-              getStatusColors(job.status)
-            )}
-          >
-            {statusLabels[job.status]}
-          </span>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[15px] font-semibold text-ink">
+            {job.title}
+            {isArchived && <span className="ml-2 text-ink-subtle">• Archived</span>}
+          </h3>
+          {subtitle && <p className="mt-0.5 truncate text-[13px] text-ink-muted">{subtitle}</p>}
+          {hasAssignee && (
+            <span className="mt-1 block text-xs text-ink-subtle">Assigned to {job.assignedToName}</span>
+          )}
+          {showCreatedBy && job.createdByName && (
+            <span className="mt-1 block text-xs text-ink-subtle">Created by {job.createdByName}</span>
+          )}
         </div>
-
-        {/* Scheduled Time */}
-        <div className="flex items-center gap-2">
-          <svg
-            className="w-4 h-4 text-primary-gold flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <span className="text-base font-semibold text-primary-gold">
-            {scheduleAt ? format(scheduleAt, 'MMM d, h:mm a') : 'To be scheduled'}
-          </span>
-        </div>
-
-        {/* Total / Price */}
-        <div className={cn(
-          "pt-2 border-t",
-          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-        )}>
-          <div className="flex justify-between items-center">
-            <span className={cn(
-              "text-sm",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
-              {displayPrice != null || !canSeeJobPrices ? 'Price' : 'Scheduled'}
-            </span>
-            <span
-              className={cn(
-                "text-xl font-bold",
-                displayPrice == null && !canSeeJobPrices 
-                  ? theme === 'dark' ? 'text-primary-light/40' : 'text-primary-lightTextSecondary/60'
-                  : 'text-primary-gold'
-              )}
-            >
-              {displayPrice == null && !canSeeJobPrices && job.price != null ? (
-                <span className="text-xs italic">Insufficient permissions</span>
-              ) : displayPriceResult != null ? (
-                <>
-                  {formatCurrency(displayPriceResult.value)}
-                  {displayPriceResult.isHourly && (
-                    <span className={cn(
-                      "text-sm font-normal",
-                      theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
-                    )}>/hr</span>
-                  )}
-                </>
-              ) : scheduleAt ? (
-                format(scheduleAt, 'h:mm a')
-              ) : (
-                '—'
-              )}
-            </span>
-          </div>
-        </div>
-
-        {/* Service */}
-        {job.serviceName && (
-          <div className={cn(
-            "text-xs",
-            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-          )}>{job.serviceName}</div>
-        )}
+        <StatusBadge tone={statusTone}>{statusLabel}</StatusBadge>
       </div>
-    </Card>
+
+      {/* Scheduled Time */}
+      <div className="mt-4 flex items-center gap-2 text-accent-strong">
+        <CalendarIcon className="h-4 w-4 shrink-0" />
+        <span className="font-mono text-sm font-semibold tabular-nums">
+          {scheduleAt ? format(scheduleAt, 'MMM d, h:mm a') : 'To be scheduled'}
+        </span>
+      </div>
+
+      {/* Total / Price */}
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+        <span className="text-[13px] text-ink-muted">
+          {displayPrice != null || !canSeeJobPrices ? 'Price' : 'Scheduled'}
+        </span>
+        <span
+          className={cn(
+            'font-mono text-xl font-semibold tabular-nums',
+            displayPrice == null && !canSeeJobPrices ? 'text-ink-subtle' : 'text-ink'
+          )}
+        >
+          {displayPrice == null && !canSeeJobPrices && job.price != null ? (
+            <span className="text-xs italic">Insufficient permissions</span>
+          ) : displayPriceResult != null ? (
+            <>
+              {formatCurrency(displayPriceResult.value)}
+              {displayPriceResult.isHourly && (
+                <span className="text-sm font-normal text-ink-muted">/hr</span>
+              )}
+            </>
+          ) : scheduleAt ? (
+            format(scheduleAt, 'h:mm a')
+          ) : (
+            '—'
+          )}
+        </span>
+      </div>
+
+      {/* Service */}
+      {job.serviceName && <div className="mt-2 text-xs text-ink-subtle">{job.serviceName}</div>}
+    </div>
   )
 }
 

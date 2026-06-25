@@ -30,8 +30,21 @@ function hasPayChangeWithTimeEntries(
   }
   return false
 }
-import { Input, Button, Select, DatePicker, TimePicker } from '@/components/ui'
-import SearchableSelect from '@/components/ui/SearchableSelect'
+import { TimePicker } from '@/components/ui'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  CheckboxField,
+  DateField,
+  PlusIcon,
+  SearchableSelectField,
+  SelectField,
+  TextAreaField,
+  TextField,
+  TrashIcon,
+  labelCls,
+} from './schedulingUi'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
@@ -40,7 +53,6 @@ import { useAuthStore } from '@/features/auth/store/authStore'
 import { useJobStore } from '../store/jobStore'
 import { services as apiServices } from '@/lib/api/services'
 import { format, addWeeks, addMonths } from 'date-fns'
-import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
 import { getTeamAssignmentRoleValidationMessage } from '@/lib/utils/assignmentRoleValidation'
 
@@ -107,7 +119,6 @@ const JobForm = ({
   const { invoices, fetchInvoices } = useInvoiceStore()
   const { user } = useAuthStore()
   const { jobs: allJobs, jobsForLink, fetchJobs, fetchJobsForLink } = useJobStore()
-  const { theme } = useTheme()
   const canSchedule = user?.canScheduleAppointments !== false
   const canCreateJobs = user?.canCreateJobs !== false
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
@@ -994,25 +1005,20 @@ const JobForm = ({
     <form onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} className="space-y-5 sm:space-y-4">
       {/* Error Display */}
       {error && (
-        <div className="rounded-lg border border-red-500 bg-red-500/10 p-4">
-          <div className="flex items-start gap-3">
-            <span className="text-red-500 text-xl flex-shrink-0">✗</span>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-red-500 mb-1">Failed to create job</p>
-              <p className="text-sm text-red-400">{error}</p>
-              <p className="text-xs text-red-400/80 mt-2">
-                Please check for scheduling conflicts or adjust the job details and try again.
-              </p>
-            </div>
-          </div>
-        </div>
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+          <p className="font-medium">Failed to create job</p>
+          <p className="mt-0.5">{error}</p>
+          <p className="mt-2 text-[13px] opacity-80">
+            Please check for scheduling conflicts or adjust the job details and try again.
+          </p>
+        </Alert>
       )}
 
       {/* Job Selection Mode - Show when allowLinkExistingJob is true and not editing */}
       {allowLinkExistingJob && !job && !schedulingUnscheduledJob && canSeeOtherJobs && (
         <div className="space-y-4">
           <div className="flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
                 name="jobSelectionMode"
@@ -1022,17 +1028,14 @@ const JobForm = ({
                   setSelectedExistingJobId(undefined)
                   setValue('_jobSelectionMode', 'new')
                 }}
-                className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
+                className="h-4 w-4 accent-accent-strong focus-visible:ring-accent"
               />
-              <span className={cn(
-                "text-sm",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
+              <span className="text-sm text-ink">
                 <span className="sm:hidden">New Job</span>
                 <span className="hidden sm:inline">Create New Job</span>
               </span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
                 name="jobSelectionMode"
@@ -1041,17 +1044,14 @@ const JobForm = ({
                   setJobSelectionMode('existing')
                   setValue('_jobSelectionMode', 'existing')
                 }}
-                className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
+                className="h-4 w-4 accent-accent-strong focus-visible:ring-accent"
               />
-              <span className={cn(
-                "text-sm",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
+              <span className="text-sm text-ink">
                 <span className="sm:hidden">Existing Job</span>
                 <span className="hidden sm:inline">Link to Existing Job</span>
               </span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
                 name="jobSelectionMode"
@@ -1061,12 +1061,9 @@ const JobForm = ({
                   setSelectedExistingJobId(undefined)
                   setValue('_jobSelectionMode', 'independent')
                 }}
-                className="w-4 h-4 text-primary-gold focus:ring-primary-gold"
+                className="h-4 w-4 accent-accent-strong focus-visible:ring-accent"
               />
-              <span className={cn(
-                "text-sm",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
+              <span className="text-sm text-ink">
                 <span className="sm:hidden">Independent</span>
                 <span className="hidden sm:inline">Independent Appointment</span>
               </span>
@@ -1074,7 +1071,7 @@ const JobForm = ({
           </div>
 
           {jobSelectionMode === 'existing' && (
-            <SearchableSelect
+            <SearchableSelectField
               label="Select Job"
               value={selectedExistingJobId || ''}
               onChange={value => setSelectedExistingJobId(value || undefined)}
@@ -1093,41 +1090,25 @@ const JobForm = ({
       )}
 
       {/* Job Title - Always a text field */}
-      <div>
-        <label className={cn(
-          "block text-sm font-medium mb-2",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Job Title *</label>
-        <Input
-          {...register('title')}
-          error={errors.title?.message}
-          placeholder="e.g., Kitchen Renovation Consultation"
-        />
-      </div>
+      <TextField
+        label="Job Title *"
+        {...register('title')}
+        error={errors.title?.message}
+        placeholder="e.g., Kitchen Renovation Consultation"
+      />
 
-      <div>
-        <label className={cn(
-          "block text-sm font-medium mb-2",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Description</label>
-        <textarea
-          {...register('description')}
-          rows={3}
-          className={cn(
-            "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
-            theme === 'dark'
-              ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-              : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-          )}
-          placeholder="Add job description..."
-        />
-      </div>
+      <TextAreaField
+        label="Description"
+        {...register('description')}
+        rows={3}
+        placeholder="Add job description..."
+      />
 
       <Controller
         name="contactId"
         control={control}
         render={({ field }) => (
-          <SearchableSelect
+          <SearchableSelectField
             label={jobSelectionMode === 'independent' ? 'Contact (optional)' : 'Contact *'}
             placeholder="Select a contact"
             searchPlaceholder="Search by name or company..."
@@ -1147,17 +1128,12 @@ const JobForm = ({
 
       {/* Location field - shown in both simplified and full forms */}
       {showSimplifiedForm ? (
-        <div>
-          <label className={cn(
-            "block text-sm font-medium mb-2",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>Location</label>
-          <Input
-            {...register('location')}
-            error={errors.location?.message}
-            placeholder="e.g., 123 Main St, New York, NY"
-          />
-        </div>
+        <TextField
+          label="Location"
+          {...register('location')}
+          error={errors.location?.message}
+          placeholder="e.g., 123 Main St, New York, NY"
+        />
       ) : null}
 
       {/* All other fields - only show when NOT in simplified create mode */}
@@ -1165,43 +1141,30 @@ const JobForm = ({
         <>
       {canShowAssignee && (
         <div className="pt-2">
-          <label className={cn(
-            "block text-sm font-medium mb-2",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
-            Assign to Team Members (with Roles & Pricing)
+          <label className={labelCls}>
+            Assign to Team Members (with Roles &amp; Pricing)
           </label>
-          <p className={cn(
-            "text-xs mb-4",
-            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-          )}>
+          <p className="mb-4 text-[13px] leading-relaxed text-ink-subtle">
             Assign team members to this job and set their role and individual pricing. Team members
             can only see their own pricing.
           </p>
           <div className="space-y-3">
             {assignments.length === 0 ? (
-              <div className={cn(
-                "border rounded-lg p-4 text-center",
-                theme === 'dark' 
-                  ? 'border-primary-blue/30 bg-primary-dark-secondary/30' 
-                  : 'border-gray-200/20 bg-gray-50'
-              )}>
-                <p className={cn(
-                  "text-sm mb-3",
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>No team members assigned yet</p>
-                <Button
+              <div className="rounded-xl border border-line bg-surface-2 p-4 text-center">
+                <p className="mb-3 text-sm text-ink-muted">No team members assigned yet</p>
+                <AppButton
                   type="button"
                   variant="ghost"
+                  size="sm"
                   onClick={() => {
                     const newAssignments = [{ userId: '', role: undefined, roleId: undefined, price: null, payType: 'job' as const, hourlyRate: null }]
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)
                   }}
-                  className="text-sm"
                 >
-                  + Add Team Member
-                </Button>
+                  <PlusIcon className="h-4 w-4" />
+                  Add Team Member
+                </AppButton>
               </div>
             ) : (
               <>
@@ -1210,23 +1173,16 @@ const JobForm = ({
                   return (
                     <div
                       key={index}
-                      className={cn(
-                        "border rounded-lg p-3 space-y-3",
-                        theme === 'dark' 
-                          ? 'border-primary-blue bg-primary-dark-secondary/50' 
-                          : 'border-gray-200/20 bg-gray-50'
-                      )}
+                      className="space-y-3 rounded-xl border border-line bg-surface-2 p-3"
                     >
-                      <div className="flex flex-col sm:flex-row items-start gap-3">
-                        <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="flex flex-col items-start gap-3 sm:flex-row">
+                        <div className="grid w-full flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                           <div>
-                            <label className={cn(
-                              "block text-xs font-medium mb-1",
-                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                            )}>
+                            <label className="mb-1 block text-xs font-medium text-ink-muted">
                               Team Member
                             </label>
-                            <Select
+                            <SelectField
+                              aria-label="Team Member"
                               value={assignment.userId}
                               onChange={e => {
                                 const newAssignments = [...assignments]
@@ -1241,14 +1197,12 @@ const JobForm = ({
                             />
                           </div>
                           <div>
-                            <label className={cn(
-                              "block text-xs font-medium mb-1",
-                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                            )}>
+                            <label className="mb-1 block text-xs font-medium text-ink-muted">
                               Role
                             </label>
                             {jobRoles.length > 0 ? (
-                              <Select
+                              <SelectField
+                                aria-label="Role"
                                 value={assignment.roleId || ''}
                                 placeholder="Select role"
                                 onChange={e => {
@@ -1280,7 +1234,7 @@ const JobForm = ({
                               />
                             ) : null}
                             {(jobRoles.length === 0 || assignment.roleId === 'custom') && (
-                              <Input
+                              <TextField
                                 type="text"
                                 value={assignment.role || ''}
                                 onChange={e => {
@@ -1291,18 +1245,16 @@ const JobForm = ({
                                   setValue('assignedTo', newAssignments)
                                 }}
                                 placeholder="e.g., Lead, Assistant"
-                                className="text-sm mt-1"
+                                className="mt-1"
                               />
                             )}
                           </div>
                           <div>
-                            <label className={cn(
-                              "block text-xs font-medium mb-1",
-                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                            )}>
+                            <label className="mb-1 block text-xs font-medium text-ink-muted">
                               Pay Type
                             </label>
-                            <Select
+                            <SelectField
+                              aria-label="Pay Type"
                               value={assignment.payType || 'job'}
                               onChange={e => {
                                 const newAssignments = [...assignments]
@@ -1325,20 +1277,14 @@ const JobForm = ({
                           </div>
                           {assignment.payType === 'hourly' ? (
                             <div>
-                              <label className={cn(
-                                "block text-xs font-medium mb-1",
-                                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                              )}>
+                              <label className="mb-1 block text-xs font-medium text-ink-muted">
                                 Hourly Rate
                               </label>
                               <div className="relative">
-                                <span className={cn(
-                                  "absolute left-3 top-1/2 -translate-y-1/2 text-sm",
-                                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                                )}>
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-subtle">
                                   $
                                 </span>
-                                <Input
+                                <TextField
                                   type="number"
                                   step="0.01"
                                   min="0"
@@ -1355,32 +1301,26 @@ const JobForm = ({
                                     setValue('assignedTo', newAssignments)
                                   }}
                                   placeholder="0.00"
-                                  className="pl-7 text-sm"
+                                  className="pl-7 font-mono tabular-nums"
                                   disabled={!canSeeJobPrices || (user?.role === 'employee' && assignment.userId !== currentUserId)}
                                 />
                               </div>
                               {(!canSeeJobPrices || (user?.role === 'employee' && assignment.userId !== currentUserId)) && (
-                                <p className="text-xs text-yellow-400 mt-0.5">
+                                <p className="mt-0.5 text-xs text-warning">
                                   {assignment.userId === currentUserId ? 'Read-only: Your pay' : 'Insufficient permissions'}
                                 </p>
                               )}
                             </div>
                           ) : (
                             <div>
-                            <label className={cn(
-                              "block text-xs font-medium mb-1",
-                              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                            )}>
+                            <label className="mb-1 block text-xs font-medium text-ink-muted">
                               Price
                             </label>
                               <div className="relative">
-                                <span className={cn(
-                                  "absolute left-3 top-1/2 -translate-y-1/2 text-sm",
-                                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                                )}>
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-subtle">
                                   $
                                 </span>
-                                <Input
+                                <TextField
                                   type="number"
                                   step="0.01"
                                   min="0"
@@ -1397,20 +1337,22 @@ const JobForm = ({
                                     setValue('assignedTo', newAssignments)
                                   }}
                                   placeholder="0.00"
-                                  className="pl-7 text-sm"
+                                  className="pl-7 font-mono tabular-nums"
                                   disabled={!canSeeJobPrices || (user?.role === 'employee' && assignment.userId !== currentUserId)}
                                 />
                               </div>
                               {(!canSeeJobPrices || (user?.role === 'employee' && assignment.userId !== currentUserId)) && (
-                                <p className="text-xs text-yellow-400 mt-0.5">
+                                <p className="mt-0.5 text-xs text-warning">
                                   {assignment.userId === currentUserId ? 'Read-only: Your pay' : 'Insufficient permissions'}
                                 </p>
                               )}
                             </div>
                           )}
                         </div>
-                        <button
+                        <AppButton
                           type="button"
+                          variant="dangerGhost"
+                          size="sm"
                           onClick={() => {
                             const newAssignments = assignments.filter((_, i) => i !== index)
                             setAssignments(newAssignments)
@@ -1421,17 +1363,20 @@ const JobForm = ({
                               setValue('assignedTo', newAssignments)
                             }
                           }}
-                          className="text-red-500 hover:text-red-600 text-sm font-medium mt-3 sm:mt-0 sm:self-start"
+                          className="mt-3 sm:mt-0 sm:self-start"
                         >
+                          <TrashIcon className="h-4 w-4" />
                           Remove
-                        </button>
+                        </AppButton>
                       </div>
                     </div>
                   )
                 })}
-                <Button
+                <AppButton
                   type="button"
-                  variant="ghost"
+                  variant="subtle"
+                  size="sm"
+                  fullWidth
                   onClick={() => {
                     const newAssignments = [
                       ...assignments,
@@ -1440,15 +1385,15 @@ const JobForm = ({
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)
                   }}
-                  className="w-full text-sm"
                 >
-                  + Add Another Team Member
-                </Button>
+                  <PlusIcon className="h-4 w-4" />
+                  Add Another Team Member
+                </AppButton>
               </>
             )}
           </div>
           {errors.assignedTo && (
-            <p className="text-red-500 text-xs mt-1">{errors.assignedTo.message}</p>
+            <p className="mt-1.5 text-[13px] text-danger">{errors.assignedTo.message}</p>
           )}
         </div>
       )}
@@ -1457,74 +1402,44 @@ const JobForm = ({
 
       {/* To Be Scheduled checkbox - show if user can schedule appointments */}
       {canSchedule && (
-        <div className={cn(
-          "flex items-center gap-2 p-3 rounded-lg border",
-          theme === 'dark' 
-            ? 'bg-primary-blue/5 border-primary-blue/30' 
-            : 'bg-blue-50 border-blue-200'
-        )}>
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-3 rounded-lg border border-info/30 bg-info-soft p-3">
+          <CheckboxField
             id="toBeScheduled"
             checked={toBeScheduled}
-            onChange={e => {
-              setToBeScheduled(e.target.checked)
-              if (e.target.checked) {
+            onChange={checked => {
+              setToBeScheduled(checked)
+              if (checked) {
                 // Clear date/time when setting to unscheduled
                 setRepeatPattern('none')
               }
             }}
-            className={cn(
-              "w-4 h-4 rounded border-primary-blue text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer",
-              theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
-            )}
+            label="To Be Scheduled"
           />
-          <label
-            htmlFor="toBeScheduled"
-            className={cn(
-              "text-sm font-medium cursor-pointer",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}
-          >
-            To Be Scheduled
-          </label>
-          <span className={cn(
-            "text-xs ml-auto",
-            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-          )}>(Schedule date/time later)</span>
+          <span className="ml-auto text-xs text-ink-subtle">(Schedule date/time later)</span>
         </div>
       )}
       {!canSchedule && (
-        <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-          <p className="text-sm text-amber-400">
-            You do not have permission to schedule appointments. This job will be created without
-            scheduled times.
-          </p>
-        </div>
+        <Alert tone="warning" icon={<AlertIcon className="h-4 w-4" />}>
+          You do not have permission to schedule appointments. This job will be created without
+          scheduled times.
+        </Alert>
       )}
 
       {/* Job Duration */}
       {!isAllDay && !toBeScheduled && (
         <div>
-          <label className={cn(
-            "block text-sm font-medium mb-2",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>Job Duration *</label>
+          <label className={labelCls}>Job Duration *</label>
           <div className="flex gap-2">
-            <input
+            <TextField
               type="number"
               value={durationValue}
               onChange={e => setDurationValue(Number(e.target.value))}
               min={0.1}
               step={0.1}
-              className={cn(
-                "w-24 rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
-                theme === 'dark'
-                  ? 'border-primary-blue bg-primary-dark-secondary text-primary-light'
-                  : 'border-gray-200/20 bg-white text-primary-lightText'
-              )}
+              className="w-24 font-mono tabular-nums"
             />
-            <Select
+            <SelectField
+              aria-label="Duration unit"
               value={durationUnit}
               onChange={e =>
                 handleDurationUnitChange(e.target.value as 'minutes' | 'hours' | 'days' | 'weeks')
@@ -1544,45 +1459,28 @@ const JobForm = ({
       {/* Date and Time Selection */}
       {!toBeScheduled && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="isAllDay"
-              checked={isAllDay}
-              onChange={e => {
-                setIsAllDay(e.target.checked)
-                if (e.target.checked) {
-                  setStartTime('00:00')
-                  setDurationUnit('days')
-                  setDurationValue(1)
-                }
-              }}
-              className={cn(
-                "w-4 h-4 rounded border-primary-blue text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0 cursor-pointer",
-                theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
-              )}
-            />
-            <label
-              htmlFor="isAllDay"
-              className={cn(
-                "text-sm font-medium cursor-pointer",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}
-            >
-              All Day Event
-            </label>
-          </div>
+          <CheckboxField
+            id="isAllDay"
+            checked={isAllDay}
+            onChange={checked => {
+              setIsAllDay(checked)
+              if (checked) {
+                setStartTime('00:00')
+                setDurationUnit('days')
+                setDurationValue(1)
+              }
+            }}
+            label="All Day Event"
+          />
 
           {!canSchedule && (
-            <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <p className="text-sm text-amber-400">
-                You do not have permission to schedule appointments. This job will be created
-                without scheduled times.
-              </p>
-            </div>
+            <Alert tone="warning" icon={<AlertIcon className="h-4 w-4" />}>
+              You do not have permission to schedule appointments. This job will be created
+              without scheduled times.
+            </Alert>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <DatePicker
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <DateField
               label={
                 isAllDay
                   ? 'Start Date *'
@@ -1598,7 +1496,7 @@ const JobForm = ({
               disabled={!canSchedule || toBeScheduled}
             />
             {scheduleDateError && (
-              <p className="text-red-500 text-xs -mt-2 sm:mt-0 sm:col-span-2">{scheduleDateError}</p>
+              <p className="-mt-2 text-[13px] text-danger sm:col-span-2 sm:mt-0">{scheduleDateError}</p>
             )}
 
             {!isAllDay && (durationUnit === 'minutes' || durationUnit === 'hours') && (
@@ -1614,10 +1512,7 @@ const JobForm = ({
 
           {/* End time/date preview */}
           {startDate && (
-            <div className={cn(
-              "text-xs",
-              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-            )}>
+            <div className="font-mono text-xs tabular-nums text-ink-subtle">
               {isAllDay ? (
                 <p>
                   All-day event: {format(new Date(startDate), 'MMM d, yyyy')}
@@ -1680,11 +1575,9 @@ const JobForm = ({
       )}
 
       <div>
-        <label className={cn(
-          "block text-sm font-medium mb-2",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Location</label>
-        <Select
+        <label className={labelCls}>Location</label>
+        <SelectField
+          aria-label="Location source"
           value={locationMode}
           onChange={e => {
             const mode = e.target.value as 'contact' | 'custom'
@@ -1708,7 +1601,7 @@ const JobForm = ({
           ]}
         />
         {locationMode === 'custom' && (
-          <input
+          <TextField
             type="text"
             value={customLocation}
             onChange={e => {
@@ -1716,19 +1609,11 @@ const JobForm = ({
               setValue('location', e.target.value)
             }}
             placeholder="e.g., 123 Main St, New York, NY"
-            className={cn(
-              "mt-2 w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
-              theme === 'dark'
-                ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-                : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-            )}
+            className="mt-2"
           />
         )}
         {locationMode === 'contact' && watch('contactId') && (
-          <p className={cn(
-            "mt-2 text-xs",
-            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-          )}>
+          <p className="mt-2 text-xs text-ink-subtle">
             {(() => {
               const contact = contacts.find(c => c.id === watch('contactId'))
               if (contact && contact.address) {
@@ -1744,104 +1629,77 @@ const JobForm = ({
 
       {/* Price Field */}
       <div>
-        <label className={cn(
-          "block text-sm font-medium mb-2",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Price</label>
+        <label className={labelCls}>Price</label>
         {canSeeJobPrices ? (
           <>
             <div className="relative">
-              <span className={cn(
-                "absolute left-3 top-1/2 -translate-y-1/2",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>$</span>
-              <Input
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-subtle">$</span>
+              <TextField
                 {...register('price')}
                 type="number"
                 step="0.01"
                 min="0"
                 placeholder="0.00"
-                className="pl-7"
+                className="pl-7 font-mono tabular-nums"
                 error={errors.price?.message}
               />
             </div>
-            <p className={cn(
-              "text-xs mt-1",
-              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-            )}>Optional job price or estimated cost</p>
+            <p className="mt-1 text-xs text-ink-subtle">Optional job price or estimated cost</p>
           </>
         ) : (
-          <p className="text-xs text-yellow-400">Insufficient permissions to view or edit prices</p>
+          <p className="text-xs text-warning">Insufficient permissions to view or edit prices</p>
         )}
       </div>
 
       {/* Job Timeline & Breaks */}
-      <div className={cn(
-        "border-t pt-4",
-        theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
-      )}>
+      <div className="border-t border-line pt-4">
         <button
           type="button"
           onClick={() => setShowBreaks(!showBreaks)}
-          className={cn(
-            "flex items-center gap-2 text-sm font-medium mb-2",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}
+          className="mb-2 flex items-center gap-2 text-sm font-medium text-ink"
         >
-          <span className="text-primary-gold">{showBreaks ? '▼' : '▶'}</span>
-          <span>Job Timeline & Breaks (Optional)</span>
+          <span className="text-accent-strong">{showBreaks ? '▼' : '▶'}</span>
+          <span>Job Timeline &amp; Breaks (Optional)</span>
           {breaks.length > 0 && (
-            <span className="text-primary-gold">
+            <span className="text-accent-strong">
               ({breaks.length} break{breaks.length !== 1 ? 's' : ''})
             </span>
           )}
         </button>
 
         {showBreaks && (
-          <div className="space-y-3 mt-3">
-            <p className={cn(
-              "text-xs",
-              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-            )}>
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-ink-subtle">
               Add planned pauses to the job timeline (e.g., rain delays, material delivery waits)
             </p>
 
             {breaks.map((breakItem, index) => (
               <div
                 key={index}
-                className={cn(
-                  "border rounded-lg p-3 space-y-3",
-                  theme === 'dark' 
-                    ? 'border-primary-blue bg-primary-dark-secondary/50' 
-                    : 'border-gray-200/20 bg-gray-50'
-                )}
+                className="space-y-3 rounded-xl border border-line bg-surface-2 p-3"
               >
                 <div className="flex items-center justify-between">
-                  <span className={cn(
-                    "text-sm font-medium",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>Break {index + 1}</span>
-                  <button
+                  <span className="text-sm font-medium text-ink">Break {index + 1}</span>
+                  <AppButton
                     type="button"
+                    variant="dangerGhost"
+                    size="sm"
                     onClick={() => {
                       const newBreaks = breaks.filter((_, i) => i !== index)
                       setBreaks(newBreaks)
                     }}
-                    className="text-xs text-red-500 hover:text-red-600"
                   >
+                    <TrashIcon className="h-4 w-4" />
                     Remove
-                  </button>
+                  </AppButton>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className={cn(
-                      "block text-xs font-medium mb-1",
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>
+                    <label className="mb-1 block text-xs font-medium text-ink-muted">
                       Pause From
                     </label>
-                    <DatePicker
+                    <DateField
                       value={breakItem.startTime.substring(0, 10)}
                       onChange={date => {
                         const newBreaks = [...breaks]
@@ -1854,13 +1712,10 @@ const JobForm = ({
                     />
                   </div>
                   <div>
-                    <label className={cn(
-                      "block text-xs font-medium mb-1",
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>
+                    <label className="mb-1 block text-xs font-medium text-ink-muted">
                       Resume On
                     </label>
-                    <DatePicker
+                    <DateField
                       value={breakItem.endTime.substring(0, 10)}
                       onChange={date => {
                         const newBreaks = [...breaks]
@@ -1875,13 +1730,10 @@ const JobForm = ({
                 </div>
 
                 <div>
-                  <label className={cn(
-                    "block text-xs font-medium mb-1",
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>
+                  <label className="mb-1 block text-xs font-medium text-ink-muted">
                     Reason (Optional)
                   </label>
-                  <input
+                  <TextField
                     type="text"
                     value={breakItem.reason || ''}
                     onChange={e => {
@@ -1890,20 +1742,16 @@ const JobForm = ({
                       setBreaks(newBreaks)
                     }}
                     placeholder="e.g., Rain delay, material delivery"
-                    className={cn(
-                      "w-full rounded-lg border px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
-                      theme === 'dark'
-                        ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-                        : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-                    )}
                   />
                 </div>
               </div>
             ))}
 
-            <Button
+            <AppButton
               type="button"
-              variant="ghost"
+              variant="subtle"
+              size="sm"
+              fullWidth
               onClick={() => {
                 const now = new Date()
                 setBreaks([
@@ -1916,38 +1764,28 @@ const JobForm = ({
                   },
                 ])
               }}
-              className="w-full text-sm"
             >
-              + Add Break
-            </Button>
+              <PlusIcon className="h-4 w-4" />
+              Add Break
+            </AppButton>
           </div>
         )}
       </div>
 
       {/* Recurrence Section - hidden when editing an existing recurring job to avoid accidental changes */}
       {!toBeScheduled && (
-        <div className={cn(
-          "border-t pt-4",
-          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
-        )}>
+        <div className="border-t border-line pt-4">
           {job?.recurrenceId ? (
-            <div className={cn(
-              "rounded-lg p-3 text-sm",
-              theme === 'dark'
-                ? 'bg-primary-blue/10 border border-primary-blue text-primary-light'
-                : 'bg-blue-50 border border-blue-200 text-primary-lightText'
-            )}>
+            <div className="rounded-lg border border-info/30 bg-info-soft p-3 text-sm text-info">
               This job is part of a recurring series. Changes to time or duration will apply to all future occurrences when you select &quot;All Future Jobs&quot;.
             </div>
           ) : (
           <div>
-          <label className={cn(
-            "block text-sm font-medium mb-2",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
+          <label className={labelCls}>
             Repeat Schedule
           </label>
-          <Select
+          <SelectField
+            aria-label="Repeat Schedule"
             value={repeatPattern}
             onChange={e => {
               setRepeatPattern(e.target.value)
@@ -1968,10 +1806,7 @@ const JobForm = ({
             <div className="mt-3 space-y-3">
               {repeatPattern === 'custom-1' && (
                 <div>
-                  <label className={cn(
-                    "block text-sm font-medium mb-2",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>
+                  <label className={labelCls}>
                     Select Days
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -1995,12 +1830,10 @@ const JobForm = ({
                           )
                         }}
                         className={cn(
-                          "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                          "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                           customDays.includes(day.value)
-                            ? 'bg-primary-gold text-primary-dark'
-                            : theme === 'dark'
-                              ? 'bg-primary-dark-secondary text-primary-light border border-primary-blue hover:border-primary-gold'
-                              : 'bg-white text-primary-lightText border border-gray-200/20 hover:border-primary-gold'
+                            ? 'bg-accent-strong text-accent-contrast'
+                            : 'border border-line bg-surface text-ink hover:border-accent'
                         )}
                       >
                         {day.label}
@@ -2008,12 +1841,12 @@ const JobForm = ({
                     ))}
                   </div>
                   {customDays.length === 0 && (
-                    <p className="text-xs text-red-400 mt-1">Please select at least one day</p>
+                    <p className="mt-1 text-xs text-danger">Please select at least one day</p>
                   )}
                 </div>
               )}
 
-              <Select
+              <SelectField
                 label="End Repeat"
                 value={endRepeatMode}
                 onChange={e => {
@@ -2033,7 +1866,7 @@ const JobForm = ({
               />
 
               {endRepeatMode === 'on-date' && (
-                <DatePicker
+                <DateField
                   label="End Date"
                   value={endRepeatDate}
                   onChange={setEndRepeatDate}
@@ -2042,32 +1875,16 @@ const JobForm = ({
               )}
 
               {endRepeatMode === 'never' && getRecurrenceEndDate() && (
-                <div className={cn(
-                  "p-3 rounded-lg border",
-                  theme === 'dark' 
-                    ? 'bg-primary-blue/10 border-primary-blue' 
-                    : 'bg-blue-50 border-blue-200'
-                )}>
-                  <p className={cn(
-                    "text-xs",
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>
+                <div className="rounded-lg border border-info/30 bg-info-soft p-3">
+                  <p className="font-mono text-xs tabular-nums text-info">
                     Will create {occurrenceCount} jobs through {getRecurrenceEndDate()}
                   </p>
                 </div>
               )}
 
               {endRepeatMode === 'on-date' && endRepeatDate && (
-                <div className={cn(
-                  "p-3 rounded-lg border",
-                  theme === 'dark' 
-                    ? 'bg-primary-blue/10 border-primary-blue' 
-                    : 'bg-blue-50 border-blue-200'
-                )}>
-                  <p className={cn(
-                    "text-xs",
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>
+                <div className="rounded-lg border border-info/30 bg-info-soft p-3">
+                  <p className="font-mono text-xs tabular-nums text-info">
                     Will repeat until {format(new Date(endRepeatDate), 'MMM d, yyyy')}
                   </p>
                 </div>
@@ -2083,7 +1900,7 @@ const JobForm = ({
         name="status"
         control={control}
         render={({ field }) => (
-          <Select
+          <SelectField
             label="Status"
             value={field.value || 'scheduled'}
             onChange={field.onChange}
@@ -2098,35 +1915,26 @@ const JobForm = ({
         )}
       />
 
-      <div>
-        <label className={cn(
-          "block text-sm font-medium mb-2",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Notes</label>
-        <textarea
-          {...register('notes')}
-          rows={3}
-          className={cn(
-            "w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
-            theme === 'dark'
-              ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-              : 'border-gray-200/20 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-          )}
-          placeholder="Add notes..."
-        />
-      </div>
+      <TextAreaField
+        label="Notes"
+        {...register('notes')}
+        rows={3}
+        placeholder="Add notes..."
+      />
 
         </>
       )}
 
       {/* Save / Cancel - always shown */}
-      <div className="flex flex-col sm:flex-row justify-start gap-3 pt-4">
+      <div className="flex flex-col justify-start gap-3 pt-4 sm:flex-row">
         {submitError && (
-          <div className="w-full sm:flex-1 sm:mr-auto">
-            <p className="text-red-500 text-xs">{submitError}</p>
+          <div className="w-full sm:mr-auto sm:flex-1">
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+              {submitError}
+            </Alert>
           </div>
         )}
-        <Button
+        <AppButton
           type="button"
           variant="ghost"
           onClick={onCancel}
@@ -2134,10 +1942,10 @@ const JobForm = ({
           className="w-full sm:w-auto"
         >
           Cancel
-        </Button>
-        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
+        </AppButton>
+        <AppButton type="submit" disabled={isLoading} isLoading={isLoading} className="w-full sm:w-auto">
           {isLoading ? 'Saving...' : job ? 'Update Job' : jobSelectionMode === 'independent' ? 'Schedule Appointment' : jobSelectionMode === 'existing' ? 'Schedule Job' : 'Create Job'}
-        </Button>
+        </AppButton>
       </div>
 
       <PayChangeEffectiveDateModal

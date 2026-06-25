@@ -1,6 +1,4 @@
-import { Modal, Button } from '@/components/ui'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import { AppButton, AppModal } from './schedulingUi'
 
 interface NotifyClientModalProps {
   isOpen: boolean
@@ -18,7 +16,6 @@ const NotifyClientModal = ({
   isLoading = false,
   message = 'Would you like to notify the client about this schedule update?',
 }: NotifyClientModalProps) => {
-  const { theme } = useTheme()
   const handleYes = () => {
     onNotify(true)
     // Parent handles closing in onNotify callback
@@ -29,47 +26,25 @@ const NotifyClientModal = ({
     // Parent handles closing in onNotify callback
   }
 
-  const footer = (
-    <>
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={handleNo}
-        disabled={isLoading}
-        className="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial"
-      >
-        No
-      </Button>
-      <Button
-        type="button"
-        variant="primary"
-        onClick={handleYes}
-        isLoading={isLoading}
-        className="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial"
-      >
-        Yes
-      </Button>
-    </>
-  )
-
   return (
-    <Modal
+    <AppModal
       isOpen={isOpen}
       onClose={onClose}
       title="Notify the client?"
-      footer={footer}
-      size="xs"
-      compactOnMobile
+      size="sm"
+      footer={
+        <>
+          <AppButton variant="subtle" onClick={handleNo} disabled={isLoading} fullWidth className="sm:w-auto">
+            No
+          </AppButton>
+          <AppButton variant="primary" onClick={handleYes} isLoading={isLoading} fullWidth className="sm:w-auto">
+            Yes
+          </AppButton>
+        </>
+      }
     >
-      <p
-        className={cn(
-          'text-sm sm:text-base',
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}
-      >
-        {message}
-      </p>
-    </Modal>
+      <p className="text-sm leading-relaxed text-ink-muted">{message}</p>
+    </AppModal>
   )
 }
 

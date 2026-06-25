@@ -1,6 +1,4 @@
-import { Modal, Button } from '@/components/ui'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import { AppButton, AppModal } from './schedulingUi'
 
 interface PermanentDeleteRecurringJobModalProps {
   isOpen: boolean
@@ -21,79 +19,48 @@ const PermanentDeleteRecurringJobModal = ({
   occurrenceCount,
   isArchived,
 }: PermanentDeleteRecurringJobModalProps) => {
-  const { theme } = useTheme()
   return (
-    <Modal
+    <AppModal
       isOpen={isOpen}
       onClose={onClose}
-      title="⚠️ Permanently Delete Recurring Job"
+      title="Permanently delete recurring job?"
       size="md"
+      footer={
+        <>
+          <AppButton variant="ghost" onClick={onClose} fullWidth className="sm:w-auto">
+            Cancel
+          </AppButton>
+          <AppButton variant="dangerGhost" onClick={onDeleteOne} fullWidth className="sm:w-auto">
+            This job only
+          </AppButton>
+          <AppButton variant="danger" onClick={onDeleteAll} fullWidth className="sm:w-auto">
+            Delete all
+          </AppButton>
+        </>
+      }
     >
       <div className="space-y-4">
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-          <p className="text-red-400 font-semibold mb-2">
-            ⚠️ Warning: This action cannot be undone!
-          </p>
-          <p className={cn(
-            "text-sm",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
+        <div className="rounded-xl border border-danger/30 bg-danger-soft p-3">
+          <p className="text-sm font-semibold text-danger">This action cannot be undone</p>
+          <p className="mt-1 text-sm text-ink-muted">
             This will permanently remove the job{occurrenceCount && occurrenceCount > 1 ? 's' : ''} from the database
             {isArchived ? ' and S3 archive' : ''}.
           </p>
         </div>
 
-        <p className={cn(
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
-          This job is part of a recurring series{occurrenceCount ? ` with ${occurrenceCount} occurrence${occurrenceCount !== 1 ? 's' : ''}` : ''}.
-        </p>
-        <p className={cn(
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
+        <p className="text-sm leading-relaxed text-ink-muted">
+          This job is part of a recurring series
+          {occurrenceCount ? ` with ${occurrenceCount} occurrence${occurrenceCount !== 1 ? 's' : ''}` : ''}.
           Would you like to permanently delete just this job, or all jobs in the series?
         </p>
-        
-        <div className={cn(
-          "border rounded-lg p-3",
-          theme === 'dark' 
-            ? 'bg-primary-blue/10 border-primary-blue' 
-            : 'bg-blue-50 border-blue-200'
-        )}>
-          <p className={cn(
-            "text-sm",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
-            <strong className={cn(
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>Job:</strong> {jobTitle}
+
+        <div className="rounded-xl border border-line bg-surface-2 p-3">
+          <p className="text-sm text-ink-muted">
+            <strong className="text-ink">Job:</strong> {jobTitle}
           </p>
         </div>
       </div>
-
-      <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:justify-end">
-        <Button 
-          variant="ghost" 
-          onClick={onClose}
-          className="w-full sm:w-auto sm:flex-shrink-0"
-        >
-          Cancel
-        </Button>
-        <Button 
-          variant="ghost"
-          onClick={onDeleteOne}
-          className="w-full sm:w-auto text-red-500 hover:text-red-600 sm:flex-shrink-0"
-        >
-          Delete This Job Only
-        </Button>
-        <Button 
-          onClick={onDeleteAll}
-          className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white sm:flex-shrink-0"
-        >
-          Delete All
-        </Button>
-      </div>
-    </Modal>
+    </AppModal>
   )
 }
 

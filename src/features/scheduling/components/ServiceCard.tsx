@@ -1,8 +1,8 @@
 import { useServiceStore } from '../store/serviceStore'
-import { Card, Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { Service } from '../types/service'
-import { useTheme } from '@/contexts/ThemeContext'
+import { AppButton, StatusBadge } from './schedulingUi'
+import { serviceStatus } from './schedulingStatus'
 
 interface ServiceCardProps {
   service: Service
@@ -11,7 +11,7 @@ interface ServiceCardProps {
 
 const ServiceCard = ({ service, onClick }: ServiceCardProps) => {
   const { toggleServiceActive } = useServiceStore()
-  const { theme } = useTheme()
+  const { label, tone } = serviceStatus(service.isActive)
 
   const handleToggleActive = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -19,73 +19,56 @@ const ServiceCard = ({ service, onClick }: ServiceCardProps) => {
   }
 
   return (
-    <Card
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
       className={cn(
-        'cursor-pointer hover:border-primary-gold transition-all',
+        'group relative flex cursor-pointer flex-col rounded-xl bg-surface p-5 shadow-card outline-none transition-shadow hover:shadow-pop focus-visible:ring-2 focus-visible:ring-accent',
         !service.isActive && 'opacity-60'
       )}
-      onClick={onClick}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <h3 className={cn(
-              "font-semibold",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>{service.name}</h3>
-            {service.isActive ? (
-              <span className={cn(
-                "px-2 py-1 rounded text-xs font-medium border",
-                theme === 'dark'
-                  ? 'bg-green-500/20 text-green-300 border-green-500'
-                  : 'bg-green-100 text-green-700 border-green-300'
-              )}>
-                Active
-              </span>
-            ) : (
-              <span className={cn(
-                "px-2 py-1 rounded text-xs font-medium border",
-                theme === 'dark'
-                  ? 'bg-gray-500/20 text-gray-300 border-gray-500'
-                  : 'bg-gray-100 text-gray-700 border-gray-300'
-              )}>
-                Inactive
-              </span>
-            )}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-ink">{service.name}</h3>
+            <StatusBadge tone={tone}>{label}</StatusBadge>
           </div>
           {service.description && (
-            <p className={cn(
-              "text-sm mb-2 line-clamp-2",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
-              {service.description}
-            </p>
+            <p className="mb-2 line-clamp-2 text-sm text-ink-muted">{service.description}</p>
           )}
-          <div className={cn(
-            "flex flex-wrap items-center gap-2 md:gap-4 text-sm",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
-            <span>Duration: {service.duration} min</span>
-            {service.price && <span>Price: ${service.price}</span>}
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted md:gap-4">
+            <span>
+              Duration:{' '}
+              <span className="font-mono tabular-nums text-ink">{service.duration}</span> min
+            </span>
+            {service.price && (
+              <span>
+                Price:{' '}
+                <span className="font-mono tabular-nums text-ink">${service.price}</span>
+              </span>
+            )}
           </div>
         </div>
-        <div className="flex flex-row sm:flex-col gap-2 sm:ml-4">
-          <Button
+        <div className="flex flex-row gap-2 sm:ml-4 sm:flex-col">
+          <AppButton
             size="sm"
-            variant="ghost"
+            variant="subtle"
             onClick={handleToggleActive}
-            className={cn(
-              "flex-1 sm:flex-none border",
-              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-            )}
+            className="flex-1 sm:flex-none"
           >
             {service.isActive ? 'Deactivate' : 'Activate'}
-          </Button>
+          </AppButton>
         </div>
       </div>
-    </Card>
+    </div>
   )
 }
 
 export default ServiceCard
-

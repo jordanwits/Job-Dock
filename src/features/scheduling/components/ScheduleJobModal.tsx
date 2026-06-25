@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal } from '@/components/ui'
+import { AppModal } from './schedulingUi'
 import { useJobStore } from '../store/jobStore'
 import JobForm from './JobForm'
 import NotifyClientModal from './NotifyClientModal'
@@ -147,10 +147,10 @@ const ScheduleJobModal = ({
           performCreateWithNotify(notify)
         }}
       />
-      <Modal
+      <AppModal
         isOpen={isOpen}
         onClose={handleCancel}
-        title="Schedule Job"
+        title="Schedule job"
         size="xl"
       >
         <JobForm
@@ -171,7 +171,7 @@ const ScheduleJobModal = ({
           existingJobId={existingJobId}
           isSimpleCreate={false}
         />
-      </Modal>
+      </AppModal>
     </>
   )
 }
