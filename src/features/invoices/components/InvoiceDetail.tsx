@@ -1,15 +1,26 @@
 import { Invoice, InvoiceStatus, PaymentStatus } from '../types/invoice'
 import { useInvoiceStore } from '../store/invoiceStore'
-import { Modal, Button, StatusBadgeSelect, Input } from '@/components/ui'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import InvoiceForm from './InvoiceForm'
 import { cn } from '@/lib/utils'
 import { ScheduleJobModal } from '@/features/scheduling'
 import { QuickBooksInvoicePanel } from '@/features/quickbooks'
-import { useTheme } from '@/contexts/ThemeContext'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { getSendValidationError } from '@/lib/utils/sendValidation'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  AppModal,
+  CalendarIcon,
+  CheckIcon,
+  PencilIcon,
+  SendIcon,
+  StatusSelect,
+  TextField,
+} from './invoicesUi'
+import { INVOICE_STATUS_OPTIONS, PAYMENT_STATUS } from './invoiceStatus'
 
 interface InvoiceDetailProps {
   invoice: Invoice
@@ -20,6 +31,15 @@ interface InvoiceDetailProps {
   onInvoiceSent?: (message: string) => void
 }
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+
+const PAYMENT_STATUS_OPTIONS = (['pending', 'partial', 'paid'] as PaymentStatus[]).map(v => ({
+  value: v,
+  label: PAYMENT_STATUS[v].label,
+  tone: PAYMENT_STATUS[v].tone,
+}))
+
 const InvoiceDetail = ({
   invoice,
   isOpen,
@@ -28,7 +48,6 @@ const InvoiceDetail = ({
   onJobCreateFailed,
   onInvoiceSent,
 }: InvoiceDetailProps) => {
-  const { theme } = useTheme()
   const { updateInvoice, deleteInvoice, sendInvoice, isLoading } = useInvoiceStore()
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
@@ -176,49 +195,9 @@ const InvoiceDetail = ({
     }
   }
 
-  const statusColors = {
-    draft: theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      : 'bg-gray-200 text-gray-600 border-gray-300',
-    sent: theme === 'dark'
-      ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    overdue: theme === 'dark'
-      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-      : 'bg-red-100 text-red-700 border-red-300',
-    cancelled: theme === 'dark'
-      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-      : 'bg-orange-100 text-orange-700 border-orange-300',
-  }
-
   // Only show status badge if it's not redundant with paymentStatus
   const shouldShowStatus =
     invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
-
-  const paymentStatusColors = {
-    pending: theme === 'dark'
-      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    partial: theme === 'dark'
-      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    paid: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-  }
-
-  const invoiceStatusOptions = [
-    { value: 'draft', label: 'Draft' },
-    { value: 'sent', label: 'Sent' },
-    { value: 'overdue', label: 'Overdue' },
-    { value: 'cancelled', label: 'Cancelled' },
-  ]
-
-  const paymentStatusOptions = [
-    { value: 'pending', label: 'Unpaid' },
-    { value: 'partial', label: 'Partial' },
-    { value: 'paid', label: 'Paid' },
-  ]
 
   const handleInvoiceStatusChange = async (newStatus: string) => {
     try {
@@ -236,13 +215,6 @@ const InvoiceDetail = ({
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
-  }
-
   // Invoice is overdue if due date is more than 1 day in the past
   // (not on the due date itself, but the day after)
   const isOverdue =
@@ -258,13 +230,13 @@ const InvoiceDetail = ({
 
   if (isEditing) {
     return (
-      <Modal
+      <AppModal
         isOpen={isOpen}
         onClose={() => {
           setIsEditing(false)
           onClose()
         }}
-        title="Edit Invoice"
+        title="Edit invoice"
         size="xl"
       >
         <InvoiceForm
@@ -273,103 +245,73 @@ const InvoiceDetail = ({
           onCancel={() => setIsEditing(false)}
           isLoading={isLoading}
         />
-      </Modal>
+      </AppModal>
     )
   }
 
   return (
     <>
-      <Modal
+      <AppModal
         isOpen={isOpen}
         onClose={onClose}
         title={
           invoice.contactName && invoice.title
-            ? `${invoice.contactName} ${invoice.title}`
+            ? `${invoice.contactName} — ${invoice.title}`
             : invoice.contactName || invoice.title || invoice.invoiceNumber
         }
         size="lg"
         footer={
-          <div className="flex flex-col sm:flex-row justify-between w-full gap-3">
-            <Button
-              variant="ghost"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-500 hover:text-red-600 order-3 sm:order-1"
-            >
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <AppButton variant="dangerGhost" onClick={() => setShowDeleteConfirm(true)} className="order-3 sm:order-1">
               Delete
-            </Button>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
-              <Button
-                onClick={() => setShowScheduleJob(true)}
-                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto whitespace-nowrap"
-              >
-                Schedule Job
-              </Button>
-              <Button
-                onClick={handleSend}
-                disabled={isSending}
-                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto whitespace-nowrap"
-              >
-                {isSending
-                  ? 'Sending...'
-                  : invoice.status === 'sent'
-                    ? 'Resend Invoice'
-                    : 'Send Invoice'}
-              </Button>
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="w-full sm:w-auto whitespace-nowrap"
-              >
+            </AppButton>
+            <div className="order-1 flex flex-col gap-2 sm:order-2 sm:flex-row sm:gap-3">
+              <AppButton variant="subtle" onClick={() => setShowScheduleJob(true)} fullWidth className="sm:w-auto">
+                <CalendarIcon className="h-4 w-4" />
+                Schedule job
+              </AppButton>
+              <AppButton variant="subtle" onClick={() => setIsEditing(true)} fullWidth className="sm:w-auto">
+                <PencilIcon className="h-4 w-4" />
                 Edit
-              </Button>
+              </AppButton>
+              <AppButton onClick={handleSend} disabled={isSending} isLoading={isSending} fullWidth className="sm:w-auto">
+                {!isSending && <SendIcon className="h-4 w-4" />}
+                {isSending ? 'Sending...' : invoice.status === 'sent' ? 'Resend invoice' : 'Send invoice'}
+              </AppButton>
             </div>
           </div>
         }
       >
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <h2 className={cn(
-                "text-2xl font-bold break-words",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>{invoice.invoiceNumber}</h2>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="font-mono text-xl font-semibold tabular-nums text-ink">{invoice.invoiceNumber}</h2>
               {invoice.contactName && (
-                <div className="mt-1">
-                  <p className={cn(
-                    "break-words",
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="text-sm text-ink-muted">
                     {invoice.contactName}
-                    {invoice.contactCompany && ` - ${invoice.contactCompany}`}
+                    {invoice.contactCompany && ` · ${invoice.contactCompany}`}
                   </p>
-                  {invoice.contactEmail && (
-                    <p className={cn(
-                      "text-sm mt-1 break-words",
-                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/80'
-                    )}>{invoice.contactEmail}</p>
-                  )}
+                  {invoice.contactEmail && <p className="text-[13px] text-ink-subtle">{invoice.contactEmail}</p>}
                 </div>
               )}
             </div>
-            <div className="flex flex-col gap-2 items-start sm:items-end flex-shrink-0">
+            <div className="flex shrink-0 flex-col items-end gap-2">
               {shouldShowStatus && (
-                <StatusBadgeSelect
+                <StatusSelect
                   value={invoice.status}
-                  options={invoiceStatusOptions}
-                  colorClassesByValue={statusColors}
+                  options={INVOICE_STATUS_OPTIONS}
                   onChange={handleInvoiceStatusChange}
                   isLoading={isLoading}
-                  size="md"
                 />
               )}
               {invoice.trackPayment !== false && (
-                <StatusBadgeSelect
+                <StatusSelect
                   value={invoice.paymentStatus}
-                  options={paymentStatusOptions}
-                  colorClassesByValue={paymentStatusColors}
+                  options={PAYMENT_STATUS_OPTIONS}
                   onChange={handlePaymentStatusChange}
                   isLoading={isLoading}
-                  size="md"
                 />
               )}
             </div>
@@ -378,58 +320,32 @@ const InvoiceDetail = ({
           {/* QuickBooks: send this invoice for online payment */}
           <QuickBooksInvoicePanel invoice={invoice} />
 
-          {/* Send Error - Prominent placement for visibility */}
+          {/* Send error - prominent placement for visibility */}
           {sendError && (
-            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
-            </div>
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+              {sendError}
+            </Alert>
           )}
 
-          {/* Payment Info */}
+          {/* Payment info */}
           {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
-            <div className={cn(
-              "p-4 rounded-lg border",
-              theme === 'dark'
-                ? 'border-primary-blue bg-primary-dark-secondary'
-                : 'border-gray-200 bg-white'
-            )}>
-              <div
-                className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 items-center"
-              >
-                <span className={cn(
-                  "text-sm",
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>Amount Paid</span>
-                <div className="justify-self-end min-w-0">
+            <div className="rounded-xl border border-line bg-surface-2 p-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
+                <span className="text-sm text-ink-muted">Amount paid</span>
+                <div className="min-w-0 justify-self-end">
                   {!editingPaidAmount ? (
                     <div className="flex items-center justify-end gap-1.5">
                       <button
                         type="button"
                         onClick={openPaidAmountEdit}
                         disabled={isLoading}
-                        className={cn(
-                          'shrink-0 rounded-md p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold',
-                          theme === 'dark'
-                            ? 'text-primary-light/70 hover:bg-primary-dark-secondary hover:text-primary-light'
-                            : 'text-primary-lightTextSecondary hover:bg-gray-100 hover:text-primary-lightText'
-                        )}
+                        className="shrink-0 rounded-md p-1.5 text-ink-subtle transition-colors hover:bg-surface-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
                         title="Set amount paid"
                         aria-label="Set amount paid"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="h-4 w-4"
-                          aria-hidden
-                        >
-                          <path d="m13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793Zm-2.207 2.207L3 14v3h3l8.379-8.379-2.828-2.828Z" />
-                        </svg>
+                        <PencilIcon className="h-4 w-4" />
                       </button>
-                      <span className={cn(
-                        "text-lg font-semibold tabular-nums text-right",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
+                      <span className="text-right font-mono text-lg font-semibold tabular-nums text-ink">
                         {formatCurrency(invoice.paidAmount)}
                       </span>
                     </div>
@@ -437,17 +353,12 @@ const InvoiceDetail = ({
                     <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-2">
                       <div className="relative w-[7.5rem] max-w-full">
                         <span
-                          className={cn(
-                            'pointer-events-none absolute inset-y-0 left-2 z-10 flex items-center text-sm font-medium tabular-nums',
-                            theme === 'dark'
-                              ? 'text-primary-light/80'
-                              : 'text-primary-lightTextSecondary'
-                          )}
+                          className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center font-mono text-sm font-medium tabular-nums text-ink-subtle"
                           aria-hidden
                         >
                           $
                         </span>
-                        <Input
+                        <TextField
                           type="number"
                           min={0}
                           step={0.01}
@@ -460,14 +371,14 @@ const InvoiceDetail = ({
                             if (e.key === 'Enter') void savePaidAmount()
                             if (e.key === 'Escape') cancelPaidAmountEdit()
                           }}
-                          className="h-9 w-full pl-6 pr-2 text-right tabular-nums"
+                          className="pl-7 pr-2 text-right font-mono tabular-nums"
                           disabled={isSavingPaidAmount}
                           autoFocus
                           aria-label="Amount paid in dollars"
                         />
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
+                      <div className="flex shrink-0 items-center gap-2">
+                        <AppButton
                           type="button"
                           size="sm"
                           onClick={() => void savePaidAmount()}
@@ -475,8 +386,8 @@ const InvoiceDetail = ({
                           isLoading={isSavingPaidAmount}
                         >
                           Save
-                        </Button>
-                        <Button
+                        </AppButton>
+                        <AppButton
                           type="button"
                           size="sm"
                           variant="ghost"
@@ -484,155 +395,79 @@ const InvoiceDetail = ({
                           disabled={isSavingPaidAmount}
                         >
                           Cancel
-                        </Button>
+                        </AppButton>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
               {paidAmountError && (
-                <p className="text-xs text-red-400 mt-2 text-right">{paidAmountError}</p>
+                <p className="mt-2 text-right text-xs text-danger">{paidAmountError}</p>
               )}
-              <div
-                className={cn(
-                  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-center mt-2 pt-2 border-t',
-                  theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-                )}
-              >
-                <span className={cn(
-                  "text-sm",
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>Remaining Balance</span>
-                <span className="text-lg font-bold text-primary-gold tabular-nums text-right justify-self-end">
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-t border-line pt-2">
+                <span className="text-sm text-ink-muted">Remaining balance</span>
+                <span className="justify-self-end text-right font-mono text-lg font-bold tabular-nums text-ink">
                   {formatCurrency(invoice.total - invoice.paidAmount)}
                 </span>
               </div>
             </div>
           )}
 
-          {/* Due Date Warning */}
+          {/* Due date warning */}
           {isOverdue && (
-            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">⚠️ This invoice is overdue</p>
-              <p className="text-xs text-red-400/70 mt-1">
-                Due date: {new Date(invoice.dueDate!).toLocaleDateString()}
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+              <p className="font-medium">This invoice is overdue</p>
+              <p className="mt-1 text-[13px] opacity-80">
+                Due date:{' '}
+                <span className="font-mono tabular-nums">{new Date(invoice.dueDate!).toLocaleDateString()}</span>
               </p>
-            </div>
+            </Alert>
           )}
 
-          {/* Line Items Table */}
+          {/* Line items */}
           <div>
-            <h3 className={cn(
-              "text-sm font-medium mb-3",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>Line Items</h3>
-            {/* Desktop Table View */}
-            <div className={cn(
-              "hidden sm:block rounded-lg border overflow-hidden",
-              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-            )}>
+            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Line items</h3>
+
+            {/* Desktop table */}
+            <div className="hidden overflow-hidden rounded-xl border border-line sm:block">
               <table className="w-full">
-                <thead className={theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-50'}>
+                <thead className="bg-surface-2">
                   <tr>
-                    <th className={cn(
-                      "px-4 py-2 text-left text-sm font-medium",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
-                      Description
-                    </th>
-                    <th className={cn(
-                      "px-4 py-2 text-right text-sm font-medium",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
-                      Quantity
-                    </th>
-                    <th className={cn(
-                      "px-4 py-2 text-right text-sm font-medium",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
-                      Unit Price
-                    </th>
-                    <th className={cn(
-                      "px-4 py-2 text-right text-sm font-medium",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
-                      Total
-                    </th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Description</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Qty</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Unit price</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Total</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-line">
                   {invoice.lineItems.map((item, index) => (
-                    <tr key={item.id || index} className={cn(
-                      "border-t",
-                      theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-                    )}>
-                      <td className={cn(
-                        "px-4 py-3 text-sm",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>{item.description}</td>
-                      <td className={cn(
-                        "px-4 py-3 text-sm text-right",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {item.quantity}
-                      </td>
-                      <td className={cn(
-                        "px-4 py-3 text-sm text-right",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {formatCurrency(item.unitPrice)}
-                      </td>
-                      <td className={cn(
-                        "px-4 py-3 text-sm text-right font-medium",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {formatCurrency(item.total)}
-                      </td>
+                    <tr key={item.id || index}>
+                      <td className="px-4 py-3 text-sm text-ink">{item.description}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-ink">{item.quantity}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-ink">{formatCurrency(item.unitPrice)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-medium tabular-nums text-ink">{formatCurrency(item.total)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            {/* Mobile Card View */}
-            <div className="sm:hidden space-y-3">
+
+            {/* Mobile cards */}
+            <div className="space-y-3 sm:hidden">
               {invoice.lineItems.map((item, index) => (
-                <div
-                  key={item.id || index}
-                  className={cn(
-                    "rounded-lg border p-4 space-y-2",
-                    theme === 'dark'
-                      ? 'border-primary-blue bg-primary-dark-secondary'
-                      : 'border-gray-200 bg-white'
-                  )}
-                >
-                  <div className={cn(
-                    "text-sm font-medium",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>{item.description}</div>
+                <div key={item.id || index} className="space-y-2 rounded-xl border border-line bg-surface-2 p-4">
+                  <div className="text-sm font-medium text-ink">{item.description}</div>
                   <div className="flex justify-between text-sm">
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Quantity:</span>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>{item.quantity}</span>
+                    <span className="text-ink-muted">Quantity</span>
+                    <span className="font-mono tabular-nums text-ink">{item.quantity}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Unit Price:</span>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>{formatCurrency(item.unitPrice)}</span>
+                    <span className="text-ink-muted">Unit price</span>
+                    <span className="font-mono tabular-nums text-ink">{formatCurrency(item.unitPrice)}</span>
                   </div>
-                  <div className={cn(
-                    "flex justify-between text-sm font-medium pt-2 border-t",
-                    theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-                  )}>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>Total:</span>
-                    <span className="text-primary-gold">{formatCurrency(item.total)}</span>
+                  <div className="flex justify-between border-t border-line pt-2 text-sm font-medium">
+                    <span className="text-ink">Total</span>
+                    <span className="font-mono tabular-nums text-ink">{formatCurrency(item.total)}</span>
                   </div>
                 </div>
               ))}
@@ -641,89 +476,46 @@ const InvoiceDetail = ({
 
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-full max-w-md space-y-2 text-sm">
+            <div className="w-full max-w-sm space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>Subtotal</span>
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>{formatCurrency(invoice.subtotal)}</span>
+                <span className="text-ink-muted">Subtotal</span>
+                <span className="font-mono tabular-nums text-ink">{formatCurrency(invoice.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>Tax ({invoice.taxRate * 100}%)</span>
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>{formatCurrency(invoice.taxAmount)}</span>
+                <span className="text-ink-muted">Tax ({invoice.taxRate * 100}%)</span>
+                <span className="font-mono tabular-nums text-ink">{formatCurrency(invoice.taxAmount)}</span>
               </div>
               {invoice.discount > 0 && (
                 <>
                   <div className="flex justify-between">
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Discount</span>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>-{formatCurrency(invoice.discount)}</span>
+                    <span className="text-ink-muted">Discount</span>
+                    <span className="font-mono tabular-nums text-ink">-{formatCurrency(invoice.discount)}</span>
                   </div>
                   {invoice.discountReason && (
-                    <div className="text-xs -mt-1 pr-20">
-                      <span className={cn(
-                        "italic pl-2 block",
-                        theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
-                      )}>
-                        {invoice.discountReason}
-                      </span>
-                    </div>
+                    <p className="text-xs italic text-ink-subtle">{invoice.discountReason}</p>
                   )}
                 </>
               )}
-              <div className={cn(
-                "flex justify-between pt-2 border-t text-lg font-bold",
-                theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-              )}>
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>Total</span>
-                <span className="text-primary-gold">{formatCurrency(invoice.total)}</span>
+              <div className="flex items-center justify-between border-t border-line pt-2">
+                <span className="text-base font-semibold text-ink">Total</span>
+                <span className="font-mono text-base font-bold tabular-nums text-ink">{formatCurrency(invoice.total)}</span>
               </div>
             </div>
           </div>
 
-          {/* Payment Terms and Due Date */}
+          {/* Payment terms and due date */}
           {(invoice.paymentTerms || invoice.dueDate) && (
-            <div className={cn(
-              "grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg border",
-              theme === 'dark'
-                ? 'border-primary-blue bg-primary-dark-secondary'
-                : 'border-gray-200 bg-white'
-            )}>
+            <div className="grid grid-cols-1 gap-4 rounded-xl border border-line bg-surface-2 p-4 md:grid-cols-2">
               {invoice.paymentTerms && (
                 <div>
-                  <span className={cn(
-                    "text-xs",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
-                  )}>Payment Terms</span>
-                  <p className={cn(
-                    "text-sm mt-1",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>{invoice.paymentTerms}</p>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Payment terms</span>
+                  <p className="mt-1 text-sm text-ink">{invoice.paymentTerms}</p>
                 </div>
               )}
               {invoice.dueDate && (
                 <div>
-                  <span className={cn(
-                    "text-xs",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
-                  )}>Due Date</span>
-                  <p
-                    className={cn(
-                      'text-sm mt-1',
-                      isOverdue ? 'text-red-400 font-medium' : theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}
-                  >
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Due date</span>
+                  <p className={cn('mt-1 font-mono text-sm tabular-nums', isOverdue ? 'font-medium text-danger' : 'text-ink')}>
                     {new Date(invoice.dueDate).toLocaleDateString()}
                   </p>
                 </div>
@@ -733,73 +525,58 @@ const InvoiceDetail = ({
 
           {/* Notes */}
           {invoice.notes && (
-            <div>
-              <h3 className={cn(
-                "text-sm font-medium mb-2",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>Notes</h3>
-              <p className={cn(
-                "text-sm whitespace-pre-wrap",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>{invoice.notes}</p>
+            <div className="border-t border-line pt-6">
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Notes</h3>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{invoice.notes}</p>
             </div>
           )}
 
           {/* Metadata */}
-          <div className={cn(
-            "pt-4 border-t text-xs space-y-1",
-            theme === 'dark'
-              ? 'border-primary-blue text-primary-light/50'
-              : 'border-gray-200 text-primary-lightTextSecondary'
-          )}>
-            <div>Created: {new Date(invoice.createdAt).toLocaleDateString()}</div>
+          <div className="space-y-1 border-t border-line pt-4 text-xs text-ink-subtle">
+            <div>
+              Created <span className="font-mono tabular-nums">{new Date(invoice.createdAt).toLocaleDateString()}</span>
+            </div>
             {invoice.updatedAt !== invoice.createdAt && (
-              <div>Updated: {new Date(invoice.updatedAt).toLocaleDateString()}</div>
+              <div>
+                Updated <span className="font-mono tabular-nums">{new Date(invoice.updatedAt).toLocaleDateString()}</span>
+              </div>
             )}
           </div>
 
-          {/* Success/Error Messages - Positioned at Bottom for Mobile Visibility */}
+          {/* Success / status messages — positioned at bottom for mobile visibility */}
           {sendSuccess && lastSentVia && lastSentVia.length > 0 && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">
-                ✓ Invoice sent successfully
-                {lastSentVia.includes('email') && lastSentVia.includes('sms')
-                  ? ` via email and SMS to ${invoice.contactEmail || invoice.contactPhone || 'contact'}`
-                  : lastSentVia.includes('sms')
-                    ? ` via SMS to ${invoice.contactPhone || 'contact'}`
-                    : ` via email to ${invoice.contactEmail || 'contact'}`}
-              </p>
-            </div>
+            <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>
+              Invoice sent successfully
+              {lastSentVia.includes('email') && lastSentVia.includes('sms')
+                ? ` via email and SMS to ${invoice.contactEmail || invoice.contactPhone || 'contact'}`
+                : lastSentVia.includes('sms')
+                  ? ` via SMS to ${invoice.contactPhone || 'contact'}`
+                  : ` via email to ${invoice.contactEmail || 'contact'}`}
+            </Alert>
           )}
           {sendSuccess && (!lastSentVia || lastSentVia.length === 0) && (
-            <div className="p-4 rounded-lg border border-amber-500 bg-amber-500/10">
-              <p className="text-sm text-amber-400 font-medium">
-                Invoice could not be delivered.
-                {invoice.contactNotificationPreference === 'sms'
-                  ? ' SMS delivery failed. Check Twilio configuration.'
-                  : invoice.contactNotificationPreference === 'email'
-                    ? ' Email delivery failed. Check Resend configuration.'
-                    : ' Check Twilio and email configuration.'}
-              </p>
-            </div>
+            <Alert tone="warning" icon={<AlertIcon className="h-4 w-4" />}>
+              Invoice could not be delivered.
+              {invoice.contactNotificationPreference === 'sms'
+                ? ' SMS delivery failed. Check Twilio configuration.'
+                : invoice.contactNotificationPreference === 'email'
+                  ? ' Email delivery failed. Check Resend configuration.'
+                  : ' Check Twilio and email configuration.'}
+            </Alert>
           )}
           {sendError && (
-            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
-            </div>
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+              {sendError}
+            </Alert>
           )}
           {showConfirmation && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">✓ {confirmationMessage}</p>
-            </div>
+            <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>{confirmationMessage}</Alert>
           )}
           {showJobConfirmation && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">✓ Job has been created</p>
-            </div>
+            <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>Job has been created</Alert>
           )}
         </div>
-      </Modal>
+      </AppModal>
 
       {/* Schedule Job Modal */}
       <ScheduleJobModal
@@ -831,34 +608,33 @@ const InvoiceDetail = ({
         }}
       />
 
-      {/* Delete Confirmation Modal */}
-      <Modal
+      {/* Delete confirmation modal */}
+      <AppModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        title="Delete Invoice"
+        title="Delete invoice"
+        size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+            <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleDelete}
-              disabled={isLoading}
-              className="bg-red-500 hover:bg-red-600"
-            >
+            </AppButton>
+            <AppButton variant="danger" onClick={handleDelete} isLoading={isLoading} disabled={isLoading}>
               {isLoading ? 'Deleting...' : 'Delete'}
-            </Button>
+            </AppButton>
           </>
         }
       >
-        <p className={cn(
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
-          Are you sure you want to delete invoice <strong>{invoice.invoiceNumber}</strong>? This
-          action cannot be undone.
-        </p>
-      </Modal>
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger">
+            <AlertIcon className="h-5 w-5" />
+          </span>
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Are you sure you want to delete invoice{' '}
+            <strong className="font-mono text-ink">{invoice.invoiceNumber}</strong>? This action cannot be undone.
+          </p>
+        </div>
+      </AppModal>
     </>
   )
 }

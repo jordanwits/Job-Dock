@@ -60,15 +60,15 @@ export const QuickBooksInvoicePanel = ({ invoice, onSynced }: QuickBooksInvoiceP
     tone = 'info'
   }
 
-  const dot = tone === 'ready' ? 'bg-green-500' : tone === 'info' ? 'bg-primary-gold' : 'bg-gray-400'
+  const dot = tone === 'ready' ? 'bg-success' : tone === 'info' ? 'bg-accent' : 'bg-ink-subtle'
 
   return (
-    <div className="rounded-lg border border-black/10 dark:border-white/10 p-3 sm:p-4">
+    <div className="rounded-xl border border-line bg-surface-2 p-4">
       <div className="flex items-start gap-3">
         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-sm">QuickBooks online payment</p>
-          <p className="text-sm text-gray-500 mt-0.5">{headline}</p>
+          <p className="text-sm font-medium text-ink">QuickBooks online payment</p>
+          <p className="mt-0.5 text-sm text-ink-muted">{headline}</p>
           {synced && (
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               {invoice.quickbooksInvoiceUrl && (
@@ -76,7 +76,7 @@ export const QuickBooksInvoicePanel = ({ invoice, onSynced }: QuickBooksInvoiceP
                   href={invoice.quickbooksInvoiceUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-primary-blue underline"
+                  className="font-medium text-accent-strong transition-opacity hover:opacity-70"
                 >
                   View payable invoice
                 </a>
@@ -86,14 +86,14 @@ export const QuickBooksInvoicePanel = ({ invoice, onSynced }: QuickBooksInvoiceP
                   type="button"
                   onClick={handleResync}
                   disabled={syncing}
-                  className="text-gray-500 underline hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
+                  className="text-ink-muted underline-offset-2 transition-colors hover:text-ink hover:underline disabled:opacity-50"
                 >
                   {syncing ? 'Re-syncing…' : 'Re-sync'}
                 </button>
               )}
             </div>
           )}
-          {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+          {error && <p className="mt-2 text-sm text-danger">{error}</p>}
         </div>
       </div>
     </div>

@@ -1,9 +1,8 @@
 import { Invoice } from '../types/invoice'
 import { useInvoiceStore } from '../store/invoiceStore'
-import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
-import { useTheme } from '@/contexts/ThemeContext'
-import { INVOICE_STATUS_LABELS } from '../types/invoice'
+import { SelectCircle, StatusBadge } from './invoicesUi'
+import { INVOICE_STATUS, PAYMENT_STATUS } from './invoiceStatus'
 
 interface InvoiceCardProps {
   invoice: Invoice
@@ -11,60 +10,24 @@ interface InvoiceCardProps {
   onToggleSelect?: (id: string, event: React.MouseEvent) => void
 }
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+
 const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) => {
-  const { theme } = useTheme()
   const { setSelectedInvoice } = useInvoiceStore()
+  const status = INVOICE_STATUS[invoice.status] ?? INVOICE_STATUS.draft
+  const payment = PAYMENT_STATUS[invoice.paymentStatus] ?? PAYMENT_STATUS.pending
+  const itemCount = invoice.lineItems.length
 
-  const statusColors = {
-    draft: theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      : 'bg-gray-200 text-gray-600 border-gray-300',
-    sent: theme === 'dark'
-      ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    overdue: theme === 'dark'
-      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-      : 'bg-red-100 text-red-700 border-red-300',
-    cancelled: theme === 'dark'
-      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-      : 'bg-orange-100 text-orange-700 border-orange-300',
-  }
-
-  const paymentStatusColors = {
-    pending: theme === 'dark'
-      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-      : 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    partial: theme === 'dark'
-      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    paid: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-  }
-
-  const paymentStatusLabels = {
-    pending: 'Unpaid',
-    partial: 'Partial',
-    paid: 'Paid',
-  }
-
-  // Only show status badge if it's not redundant with paymentStatus
-  // Show status for: draft, overdue, cancelled
-  // Hide status for: sent (since paymentStatus already shows pending/partial/paid)
+  // Only show the lifecycle status when it adds info beyond the payment badge.
+  // Hide it for "sent" (the payment badge already conveys pending/partial/paid).
   const shouldShowStatus =
     invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
+  const showPayment = invoice.trackPayment !== false
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
-  }
-
-  // Invoice is overdue if due date is more than 1 day in the past
-  // (not on the due date itself, but the day after)
+  // Overdue if due date is more than 1 day in the past and not fully paid.
   const isOverdue =
-    invoice.dueDate &&
+    !!invoice.dueDate &&
     invoice.paymentStatus !== 'paid' &&
     (() => {
       const dueDate = new Date(invoice.dueDate)
@@ -75,136 +38,79 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
     })()
 
   return (
-    <Card
-      className={cn(
-        'cursor-pointer hover:border-primary-gold transition-colors relative',
-        isSelected && 'ring-2 ring-primary-gold'
-      )}
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => setSelectedInvoice(invoice)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          setSelectedInvoice(invoice)
+        }
+      }}
+      className={cn(
+        'group relative flex cursor-pointer flex-col rounded-xl bg-surface p-5 shadow-card outline-none transition-shadow hover:shadow-pop focus-visible:ring-2 focus-visible:ring-accent',
+        isSelected && 'ring-2 ring-accent'
+      )}
     >
-      <div className="space-y-3">
-        {/* Selection Bullet Point */}
-        {onToggleSelect && (
-          <div
-            className="absolute top-3 left-3 z-10"
-            onClick={e => {
-              e.stopPropagation()
-              onToggleSelect(invoice.id, e)
-            }}
-          >
-            <div
-              className={cn(
-                'w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center',
-                isSelected
-                  ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                  : theme === 'dark'
-                    ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
-                    : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-primary-gold/10'
-              )}
-            >
-              {isSelected && <div className={cn(
-                "w-2.5 h-2.5 rounded-full",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
-              )} />}
-            </div>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className={cn('flex items-start justify-between', onToggleSelect && 'pl-8')}>
-          <div className="flex-1 min-w-0 pr-2">
-            <h3 className={cn(
-              "text-lg font-semibold",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>
-              {invoice.invoiceNumber}
-              {invoice.contactName && invoice.title && (
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText/90'
-                )}>
-                  {' '}
-                  — {invoice.contactName} {invoice.title}
-                </span>
-              )}
-            </h3>
-            {invoice.contactCompany && (
-              <p className={cn(
-                "text-xs mt-1",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>{invoice.contactCompany}</p>
-            )}
-          </div>
-          <div className="flex flex-col gap-1 items-end">
-            {shouldShowStatus && (
-              <span
-                className={cn(
-                  'px-2 py-1 text-xs font-medium rounded border',
-                  statusColors[invoice.status]
-                )}
-              >
-                {INVOICE_STATUS_LABELS[invoice.status]}
-              </span>
-            )}
-            {invoice.trackPayment !== false && (
-              <span
-                className={cn(
-                  'px-2 py-1 text-xs font-medium rounded border',
-                  paymentStatusColors[invoice.paymentStatus]
-                )}
-              >
-                {paymentStatusLabels[invoice.paymentStatus]}
-              </span>
-            )}
-          </div>
+      {/* Top row: invoice number + badges / selection */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate font-mono text-sm font-semibold tabular-nums text-ink">
+            {invoice.invoiceNumber}
+          </h3>
+          {invoice.title && <p className="mt-1 truncate text-[15px] font-semibold text-ink">{invoice.title}</p>}
+          {invoice.contactName && (
+            <p className="mt-0.5 truncate text-[13px] text-ink-muted">
+              {invoice.contactName}
+              {invoice.contactCompany ? ` · ${invoice.contactCompany}` : ''}
+            </p>
+          )}
         </div>
-
-        {/* Line Items Count */}
-        <div className={cn(
-          "text-sm",
-          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-        )}>
-          {invoice.lineItems.length} item{invoice.lineItems.length !== 1 ? 's' : ''}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <div className="flex items-center gap-1.5">
+            {shouldShowStatus && <StatusBadge tone={status.tone}>{status.label}</StatusBadge>}
+            {showPayment && <StatusBadge tone={payment.tone}>{payment.label}</StatusBadge>}
+          </div>
+          {onToggleSelect && (
+            <SelectCircle
+              selected={!!isSelected}
+              onClick={e => {
+                e.stopPropagation()
+                onToggleSelect(invoice.id, e)
+              }}
+            />
+          )}
         </div>
-
-        {/* Payment Info */}
-        {invoice.trackPayment !== false && invoice.paymentStatus === 'partial' && (
-          <div className={cn(
-            "text-sm",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
-            Paid: {formatCurrency(invoice.paidAmount)} / {formatCurrency(invoice.total)}
-          </div>
-        )}
-
-        {/* Total */}
-        <div className={cn(
-          "pt-2 border-t",
-          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-        )}>
-          <div className="flex justify-between items-center">
-            <span className={cn(
-              "text-sm",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>Total</span>
-            <span className="text-xl font-bold text-primary-gold">
-              {formatCurrency(invoice.total)}
-            </span>
-          </div>
-        </div>
-
-        {/* Due Date */}
-        {invoice.dueDate && (
-          <div
-            className={cn(
-              'text-xs',
-              isOverdue ? 'text-red-400 font-medium' : theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
-            )}
-          >
-            {isOverdue ? '⚠️ ' : ''}Due: {new Date(invoice.dueDate).toLocaleDateString()}
-          </div>
-        )}
       </div>
-    </Card>
+
+      {/* Partial payment progress */}
+      {showPayment && invoice.paymentStatus === 'partial' && (
+        <p className="mt-3 text-[13px] text-ink-muted">
+          Paid <span className="font-mono tabular-nums text-ink">{formatCurrency(invoice.paidAmount)}</span>
+          {' '}of <span className="font-mono tabular-nums">{formatCurrency(invoice.total)}</span>
+        </p>
+      )}
+
+      {/* Total */}
+      <div className="mt-5 flex items-end justify-between gap-3 border-t border-line pt-4">
+        <span className="text-[13px] text-ink-muted">
+          <span className="font-mono tabular-nums text-ink">{itemCount}</span>{' '}
+          {itemCount === 1 ? 'item' : 'items'}
+        </span>
+        <span className="font-mono text-xl font-semibold tabular-nums text-ink">
+          {formatCurrency(invoice.total)}
+        </span>
+      </div>
+
+      {/* Due date */}
+      {invoice.dueDate && (
+        <p className={cn('mt-2 text-[12px]', isOverdue ? 'font-medium text-danger' : 'text-ink-subtle')}>
+          {isOverdue ? 'Overdue · due ' : 'Due '}
+          <span className="font-mono tabular-nums">{new Date(invoice.dueDate).toLocaleDateString()}</span>
+        </p>
+      )}
+    </div>
   )
 }
 
