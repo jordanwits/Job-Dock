@@ -1,16 +1,25 @@
 import { Quote, QuoteStatus } from '../types/quote'
 import { useQuoteStore } from '../store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
-import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
 import { useState } from 'react'
 import QuoteForm from './QuoteForm'
 import ConvertQuoteToInvoiceModal from './ConvertQuoteToInvoiceModal'
-import { cn } from '@/lib/utils'
-import { useNavigate } from 'react-router-dom'
 import CreateJobFromQuoteModal from './CreateJobFromQuoteModal'
-import { useTheme } from '@/contexts/ThemeContext'
+import { useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { getSendValidationError } from '@/lib/utils/sendValidation'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  AppModal,
+  CheckIcon,
+  ClipboardIcon,
+  ReceiptIcon,
+  SendIcon,
+  StatusSelect,
+} from './quotesUi'
+import { QUOTE_STATUS_OPTIONS } from './quoteStatus'
 
 interface QuoteDetailProps {
   quote: Quote
@@ -21,15 +30,16 @@ interface QuoteDetailProps {
   onQuoteSent?: (message: string) => void
 }
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+
 const QuoteDetail = ({
   quote,
   isOpen,
   onClose,
   onJobCreated,
-  onJobCreateFailed,
   onQuoteSent,
 }: QuoteDetailProps) => {
-  const { theme } = useTheme()
   const { updateQuote, deleteQuote, sendQuote, isLoading } = useQuoteStore()
   const { convertQuoteToInvoice, setSelectedInvoice, isLoading: isConverting } = useInvoiceStore()
   const navigate = useNavigate()
@@ -49,7 +59,7 @@ const QuoteDetail = ({
     try {
       await updateQuote({ id: quote.id, ...data })
       setIsEditing(false)
-      setConfirmationMessage('Quote Updated Successfully')
+      setConfirmationMessage('Quote updated successfully')
       setShowConfirmation(true)
       setTimeout(() => setShowConfirmation(false), 3000)
     } catch (error) {
@@ -72,7 +82,7 @@ const QuoteDetail = ({
       const invoice = await convertQuoteToInvoice(quote, options)
       await deleteQuote(quote.id)
       setShowConvertModal(false)
-      setConfirmationMessage('Quote Converted to Invoice')
+      setConfirmationMessage('Quote converted to invoice')
       setShowConfirmation(true)
       setTimeout(() => {
         setShowConfirmation(false)
@@ -124,32 +134,6 @@ const QuoteDetail = ({
     }
   }
 
-  const statusColors = {
-    draft: theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      : 'bg-gray-200 text-gray-600 border-gray-300',
-    sent: theme === 'dark'
-      ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    accepted: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-    rejected: theme === 'dark'
-      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-      : 'bg-red-100 text-red-700 border-red-300',
-    expired: theme === 'dark'
-      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-      : 'bg-orange-100 text-orange-700 border-orange-300',
-  }
-
-  const statusOptions = [
-    { value: 'draft', label: 'Draft' },
-    { value: 'sent', label: 'Sent' },
-    { value: 'accepted', label: 'Accepted' },
-    { value: 'rejected', label: 'Declined' },
-    { value: 'expired', label: 'Expired' },
-  ]
-
   const handleStatusChange = async (newStatus: string) => {
     try {
       await updateQuote({ id: quote.id, status: newStatus as QuoteStatus })
@@ -158,22 +142,15 @@ const QuoteDetail = ({
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
-  }
-
   if (isEditing) {
     return (
-      <Modal
+      <AppModal
         isOpen={isOpen}
         onClose={() => {
           setIsEditing(false)
           onClose()
         }}
-        title="Edit Quote"
+        title="Edit quote"
         size="xl"
       >
         <QuoteForm
@@ -182,245 +159,132 @@ const QuoteDetail = ({
           onCancel={() => setIsEditing(false)}
           isLoading={isLoading}
         />
-      </Modal>
+      </AppModal>
     )
   }
 
+  const taxAmount = quote.taxAmount ?? quote.subtotal * (quote.taxRate || 0)
+
   return (
     <>
-      <Modal
+      <AppModal
         isOpen={isOpen}
         onClose={onClose}
         title={
           quote.contactName && quote.title
-            ? `${quote.contactName} ${quote.title}`
+            ? `${quote.contactName} — ${quote.title}`
             : quote.contactName || quote.title || quote.quoteNumber
         }
         size="lg"
         footer={
-          <div className="flex flex-col sm:flex-row justify-between w-full gap-3 py-1">
-            <Button
-              variant="ghost"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-500 hover:text-red-600 order-3 sm:order-1 py-2"
-            >
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <AppButton variant="dangerGhost" onClick={() => setShowDeleteConfirm(true)} className="order-3 sm:order-1">
               Delete
-            </Button>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto">
-              <Button
-                onClick={() => setShowCreateJob(true)}
-                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto py-2 whitespace-nowrap"
-              >
-                Create Job
-              </Button>
-              <Button
-                onClick={handleSend}
-                disabled={isSending}
-                className="bg-primary-blue hover:bg-primary-blue/90 text-primary-light w-full sm:w-auto py-2 whitespace-nowrap"
-              >
-                {isSending ? 'Sending...' : quote.status === 'sent' ? 'Resend Quote' : 'Send Quote'}
-              </Button>
+            </AppButton>
+            <div className="order-1 flex flex-col gap-2 sm:order-2 sm:flex-row sm:gap-3">
+              <AppButton variant="subtle" onClick={() => setShowCreateJob(true)} fullWidth className="sm:w-auto">
+                <ClipboardIcon className="h-4 w-4" />
+                Create job
+              </AppButton>
               {quote.status !== 'rejected' && quote.status !== 'expired' && (
-                <Button
-                  onClick={() => setShowConvertModal(true)}
-                  className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark w-full sm:w-auto py-2 whitespace-nowrap"
-                >
-                  Convert to Invoice
-                </Button>
+                <AppButton variant="subtle" onClick={() => setShowConvertModal(true)} fullWidth className="sm:w-auto">
+                  <ReceiptIcon className="h-4 w-4" />
+                  Convert to invoice
+                </AppButton>
               )}
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="w-full sm:w-auto py-2 whitespace-nowrap"
-              >
+              <AppButton variant="subtle" onClick={() => setIsEditing(true)} fullWidth className="sm:w-auto">
                 Edit
-              </Button>
+              </AppButton>
+              <AppButton onClick={handleSend} disabled={isSending} isLoading={isSending} fullWidth className="sm:w-auto">
+                {!isSending && <SendIcon className="h-4 w-4" />}
+                {isSending ? 'Sending...' : quote.status === 'sent' ? 'Resend quote' : 'Send quote'}
+              </AppButton>
             </div>
           </div>
         }
       >
-        <div className="space-y-6 pb-2">
+        <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className={cn(
-                "text-2xl font-bold",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>{quote.quoteNumber}</h2>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="font-mono text-xl font-semibold tabular-nums text-ink">{quote.quoteNumber}</h2>
               {quote.contactName && (
-                <div className="mt-1">
-                  <p className={cn(
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="text-sm text-ink-muted">
                     {quote.contactName}
-                    {quote.contactCompany && ` - ${quote.contactCompany}`}
+                    {quote.contactCompany && ` · ${quote.contactCompany}`}
                   </p>
-                  {quote.contactEmail && (
-                    <p className={cn(
-                      "text-sm mt-1",
-                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/80'
-                    )}>{quote.contactEmail}</p>
-                  )}
+                  {quote.contactEmail && <p className="text-[13px] text-ink-subtle">{quote.contactEmail}</p>}
                 </div>
               )}
             </div>
-            <StatusBadgeSelect
+            <StatusSelect
               value={quote.status}
-              options={statusOptions}
-              colorClassesByValue={statusColors}
+              options={QUOTE_STATUS_OPTIONS}
               onChange={handleStatusChange}
               isLoading={isLoading}
-              size="md"
             />
           </div>
 
-          {/* Send Error - Prominent placement for visibility */}
+          {/* Send error - prominent placement */}
           {sendError && (
-            <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">✗ {sendError}</p>
-            </div>
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+              {sendError}
+            </Alert>
           )}
 
+          {/* Client decline note */}
           {quote.status === 'rejected' && quote.clientDeclineReason?.trim() && (
-            <div
-              className={cn(
-                'p-4 rounded-lg border',
-                theme === 'dark'
-                  ? 'border-amber-500/40 bg-amber-500/10'
-                  : 'border-amber-200 bg-amber-50'
-              )}
-            >
-              <p
-                className={cn(
-                  'text-sm font-medium',
-                  theme === 'dark' ? 'text-amber-200' : 'text-amber-900'
-                )}
-              >
-                Client decline note
-              </p>
-              <p
-                className={cn(
-                  'text-sm mt-2 whitespace-pre-wrap',
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                )}
-              >
-                {quote.clientDeclineReason}
-              </p>
+            <div className="rounded-xl border border-warning/30 bg-warning-soft p-4">
+              <p className="text-sm font-semibold text-warning">Client decline note</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-ink">{quote.clientDeclineReason}</p>
             </div>
           )}
 
-          {/* Line Items Table */}
+          {/* Line items */}
           <div>
-            <h3 className={cn(
-              "text-sm font-medium mb-3",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>Line Items</h3>
-            {/* Desktop Table View */}
-            <div className={cn(
-              "hidden sm:block rounded-lg border overflow-hidden",
-              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-            )}>
+            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Line items</h3>
+
+            {/* Desktop table */}
+            <div className="hidden overflow-hidden rounded-xl border border-line sm:block">
               <table className="w-full">
-                <thead className={theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-50'}>
+                <thead className="bg-surface-2">
                   <tr>
-                    <th className={cn(
-                      "px-4 py-2 text-left text-sm font-medium",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
-                      Description
-                    </th>
-                    <th className={cn(
-                      "px-4 py-2 text-right text-sm font-medium",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
-                      Quantity
-                    </th>
-                    <th className={cn(
-                      "px-4 py-2 text-right text-sm font-medium",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
-                      Unit Price
-                    </th>
-                    <th className={cn(
-                      "px-4 py-2 text-right text-sm font-medium",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>
-                      Total
-                    </th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Description</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Qty</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Unit price</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Total</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-line">
                   {quote.lineItems.map((item, index) => (
-                    <tr key={item.id || index} className={cn(
-                      "border-t",
-                      theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-                    )}>
-                      <td className={cn(
-                        "px-4 py-3 text-sm",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>{item.description}</td>
-                      <td className={cn(
-                        "px-4 py-3 text-sm text-right",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {item.quantity}
-                      </td>
-                      <td className={cn(
-                        "px-4 py-3 text-sm text-right",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {formatCurrency(item.unitPrice)}
-                      </td>
-                      <td className={cn(
-                        "px-4 py-3 text-sm text-right font-medium",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>
-                        {formatCurrency(item.total)}
-                      </td>
+                    <tr key={item.id || index}>
+                      <td className="px-4 py-3 text-sm text-ink">{item.description}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-ink">{item.quantity}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-ink">{formatCurrency(item.unitPrice)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-medium tabular-nums text-ink">{formatCurrency(item.total)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            {/* Mobile Card View */}
-            <div className="sm:hidden space-y-3">
+
+            {/* Mobile cards */}
+            <div className="space-y-3 sm:hidden">
               {quote.lineItems.map((item, index) => (
-                <div
-                  key={item.id || index}
-                  className={cn(
-                    "rounded-lg border p-4 space-y-2",
-                    theme === 'dark'
-                      ? 'border-primary-blue bg-primary-dark-secondary'
-                      : 'border-gray-200 bg-white'
-                  )}
-                >
-                  <div className={cn(
-                    "text-sm font-medium",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>{item.description}</div>
+                <div key={item.id || index} className="space-y-2 rounded-xl border border-line bg-surface-2 p-4">
+                  <div className="text-sm font-medium text-ink">{item.description}</div>
                   <div className="flex justify-between text-sm">
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Quantity:</span>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>{item.quantity}</span>
+                    <span className="text-ink-muted">Quantity</span>
+                    <span className="font-mono tabular-nums text-ink">{item.quantity}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Unit Price:</span>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>{formatCurrency(item.unitPrice)}</span>
+                    <span className="text-ink-muted">Unit price</span>
+                    <span className="font-mono tabular-nums text-ink">{formatCurrency(item.unitPrice)}</span>
                   </div>
-                  <div className={cn(
-                    "flex justify-between text-sm font-medium pt-2 border-t",
-                    theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-                  )}>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>Total:</span>
-                    <span className="text-primary-gold">{formatCurrency(item.total)}</span>
+                  <div className="flex justify-between border-t border-line pt-2 text-sm font-medium">
+                    <span className="text-ink">Total</span>
+                    <span className="font-mono tabular-nums text-ink">{formatCurrency(item.total)}</span>
                   </div>
                 </div>
               ))}
@@ -429,124 +293,87 @@ const QuoteDetail = ({
 
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-full max-w-md space-y-2 text-sm">
+            <div className="w-full max-w-sm space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>Subtotal</span>
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>{formatCurrency(quote.subtotal)}</span>
+                <span className="text-ink-muted">Subtotal</span>
+                <span className="font-mono tabular-nums text-ink">{formatCurrency(quote.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>Tax ({quote.taxRate * 100}%)</span>
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>{formatCurrency(quote.taxAmount ?? quote.subtotal * (quote.taxRate || 0))}</span>
+                <span className="text-ink-muted">Tax ({quote.taxRate * 100}%)</span>
+                <span className="font-mono tabular-nums text-ink">{formatCurrency(taxAmount)}</span>
               </div>
               {quote.discount > 0 && (
                 <>
                   <div className="flex justify-between">
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Discount</span>
-                    <span className={cn(
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>-{formatCurrency(quote.discount)}</span>
+                    <span className="text-ink-muted">Discount</span>
+                    <span className="font-mono tabular-nums text-ink">-{formatCurrency(quote.discount)}</span>
                   </div>
                   {quote.discountReason && (
-                    <div className="text-xs -mt-1 pr-20">
-                      <span className={cn(
-                        "italic pl-2 block",
-                        theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
-                      )}>
-                        {quote.discountReason}
-                      </span>
-                    </div>
+                    <p className="text-xs italic text-ink-subtle">{quote.discountReason}</p>
                   )}
                 </>
               )}
-              <div className={cn(
-                "flex justify-between pt-2 border-t text-lg font-bold",
-                theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-              )}>
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>Total</span>
-                <span className="text-primary-gold">{formatCurrency(quote.total)}</span>
+              <div className="flex items-center justify-between border-t border-line pt-2">
+                <span className="text-base font-semibold text-ink">Total</span>
+                <span className="font-mono text-base font-bold tabular-nums text-ink">{formatCurrency(quote.total)}</span>
               </div>
             </div>
           </div>
 
           {/* Notes */}
           {quote.notes && (
-            <div>
-              <h3 className={cn(
-                "text-sm font-medium mb-2",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>Notes</h3>
-              <p className={cn(
-                "text-sm whitespace-pre-wrap",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>{quote.notes}</p>
+            <div className="border-t border-line pt-6">
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Notes</h3>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{quote.notes}</p>
             </div>
           )}
 
           {/* Metadata */}
-          <div className={cn(
-            "pt-4 pb-2 border-t text-xs space-y-1",
-            theme === 'dark'
-              ? 'border-primary-blue text-primary-light/50'
-              : 'border-gray-200 text-primary-lightTextSecondary'
-          )}>
-            <div>Created: {new Date(quote.createdAt).toLocaleDateString()}</div>
+          <div className="space-y-1 border-t border-line pt-4 text-xs text-ink-subtle">
+            <div>
+              Created <span className="font-mono tabular-nums">{new Date(quote.createdAt).toLocaleDateString()}</span>
+            </div>
             {quote.validUntil && (
-              <div>Valid until: {new Date(quote.validUntil).toLocaleDateString()}</div>
+              <div>
+                Valid until <span className="font-mono tabular-nums">{new Date(quote.validUntil).toLocaleDateString()}</span>
+              </div>
             )}
             {quote.updatedAt !== quote.createdAt && (
-              <div>Updated: {new Date(quote.updatedAt).toLocaleDateString()}</div>
+              <div>
+                Updated <span className="font-mono tabular-nums">{new Date(quote.updatedAt).toLocaleDateString()}</span>
+              </div>
             )}
           </div>
 
-          {/* Success/Error Messages - Positioned at Bottom for Mobile Visibility */}
+          {/* Success / status messages */}
           {sendSuccess && lastSentVia && lastSentVia.length > 0 && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">
-                ✓ Quote sent successfully
-                {lastSentVia.includes('email') && lastSentVia.includes('sms')
-                  ? ` via email and SMS to ${quote.contactEmail || quote.contactPhone || 'contact'}`
-                  : lastSentVia.includes('sms')
-                    ? ` via SMS to ${quote.contactPhone || 'contact'}`
-                    : ` via email to ${quote.contactEmail || 'contact'}`}
-              </p>
-            </div>
+            <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>
+              Quote sent successfully
+              {lastSentVia.includes('email') && lastSentVia.includes('sms')
+                ? ` via email and SMS to ${quote.contactEmail || quote.contactPhone || 'contact'}`
+                : lastSentVia.includes('sms')
+                  ? ` via SMS to ${quote.contactPhone || 'contact'}`
+                  : ` via email to ${quote.contactEmail || 'contact'}`}
+            </Alert>
           )}
           {sendSuccess && (!lastSentVia || lastSentVia.length === 0) && (
-            <div className="p-4 rounded-lg border border-amber-500 bg-amber-500/10">
-              <p className="text-sm text-amber-400 font-medium">
-                Quote could not be delivered.
-                {quote.contactNotificationPreference === 'sms'
-                  ? ' SMS delivery failed. Check Twilio configuration.'
-                  : quote.contactNotificationPreference === 'email'
-                    ? ' Email delivery failed. Check Resend configuration.'
-                    : ' Check Twilio and email configuration.'}
-              </p>
-            </div>
+            <Alert tone="warning" icon={<AlertIcon className="h-4 w-4" />}>
+              Quote could not be delivered.
+              {quote.contactNotificationPreference === 'sms'
+                ? ' SMS delivery failed. Check Twilio configuration.'
+                : quote.contactNotificationPreference === 'email'
+                  ? ' Email delivery failed. Check Resend configuration.'
+                  : ' Check Twilio and email configuration.'}
+            </Alert>
           )}
           {showConfirmation && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">✓ {confirmationMessage}</p>
-            </div>
+            <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>{confirmationMessage}</Alert>
           )}
           {showJobConfirmation && (
-            <div className="p-4 rounded-lg border border-green-500 bg-green-500/10">
-              <p className="text-sm text-green-400 font-medium">✓ Job has been created</p>
-            </div>
+            <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>Job has been created</Alert>
           )}
         </div>
-      </Modal>
+      </AppModal>
 
       {/* Create Job from Quote Modal */}
       <CreateJobFromQuoteModal
@@ -574,33 +401,32 @@ const QuoteDetail = ({
       />
 
       {/* Delete Confirmation Modal */}
-      <Modal
+      <AppModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        title="Delete Quote"
+        title="Delete quote"
+        size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+            <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleDelete}
-              disabled={isLoading}
-              className="bg-red-500 hover:bg-red-600"
-            >
+            </AppButton>
+            <AppButton variant="danger" onClick={handleDelete} isLoading={isLoading} disabled={isLoading}>
               {isLoading ? 'Deleting...' : 'Delete'}
-            </Button>
+            </AppButton>
           </>
         }
       >
-        <p className={cn(
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
-          Are you sure you want to delete quote <strong>{quote.quoteNumber}</strong>? This action
-          cannot be undone.
-        </p>
-      </Modal>
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger">
+            <AlertIcon className="h-5 w-5" />
+          </span>
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Are you sure you want to delete quote{' '}
+            <strong className="font-mono text-ink">{quote.quoteNumber}</strong>? This action cannot be undone.
+          </p>
+        </div>
+      </AppModal>
     </>
   )
 }

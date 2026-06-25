@@ -1,8 +1,7 @@
-import { Quote, QUOTE_STATUS_LABELS } from '../types/quote'
+import { Quote } from '../types/quote'
 import { useQuoteStore } from '../store/quoteStore'
-import { Card } from '@/components/ui'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/contexts/ThemeContext'
+import { SelectCircle, StatusBadge } from './quotesUi'
+import { QUOTE_STATUS } from './quoteStatus'
 
 interface QuoteCardProps {
   quote: Quote
@@ -10,140 +9,79 @@ interface QuoteCardProps {
   onToggleSelect?: (id: string, event: React.MouseEvent) => void
 }
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+
 const QuoteCard = ({ quote, isSelected, onToggleSelect }: QuoteCardProps) => {
-  const { theme } = useTheme()
   const { setSelectedQuote } = useQuoteStore()
-
-  const statusColors = {
-    draft: theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      : 'bg-gray-200 text-gray-600 border-gray-300',
-    sent: theme === 'dark'
-      ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
-      : 'bg-blue-100 text-blue-700 border-blue-300',
-    accepted: theme === 'dark'
-      ? 'bg-green-500/20 text-green-400 border-green-500/30'
-      : 'bg-green-100 text-green-700 border-green-300',
-    rejected: theme === 'dark'
-      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-      : 'bg-red-100 text-red-700 border-red-300',
-    expired: theme === 'dark'
-      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-      : 'bg-orange-100 text-orange-700 border-orange-300',
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
-  }
+  const status = QUOTE_STATUS[quote.status] ?? QUOTE_STATUS.draft
+  const itemCount = quote.lineItems.length
 
   return (
-    <Card
-      className={cn(
-        'cursor-pointer hover:border-primary-gold transition-colors relative',
-        isSelected && 'ring-2 ring-primary-gold'
-      )}
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => setSelectedQuote(quote)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          setSelectedQuote(quote)
+        }
+      }}
+      className={
+        'group relative flex cursor-pointer flex-col rounded-xl bg-surface p-5 shadow-card outline-none transition-shadow hover:shadow-pop focus-visible:ring-2 focus-visible:ring-accent' +
+        (isSelected ? ' ring-2 ring-accent' : '')
+      }
     >
-      <div className="space-y-3">
-        {/* Selection Bullet Point */}
-        {onToggleSelect && (
-          <div
-            className="absolute top-3 left-3 z-10"
-            onClick={e => {
-              e.stopPropagation()
-              onToggleSelect(quote.id, e)
-            }}
-          >
-            <div
-              className={cn(
-                'w-5 h-5 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center',
-                isSelected
-                  ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                  : theme === 'dark'
-                    ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
-                    : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-primary-gold/10'
-              )}
-            >
-              {isSelected && <div className={cn(
-                "w-2.5 h-2.5 rounded-full",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
-              )} />}
-            </div>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className={cn('flex items-start justify-between', onToggleSelect && 'pl-8')}>
-          <div className="flex-1 min-w-0 pr-2">
-            <h3 className={cn(
-              "text-lg font-semibold",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>
-              {quote.quoteNumber}
-              {quote.contactName && quote.title && (
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText/90'
-                )}>
-                  {' '}
-                  — {quote.contactName} {quote.title}
-                </span>
-              )}
-            </h3>
-            {quote.contactCompany && (
-              <p className={cn(
-                "text-xs mt-1",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>{quote.contactCompany}</p>
-            )}
-          </div>
-          <span
-            className={cn(
-              'px-2 py-1 text-xs font-medium rounded border flex-shrink-0',
-              statusColors[quote.status]
-            )}
-          >
-            {QUOTE_STATUS_LABELS[quote.status]}
-          </span>
+      {/* Top row: quote number + status / selection */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate font-mono text-sm font-semibold tabular-nums text-ink">
+            {quote.quoteNumber}
+          </h3>
+          {quote.title && <p className="mt-1 truncate text-[15px] font-semibold text-ink">{quote.title}</p>}
+          {quote.contactName && (
+            <p className="mt-0.5 truncate text-[13px] text-ink-muted">
+              {quote.contactName}
+              {quote.contactCompany ? ` · ${quote.contactCompany}` : ''}
+            </p>
+          )}
         </div>
-
-        {/* Line Items Count */}
-        <div className={cn(
-          "text-sm",
-          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-        )}>
-          {quote.lineItems.length} item{quote.lineItems.length !== 1 ? 's' : ''}
+        <div className="flex shrink-0 items-center gap-2.5">
+          <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+          {onToggleSelect && (
+            <SelectCircle
+              selected={!!isSelected}
+              onClick={e => {
+                e.stopPropagation()
+                onToggleSelect(quote.id, e)
+              }}
+            />
+          )}
         </div>
-
-        {/* Total */}
-        <div className={cn(
-          "pt-2 border-t",
-          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-        )}>
-          <div className="flex justify-between items-center">
-            <span className={cn(
-              "text-sm",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>Total</span>
-            <span className="text-xl font-bold text-primary-gold">
-              {formatCurrency(quote.total)}
-            </span>
-          </div>
-        </div>
-
-        {/* Valid Until */}
-        {quote.validUntil && (
-          <div className={cn(
-            "text-xs",
-            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
-          )}>
-            Valid until: {new Date(quote.validUntil).toLocaleDateString()}
-          </div>
-        )}
       </div>
-    </Card>
+
+      {/* Total */}
+      <div className="mt-5 flex items-end justify-between gap-3 border-t border-line pt-4">
+        <span className="text-[13px] text-ink-muted">
+          <span className="font-mono tabular-nums text-ink">{itemCount}</span>{' '}
+          {itemCount === 1 ? 'item' : 'items'}
+        </span>
+        <span className="font-mono text-xl font-semibold tabular-nums text-ink">
+          {formatCurrency(quote.total)}
+        </span>
+      </div>
+
+      {/* Valid until */}
+      {quote.validUntil && (
+        <p className="mt-2 text-[12px] text-ink-subtle">
+          Valid until{' '}
+          <span className="font-mono tabular-nums">
+            {new Date(quote.validUntil).toLocaleDateString()}
+          </span>
+        </p>
+      )}
+    </div>
   )
 }
 

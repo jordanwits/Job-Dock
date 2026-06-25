@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Modal, Button, DatePicker, Select } from '@/components/ui'
 import { Quote } from '../types/quote'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import { AppButton, AppModal, DateField, SelectField } from './quotesUi'
 
 interface ConvertQuoteToInvoiceModalProps {
   quote: Quote
@@ -14,6 +12,9 @@ interface ConvertQuoteToInvoiceModalProps {
 
 type PaymentTermOption = 'Net 15' | 'Net 30' | 'Net 45' | 'Net 60' | 'Due on Receipt' | 'Custom'
 
+const currency = (value: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(value)
+
 const ConvertQuoteToInvoiceModal = ({
   quote,
   isOpen,
@@ -21,7 +22,6 @@ const ConvertQuoteToInvoiceModal = ({
   onConvert,
   isLoading,
 }: ConvertQuoteToInvoiceModalProps) => {
-  const { theme } = useTheme()
   const [selectedTerm, setSelectedTerm] = useState<PaymentTermOption>('Net 30')
   const [customDate, setCustomDate] = useState('')
   const [paymentTerms, setPaymentTerms] = useState('Net 30')
@@ -32,7 +32,7 @@ const ConvertQuoteToInvoiceModal = ({
     if (term === 'Custom' && custom) {
       return custom
     }
-    
+
     const date = new Date()
     switch (term) {
       case 'Net 15':
@@ -110,75 +110,51 @@ const ConvertQuoteToInvoiceModal = ({
     await onConvert({ paymentTerms, dueDate: dueDateISO || finalDueDate })
   }
 
+  const taxAmount = Number(quote.taxAmount) || Number(quote.subtotal) * Number(quote.taxRate) || 0
+
   return (
-    <Modal
+    <AppModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Convert ${quote.quoteNumber} to Invoice`}
+      title={`Convert ${quote.quoteNumber} to invoice`}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={isLoading}>
+          <AppButton variant="ghost" onClick={onClose} disabled={isLoading}>
             Cancel
-          </Button>
-          <Button 
-            onClick={handleConvert} 
+          </AppButton>
+          <AppButton
+            onClick={handleConvert}
             disabled={isLoading || (selectedTerm === 'Custom' && !customDate)}
+            isLoading={isLoading}
           >
-            {isLoading ? 'Converting...' : 'Convert to Invoice'}
-          </Button>
+            {isLoading ? 'Converting...' : 'Convert to invoice'}
+          </AppButton>
         </>
       }
     >
-      <div className="space-y-4">
-        <p className={cn(
-          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-        )}>
+      <div className="space-y-5">
+        <p className="text-sm leading-relaxed text-ink-muted">
           This will create a new invoice based on the quote. You can customize the payment terms and due date below.
         </p>
 
-        <div className={cn(
-          "p-4 rounded-lg border",
-          theme === 'dark'
-            ? 'border-primary-blue bg-primary-dark-secondary'
-            : 'border-gray-200 bg-white'
-        )}>
+        {/* Quote summary */}
+        <div className="rounded-xl border border-line bg-surface-2 p-4">
           <div className="space-y-3 text-sm">
             {quote.lineItems && quote.lineItems.length > 0 && (
               <div>
-                <div className={cn(
-                  "font-medium mb-2",
-                  theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
-                )}>Line Items</div>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Line items</div>
                 <div className="space-y-1.5">
                   {quote.lineItems.map((item, i) => (
-                    <div
-                      key={item.id || i}
-                      className={cn(
-                        "flex justify-between gap-4 text-xs",
-                        theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                      )}
-                    >
+                    <div key={item.id || i} className="flex justify-between gap-4 text-[13px] text-ink">
                       <span className="min-w-0 flex-1 truncate">
                         {item.description ?? '-'}
-                        <span className={cn(
-                          "ml-1",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>
-                          ({Number(item.quantity) || 0} × {new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
-                            minimumFractionDigits: 2,
-                          }).format(Number(item.unitPrice) || 0)})
+                        <span className="ml-1 text-ink-subtle">
+                          (<span className="font-mono tabular-nums">{Number(item.quantity) || 0}</span> ×{' '}
+                          <span className="font-mono tabular-nums">{currency(Number(item.unitPrice) || 0)}</span>)
                         </span>
                       </span>
                       {item.total != null && !isNaN(Number(item.total)) && (
-                        <span className="shrink-0 font-medium">
-                          {new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
-                            minimumFractionDigits: 2,
-                          }).format(Number(item.total))}
-                        </span>
+                        <span className="shrink-0 font-mono font-medium tabular-nums">{currency(Number(item.total))}</span>
                       )}
                     </div>
                   ))}
@@ -187,71 +163,31 @@ const ConvertQuoteToInvoiceModal = ({
             )}
             {quote.subtotal != null && !isNaN(Number(quote.subtotal)) && (
               <div className="flex justify-between">
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>Subtotal</span>
-                <span className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                  {new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD',
-                    minimumFractionDigits: 2,
-                  }).format(Number(quote.subtotal))}
-                </span>
+                <span className="text-ink-muted">Subtotal</span>
+                <span className="font-mono tabular-nums text-ink">{currency(Number(quote.subtotal))}</span>
               </div>
             )}
             {quote.taxRate != null && Number(quote.taxRate) > 0 && (
               <div className="flex justify-between">
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>
-                  Tax ({((Number(quote.taxRate) * 100).toFixed(1))}%)
-                </span>
-                <span className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                  {new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD',
-                    minimumFractionDigits: 2,
-                  }).format(Number(quote.taxAmount) || Number(quote.subtotal) * Number(quote.taxRate) || 0)}
-                </span>
+                <span className="text-ink-muted">Tax ({(Number(quote.taxRate) * 100).toFixed(1)}%)</span>
+                <span className="font-mono tabular-nums text-ink">{currency(taxAmount)}</span>
               </div>
             )}
             {quote.discount != null && Number(quote.discount) > 0 && (
               <div className="flex justify-between">
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>
-                  Discount{quote.discountReason ? ` (${quote.discountReason})` : ''}
-                </span>
-                <span className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                  -{new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD',
-                    minimumFractionDigits: 2,
-                  }).format(Number(quote.discount))}
-                </span>
+                <span className="text-ink-muted">Discount{quote.discountReason ? ` (${quote.discountReason})` : ''}</span>
+                <span className="font-mono tabular-nums text-ink">-{currency(Number(quote.discount))}</span>
               </div>
             )}
-            <div className={cn(
-              "flex justify-between pt-2 border-t",
-              theme === 'dark' ? 'border-primary-blue/20' : 'border-gray-200'
-            )}>
-              <span className={cn(
-                "font-medium",
-                theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
-              )}>Total</span>
-              <span className="text-lg font-bold text-primary-gold">
-                {new Intl.NumberFormat('en-US', {
-                  style: 'currency',
-                  currency: 'USD',
-                  minimumFractionDigits: 2,
-                }).format(Number(quote.total))}
-              </span>
+            <div className="flex items-center justify-between border-t border-line pt-2">
+              <span className="font-semibold text-ink">Total</span>
+              <span className="font-mono text-base font-bold tabular-nums text-ink">{currency(Number(quote.total))}</span>
             </div>
           </div>
         </div>
 
-        <Select
-          label="Payment Terms *"
+        <SelectField
+          label="Payment terms *"
           value={selectedTerm}
           onChange={(e) => setSelectedTerm(e.target.value as PaymentTermOption)}
           options={[
@@ -265,8 +201,8 @@ const ConvertQuoteToInvoiceModal = ({
         />
 
         {selectedTerm === 'Custom' && (
-          <DatePicker
-            label="Custom Due Date *"
+          <DateField
+            label="Custom due date *"
             value={customDate}
             onChange={handleCustomDateChange}
             placeholder="Select custom due date"
@@ -275,39 +211,25 @@ const ConvertQuoteToInvoiceModal = ({
         )}
 
         {dueDate && (
-          <div className={cn(
-            "p-3 rounded-lg border",
-            theme === 'dark'
-              ? 'border-primary-blue bg-primary-dark-secondary'
-              : 'border-gray-200 bg-white'
-          )}>
-            <div className="flex justify-between items-center">
-              <span className={cn(
-                "text-sm",
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>Due Date</span>
-              <span className={cn(
-                "text-sm font-medium",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                {new Date(dueDate).toLocaleDateString()}
-              </span>
-            </div>
+          <div className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3">
+            <span className="text-sm text-ink-muted">Due date</span>
+            <span className="font-mono text-sm font-medium tabular-nums text-ink">
+              {new Date(dueDate).toLocaleDateString()}
+            </span>
           </div>
         )}
 
         {selectedTerm !== 'Custom' && (
-          <p className={cn(
-            "text-xs",
-            theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary/70'
-          )}>
-            Due date: {dueDate ? new Date(dueDate).toLocaleDateString() : 'Calculating...'}
+          <p className="text-xs text-ink-subtle">
+            Due date:{' '}
+            <span className="font-mono tabular-nums">
+              {dueDate ? new Date(dueDate).toLocaleDateString() : 'Calculating...'}
+            </span>
           </p>
         )}
       </div>
-    </Modal>
+    </AppModal>
   )
 }
 
 export default ConvertQuoteToInvoiceModal
-

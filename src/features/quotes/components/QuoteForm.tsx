@@ -3,12 +3,21 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useRef, useState } from 'react'
 import { quoteSchema, type QuoteFormData } from '../schemas/quoteSchemas'
 import { Quote } from '../types/quote'
-import { Input, Button, DatePicker, Select, Modal } from '@/components/ui'
-import SearchableSelect from '@/components/ui/SearchableSelect'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  AppModal,
+  DateField,
+  PlusIcon,
+  SearchableSelectField,
+  SelectField,
+  TextAreaField,
+  TextField,
+  TrashIcon,
+} from './quotesUi'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import ContactForm from '@/features/crm/components/ContactForm'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
 import { getSendValidationError } from '@/lib/utils/sendValidation'
 import { PickSavedLineItemModal } from '@/features/line-items/components/PickSavedLineItemModal'
 import { isDefaultPlaceholderLineItem } from '@/features/line-items/utils/isDefaultPlaceholderLineItem'
@@ -26,6 +35,9 @@ interface QuoteFormProps {
   defaultPrice?: number
 }
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+
 const QuoteForm = ({
   quote,
   onSubmit,
@@ -38,7 +50,6 @@ const QuoteForm = ({
   defaultNotes,
   defaultPrice,
 }: QuoteFormProps) => {
-  const { theme } = useTheme()
   const { contacts, fetchContacts, createContact, error: contactError, clearError: clearContactError } = useContactStore()
   const [showCreateContact, setShowCreateContact] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
@@ -131,13 +142,6 @@ const QuoteForm = ({
     }
   }, [quote, reset])
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
-  }
-
   const handleFormSubmit = async (data: QuoteFormData, shouldSend: boolean = false) => {
     const { dateStringToISO } = await import('@/lib/utils/dateUtils')
 
@@ -203,91 +207,72 @@ const QuoteForm = ({
     }
   }
 
+  const labelCls = 'mb-1.5 block text-sm font-medium text-ink'
+
   return (
     <>
       <form onSubmit={e => e.preventDefault()} className="space-y-6">
         {(formError || saveAndSendError) && (
-          <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-            <p className="text-sm text-red-400 font-medium">✗ {formError || saveAndSendError}</p>
-          </div>
+          <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+            {formError || saveAndSendError}
+          </Alert>
         )}
+
         {/* Contact Selection */}
-        <div>
-          <Controller
-            name="contactId"
-            control={control}
-            render={({ field }) => (
-              <SearchableSelect
-                label="Contact *"
-                placeholder="Select a contact"
-                searchPlaceholder="Search by name or company..."
-                value={field.value}
-                onChange={value => {
-                  if (value === '__create_new__') {
-                    setShowCreateContact(true)
-                  } else {
-                    field.onChange(value)
-                  }
-                }}
-                error={errors.contactId?.message}
-                options={[
-                  { value: '', label: 'Select a contact' },
-                  { value: '__create_new__', label: '+ Create New Contact' },
-                  ...contacts.map(contact => ({
-                    value: contact.id,
-                    label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
-                  })),
-                ]}
-              />
-            )}
-          />
-        </div>
+        <Controller
+          name="contactId"
+          control={control}
+          render={({ field }) => (
+            <SearchableSelectField
+              label="Contact *"
+              placeholder="Select a contact"
+              searchPlaceholder="Search by name or company..."
+              value={field.value}
+              onChange={value => {
+                if (value === '__create_new__') {
+                  setShowCreateContact(true)
+                } else {
+                  field.onChange(value)
+                }
+              }}
+              error={errors.contactId?.message}
+              options={[
+                { value: '__create_new__', label: '+ Create new contact' },
+                ...contacts.map(contact => ({
+                  value: contact.id,
+                  label: `${contact.firstName} ${contact.lastName}${contact.company ? ` - ${contact.company}` : ''}`,
+                })),
+              ]}
+            />
+          )}
+        />
 
         {/* Quote Title - pulled from project title when creating from a job */}
-        <Input
-          label="Quote Title *"
-          placeholder="e.g., Kitchen Remodel, Office Renovation (pulled from project title)"
+        <TextField
+          label="Quote title *"
+          placeholder="e.g., Kitchen Remodel, Office Renovation"
           error={errors.title?.message}
           {...register('title')}
         />
 
         {/* Line Items */}
         <div>
-          <label className={cn(
-            "block text-sm font-medium mb-3",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>Line Items *</label>
+          <label className={labelCls}>Line items *</label>
 
           <div className="space-y-3">
             {fields.map((field, index) => (
-              <div
-                key={field.id}
-                className={cn(
-                  "p-4 rounded-lg border space-y-3",
-                  theme === 'dark'
-                    ? 'border-primary-blue bg-primary-dark-secondary'
-                    : 'border-gray-200 bg-white'
-                )}
-              >
-                <div className="flex justify-between items-start">
-                  <span className={cn(
-                    "text-sm font-medium",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>Item {index + 1}</span>
+              <div key={field.id} className="space-y-3 rounded-xl border border-line bg-surface-2 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-ink">Item {index + 1}</span>
                   {fields.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => remove(index)}
-                      className="text-red-500 hover:text-red-600"
-                    >
+                    <AppButton type="button" variant="dangerGhost" size="sm" onClick={() => remove(index)}>
+                      <TrashIcon className="h-4 w-4" />
                       Remove
-                    </Button>
+                    </AppButton>
                   )}
                 </div>
 
-                <Input
+                <TextField
                   label="Description"
                   placeholder="Item description"
                   error={errors.lineItems?.[index]?.description?.message}
@@ -295,76 +280,69 @@ const QuoteForm = ({
                 />
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Input
+                  <TextField
                     label="Quantity"
                     type="number"
                     step="0.01"
                     placeholder="1"
                     error={errors.lineItems?.[index]?.quantity?.message}
-                    {...register(`lineItems.${index}.quantity`, {
-                      valueAsNumber: true,
-                    })}
+                    {...register(`lineItems.${index}.quantity`, { valueAsNumber: true })}
                   />
-                  <Input
-                    label="Unit Price"
+                  <TextField
+                    label="Unit price"
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     error={errors.lineItems?.[index]?.unitPrice?.message}
-                    {...register(`lineItems.${index}.unitPrice`, {
-                      valueAsNumber: true,
-                    })}
+                    {...register(`lineItems.${index}.unitPrice`, { valueAsNumber: true })}
                   />
                 </div>
 
-                <div className={cn(
-                  "text-right text-sm",
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>
+                <div className="text-right text-sm text-ink-muted">
                   Total:{' '}
-                  {formatCurrency(
-                    (Number(watchedLineItems[index]?.quantity) || 0) *
-                      (Number(watchedLineItems[index]?.unitPrice) || 0)
-                  )}
+                  <span className="font-mono font-medium tabular-nums text-ink">
+                    {formatCurrency(
+                      (Number(watchedLineItems[index]?.quantity) || 0) *
+                        (Number(watchedLineItems[index]?.unitPrice) || 0)
+                    )}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
+
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button
+            <AppButton
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => append({ description: '', quantity: 1, unitPrice: '' })}
             >
-              + Add Item
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setSavedLinePickerOpen(true)}
-            >
-              + From saved
-            </Button>
+              <PlusIcon className="h-4 w-4" />
+              Add item
+            </AppButton>
+            <AppButton type="button" variant="subtle" size="sm" onClick={() => setSavedLinePickerOpen(true)}>
+              <PlusIcon className="h-4 w-4" />
+              From saved
+            </AppButton>
           </div>
-          {errors.lineItems && (
-            <p className="mt-1 text-sm text-red-500">{errors.lineItems.message}</p>
+          {errors.lineItems && typeof errors.lineItems.message === 'string' && (
+            <p className="mt-1.5 text-[13px] text-danger">{errors.lineItems.message}</p>
           )}
         </div>
 
         {/* Tax and Discount */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Tax Rate (%)"
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <TextField
+            label="Tax rate (%)"
             type="number"
             step="0.01"
             placeholder="0"
             error={errors.taxRate?.message}
-            {...register('taxRate', { valueAsNumber: true })}
             helperText="Enter as percentage (e.g., 8 for 8%)"
+            {...register('taxRate', { valueAsNumber: true })}
           />
-          <Input
+          <TextField
             label="Discount ($)"
             type="number"
             step="0.01"
@@ -376,93 +354,66 @@ const QuoteForm = ({
 
         {/* Discount Reason - Only show if discount is applied */}
         {watchedDiscount > 0 && (
-          <Input
-            label="Discount Reason (Optional)"
+          <TextField
+            label="Discount reason (optional)"
             placeholder="e.g., Repeat customer discount, Seasonal promotion"
             error={errors.discountReason?.message}
-            {...register('discountReason')}
             helperText="Provide a reason for this discount (will appear on quote)"
+            {...register('discountReason')}
           />
         )}
 
         {/* Totals Summary */}
-        <div className={cn(
-          "p-4 rounded-lg border",
-          theme === 'dark'
-            ? 'border-primary-blue bg-primary-dark-secondary'
-            : 'border-gray-200 bg-white'
-        )}>
+        <div className="rounded-xl border border-line bg-surface-2 p-4">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className={cn(
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>Subtotal</span>
-              <span className={cn(
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>{formatCurrency(subtotal)}</span>
+              <span className="text-ink-muted">Subtotal</span>
+              <span className="font-mono tabular-nums text-ink">{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between">
-              <span className={cn(
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>Tax ({watchedTaxRatePercent}%)</span>
-              <span className={cn(
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>{formatCurrency(taxAmount)}</span>
+              <span className="text-ink-muted">Tax ({watchedTaxRatePercent}%)</span>
+              <span className="font-mono tabular-nums text-ink">{formatCurrency(taxAmount)}</span>
             </div>
             {watchedDiscount > 0 && (
               <div className="flex justify-between">
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}>Discount</span>
-                <span className={cn(
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>-{formatCurrency(watchedDiscount)}</span>
+                <span className="text-ink-muted">Discount</span>
+                <span className="font-mono tabular-nums text-ink">-{formatCurrency(watchedDiscount)}</span>
               </div>
             )}
-            <div className={cn(
-              "flex justify-between pt-2 border-t",
-              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-            )}>
-              <span className={cn(
-                "text-lg font-semibold",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>Total</span>
-              <span className="text-lg font-bold text-primary-gold">{formatCurrency(total)}</span>
+            <div className="flex items-center justify-between border-t border-line pt-2">
+              <span className="text-base font-semibold text-ink">Total</span>
+              <span className="font-mono text-base font-bold tabular-nums text-ink">{formatCurrency(total)}</span>
             </div>
           </div>
         </div>
 
-        {/* Notes and Valid Until */}
-        <DatePicker
-          label="Valid Until *"
-          value={watch('validUntil') || ''}
-          onChange={date => setValue('validUntil', date)}
-          error={errors.validUntil?.message}
-          placeholder="Select expiration date"
-          minDate={new Date().toISOString().split('T')[0]}
+        {/* Valid Until */}
+        <Controller
+          name="validUntil"
+          control={control}
+          render={({ field }) => (
+            <DateField
+              label="Valid until *"
+              value={field.value || ''}
+              onChange={field.onChange}
+              error={errors.validUntil?.message}
+              placeholder="Select expiration date"
+              minDate={new Date().toISOString().split('T')[0]}
+            />
+          )}
         />
 
-        <div>
-          <label className={cn(
-            "block text-sm font-medium mb-2",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>Notes</label>
-          <textarea
-            className={cn(
-              "flex min-h-[100px] w-full rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold disabled:cursor-not-allowed disabled:opacity-50",
-              theme === 'dark'
-                ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-                : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-            )}
-            placeholder="Add notes about this quote..."
-            {...register('notes')}
-          />
-        </div>
+        {/* Notes */}
+        <TextAreaField
+          label="Notes"
+          placeholder="Add notes about this quote..."
+          error={errors.notes?.message}
+          {...register('notes')}
+        />
 
         {/* Status */}
-        <Select
+        <SelectField
           label="Status"
-          {...register('status')}
           value={statusValue}
           error={errors.status?.message}
           options={[
@@ -472,24 +423,28 @@ const QuoteForm = ({
             { value: 'rejected', label: 'Declined' },
             { value: 'expired', label: 'Expired' },
           ]}
+          {...register('status')}
         />
 
         {(formError || saveAndSendError) && (
-          <div ref={errorRef} className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-            <p className="text-sm text-red-400 font-medium">✗ {formError || saveAndSendError}</p>
+          <div ref={errorRef}>
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+              {formError || saveAndSendError}
+            </Alert>
           </div>
         )}
-        <div className="flex justify-end gap-3 pt-4">
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
+
+        <div className="flex flex-col-reverse justify-end gap-3 pt-2 sm:flex-row">
+          <AppButton type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
             Cancel
-          </Button>
-          <Button type="button" onClick={handleSave} disabled={isLoading}>
+          </AppButton>
+          <AppButton type="button" variant="subtle" onClick={handleSave} disabled={isLoading} isLoading={isLoading}>
             {isLoading ? 'Saving...' : 'Save'}
-          </Button>
+          </AppButton>
           {onSaveAndSend && (
-            <Button type="button" onClick={handleSaveAndSend} disabled={isLoading}>
-              {isLoading ? 'Saving...' : 'Save and Send'}
-            </Button>
+            <AppButton type="button" onClick={handleSaveAndSend} disabled={isLoading} isLoading={isLoading}>
+              {isLoading ? 'Saving...' : 'Save and send'}
+            </AppButton>
           )}
         </div>
       </form>
@@ -504,10 +459,7 @@ const QuoteForm = ({
             unitPrice: line.unitPrice,
           }
           const items = getValues('lineItems')
-          if (
-            items.length === 1 &&
-            isDefaultPlaceholderLineItem(items[0])
-          ) {
+          if (items.length === 1 && isDefaultPlaceholderLineItem(items[0])) {
             update(0, row)
           } else {
             append(row)
@@ -516,13 +468,13 @@ const QuoteForm = ({
       />
 
       {/* Create Contact Modal */}
-      <Modal
+      <AppModal
         isOpen={showCreateContact}
         onClose={() => {
           clearContactError()
           setShowCreateContact(false)
         }}
-        title="Create New Contact"
+        title="Create new contact"
         size="lg"
       >
         <ContactForm
@@ -534,7 +486,7 @@ const QuoteForm = ({
           isLoading={isCreatingContact}
           error={contactError}
         />
-      </Modal>
+      </AppModal>
     </>
   )
 }

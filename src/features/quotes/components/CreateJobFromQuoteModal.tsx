@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Modal, Button, Input, Textarea } from '@/components/ui'
-import SearchableSelect from '@/components/ui/SearchableSelect'
 import { Quote } from '../types/quote'
-import { useTheme } from '@/contexts/ThemeContext'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
-import { cn } from '@/lib/utils'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  AppModal,
+  SearchableSelectField,
+  TextAreaField,
+  TextField,
+} from './quotesUi'
 
 interface CreateJobFromQuoteModalProps {
   quote: Quote
@@ -20,7 +25,6 @@ const CreateJobFromQuoteModal = ({
   onClose,
   onSuccess,
 }: CreateJobFromQuoteModalProps) => {
-  const { theme } = useTheme()
   const { contacts, fetchContacts } = useContactStore()
   const { createJob, isLoading, error, clearError } = useJobStore()
 
@@ -111,30 +115,28 @@ const CreateJobFromQuoteModal = ({
   }
 
   return (
-    <Modal
+    <AppModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create Job from Quote"
+      title="Create job from quote"
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={isLoading}>
+          <AppButton variant="ghost" onClick={onClose} disabled={isLoading}>
             Cancel
-          </Button>
-          <Button onClick={handleCreate} disabled={isLoading}>
-            {isLoading ? 'Creating...' : 'Create Job'}
-          </Button>
+          </AppButton>
+          <AppButton onClick={handleCreate} disabled={isLoading} isLoading={isLoading}>
+            {isLoading ? 'Creating...' : 'Create job'}
+          </AppButton>
         </>
       }
     >
-      <div className="space-y-4">
-        <p className={cn(
-          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-        )}>
+      <div className="space-y-5">
+        <p className="text-sm leading-relaxed text-ink-muted">
           Review and edit the job details below. The quote will be linked so you can convert to invoice later.
         </p>
 
-        <Input
+        <TextField
           label="Title *"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -142,7 +144,7 @@ const CreateJobFromQuoteModal = ({
           error={submitError && !title?.trim() ? submitError : undefined}
         />
 
-        <SearchableSelect
+        <SearchableSelectField
           label="Contact *"
           options={contactOptions}
           value={contactId}
@@ -151,7 +153,7 @@ const CreateJobFromQuoteModal = ({
           searchPlaceholder="Search by name or company..."
         />
 
-        <Input
+        <TextField
           label="Price"
           type="number"
           step="0.01"
@@ -161,52 +163,36 @@ const CreateJobFromQuoteModal = ({
           placeholder="0.00"
         />
 
-        <Textarea
+        <TextAreaField
           label="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Optional job description"
-          rows={2}
-          className={cn(
-            theme === 'dark'
-              ? 'border-primary-blue bg-primary-dark-secondary text-primary-light'
-              : 'border-gray-200 bg-white text-primary-lightText'
-          )}
+          className="min-h-[64px]"
         />
 
-        <Textarea
+        <TextAreaField
           label="Notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional notes"
-          rows={4}
-          className={cn(
-            theme === 'dark'
-              ? 'border-primary-blue bg-primary-dark-secondary text-primary-light'
-              : 'border-gray-200 bg-white text-primary-lightText'
-          )}
         />
 
         {(error || submitError) && (
-          <div className="p-3 rounded-lg border border-red-500 bg-red-500/10">
-            <p className="text-sm text-red-400">{error || submitError}</p>
-          </div>
+          <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+            {error || submitError}
+          </Alert>
         )}
 
-        <div className={cn(
-          "p-3 rounded-lg border text-sm",
-          theme === 'dark'
-            ? 'border-primary-blue bg-primary-dark-secondary'
-            : 'border-gray-200 bg-gray-50'
-        )}>
-          <p className={cn(
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
-            This job will be created with the quote <strong>{quote.quoteNumber}</strong> linked. You can later convert the job to an invoice from the Jobs page.
+        <div className="rounded-xl border border-line bg-surface-2 p-3">
+          <p className="text-sm text-ink-muted">
+            This job will be created with the quote{' '}
+            <strong className="font-mono text-ink">{quote.quoteNumber}</strong> linked. You can later convert the job
+            to an invoice from the Jobs page.
           </p>
         </div>
       </div>
-    </Modal>
+    </AppModal>
   )
 }
 

@@ -4,13 +4,10 @@ import { useQuoteStore } from '../store/quoteStore'
 import QuoteList from '../components/QuoteList'
 import QuoteForm from '../components/QuoteForm'
 import QuoteDetail from '../components/QuoteDetail'
-import { Button, Modal, Card } from '@/components/ui'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import { Alert, AppButton, AppModal, CheckIcon, DocumentIcon, PlusIcon } from '../components/quotesUi'
 import { services } from '@/lib/api/services'
 
 const QuotesPage = () => {
-  const { theme } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -152,80 +149,62 @@ const QuotesPage = () => {
   }, [showCreateForm, selectedQuote])
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-5xl space-y-7">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className={cn(
-            "text-2xl md:text-3xl font-bold tracking-tight",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
-            <span className="text-primary-gold">Quotes</span>
-          </h1>
-          <p className={cn(
-            "text-sm md:text-base",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
-            Create and manage quotes for your projects
-          </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink md:text-3xl">Quotes</h1>
+          <p className="mt-1 text-sm text-ink-muted">Create and manage quotes for your projects</p>
         </div>
-        <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
+        <div className="flex w-full gap-2 sm:w-auto">
+          <AppButton
+            variant="subtle"
             onClick={() =>
               navigate(
                 `/app/line-items?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`
               )
             }
-            className="w-full sm:w-auto"
+            className="flex-1 sm:flex-initial"
           >
-            Line Items
-          </Button>
-          <Button
+            <DocumentIcon className="h-4 w-4" />
+            Line items
+          </AppButton>
+          <AppButton
             onClick={() => setShowCreateForm(true)}
-            className="w-full sm:w-auto"
+            className="flex-1 sm:flex-initial"
             title="Keyboard shortcut: Ctrl+N or ⌘N"
           >
-            Create Quote
-          </Button>
+            <PlusIcon className="h-4 w-4" />
+            Create quote
+          </AppButton>
         </div>
       </div>
 
-      {/* Error Display */}
-      {error && (
-        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-red-400">{error}</p>
-            <Button variant="ghost" size="sm" onClick={clearError}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+      {/* Error display - hidden while a modal is open (forms show their own error) */}
+      {error && !showCreateForm && !selectedQuote && (
+        <Alert tone="danger" onDismiss={clearError}>
+          {error}
+        </Alert>
       )}
 
-      {/* Confirmation Display */}
+      {/* Confirmation display */}
       {showConfirmation && (
-        <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-green-400">✓ {confirmationMessage}</p>
-            <Button variant="ghost" size="sm" onClick={() => setShowConfirmation(false)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />} onDismiss={() => setShowConfirmation(false)}>
+          {confirmationMessage}
+        </Alert>
       )}
 
-      {/* Quote List */}
+      {/* Quote list */}
       <QuoteList onCreateClick={() => setShowCreateForm(true)} />
 
-      {/* Create Quote Modal */}
-      <Modal
+      {/* Create quote modal */}
+      <AppModal
         isOpen={showCreateForm}
         onClose={() => {
           setShowCreateForm(false)
           clearError()
         }}
-        title="Create New Quote"
+        title="Create quote"
         size="xl"
       >
         <QuoteForm
@@ -244,9 +223,9 @@ const QuotesPage = () => {
           defaultNotes={createQuoteDefaults.notes}
           defaultPrice={createQuoteDefaults.price}
         />
-      </Modal>
+      </AppModal>
 
-      {/* Quote Detail Modal */}
+      {/* Quote detail modal */}
       {selectedQuote && (
         <QuoteDetail
           quote={selectedQuote}
@@ -257,7 +236,7 @@ const QuotesPage = () => {
             setShowConfirmation(true)
             setTimeout(() => setShowConfirmation(false), 3000)
           }}
-          onJobCreateFailed={error => {
+          onJobCreateFailed={() => {
             // Error is already displayed by the job store
           }}
           onQuoteSent={(message) => {
