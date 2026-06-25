@@ -1001,7 +1001,7 @@ const JobLogDetail = ({
                               <div
                                 key={assignment.userId || index}
                                 className={cn(
-                                  'flex w-full items-center rounded-xl border border-line bg-surface-2',
+                                  'flex w-full items-center rounded-xl border border-line bg-surface-raised',
                                   hasPayInfo ? 'flex-row gap-3 px-3 py-2' : 'px-3 py-1.5'
                                 )}
                               >
@@ -1286,7 +1286,7 @@ const JobLogDetail = ({
                 Upcoming bookings
               </h3>
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-3">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-raised p-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {nextBooking.toBeScheduled ? (

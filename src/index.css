@@ -29,6 +29,7 @@ input:-webkit-autofill {
   --surface: #ffffff;
   --surface-2: #f3f2ed;
   --surface-hover: #f5f4ef;
+  --surface-raised: #ffffff;
   --ink: #1b2430;
   --ink-muted: #525d68;
   --ink-subtle: #646e7a;
@@ -56,6 +57,7 @@ html[data-theme='dark'] {
   --surface: #131e20;
   --surface-2: #1a2729;
   --surface-hover: #1f2e30;
+  --surface-raised: #1a2729;
   --ink: #eaf1f1;
   --ink-muted: #9fb1b3;
   --ink-subtle: #879a9c;
@@ -88,6 +90,7 @@ html[data-theme='dark'] {
   --surface: #ffffff;
   --surface-2: #f3f2ed;
   --surface-hover: #f5f4ef;
+  --surface-raised: #ffffff;
   --ink: #1b2430;
   --ink-muted: #525d68;
   --ink-subtle: #646e7a;

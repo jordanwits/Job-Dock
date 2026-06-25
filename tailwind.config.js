@@ -31,6 +31,9 @@ export default {
           DEFAULT: 'var(--surface)',
           2: 'var(--surface-2)',
           hover: 'var(--surface-hover)',
+          // White in light mode, raised panel in dark — for cards that should
+          // read as elevated on the canvas (surface-2 reads as "no fill" in light).
+          raised: 'var(--surface-raised)',
         },
         ink: {
           DEFAULT: 'var(--ink)',
