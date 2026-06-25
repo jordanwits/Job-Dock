@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Modal, Button, Input } from '@/components/ui'
 import { useSavedLineItemStore } from '@/features/line-items/store/savedLineItemStore'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  AppButton,
+  AppModal,
+  SearchIcon,
+  Spinner,
+  TextField,
+} from '@/features/line-items/components/lineItemsUi'
 
 interface Props {
   isOpen: boolean
@@ -10,8 +14,10 @@ interface Props {
   onSelect: (line: { description: string; quantity: number; unitPrice: number }) => void
 }
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+
 export function PickSavedLineItemModal({ isOpen, onClose, onSelect }: Props) {
-  const { theme } = useTheme()
   const { items, fetchItems, isLoading } = useSavedLineItemStore()
   const [query, setQuery] = useState('')
 
@@ -33,37 +39,45 @@ export function PickSavedLineItemModal({ isOpen, onClose, onSelect }: Props) {
   }, [items, query])
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Insert saved line item" size="lg">
+    <AppModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Insert saved line item"
+      size="lg"
+      footer={
+        <AppButton type="button" variant="ghost" onClick={onClose}>
+          Cancel
+        </AppButton>
+      }
+    >
       <div className="space-y-4">
-        <Input
+        <TextField
           label="Search"
           placeholder="Filter by name or description"
           value={query}
           onChange={e => setQuery(e.target.value)}
+          leftIcon={<SearchIcon className="h-4 w-4" />}
         />
-        <div
-          className={cn(
-            'max-h-72 overflow-y-auto rounded-lg border',
-            theme === 'dark' ? 'border-primary-light/15 bg-primary-dark/30' : 'border-gray-200 bg-white'
+        <div className="max-h-72 overflow-y-auto rounded-xl border border-line bg-surface-2">
+          {isLoading && (
+            <p className="flex items-center gap-2 p-4 text-sm text-ink-muted">
+              <Spinner className="text-accent-strong" />
+              Loading…
+            </p>
           )}
-        >
-          {isLoading && <p className="p-4 text-sm text-primary-light/60">Loading…</p>}
           {!isLoading && filtered.length === 0 && (
-            <p className="p-4 text-sm text-primary-light/60">
+            <p className="p-4 text-sm text-ink-muted">
               {items.length === 0
-                ? 'No saved line items yet. Add them from the Line Items button on the Quotes or Invoices page.'
+                ? 'No saved line items yet. Add them from the Line items button on the Quotes or Invoices page.'
                 : 'No matches.'}
             </p>
           )}
-          <ul className="divide-y divide-primary-light/10">
+          <ul className="divide-y divide-line">
             {filtered.map(item => (
               <li key={item.id}>
                 <button
                   type="button"
-                  className={cn(
-                    'w-full text-left px-4 py-3 hover:bg-primary-gold/10 transition-colors',
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}
+                  className="w-full px-4 py-3 text-left text-ink transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                   onClick={() => {
                     const description = item.description?.trim() ? item.description : item.name
                     onSelect({
@@ -74,27 +88,20 @@ export function PickSavedLineItemModal({ isOpen, onClose, onSelect }: Props) {
                     onClose()
                   }}
                 >
-                  <div className="font-medium">{item.name}</div>
+                  <div className="font-medium text-ink">{item.name}</div>
                   {item.description ? (
-                    <div className="text-xs text-primary-light/60 truncate">{item.description}</div>
+                    <div className="truncate text-xs text-ink-subtle">{item.description}</div>
                   ) : null}
-                  <div className="text-xs text-primary-gold mt-1">
-                    Default qty {item.defaultQuantity} ·{' '}
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-                      item.unitPrice
-                    )}
+                  <div className="mt-1 text-xs text-ink-muted">
+                    Default qty <span className="font-mono tabular-nums">{item.defaultQuantity}</span> ·{' '}
+                    <span className="font-mono tabular-nums">{formatCurrency(item.unitPrice)}</span>
                   </div>
                 </button>
               </li>
             ))}
           </ul>
         </div>
-        <div className="flex justify-end">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
       </div>
-    </Modal>
+    </AppModal>
   )
 }

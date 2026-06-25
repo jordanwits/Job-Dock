@@ -1,5 +1,5 @@
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui'
+import { AppButton, ChevronLeftIcon } from '@/features/line-items/components/lineItemsUi'
 import { SavedLineItemsSection } from '@/features/line-items/components/SavedLineItemsSection'
 
 function backTargetLabel(returnTo: string | null): string {
@@ -24,17 +24,11 @@ export function LineItemsManagerPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Button
-        variant="ghost"
-        onClick={handleBack}
-        className="flex items-center gap-2 -ml-2 w-fit px-2"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <AppButton variant="ghost" onClick={handleBack} className="-ml-2 w-fit px-2">
+        <ChevronLeftIcon className="h-5 w-5" />
         Back to {backTargetLabel(returnTo)}
-      </Button>
+      </AppButton>
       <SavedLineItemsSection />
     </div>
   )

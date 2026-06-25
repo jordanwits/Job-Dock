@@ -1,8 +1,15 @@
 import { useState, useRef, useCallback } from 'react'
-import { Modal, Button, Card } from '@/components/ui'
 import { savedLineItemsService } from '@/lib/api/services'
 import type { SavedLineItemCSVPreview, SavedLineItemImportSessionData } from '../types/import'
 import type { SavedLineItemImportConflict } from '../types/import'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  AppModal,
+  CheckboxField,
+  UploadIcon,
+} from '@/features/line-items/components/lineItemsUi'
 
 interface Props {
   isOpen: boolean
@@ -17,6 +24,9 @@ const TARGET_FIELDS = [
   { value: 'defaultQuantity', label: 'Default quantity' },
   { value: 'unitPrice', label: 'Unit price' },
 ] as const
+
+const mappingSelectCls =
+  'min-w-[140px] rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none transition-[border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]'
 
 export function ImportSavedLineItemsModal({ isOpen, onClose, onImportComplete }: Props) {
   const [step, setStep] = useState<Step>('upload')
@@ -181,18 +191,20 @@ export function ImportSavedLineItemsModal({ isOpen, onClose, onImportComplete }:
     ? importData.pendingConflicts.filter(conflict => conflict.type === currentConflict.type).length
     : 0
 
+  const sectionHeadingCls = 'text-[11px] font-semibold uppercase tracking-wide text-ink-subtle'
+
   return (
-    <Modal isOpen={isOpen} onClose={handleCancel} title="Import saved line items from CSV" size="xl">
+    <AppModal isOpen={isOpen} onClose={handleCancel} title="Import saved line items from CSV" size="xl">
       <div className="space-y-6">
         {error && (
-          <Card className="bg-red-500/10 border-red-500 p-4">
-            <p className="text-sm text-red-500">{error}</p>
-          </Card>
+          <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+            {error}
+          </Alert>
         )}
 
         {step === 'upload' && (
           <div className="space-y-6">
-            <div className="text-center p-10 border-2 border-dashed border-primary-gold/30 rounded-lg">
+            <div className="rounded-xl border-2 border-dashed border-line-strong p-10 text-center">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -200,12 +212,15 @@ export function ImportSavedLineItemsModal({ isOpen, onClose, onImportComplete }:
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              <Button onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+              <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
+                <UploadIcon className="h-5 w-5" />
+              </span>
+              <AppButton onClick={() => fileInputRef.current?.click()} disabled={isLoading} isLoading={isLoading}>
                 {isLoading ? 'Loading...' : 'Choose CSV file'}
-              </Button>
-              <p className="text-xs text-primary-light/50 mt-3">Maximum file size: 10MB</p>
+              </AppButton>
+              <p className="mt-3 text-xs text-ink-subtle">Maximum file size: 10MB</p>
             </div>
-            <p className="text-sm text-primary-light/70">
+            <p className="text-sm leading-relaxed text-ink-muted">
               Include a header row when possible. Typical columns: description, quantity, unit price.
               Unmapped columns are skipped; the first text column is used as the description, and the
               internal name is derived automatically.
@@ -216,26 +231,28 @@ export function ImportSavedLineItemsModal({ isOpen, onClose, onImportComplete }:
         {step === 'preview' && preview && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-primary-gold">Preview</h3>
-              <p className="text-sm text-primary-light/70">{preview.totalRows} rows</p>
+              <h3 className="text-[15px] font-semibold text-ink">Preview</h3>
+              <p className="text-sm text-ink-muted">
+                <span className="font-mono tabular-nums text-ink">{preview.totalRows}</span> rows
+              </p>
             </div>
-            <div className="overflow-x-auto border border-primary-light/20 rounded-lg">
+            <div className="overflow-x-auto rounded-xl border border-line">
               <table className="w-full border-collapse text-sm">
                 <thead>
-                  <tr className="bg-primary-dark/50 border-b border-primary-light/20">
+                  <tr className="border-b border-line bg-surface-2">
                     {preview.headers.slice(0, 6).map(header => (
-                      <th key={header} className="p-3 text-left font-medium text-primary-gold">
+                      <th key={header} className="p-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                         {header}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-line">
                   {preview.rows.slice(0, 3).map((row, idx) => (
-                    <tr key={idx} className="border-b border-primary-light/10">
+                    <tr key={idx}>
                       {preview.headers.slice(0, 6).map(header => (
-                        <td key={header} className="p-3 text-primary-light/90">
-                          {row[header] || '—'}
+                        <td key={header} className="p-3 text-ink">
+                          {row[header] || <span className="text-ink-subtle">—</span>}
                         </td>
                       ))}
                     </tr>
@@ -246,37 +263,39 @@ export function ImportSavedLineItemsModal({ isOpen, onClose, onImportComplete }:
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-primary-gold font-medium">Column mapping</h4>
+                <h4 className={sectionHeadingCls}>Column mapping</h4>
                 <button
                   type="button"
                   onClick={() => setShowFieldMapping(!showFieldMapping)}
-                  className="text-xs text-primary-light/70 underline"
+                  className="text-xs font-medium text-accent-strong transition-opacity hover:opacity-70"
                 >
                   {showFieldMapping ? 'Hide details' : 'Customize'}
                 </button>
               </div>
               {!showFieldMapping ? (
-                <ul className="text-sm text-primary-light/80 space-y-1">
+                <ul className="space-y-1 text-sm text-ink-muted">
                   {preview.headers
                     .filter(h => fieldMapping[h])
                     .slice(0, 8)
                     .map(header => (
                       <li key={header}>
-                        <span className="text-primary-light/60">{header}</span>{' '}
-                        <span className="text-primary-gold">→</span>{' '}
-                        {TARGET_FIELDS.find(f => f.value === fieldMapping[header])?.label ?? fieldMapping[header]}
+                        <span className="text-ink-subtle">{header}</span>{' '}
+                        <span className="text-accent-strong">→</span>{' '}
+                        <span className="text-ink">
+                          {TARGET_FIELDS.find(f => f.value === fieldMapping[header])?.label ?? fieldMapping[header]}
+                        </span>
                       </li>
                     ))}
                 </ul>
               ) : (
-                <div className="grid gap-2 max-h-64 overflow-y-auto">
+                <div className="grid max-h-64 gap-2 overflow-y-auto">
                   {preview.headers.map(header => (
-                    <div key={header} className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-primary-light flex-1 min-w-[100px]">{header}</span>
+                    <div key={header} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-[100px] flex-1 text-sm text-ink">{header}</span>
                       <select
                         value={fieldMapping[header] || ''}
                         onChange={e => updateFieldMapping(header, e.target.value)}
-                        className="bg-primary-dark border border-primary-light/20 rounded px-2 py-1 text-sm text-primary-light min-w-[140px]"
+                        className={mappingSelectCls}
                       >
                         <option value="">Skip</option>
                         {TARGET_FIELDS.map(f => (
@@ -292,139 +311,113 @@ export function ImportSavedLineItemsModal({ isOpen, onClose, onImportComplete }:
             </div>
 
             <div className="flex justify-between">
-              <Button variant="ghost" onClick={handleCancel}>
+              <AppButton variant="ghost" onClick={handleCancel}>
                 Cancel
-              </Button>
-              <Button onClick={handleConfirmMapping} disabled={isLoading} className="bg-primary-gold text-primary-dark">
+              </AppButton>
+              <AppButton onClick={handleConfirmMapping} disabled={isLoading} isLoading={isLoading}>
                 {isLoading ? 'Importing…' : `Import ${preview.totalRows} rows`}
-              </Button>
+              </AppButton>
             </div>
           </div>
         )}
 
         {step === 'processing' && (
-          <div className="text-center py-10 text-primary-light/80">Processing import…</div>
+          <div className="py-10 text-center text-sm text-ink-muted">Processing import…</div>
         )}
 
         {step === 'conflicts' && currentConflict && importData && (
           <div className="space-y-4">
-            <Card className="p-4 border-yellow-500/40 bg-yellow-500/5">
-              <p className="text-yellow-200 font-medium">
+            <div className="rounded-xl border border-warning/30 bg-warning-soft p-4">
+              <p className="font-medium text-warning">
                 {currentConflict.type === 'csv_duplicate'
                   ? 'Duplicate row inside this CSV'
                   : 'Already exists in saved line items'}
               </p>
-              <p className="text-sm text-primary-light/70 mt-1">
+              <p className="mt-1 text-sm text-ink-muted">
                 {currentConflict.type === 'csv_duplicate'
                   ? `Row ${currentConflict.rowIndex + 1} matches row ${(currentConflict.existingRowIndex ?? 0) + 1} in this CSV. You can keep the earlier row, use this row instead, or import both.`
                   : `Row ${currentConflict.rowIndex + 1} matches a saved line item you already have. Update it with CSV values or skip this row.`}
               </p>
-            </Card>
-            <div className="grid md:grid-cols-2 gap-4">
-              <Card className="p-4">
-                <p className="text-xs text-primary-light/50 mb-2">
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-line bg-surface-2 p-4">
+                <p className={`mb-2 ${sectionHeadingCls}`}>
                   {currentConflict.type === 'csv_duplicate' ? 'Earlier row' : 'Current saved item'}
                 </p>
-                <p className="font-medium text-primary-light">{currentConflictDescription}</p>
-                <p className="text-sm text-primary-light/80 mt-1">
-                  Hidden name: {currentConflict.existingItem.name}
+                <p className="font-medium text-ink">{currentConflictDescription}</p>
+                <p className="mt-1 text-sm text-ink-muted">Hidden name: {currentConflict.existingItem.name}</p>
+                <p className="mt-2 text-sm text-ink">
+                  Qty <span className="font-mono tabular-nums">{currentConflict.existingItem.defaultQuantity}</span> ·{' '}
+                  <span className="font-mono tabular-nums">{formatMoney(currentConflict.existingItem.unitPrice)}</span>
                 </p>
-                <p className="text-sm mt-2">
-                  Qty {currentConflict.existingItem.defaultQuantity} ·{' '}
-                  {formatMoney(currentConflict.existingItem.unitPrice)}
+              </div>
+              <div className="rounded-xl border border-accent/40 bg-accent-soft/40 p-4">
+                <p className={`mb-2 ${sectionHeadingCls}`}>From CSV</p>
+                <p className="font-medium text-ink">{incomingConflictDescription}</p>
+                <p className="mt-1 text-sm text-ink-muted">Hidden name: {currentConflict.incomingData.name ?? '—'}</p>
+                <p className="mt-2 text-sm text-ink">
+                  Qty <span className="font-mono tabular-nums">{currentConflict.incomingData.defaultQuantity ?? '—'}</span> ·{' '}
+                  <span className="font-mono tabular-nums">{formatMoney(currentConflict.incomingData.unitPrice)}</span>
                 </p>
-              </Card>
-              <Card className="p-4 border-primary-gold/30">
-                <p className="text-xs text-primary-light/50 mb-2">From CSV</p>
-                <p className="font-medium text-primary-light">{incomingConflictDescription}</p>
-                <p className="text-sm text-primary-light/80 mt-1">
-                  Hidden name: {currentConflict.incomingData.name ?? '—'}
-                </p>
-                <p className="text-sm mt-2">
-                  Qty {currentConflict.incomingData.defaultQuantity ?? '—'} ·{' '}
-                  {formatMoney(currentConflict.incomingData.unitPrice)}
-                </p>
-              </Card>
+              </div>
             </div>
             {matchingConflictCount > 1 && (
-              <label className="flex items-center gap-2 text-sm text-primary-light/80">
-                <input
-                  type="checkbox"
-                  checked={applyToAll}
-                  onChange={e => setApplyToAll(e.target.checked)}
-                />
-                Apply the same choice to all {matchingConflictCount} {currentConflict.type === 'csv_duplicate' ? 'CSV duplicates' : 'saved item duplicates'}
-              </label>
+              <CheckboxField
+                checked={applyToAll}
+                onChange={setApplyToAll}
+                label={`Apply the same choice to all ${matchingConflictCount} ${currentConflict.type === 'csv_duplicate' ? 'CSV duplicates' : 'saved item duplicates'}`}
+              />
             )}
             {currentConflict.type === 'csv_duplicate' ? (
               <div className="grid gap-3 md:grid-cols-3">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleConflictResolution('keep_existing')}
-                  disabled={isLoading}
-                >
-                  Keep Earlier Row
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleConflictResolution('keep_incoming')}
-                  disabled={isLoading}
-                >
-                  Use This Row
-                </Button>
-                <Button
-                  className="bg-primary-gold text-primary-dark"
-                  onClick={() => handleConflictResolution('keep_both')}
-                  disabled={isLoading}
-                >
-                  Import Both
-                </Button>
+                <AppButton variant="ghost" onClick={() => handleConflictResolution('keep_existing')} disabled={isLoading}>
+                  Keep earlier row
+                </AppButton>
+                <AppButton variant="subtle" onClick={() => handleConflictResolution('keep_incoming')} disabled={isLoading}>
+                  Use this row
+                </AppButton>
+                <AppButton onClick={() => handleConflictResolution('keep_both')} disabled={isLoading}>
+                  Import both
+                </AppButton>
               </div>
             ) : (
               <div className="flex gap-3">
-                <Button
-                  variant="ghost"
-                  className="flex-1"
-                  onClick={() => handleConflictResolution('skip')}
-                  disabled={isLoading}
-                >
+                <AppButton variant="ghost" className="flex-1" onClick={() => handleConflictResolution('skip')} disabled={isLoading}>
                   Skip
-                </Button>
-                <Button
-                  className="flex-1 bg-primary-gold text-primary-dark"
-                  onClick={() => handleConflictResolution('update')}
-                  disabled={isLoading}
-                >
-                  Update Existing
-                </Button>
+                </AppButton>
+                <AppButton className="flex-1" onClick={() => handleConflictResolution('update')} disabled={isLoading}>
+                  Update existing
+                </AppButton>
               </div>
             )}
           </div>
         )}
 
         {step === 'complete' && importData && (
-          <div className="space-y-6 text-center py-6">
-            <h3 className="text-xl text-green-400 font-medium">Import finished</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-              <Card className="p-3">
-                <div className="text-2xl font-bold text-green-400">{importData.progress.inserted}</div>
-                <div className="text-primary-light/60">Added</div>
-              </Card>
-              <Card className="p-3">
-                <div className="text-2xl font-bold text-blue-400">{importData.progress.updated}</div>
-                <div className="text-primary-light/60">Updated</div>
-              </Card>
-              <Card className="p-3">
-                <div className="text-2xl font-bold text-yellow-400">{importData.progress.skipped}</div>
-                <div className="text-primary-light/60">Skipped</div>
-              </Card>
-              <Card className="p-3">
-                <div className="text-2xl font-bold text-red-400">{importData.progress.failed}</div>
-                <div className="text-primary-light/60">Failed</div>
-              </Card>
+          <div className="space-y-6 py-6 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success-soft text-success">
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <h3 className="text-lg font-semibold text-ink">Import finished</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+              {[
+                { label: 'Added', value: importData.progress.inserted, cls: 'text-success' },
+                { label: 'Updated', value: importData.progress.updated, cls: 'text-info' },
+                { label: 'Skipped', value: importData.progress.skipped, cls: 'text-warning' },
+                { label: 'Failed', value: importData.progress.failed, cls: 'text-danger' },
+              ].map(stat => (
+                <div key={stat.label} className="rounded-xl border border-line bg-surface-2 p-3">
+                  <div className={`font-mono text-2xl font-bold tabular-nums ${stat.cls}`}>{stat.value}</div>
+                  <div className="text-ink-subtle">{stat.label}</div>
+                </div>
+              ))}
             </div>
             {importData.errors.length > 0 && (
-              <div className="text-left max-h-40 overflow-y-auto text-xs text-red-300 space-y-1">
+              <div className="max-h-40 space-y-1 overflow-y-auto text-left text-xs text-danger">
                 {importData.errors.map((er, i) => (
                   <div key={i}>
                     Row {er.rowIndex + 1}: {er.message}
@@ -432,12 +425,10 @@ export function ImportSavedLineItemsModal({ isOpen, onClose, onImportComplete }:
                 ))}
               </div>
             )}
-            <Button onClick={handleComplete} className="bg-primary-gold text-primary-dark">
-              Done
-            </Button>
+            <AppButton onClick={handleComplete}>Done</AppButton>
           </div>
         )}
       </div>
-    </Modal>
+    </AppModal>
   )
 }
