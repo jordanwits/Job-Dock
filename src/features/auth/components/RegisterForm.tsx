@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerSchema, type RegisterFormData } from '../schemas/authSchemas'
 import { useAuthStore } from '../store/authStore'
-import { Input, PasswordInput, Button } from '@/components/ui'
+import { AuthField, AuthPasswordField, AuthButton, AuthAlert, authLinkCls } from './authUi'
 
 const RegisterForm = () => {
   const navigate = useNavigate()
@@ -34,18 +34,14 @@ const RegisterForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-primary-light mb-2">Create account</h2>
-        <p className="text-primary-light/70">Get started with JobDock today</p>
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">Create account</h2>
+        <p className="mt-1.5 text-[15px] text-ink-muted">Get started with JobDock today</p>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
-          <p className="text-sm text-red-500">{error}</p>
-        </div>
-      )}
+      {error && <AuthAlert>{error}</AuthAlert>}
 
       <div className="space-y-4">
-        <Input
+        <AuthField
           label="Full Name"
           type="text"
           placeholder="John Doe"
@@ -53,7 +49,7 @@ const RegisterForm = () => {
           {...register('name')}
         />
 
-        <Input
+        <AuthField
           label="Email"
           type="email"
           placeholder="you@example.com"
@@ -61,7 +57,7 @@ const RegisterForm = () => {
           {...register('email')}
         />
 
-        <Input
+        <AuthField
           label="Company Name"
           type="text"
           placeholder="Your Company Inc."
@@ -69,7 +65,7 @@ const RegisterForm = () => {
           {...register('companyName')}
         />
 
-        <PasswordInput
+        <AuthPasswordField
           label="Password"
           placeholder="Enter a strong password"
           error={errors.password?.message}
@@ -77,7 +73,7 @@ const RegisterForm = () => {
           {...register('password')}
         />
 
-        <PasswordInput
+        <AuthPasswordField
           label="Confirm Password"
           placeholder="Confirm your password"
           error={errors.confirmPassword?.message}
@@ -85,16 +81,13 @@ const RegisterForm = () => {
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <AuthButton type="submit" fullWidth isLoading={isLoading}>
         {isLoading ? 'Creating account...' : 'Create account'}
-      </Button>
+      </AuthButton>
 
-      <div className="text-center text-sm text-primary-light/70">
+      <div className="text-center text-sm text-ink-muted">
         Already have an account?{' '}
-        <Link
-          to="/auth/login"
-          className="text-primary-gold hover:text-primary-gold/80 font-medium transition-colors"
-        >
+        <Link to="/auth/login" className={authLinkCls}>
           Sign in
         </Link>
       </div>

@@ -9,7 +9,7 @@ import {
   type ConfirmResetPasswordFormData,
 } from '../schemas/authSchemas'
 import { useAuthStore } from '../store/authStore'
-import { Input, Button } from '@/components/ui'
+import { AuthField, AuthPasswordField, AuthButton, AuthAlert, authLinkCls } from './authUi'
 
 const ResetPasswordForm = () => {
   const navigate = useNavigate()
@@ -54,29 +54,19 @@ const ResetPasswordForm = () => {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary-gold/20 flex items-center justify-center mb-4">
-            <svg
-              className="w-8 h-8 text-primary-gold"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft">
+            <svg className="h-7 w-7 text-accent-strong" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-primary-light mb-2">Password reset</h2>
-          <p className="text-primary-light/70">
+          <h2 className="text-2xl font-semibold tracking-tight text-ink">Password reset</h2>
+          <p className="mt-1.5 text-[15px] text-ink-muted">
             Your password has been reset successfully. You can now sign in with your new password.
           </p>
         </div>
-        <Button type="button" className="w-full" onClick={() => navigate('/auth/login')}>
+        <AuthButton type="button" fullWidth onClick={() => navigate('/auth/login')}>
           Go to sign in
-        </Button>
+        </AuthButton>
       </div>
     )
   }
@@ -86,45 +76,36 @@ const ResetPasswordForm = () => {
     return (
       <form onSubmit={confirmForm.handleSubmit(onConfirm)} className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold text-primary-light mb-2">Choose a new password</h2>
-          <p className="text-primary-light/70">
-            Enter a new password for your account.
-          </p>
+          <h2 className="text-2xl font-semibold tracking-tight text-ink">Choose a new password</h2>
+          <p className="mt-1.5 text-[15px] text-ink-muted">Enter a new password for your account.</p>
         </div>
 
-        {error && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
-            <p className="text-sm text-red-500">{error}</p>
-          </div>
-        )}
+        {error && <AuthAlert>{error}</AuthAlert>}
 
-        <Input
-          label="New password"
-          type="password"
-          autoComplete="new-password"
-          placeholder="Enter new password"
-          error={confirmForm.formState.errors.newPassword?.message}
-          {...confirmForm.register('newPassword')}
-        />
+        <div className="space-y-4">
+          <AuthPasswordField
+            label="New password"
+            autoComplete="new-password"
+            placeholder="Enter new password"
+            error={confirmForm.formState.errors.newPassword?.message}
+            {...confirmForm.register('newPassword')}
+          />
 
-        <Input
-          label="Confirm new password"
-          type="password"
-          autoComplete="new-password"
-          placeholder="Re-enter new password"
-          error={confirmForm.formState.errors.confirmPassword?.message}
-          {...confirmForm.register('confirmPassword')}
-        />
+          <AuthPasswordField
+            label="Confirm new password"
+            autoComplete="new-password"
+            placeholder="Re-enter new password"
+            error={confirmForm.formState.errors.confirmPassword?.message}
+            {...confirmForm.register('confirmPassword')}
+          />
+        </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <AuthButton type="submit" fullWidth isLoading={isLoading}>
           {isLoading ? 'Resetting...' : 'Reset password'}
-        </Button>
+        </AuthButton>
 
-        <div className="text-center text-sm text-primary-light/70">
-          <Link
-            to="/auth/login"
-            className="text-primary-gold hover:text-primary-gold/80 font-medium transition-colors"
-          >
+        <div className="text-center text-sm text-ink-muted">
+          <Link to="/auth/login" className={authLinkCls}>
             Back to sign in
           </Link>
         </div>
@@ -138,13 +119,13 @@ const ResetPasswordForm = () => {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-primary-light mb-2">Check your email</h2>
-          <p className="text-primary-light/70">
-            If an account exists for that email, we've sent a link to reset your password.
-            The link expires in 60 minutes.
+          <h2 className="text-2xl font-semibold tracking-tight text-ink">Check your email</h2>
+          <p className="mt-1.5 text-[15px] text-ink-muted">
+            If an account exists for that email, we've sent a link to reset your password. The link
+            expires in 60 minutes.
           </p>
         </div>
-        <div className="text-center text-sm text-primary-light/70">
+        <div className="text-center text-sm text-ink-muted">
           Didn't get it?{' '}
           <button
             type="button"
@@ -152,14 +133,14 @@ const ResetPasswordForm = () => {
               clearError()
               setRequestSent(false)
             }}
-            className="text-primary-gold hover:text-primary-gold/80 font-medium transition-colors"
+            className={authLinkCls}
           >
             Try again
           </button>
         </div>
-        <Button type="button" className="w-full" onClick={() => navigate('/auth/login')}>
+        <AuthButton type="button" variant="subtle" fullWidth onClick={() => navigate('/auth/login')}>
           Back to sign in
-        </Button>
+        </AuthButton>
       </div>
     )
   }
@@ -168,36 +149,30 @@ const ResetPasswordForm = () => {
   return (
     <form onSubmit={requestForm.handleSubmit(onRequest)} className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-primary-light mb-2">Reset password</h2>
-        <p className="text-primary-light/70">
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">Reset password</h2>
+        <p className="mt-1.5 text-[15px] text-ink-muted">
           Enter your email and we'll send you a link to choose a new password.
         </p>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
-          <p className="text-sm text-red-500">{error}</p>
-        </div>
-      )}
+      {error && <AuthAlert>{error}</AuthAlert>}
 
-      <Input
+      <AuthField
         label="Email"
         type="email"
         placeholder="you@example.com"
+        autoComplete="email"
         error={requestForm.formState.errors.email?.message}
         {...requestForm.register('email')}
       />
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <AuthButton type="submit" fullWidth isLoading={isLoading}>
         {isLoading ? 'Sending...' : 'Send reset link'}
-      </Button>
+      </AuthButton>
 
-      <div className="text-center text-sm text-primary-light/70">
+      <div className="text-center text-sm text-ink-muted">
         Remember your password?{' '}
-        <Link
-          to="/auth/login"
-          className="text-primary-gold hover:text-primary-gold/80 font-medium transition-colors"
-        >
+        <Link to="/auth/login" className={authLinkCls}>
           Sign in
         </Link>
       </div>

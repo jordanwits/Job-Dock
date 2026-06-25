@@ -178,9 +178,7 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
           'fixed z-40 right-5 rounded-full shadow-lg px-4 py-3 text-sm font-medium inline-flex items-center gap-1.5',
           'bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))]',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-          theme === 'dark'
-            ? 'bg-primary-gold text-primary-dark focus-visible:ring-primary-gold'
-            : 'bg-primary-gold text-primary-dark focus-visible:ring-primary-gold'
+          'bg-teal-700 text-white hover:bg-teal-800 focus-visible:ring-teal-600'
         )}
         aria-haspopup="dialog"
         aria-expanded={open}

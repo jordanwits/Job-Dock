@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { authService } from '@/lib/api/services'
 import { SIGNUP_PLANS, type PlanTier } from '../constants/plans'
-import { Button } from '@/components/ui'
 import MarketingLayout from '@/features/marketing/components/MarketingLayout'
 import { cn } from '@/lib/utils'
+import { AuthButton, AuthAlert, authLinkCls } from '../components/authUi'
 
 const SignupPage = () => {
   const navigate = useNavigate()
@@ -59,114 +59,116 @@ const SignupPage = () => {
 
   return (
     <MarketingLayout>
-      <div className="container mx-auto px-4 md:px-6 pt-24 md:pt-32 pb-12 md:pb-16">
-        <div className="max-w-4xl mx-auto">
-        <div className="mb-10 text-center space-y-2">
-          <h1 className="text-4xl font-bold text-primary-gold">Sign up</h1>
-          <p className="text-primary-dark/70">Choose your plan to continue</p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-lg border border-primary-blue/10 p-8 md:p-12">
-            <div className="text-center mb-12">
-              <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4">Choose your plan</h2>
-              <p className="text-primary-dark/70 text-base md:text-lg max-w-xl mx-auto">
-                All plans include a 14-day free trial. You&apos;ll add your payment method in the next step.
+      <div className="auth-scope bg-canvas">
+        <div className="container mx-auto px-4 pb-16 pt-24 md:px-6 md:pb-20 md:pt-32">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-10 text-center md:mb-12">
+              <h1 className="text-3xl font-semibold tracking-tight text-ink md:text-4xl">
+                Choose your plan
+              </h1>
+              <p className="mx-auto mt-3 max-w-xl text-[15px] text-ink-muted md:text-base">
+                All plans include a 14-day free trial. You&apos;ll add your payment method in the
+                next step.
               </p>
             </div>
 
             {canceledMessage && (
-              <div className="mb-6 rounded-lg bg-amber-50 border border-amber-200 p-4">
-                <p className="text-sm text-amber-800">
+              <div className="mx-auto mb-6 max-w-xl">
+                <AuthAlert tone="warning">
                   Checkout was canceled. Select a plan and try again.
-                </p>
+                </AuthAlert>
               </div>
             )}
 
             {error && (
-              <div className="mb-6 rounded-lg bg-red-50 border border-red-200 p-4">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="mx-auto mb-6 max-w-xl">
+                <AuthAlert tone="danger">{error}</AuthAlert>
               </div>
             )}
 
-            <div className="grid gap-6 md:grid-cols-3 mb-10 min-w-0">
-              {SIGNUP_PLANS.map(plan => (
-                <div
-                  key={plan.id}
-                  role="group"
-                  onClick={() => onPlanSelect(plan.id)}
-                  className={cn(
-                    'text-left p-6 md:p-8 rounded-2xl border-2 transition-all min-w-0 whitespace-normal flex flex-col cursor-pointer',
-                    selectedPlan === plan.id
-                      ? 'border-primary-gold bg-primary-gold/5 shadow-md relative ring-1 ring-primary-gold'
-                      : 'border-primary-blue/10 hover:border-primary-gold/40 bg-white'
-                  )}
-                >
-                  <div className="min-w-0 mb-6 w-full">
-                    <h3 className="font-bold text-primary-dark text-xl leading-tight break-words mb-4">
-                      {plan.name}
-                    </h3>
-                    <div className="flex items-baseline gap-1.5 flex-wrap mb-2">
-                      <span className="text-primary-dark font-bold text-3xl leading-none break-words">
-                        {plan.price}
-                      </span>
-                    </div>
-                    <p className="text-sm text-primary-dark/70 font-medium leading-relaxed break-words">
-                      {plan.description}
-                    </p>
-                  </div>
-
-                  <ul className="min-w-0 space-y-3.5 text-sm text-primary-dark/80 flex-1 w-full pt-6 border-t border-primary-blue/10">
-                    {plan.features.map((f, i) => (
-                      <li key={i} className="flex items-start gap-3 min-w-0">
-                        <span className="mt-[3px] flex-none text-primary-gold">
-                          <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]">
-                            <path
-                              d="M5 13l4 4L19 7"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </span>
-                        <span className="min-w-0 leading-relaxed break-words whitespace-normal">
-                          {f}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onStartTrial(plan.id)
-                    }}
-                    disabled={isLoading}
-                    className="mt-6 w-full block md:hidden"
+            <div className="mb-10 grid min-w-0 gap-5 md:grid-cols-3">
+              {SIGNUP_PLANS.map(plan => {
+                const selected = selectedPlan === plan.id
+                return (
+                  <div
+                    key={plan.id}
+                    role="group"
+                    onClick={() => onPlanSelect(plan.id)}
+                    className={cn(
+                      'flex min-w-0 cursor-pointer flex-col whitespace-normal rounded-2xl p-6 text-left shadow-card transition-all md:p-7',
+                      selected
+                        ? 'bg-accent-soft ring-2 ring-accent'
+                        : 'bg-surface ring-1 ring-line hover:ring-border-strong'
+                    )}
                   >
-                    {isLoading ? 'Redirecting...' : 'Start trial'}
-                  </Button>
-                </div>
-              ))}
+                    <div className="mb-6 w-full min-w-0">
+                      <h3 className="mb-4 break-words text-xl font-bold leading-tight text-ink">
+                        {plan.name}
+                      </h3>
+                      <div className="mb-2 flex flex-wrap items-baseline gap-1.5">
+                        <span className="break-words font-mono text-3xl font-semibold leading-none tabular-nums text-ink">
+                          {plan.price}
+                        </span>
+                      </div>
+                      <p className="break-words text-sm font-medium leading-relaxed text-ink-muted">
+                        {plan.description}
+                      </p>
+                    </div>
+
+                    <ul className="w-full min-w-0 flex-1 space-y-3.5 border-t border-line pt-6 text-sm text-ink-muted">
+                      {plan.features.map((f, i) => (
+                        <li key={i} className="flex min-w-0 items-start gap-3">
+                          <span className="mt-[3px] flex-none text-accent-strong">
+                            <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]">
+                              <path
+                                d="M5 13l4 4L19 7"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </span>
+                          <span className="min-w-0 whitespace-normal break-words leading-relaxed">
+                            {f}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <AuthButton
+                      onClick={e => {
+                        e.stopPropagation()
+                        onStartTrial(plan.id)
+                      }}
+                      disabled={isLoading}
+                      fullWidth
+                      className="mt-6 block md:hidden"
+                    >
+                      {isLoading ? 'Redirecting...' : 'Start trial'}
+                    </AuthButton>
+                  </div>
+                )
+              })}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 order-2 sm:order-1 flex items-center">
-                <span className="text-primary-dark/70">
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="order-2 flex flex-1 items-center sm:order-1">
+                <span className="text-sm text-ink-muted">
                   Already have an account?{' '}
-                  <Link to="/auth/login" className="text-primary-gold no-underline hover:text-primary-gold">
+                  <Link to="/auth/login" className={authLinkCls}>
                     Sign in
                   </Link>
                 </span>
               </div>
-              <div className="hidden md:flex flex-1 order-1 sm:order-2">
-                <Button
+              <div className="order-1 hidden flex-1 md:flex sm:order-2">
+                <AuthButton
                   onClick={() => onStartTrial()}
                   disabled={!selectedPlan || isLoading}
-                  className="w-full"
+                  fullWidth
                 >
                   {isLoading ? 'Redirecting...' : 'Start trial'}
-                </Button>
+                </AuthButton>
               </div>
             </div>
           </div>
