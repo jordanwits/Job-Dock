@@ -1,6 +1,5 @@
 import type { Contact, ContactStatus, CreateContactData } from '../types/contact'
 import { useContactStore } from '../store/contactStore'
-import { Modal, Button, StatusBadgeSelect } from '@/components/ui'
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ContactForm from './ContactForm'
@@ -14,9 +13,25 @@ import InvoiceForm from '@/features/invoices/components/InvoiceForm'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { services } from '@/lib/api/services'
 import { buildContactAddressQuery, cn, getMapsHref } from '@/lib/utils'
-import { useTheme } from '@/contexts/ThemeContext'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { getSendValidationError } from '@/lib/utils/sendValidation'
+import {
+  Alert,
+  AppButton,
+  AppModal,
+  Avatar,
+  BuildingIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  MailIcon,
+  MapPinIcon,
+  PhoneIcon,
+  PlusIcon,
+  StatusSelect,
+  TagChip,
+  linkCls,
+} from './crmUi'
+import { CONTACT_STATUS_OPTIONS } from './contactStatus'
 
 interface ContactDetailProps {
   contact: Contact
@@ -31,10 +46,8 @@ const ContactDetail = ({
   isOpen,
   onClose,
   onJobCreated,
-  onJobCreateFailed,
 }: ContactDetailProps) => {
   const navigate = useNavigate()
-  const { theme } = useTheme()
   const { updateContact, deleteContact, isLoading, error: contactError, clearError: clearContactError } = useContactStore()
   const { createQuote, sendQuote, isLoading: quoteLoading } = useQuoteStore()
   const {
@@ -50,7 +63,7 @@ const ContactDetail = ({
   const [showCreateQuote, setShowCreateQuote] = useState(false)
   const [showCreateJob, setShowCreateJob] = useState(false)
   const [showCreateInvoice, setShowCreateInvoice] = useState(false)
-  const [showJobConfirmation, setShowJobConfirmation] = useState(false)
+  const [showJobConfirmation] = useState(false)
   const [showContactConfirmation, setShowContactConfirmation] = useState(false)
   const [contactConfirmationMessage, setContactConfirmationMessage] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -62,7 +75,7 @@ const ContactDetail = ({
     try {
       await updateContact({ id: contact.id, ...data })
       setIsEditing(false)
-      setContactConfirmationMessage('Contact Updated Successfully')
+      setContactConfirmationMessage('Contact updated successfully')
       setShowContactConfirmation(true)
       setTimeout(() => setShowContactConfirmation(false), 3000)
     } catch (error) {
@@ -79,37 +92,6 @@ const ContactDetail = ({
       // Error handled by store
     }
   }
-
-  const statusColors = {
-    customer:
-      theme === 'dark'
-        ? 'bg-green-500/20 text-green-400 border-green-500/30'
-        : 'bg-green-100 text-green-700 border-green-300',
-    lead:
-      theme === 'dark'
-        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-        : 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    prospect:
-      theme === 'dark'
-        ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-        : 'bg-blue-100 text-blue-700 border-blue-300',
-    inactive:
-      theme === 'dark'
-        ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-        : 'bg-gray-200 text-gray-700 border-gray-400',
-    contact:
-      theme === 'dark'
-        ? 'bg-primary-gold/20 text-primary-gold border-primary-gold/30'
-        : 'bg-yellow-100 text-yellow-700 border-yellow-300',
-  }
-
-  const statusOptions = [
-    { value: 'lead', label: 'Lead' },
-    { value: 'prospect', label: 'Prospect' },
-    { value: 'customer', label: 'Customer' },
-    { value: 'inactive', label: 'Inactive' },
-    { value: 'contact', label: 'Contact' },
-  ]
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -578,14 +560,14 @@ const ContactDetail = ({
 
   if (isEditing) {
     return (
-      <Modal
+      <AppModal
         isOpen={isOpen}
         onClose={() => {
           clearContactError()
           setIsEditing(false)
           onClose()
         }}
-        title="Edit Contact"
+        title="Edit contact"
         size="lg"
       >
         <ContactForm
@@ -598,397 +580,235 @@ const ContactDetail = ({
           isLoading={isLoading}
           error={contactError}
         />
-      </Modal>
+      </AppModal>
     )
   }
 
+  const hasAddress = contact.address || contact.city || contact.state
+  const dropdownActions = [
+    { label: 'Create quote', onClick: () => setShowCreateQuote(true) },
+    { label: 'Create job', onClick: () => setShowCreateJob(true) },
+    { label: 'Create invoice', onClick: () => setShowCreateInvoice(true) },
+    { label: 'Schedule appointment', onClick: () => setShowScheduleJob(true) },
+  ]
+
   return (
     <>
-      <Modal
+      <AppModal
         isOpen={isOpen}
         onClose={onClose}
-        title="Contact Details"
+        title="Contact details"
         size="lg"
         footer={
-          <div className="flex flex-col sm:flex-row justify-between w-full gap-3 overflow-visible">
-            <Button
-              variant="ghost"
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <AppButton
+              variant="dangerGhost"
               onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-500 hover:text-red-600 order-3 sm:order-1 relative z-10"
+              className="order-3 sm:order-1"
             >
               Delete
-            </Button>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-1 sm:order-2 w-full sm:w-auto items-center overflow-visible">
-              <div className="relative w-full sm:w-auto overflow-visible" ref={dropdownRef}>
-                <Button
+            </AppButton>
+            <div className="order-1 flex flex-col gap-2 sm:order-2 sm:flex-row sm:gap-3">
+              <div className="relative" ref={dropdownRef}>
+                <AppButton
+                  variant="subtle"
                   onClick={() => setShowDropdown(!showDropdown)}
-                  className={cn(
-                    'w-full sm:w-10 h-10 p-0 text-2xl sm:text-xl font-semibold',
-                    theme === 'dark'
-                      ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
-                      : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
-                  )}
+                  fullWidth
+                  className="sm:w-auto"
                 >
-                  +
-                </Button>
+                  <PlusIcon className="h-4 w-4" />
+                  New
+                  <ChevronDownIcon className={cn('h-4 w-4 transition-transform', showDropdown && 'rotate-180')} />
+                </AppButton>
                 {showDropdown && (
-                  <>
-                    <div
-                      className={cn(
-                        'absolute z-40 mt-2 w-full sm:min-w-[160px] sm:w-auto left-0 right-0 sm:left-auto sm:right-auto rounded-lg border shadow-xl',
-                        theme === 'dark'
-                          ? 'border-primary-blue bg-primary-dark-secondary'
-                          : 'border-gray-200 bg-white'
-                      )}
-                    >
-                      <div className="p-2 space-y-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowCreateQuote(true)
-                            setShowDropdown(false)
-                          }}
-                          className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
-                            theme === 'dark'
-                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
-                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
-                          )}
-                        >
-                          Create Quote
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowCreateJob(true)
-                            setShowDropdown(false)
-                          }}
-                          className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
-                            theme === 'dark'
-                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
-                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
-                          )}
-                        >
-                          Create Job
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowCreateInvoice(true)
-                            setShowDropdown(false)
-                          }}
-                          className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
-                            theme === 'dark'
-                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
-                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
-                          )}
-                        >
-                          Create Invoice
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowScheduleJob(true)
-                            setShowDropdown(false)
-                          }}
-                          className={cn(
-                            'w-full px-3 py-2 text-sm rounded-lg transition-colors text-center sm:text-left',
-                            theme === 'dark'
-                              ? 'bg-[#435165] hover:bg-[#435165]/90 text-[#e0e0e0]'
-                              : 'bg-primary-blue hover:bg-primary-blue/90 text-white'
-                          )}
-                        >
-                          Schedule Appointment
-                        </button>
-                      </div>
-                    </div>
-                    {/* Spacer to push buttons down on mobile */}
-                    <div className="h-40 sm:hidden" />
-                  </>
+                  <div className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line sm:left-auto sm:right-0 sm:w-52">
+                    {dropdownActions.map(action => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={() => {
+                          action.onClick()
+                          setShowDropdown(false)
+                        }}
+                        className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-2"
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto relative z-10">
+              <AppButton onClick={() => setIsEditing(true)} fullWidth className="sm:w-auto">
                 Edit
-              </Button>
+              </AppButton>
             </div>
           </div>
         }
       >
         <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2
-                className={cn(
-                  'text-2xl font-bold',
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
+          {/* Identity header */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <Avatar firstName={contact.firstName} lastName={contact.lastName} size="lg" />
+              <div className="min-w-0">
+                <h2 className="truncate text-xl font-semibold tracking-tight text-ink">
+                  {contact.firstName} {contact.lastName}
+                </h2>
+                {contact.jobTitle && (
+                  <p className="truncate text-sm text-ink-muted">{contact.jobTitle}</p>
                 )}
-              >
-                {contact.firstName} {contact.lastName}
-              </h2>
-              {contact.company && (
-                <p
-                  className={cn(
-                    'mt-1',
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}
-                >
-                  {contact.company}
-                </p>
-              )}
+              </div>
             </div>
-            <StatusBadgeSelect
+            <StatusSelect
               value={contact.status}
-              options={statusOptions}
-              colorClassesByValue={statusColors}
+              options={CONTACT_STATUS_OPTIONS}
               onChange={handleStatusChange}
               isLoading={isLoading}
-              size="md"
             />
           </div>
 
           {/* Tags */}
           {contact.tags && contact.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {contact.tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className={cn(
-                    'px-2 py-1 text-xs rounded',
-                    theme === 'dark'
-                      ? 'bg-primary-blue/20 text-primary-blue'
-                      : 'bg-blue-100 text-blue-700'
-                  )}
-                >
-                  {tag}
-                </span>
+                <TagChip key={index}>{tag}</TagChip>
               ))}
             </div>
           )}
 
-          {/* Contact Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Info grid */}
+          <div className="grid grid-cols-1 gap-6 border-t border-line pt-6 md:grid-cols-2">
             <div>
-              <h3
-                className={cn(
-                  'text-sm font-medium mb-3',
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}
-              >
-                Contact Information
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
+                Contact information
               </h3>
-              <div className="space-y-2 text-sm">
-                {contact.email && (
-                  <div>
-                    <span
-                      className={cn(
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
-                      Email:{' '}
-                    </span>
-                    <a
-                      href={`mailto:${contact.email}`}
-                      className="text-primary-gold hover:underline"
-                    >
-                      {contact.email}
-                    </a>
-                  </div>
+              <dl className="space-y-3 text-sm">
+                {contact.email ? (
+                  <InfoItem icon={<MailIcon className="h-4 w-4" />}>
+                    <a href={`mailto:${contact.email}`} className={linkCls}>{contact.email}</a>
+                  </InfoItem>
+                ) : null}
+                {contact.phone ? (
+                  <InfoItem icon={<PhoneIcon className="h-4 w-4" />}>
+                    <a href={`tel:${contact.phone}`} className="font-mono tabular-nums text-ink">{contact.phone}</a>
+                  </InfoItem>
+                ) : null}
+                {!contact.email && !contact.phone && (
+                  <p className="text-ink-subtle">No contact details</p>
                 )}
-                {contact.phone && (
-                  <div>
-                    <span
-                      className={cn(
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
-                      Phone:{' '}
-                    </span>
-                    <a
-                      href={`tel:${contact.phone}`}
-                      className={cn(
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}
-                    >
-                      {contact.phone}
-                    </a>
-                  </div>
-                )}
-              </div>
+              </dl>
             </div>
 
             <div>
-              <h3
-                className={cn(
-                  'text-sm font-medium mb-3',
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}
-              >
-                Company Information
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
+                Company
               </h3>
-              <div className="space-y-2 text-sm">
-                {contact.company && (
-                  <div>
-                    <span
-                      className={cn(
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
-                      Company:{' '}
-                    </span>
-                    <span
-                      className={cn(
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}
-                    >
-                      {contact.company}
-                    </span>
+              <dl className="space-y-3 text-sm">
+                {contact.company ? (
+                  <InfoItem icon={<BuildingIcon className="h-4 w-4" />}>
+                    <span className="text-ink">{contact.company}</span>
+                  </InfoItem>
+                ) : null}
+                {contact.jobTitle ? (
+                  <div className="text-ink-muted">
+                    <span className="text-ink-subtle">Title: </span>
+                    <span className="text-ink">{contact.jobTitle}</span>
                   </div>
+                ) : null}
+                {!contact.company && !contact.jobTitle && (
+                  <p className="text-ink-subtle">No company details</p>
                 )}
-                {contact.jobTitle && (
-                  <div>
-                    <span
-                      className={cn(
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
-                      Job Title:{' '}
-                    </span>
-                    <span
-                      className={cn(
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}
-                    >
-                      {contact.jobTitle}
-                    </span>
-                  </div>
-                )}
-              </div>
+              </dl>
             </div>
           </div>
 
           {/* Address */}
-          {(contact.address || contact.city || contact.state) && (
-            <div>
-              <h3
-                className={cn(
-                  'text-sm font-medium mb-3',
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}
-              >
+          {hasAddress && (
+            <div className="border-t border-line pt-6">
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Address
               </h3>
               <a
                 href={getMapsHref(buildContactAddressQuery(contact))}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm block text-primary-gold hover:underline"
+                className="group flex items-start gap-2 text-sm"
               >
-                {contact.address && <div>{contact.address}</div>}
-                {(contact.city || contact.state || contact.zipCode) && (
-                  <div>
-                    {contact.city}
-                    {contact.city && contact.state && ', '}
-                    {contact.state} {contact.zipCode}
-                  </div>
-                )}
-                {contact.country && <div>{contact.country}</div>}
+                <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-ink-subtle" />
+                <span className="text-accent-strong transition-opacity group-hover:opacity-70">
+                  {contact.address && <span className="block">{contact.address}</span>}
+                  {(contact.city || contact.state || contact.zipCode) && (
+                    <span className="block">
+                      {contact.city}
+                      {contact.city && contact.state && ', '}
+                      {contact.state} {contact.zipCode}
+                    </span>
+                  )}
+                  {contact.country && <span className="block">{contact.country}</span>}
+                </span>
               </a>
             </div>
           )}
 
           {/* Notes */}
           {contact.notes && (
-            <div>
-              <h3
-                className={cn(
-                  'text-sm font-medium mb-3',
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}
-              >
+            <div className="border-t border-line pt-6">
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Notes
               </h3>
-              <p
-                className={cn(
-                  'text-sm whitespace-pre-wrap',
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}
-              >
-                {contact.notes}
-              </p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{contact.notes}</p>
             </div>
           )}
 
           {/* Metadata */}
-          <div
-            className={cn(
-              'pt-4 border-t text-xs',
-              theme === 'dark'
-                ? 'border-primary-blue text-primary-light/50'
-                : 'border-gray-200/20 text-primary-lightTextSecondary'
-            )}
-          >
-            <div>Created: {new Date(contact.createdAt).toLocaleDateString()}</div>
+          <div className="border-t border-line pt-4 text-xs text-ink-subtle">
+            <div>
+              Created{' '}
+              <span className="font-mono tabular-nums">
+                {new Date(contact.createdAt).toLocaleDateString()}
+              </span>
+            </div>
             {contact.updatedAt !== contact.createdAt && (
-              <div>Updated: {new Date(contact.updatedAt).toLocaleDateString()}</div>
+              <div>
+                Updated{' '}
+                <span className="font-mono tabular-nums">
+                  {new Date(contact.updatedAt).toLocaleDateString()}
+                </span>
+              </div>
             )}
           </div>
 
-          {/* Confirmation Messages - Positioned at Bottom for Mobile Visibility */}
+          {/* Confirmation messages */}
           {showJobConfirmation && (
-            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
-              <p className="text-sm text-green-500">✓ Job has been created</p>
-            </div>
+            <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>Job has been created</Alert>
           )}
-
           {showContactConfirmation && (
-            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500">
-              <p className="text-sm text-green-500">✓ {contactConfirmationMessage}</p>
-            </div>
+            <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>{contactConfirmationMessage}</Alert>
           )}
         </div>
-      </Modal>
+      </AppModal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
+      {/* Delete confirmation modal */}
+      <AppModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        title="Delete Contact"
+        title="Delete contact"
+        size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+            <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleDelete}
-              disabled={isLoading}
-              className="bg-red-500 hover:bg-red-600"
-            >
+            </AppButton>
+            <AppButton variant="danger" onClick={handleDelete} isLoading={isLoading} disabled={isLoading}>
               {isLoading ? 'Deleting...' : 'Delete'}
-            </Button>
+            </AppButton>
           </>
         }
       >
-        <div
-          className={cn(
-            'space-y-3 text-sm',
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}
-        >
+        <div className="space-y-3 text-sm leading-relaxed text-ink-muted">
           <p>
             Deleting{' '}
-            <strong>
+            <strong className="text-ink">
               {contact.firstName} {contact.lastName}
             </strong>{' '}
             will also permanently remove every quote, invoice, and scheduled job linked to this
@@ -999,9 +819,9 @@ const ContactDetail = ({
             need later.
           </p>
         </div>
-      </Modal>
+      </AppModal>
 
-      {/* Schedule Job Modal */}
+      {/* Schedule job modal */}
       <ScheduleJobModal
         isOpen={showScheduleJob}
         onClose={() => setShowScheduleJob(false)}
@@ -1032,14 +852,14 @@ const ContactDetail = ({
         }}
       />
 
-      {/* Create Quote Modal */}
-      <Modal
+      {/* Create quote modal */}
+      <AppModal
         isOpen={showCreateQuote}
         onClose={() => {
           setShowCreateQuote(false)
           setQuoteSendError(null)
         }}
-        title="Create Quote"
+        title="Create quote"
         size="xl"
       >
         <QuoteForm
@@ -1053,16 +873,16 @@ const ContactDetail = ({
           defaultContactId={contact.id}
           error={quoteSendError}
         />
-      </Modal>
+      </AppModal>
 
-      {/* Create Job Modal */}
-      <Modal
+      {/* Create job modal */}
+      <AppModal
         isOpen={showCreateJob}
         onClose={() => {
           setShowCreateJob(false)
           clearJobError()
         }}
-        title="Create Job"
+        title="Create job"
         size="xl"
       >
         <JobForm
@@ -1076,16 +896,16 @@ const ContactDetail = ({
           defaultContactId={contact.id}
           isSimpleCreate={true}
         />
-      </Modal>
+      </AppModal>
 
-      {/* Create Invoice Modal */}
-      <Modal
+      {/* Create invoice modal */}
+      <AppModal
         isOpen={showCreateInvoice}
         onClose={() => {
           setShowCreateInvoice(false)
           setInvoiceSendError(null)
         }}
-        title="Create Invoice"
+        title="Create invoice"
         size="xl"
       >
         <InvoiceForm
@@ -1099,8 +919,18 @@ const ContactDetail = ({
           defaultContactId={contact.id}
           error={invoiceSendError}
         />
-      </Modal>
+      </AppModal>
     </>
+  )
+}
+
+/* Small icon + value row used in the info grid. */
+function InfoItem({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-ink-muted">
+      <span className="shrink-0 text-ink-subtle">{icon}</span>
+      <span className="min-w-0 break-words">{children}</span>
+    </div>
   )
 }
 

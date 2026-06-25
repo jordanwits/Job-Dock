@@ -1,7 +1,20 @@
-import { useState, useRef, useCallback } from 'react'
-import { Modal, Button, Card } from '@/components/ui'
+import { useState, useRef } from 'react'
 import { contactsService } from '@/lib/api/services'
+import { cn } from '@/lib/utils'
 import type { CSVPreview, ImportSessionData, ImportConflict } from '../types/import'
+import {
+  Alert,
+  AppButton,
+  AppModal,
+  AlertIcon,
+  CheckIcon,
+  CheckboxField,
+  ChevronDownIcon,
+  InfoIcon,
+  SelectField,
+  Spinner,
+  UploadIcon,
+} from './crmUi'
 
 interface ImportContactsModalProps {
   isOpen: boolean
@@ -64,9 +77,9 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
 
       try {
         setIsLoading(true)
-        
+
         const previewData = await contactsService.importPreview(content)
-        
+
         setPreview(previewData)
         setFieldMapping(previewData.suggestedMapping)
         setStep('preview')
@@ -192,23 +205,19 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
   ]
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleCancel}
-      title="Import Contacts from CSV"
-      size="xl"
-    >
+    <AppModal isOpen={isOpen} onClose={handleCancel} title="Import contacts from CSV" size="xl">
       <div className="space-y-6">
-        {error && (
-          <Card className="bg-red-500/10 border-red-500 p-4">
-            <p className="text-sm text-red-500">{error}</p>
-          </Card>
-        )}
+        {error && <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>{error}</Alert>}
 
-        {/* Upload Step */}
+        {/* Upload step */}
         {step === 'upload' && (
           <div className="space-y-6">
-            <div className="text-center p-12 border-2 border-dashed border-primary-gold/30 rounded-lg bg-gradient-to-br from-primary-dark/50 to-primary-dark/30 hover:border-primary-gold/50 transition-all">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              className="flex w-full flex-col items-center rounded-2xl border-2 border-dashed border-line-strong bg-surface-2 p-10 text-center transition-colors hover:border-accent hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait"
+            >
               <input
                 ref={fileInputRef}
                 type="file"
@@ -216,62 +225,48 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              
-              {/* Upload icon */}
-              <div className="w-16 h-16 mx-auto mb-4 bg-primary-gold/10 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-primary-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-              </div>
-              
-              <h3 className="text-lg font-medium text-primary-gold mb-2">Upload Your Contacts</h3>
-              <p className="text-sm text-primary-light/70 mb-4">
+              <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
+                <UploadIcon className="h-7 w-7" />
+              </span>
+              <span className="text-lg font-semibold text-ink">Upload your contacts</span>
+              <span className="mt-1 text-sm text-ink-muted">
                 Import multiple contacts at once from a CSV file
-              </p>
-              
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark font-medium"
-              >
+              </span>
+              <span className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-accent-strong px-4 text-sm font-semibold text-accent-contrast">
                 {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-primary-dark/30 border-t-primary-dark rounded-full animate-spin"></div>
-                    Loading...
-                  </span>
+                  <>
+                    <Spinner /> Loading...
+                  </>
                 ) : (
-                  'Choose CSV File'
+                  'Choose CSV file'
                 )}
-              </Button>
-              
-              <p className="text-xs text-primary-light/50 mt-3">
-                Maximum file size: 10MB
-              </p>
-            </div>
-            
+              </span>
+              <span className="mt-3 text-xs text-ink-subtle">Maximum file size: 10MB</span>
+            </button>
+
             {/* Requirements */}
-            <div className="bg-primary-dark/50 p-5 rounded-lg border border-primary-light/10">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-blue-400 text-sm">ℹ</span>
-                </div>
+            <div className="rounded-xl bg-surface-2 p-5">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-info-soft text-info">
+                  <InfoIcon className="h-4 w-4" />
+                </span>
                 <div>
-                  <p className="font-medium text-primary-light mb-2">Your CSV file should include:</p>
-                  <ul className="space-y-2 text-sm text-primary-light/70">
+                  <p className="mb-2 font-medium text-ink">Your CSV file should include:</p>
+                  <ul className="space-y-2 text-sm text-ink-muted">
                     <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-0.5">✓</span>
-                      <span><strong>Column headers</strong> in the first row (like "First Name", "Email", etc.)</span>
+                      <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                      <span><strong className="font-medium text-ink">Column headers</strong> in the first row (like "First Name", "Email", etc.)</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-0.5">✓</span>
-                      <span><strong>First Name and Last Name</strong> for each contact (required)</span>
+                      <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                      <span><strong className="font-medium text-ink">First Name and Last Name</strong> for each contact (required)</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-blue-400 mt-0.5">○</span>
-                      <span><strong>Email address</strong> (recommended for duplicate detection)</span>
+                      <span className="mt-0.5 h-4 w-4 shrink-0 text-center text-info">○</span>
+                      <span><strong className="font-medium text-ink">Email address</strong> (recommended for duplicate detection)</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-blue-400 mt-0.5">○</span>
+                      <span className="mt-0.5 h-4 w-4 shrink-0 text-center text-info">○</span>
                       <span>Optional fields: Phone, Company, Job Title, Address, City, State, Zip Code, Country</span>
                     </li>
                   </ul>
@@ -281,160 +276,129 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
           </div>
         )}
 
-        {/* Preview Step */}
+        {/* Preview step */}
         {step === 'preview' && preview && (
           <div className="space-y-6">
             {/* Header with count */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-end justify-between gap-4">
               <div>
-                <h3 className="text-lg font-medium text-primary-gold">Step 1: Preview Your Data</h3>
-                <p className="text-xs text-primary-light/60 mt-1">Review the first few contacts from your file</p>
+                <h3 className="text-[15px] font-semibold text-ink">Preview your data</h3>
+                <p className="mt-0.5 text-[13px] text-ink-muted">Review the first few contacts from your file</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-primary-gold">{preview.totalRows}</p>
-                <p className="text-xs text-primary-light/70">contacts found</p>
+                <p className="font-mono text-2xl font-semibold tabular-nums text-accent-strong">{preview.totalRows}</p>
+                <p className="text-xs text-ink-subtle">contacts found</p>
               </div>
             </div>
 
-            {/* Preview Table */}
-            <div className="overflow-x-auto border border-primary-light/20 rounded-lg">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-primary-dark/50 border-b border-primary-light/20">
-                    {preview.headers.slice(0, 6).map((header) => (
-                      <th
-                        key={header}
-                        className="p-3 text-left font-medium text-primary-gold"
-                      >
-                        {header}
-                      </th>
-                    ))}
-                    {preview.headers.length > 6 && (
-                      <th className="p-3 text-left font-medium text-primary-light/50">
-                        +{preview.headers.length - 6} more
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.rows.slice(0, 3).map((row, idx) => (
-                    <tr key={idx} className="border-b border-primary-light/10 hover:bg-primary-dark/30">
+            {/* Preview table */}
+            <div className="overflow-hidden rounded-xl bg-surface shadow-card">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-line">
+                    <tr>
                       {preview.headers.slice(0, 6).map((header) => (
-                        <td key={header} className="p-3 text-primary-light/90">
-                          {row[header] || <span className="text-primary-light/40">—</span>}
-                        </td>
+                        <th key={header} className="p-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
+                          {header}
+                        </th>
                       ))}
                       {preview.headers.length > 6 && (
-                        <td className="p-3 text-primary-light/40">...</td>
+                        <th className="p-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
+                          +{preview.headers.length - 6} more
+                        </th>
                       )}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {preview.rows.slice(0, 3).map((row, idx) => (
+                      <tr key={idx}>
+                        {preview.headers.slice(0, 6).map((header) => (
+                          <td key={header} className="p-3 text-ink">
+                            {row[header] || <span className="text-ink-subtle">—</span>}
+                          </td>
+                        ))}
+                        {preview.headers.length > 6 && <td className="p-3 text-ink-subtle">...</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Field Mapping Summary/Section */}
-            <div className="bg-gradient-to-br from-primary-dark/50 to-primary-dark/30 p-6 rounded-lg border border-primary-light/10">
-              <div className="flex items-start justify-between mb-4">
+            {/* Field mapping */}
+            <div className="rounded-xl bg-surface-2 p-5">
+              <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <h3 className="text-lg font-medium text-primary-gold mb-1">Step 2: Field Mapping</h3>
-                  <p className="text-xs text-primary-light/60">
+                  <h3 className="text-[15px] font-semibold text-ink">Field mapping</h3>
+                  <p className="mt-0.5 text-[13px] text-ink-muted">
                     We've automatically matched your CSV columns. Looks good?
                   </p>
                 </div>
                 <button
                   onClick={() => setShowFieldMapping(!showFieldMapping)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-primary-dark/50 hover:bg-primary-dark/70 border border-primary-light/20 rounded-lg text-xs font-medium text-primary-light/80 transition-all"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 text-[13px] font-medium text-ink ring-1 ring-inset ring-line transition-colors hover:bg-surface-hover"
                 >
-                  {showFieldMapping ? (
-                    <>
-                      <span>Hide Details</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </>
-                  ) : (
-                    <>
-                      <span>Customize Mapping</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </>
-                  )}
+                  {showFieldMapping ? 'Hide details' : 'Customize mapping'}
+                  <ChevronDownIcon className={cn('h-4 w-4 transition-transform', showFieldMapping && 'rotate-180')} />
                 </button>
               </div>
 
-              {/* Auto-mapped fields preview (always visible) */}
+              {/* Auto-mapped preview */}
               {!showFieldMapping && (
                 <div className="space-y-2">
                   {preview.headers.filter(h => fieldMapping[h]).slice(0, 5).map((header) => {
                     const mappedField = contactFields.find(f => f.value === fieldMapping[header])
                     return (
-                      <div key={header} className="flex items-center gap-2 text-sm bg-primary-dark/30 px-3 py-2 rounded">
-                        <span className="text-primary-light/70">{header}</span>
-                        <span className="text-primary-gold">→</span>
-                        <span className="text-green-400 font-medium">{mappedField?.label}</span>
+                      <div key={header} className="flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-sm">
+                        <span className="text-ink-muted">{header}</span>
+                        <span className="text-ink-subtle">→</span>
+                        <span className="font-medium text-accent-strong">{mappedField?.label}</span>
                       </div>
                     )
                   })}
                   {preview.headers.filter(h => fieldMapping[h]).length > 5 && (
-                    <p className="text-xs text-primary-light/50 px-3">
+                    <p className="px-3 text-xs text-ink-subtle">
                       +{preview.headers.filter(h => fieldMapping[h]).length - 5} more fields mapped
                     </p>
                   )}
                   {preview.headers.filter(h => !fieldMapping[h]).length > 0 && (
-                    <p className="text-xs text-yellow-500/70 px-3 mt-2">
+                    <p className="px-3 pt-1 text-xs text-warning">
                       {preview.headers.filter(h => !fieldMapping[h]).length} column(s) will be skipped
                     </p>
                   )}
                 </div>
               )}
-              
-              {/* Detailed field mapping (collapsible) */}
+
+              {/* Detailed mapping */}
               {showFieldMapping && (
-                <div className="grid gap-3 mt-4">
+                <div className="mt-2 grid gap-2.5">
                   {preview.headers.map((header) => {
                     const mappedField = fieldMapping[header]
                     const isSkipped = !mappedField
-                    
                     return (
-                      <div 
-                        key={header} 
-                        className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                          isSkipped 
-                            ? 'bg-primary-dark/30 opacity-60' 
-                            : 'bg-primary-dark/50 border border-primary-gold/20'
-                        }`}
+                      <div
+                        key={header}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg bg-surface p-3 ring-1 ring-inset transition-colors',
+                          isSkipped ? 'opacity-60 ring-line' : 'ring-accent-soft'
+                        )}
                       >
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-primary-light">
-                            {header}
-                          </p>
+                          <p className="text-sm font-medium text-ink">{header}</p>
                           {preview.rows[0]?.[header] && (
-                            <p className="text-xs text-primary-light/50 mt-0.5">
-                              Example: {preview.rows[0][header]}
-                            </p>
+                            <p className="mt-0.5 text-xs text-ink-subtle">Example: {preview.rows[0][header]}</p>
                           )}
                         </div>
-                        
                         <div className="flex items-center gap-2">
-                          <span className="text-primary-gold text-lg">→</span>
-                          <select
-                            value={mappedField || ''}
-                            onChange={(e) => updateFieldMapping(header, e.target.value)}
-                            className={`bg-primary-dark border rounded-lg px-3 py-2 text-sm min-w-[160px] transition-all ${
-                              isSkipped 
-                                ? 'border-primary-light/20 text-primary-light/50' 
-                                : 'border-primary-gold/40 text-primary-light font-medium'
-                            }`}
-                          >
-                            <option value="">⊘ Don't Import</option>
-                            {contactFields.map((field) => (
-                              <option key={field.value} value={field.value}>
-                                {field.label}
-                              </option>
-                            ))}
-                          </select>
+                          <span className="shrink-0 text-ink-subtle">→</span>
+                          <div className="w-[180px] shrink-0">
+                            <SelectField
+                              aria-label={`Map column ${header}`}
+                              value={mappedField || ''}
+                              onChange={(e) => updateFieldMapping(header, e.target.value)}
+                              options={[{ value: '', label: "Don't import" }, ...contactFields]}
+                            />
+                          </div>
                         </div>
                       </div>
                     )
@@ -443,323 +407,194 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
               )}
 
               {/* Helper text */}
-              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-xs text-blue-400">
-                  ✓ <strong>Auto-detected:</strong> We've automatically matched common field names. 
-                  {!showFieldMapping ? ' Click "Customize Mapping" above to adjust.' : ' First Name and Last Name are required.'}
-                </p>
+              <div className="mt-4">
+                <Alert tone="info" icon={<InfoIcon className="h-4 w-4" />}>
+                  <strong className="font-semibold">Auto-detected:</strong> We've automatically matched common field names.
+                  {!showFieldMapping ? ' Click "Customize mapping" above to adjust.' : ' First Name and Last Name are required.'}
+                </Alert>
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex justify-between items-center pt-2">
-              <Button variant="ghost" onClick={handleCancel} className="text-primary-light/70">
-                Cancel Import
-              </Button>
-              <Button 
-                onClick={handleConfirmMapping} 
-                disabled={isLoading}
-                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark font-medium px-6"
-              >
-                {isLoading ? 'Processing...' : `Import ${preview.totalRows} Contacts →`}
-              </Button>
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-1">
+              <AppButton variant="ghost" onClick={handleCancel}>Cancel import</AppButton>
+              <AppButton onClick={handleConfirmMapping} isLoading={isLoading} disabled={isLoading}>
+                {isLoading ? 'Processing...' : `Import ${preview.totalRows} contacts`}
+              </AppButton>
             </div>
           </div>
         )}
 
-        {/* Processing Step */}
+        {/* Processing step */}
         {step === 'processing' && importData && (
-          <div className="space-y-6 text-center py-12">
-            <div className="relative">
-              <div className="w-20 h-20 border-4 border-primary-gold/30 border-t-primary-gold rounded-full animate-spin mx-auto"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-12 h-12 bg-primary-gold/20 rounded-full"></div>
-              </div>
-            </div>
+          <div className="space-y-6 py-10 text-center">
+            <Spinner className="mx-auto h-12 w-12 text-accent-strong" />
             <div>
-              <h3 className="text-xl font-medium text-primary-gold mb-2">Importing Your Contacts...</h3>
-              <p className="text-sm text-primary-light/70">
-                This may take a moment. Please don't close this window.
-              </p>
+              <h3 className="text-lg font-semibold text-ink">Importing your contacts...</h3>
+              <p className="mt-1 text-sm text-ink-muted">This may take a moment. Please don't close this window.</p>
             </div>
-            <div className="max-w-md mx-auto">
-              <div className="bg-primary-dark/50 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-primary-gold to-yellow-500 h-full transition-all duration-500"
+            <div className="mx-auto max-w-md">
+              <div className="h-1.5 overflow-hidden rounded-full bg-line">
+                <div
+                  className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
                   style={{ width: `${(importData.progress.processed / importData.progress.total) * 100}%` }}
-                ></div>
+                />
               </div>
-              <p className="text-sm text-primary-light/60 mt-2">
-                {importData.progress.processed} of {importData.progress.total} contacts processed
+              <p className="mt-2 text-sm text-ink-muted">
+                <span className="font-mono tabular-nums">{importData.progress.processed}</span> of{' '}
+                <span className="font-mono tabular-nums">{importData.progress.total}</span> contacts processed
               </p>
             </div>
           </div>
         )}
 
-        {/* Conflicts Step */}
+        {/* Conflicts step */}
         {step === 'conflicts' && currentConflict && importData && (
           <div className="space-y-6">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-lg p-5">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-yellow-500 text-xl">⚠</span>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium text-yellow-400 mb-1">
-                    We Found a Duplicate Contact
-                  </h3>
-                  <p className="text-sm text-primary-light/70">
-                    This person already exists in your contacts. What would you like to do?
-                  </p>
-                  {importData.pendingConflicts.length > 1 && (
-                    <p className="text-xs text-yellow-500/80 mt-2">
-                      {importData.pendingConflicts.length} duplicate(s) found in total
-                    </p>
-                  )}
-                </div>
-              </div>
+            <Alert tone="warning" icon={<AlertIcon className="h-4 w-4" />}>
+              <p className="font-semibold">We found a duplicate contact</p>
+              <p className="mt-0.5">This person already exists in your contacts. What would you like to do?</p>
+              {importData.pendingConflicts.length > 1 && (
+                <p className="mt-1 text-[13px] opacity-80">{importData.pendingConflicts.length} duplicate(s) found in total</p>
+              )}
+            </Alert>
+
+            {/* Comparison cards */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <ConflictCard title="Current contact" tone="neutral" data={currentConflict.existingContact} />
+              <ConflictCard title="New from CSV" tone="accent" data={currentConflict.incomingData} />
             </div>
 
-            {/* Comparison Cards */}
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* Current/Existing Contact */}
-              <Card className="p-5 bg-primary-dark/50 border-primary-light/20">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
-                    <span className="text-blue-400">👤</span>
-                  </div>
-                  <h4 className="font-medium text-blue-400">Current Contact</h4>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div className="pb-2 border-b border-primary-light/10">
-                    <p className="text-xs text-primary-light/50 mb-1">Name</p>
-                    <p className="font-medium text-primary-light">
-                      {currentConflict.existingContact.firstName}{' '}
-                      {currentConflict.existingContact.lastName}
-                    </p>
-                  </div>
-                  {currentConflict.existingContact.email && (
-                    <div className="pb-2 border-b border-primary-light/10">
-                      <p className="text-xs text-primary-light/50 mb-1">Email</p>
-                      <p className="text-primary-light">{currentConflict.existingContact.email}</p>
-                    </div>
-                  )}
-                  {currentConflict.existingContact.phone && (
-                    <div className="pb-2 border-b border-primary-light/10">
-                      <p className="text-xs text-primary-light/50 mb-1">Phone</p>
-                      <p className="text-primary-light">{currentConflict.existingContact.phone}</p>
-                    </div>
-                  )}
-                  {currentConflict.existingContact.company && (
-                    <div className="pb-2 border-b border-primary-light/10">
-                      <p className="text-xs text-primary-light/50 mb-1">Company</p>
-                      <p className="text-primary-light">{currentConflict.existingContact.company}</p>
-                    </div>
-                  )}
-                </div>
-              </Card>
-
-              {/* New/Incoming Data */}
-              <Card className="p-5 bg-gradient-to-br from-primary-gold/10 to-primary-gold/5 border-primary-gold/30">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 bg-primary-gold/20 rounded-full flex items-center justify-center">
-                    <span className="text-primary-gold">📄</span>
-                  </div>
-                  <h4 className="font-medium text-primary-gold">New from CSV</h4>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div className="pb-2 border-b border-primary-light/10">
-                    <p className="text-xs text-primary-light/50 mb-1">Name</p>
-                    <p className="font-medium text-primary-light">
-                      {currentConflict.incomingData.firstName}{' '}
-                      {currentConflict.incomingData.lastName}
-                    </p>
-                  </div>
-                  {currentConflict.incomingData.email && (
-                    <div className="pb-2 border-b border-primary-light/10">
-                      <p className="text-xs text-primary-light/50 mb-1">Email</p>
-                      <p className="text-primary-light">{currentConflict.incomingData.email}</p>
-                    </div>
-                  )}
-                  {currentConflict.incomingData.phone && (
-                    <div className="pb-2 border-b border-primary-light/10">
-                      <p className="text-xs text-primary-light/50 mb-1">Phone</p>
-                      <p className="text-primary-light">{currentConflict.incomingData.phone}</p>
-                    </div>
-                  )}
-                  {currentConflict.incomingData.company && (
-                    <div className="pb-2 border-b border-primary-light/10">
-                      <p className="text-xs text-primary-light/50 mb-1">Company</p>
-                      <p className="text-primary-light">{currentConflict.incomingData.company}</p>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </div>
-
-            {/* Apply to all option */}
+            {/* Apply to all */}
             {importData.pendingConflicts.length > 1 && (
-              <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <input
-                  type="checkbox"
+              <div className="rounded-xl bg-surface-2 p-4">
+                <CheckboxField
                   id="apply-to-all"
                   checked={applyToAll}
-                  onChange={(e) => setApplyToAll(e.target.checked)}
-                  className="w-4 h-4 rounded border-primary-light/20 bg-primary-dark mt-0.5 cursor-pointer"
+                  onChange={setApplyToAll}
+                  label="Apply my choice to all duplicates"
+                  description={`Use this same action for all ${importData.pendingConflicts.length} duplicate contacts found`}
                 />
-                <label htmlFor="apply-to-all" className="text-sm cursor-pointer flex-1">
-                  <span className="font-medium text-primary-light">Apply my choice to all duplicates</span>
-                  <p className="text-xs text-primary-light/60 mt-1">
-                    Use this same action for all {importData.pendingConflicts.length} duplicate contacts found
-                  </p>
-                </label>
               </div>
             )}
 
-            {/* Action buttons */}
-            <div className="flex justify-between items-center gap-3 pt-2">
-              <Button
-                variant="ghost"
-                onClick={() => handleConflictResolution('skip')}
-                disabled={isLoading}
-                className="flex-1"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  <span>⊘</span>
-                  {applyToAll ? 'Skip All Duplicates' : 'Skip This One'}
-                </span>
-              </Button>
-              <Button
-                onClick={() => handleConflictResolution('update')}
-                disabled={isLoading}
-                className="flex-1 bg-primary-gold hover:bg-primary-gold/90 text-primary-dark font-medium"
-              >
-                {isLoading ? (
-                  'Updating...'
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <span>✓</span>
-                    {applyToAll ? 'Update All' : 'Update This Contact'}
-                  </span>
-                )}
-              </Button>
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-1">
+              <AppButton variant="subtle" onClick={() => handleConflictResolution('skip')} disabled={isLoading} fullWidth>
+                {applyToAll ? 'Skip all duplicates' : 'Skip this one'}
+              </AppButton>
+              <AppButton onClick={() => handleConflictResolution('update')} isLoading={isLoading} disabled={isLoading} fullWidth>
+                {isLoading ? 'Updating...' : applyToAll ? 'Update all' : 'Update this contact'}
+              </AppButton>
             </div>
           </div>
         )}
 
-        {/* Complete Step */}
+        {/* Complete step */}
         {step === 'complete' && importData && (
-          <div className="space-y-6 text-center py-8">
-            {/* Success Icon */}
-            <div className="relative mx-auto w-20 h-20">
-              <div className="absolute inset-0 bg-green-500/20 rounded-full animate-ping"></div>
-              <div className="relative w-20 h-20 bg-gradient-to-br from-green-500/30 to-green-600/30 rounded-full flex items-center justify-center border-2 border-green-500/50">
-                <svg
-                  className="w-10 h-10 text-green-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={3}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
+          <div className="space-y-6 py-4 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-soft text-success">
+              <CheckIcon className="h-8 w-8" />
             </div>
-
-            {/* Success Message */}
             <div>
-              <h3 className="text-2xl font-bold text-green-400 mb-2">Import Complete! 🎉</h3>
-              <p className="text-sm text-primary-light/70">
-                Your contacts have been successfully imported
-              </p>
+              <h3 className="text-xl font-semibold text-ink">Import complete</h3>
+              <p className="mt-1 text-sm text-ink-muted">Your contacts have been successfully imported</p>
             </div>
 
-            {/* Results Summary */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
-                <Card className="p-4 bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
-                  <div className="text-3xl font-bold text-green-400 mb-1">
-                    {importData.progress.inserted}
-                  </div>
-                  <div className="text-xs text-primary-light/70 font-medium">New Contacts</div>
-                  <div className="text-xs text-green-500/70 mt-0.5">Added</div>
-                </Card>
-                <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
-                  <div className="text-3xl font-bold text-blue-400 mb-1">
-                    {importData.progress.updated}
-                  </div>
-                  <div className="text-xs text-primary-light/70 font-medium">Contacts</div>
-                  <div className="text-xs text-blue-500/70 mt-0.5">Updated</div>
-                </Card>
-                <Card className="p-4 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 border-yellow-500/20">
-                  <div className="text-3xl font-bold text-yellow-400 mb-1">
-                    {importData.progress.skipped}
-                  </div>
-                  <div className="text-xs text-primary-light/70 font-medium">Contacts</div>
-                  <div className="text-xs text-yellow-500/70 mt-0.5">Skipped</div>
-                </Card>
-                <Card className="p-4 bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/20">
-                  <div className="text-3xl font-bold text-red-400 mb-1">
-                    {importData.progress.failed}
-                  </div>
-                  <div className="text-xs text-primary-light/70 font-medium">Contacts</div>
-                  <div className="text-xs text-red-500/70 mt-0.5">Failed</div>
-                </Card>
-              </div>
+            {/* Summary */}
+            <div className="mx-auto grid max-w-2xl grid-cols-2 gap-3 md:grid-cols-4">
+              <SummaryTile value={importData.progress.inserted} label="New" tone="success" />
+              <SummaryTile value={importData.progress.updated} label="Updated" tone="info" />
+              <SummaryTile value={importData.progress.skipped} label="Skipped" tone="warning" />
+              <SummaryTile value={importData.progress.failed} label="Failed" tone="danger" />
             </div>
 
-            {/* Errors Section */}
+            {/* Errors */}
             {importData.errors.length > 0 && (
-              <div className="mt-6 max-w-2xl mx-auto">
-                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-red-400 text-lg">⚠</span>
-                    <p className="text-sm font-medium text-red-400">
-                      {importData.errors.length} Error(s) Occurred
-                    </p>
-                  </div>
-                  <div className="max-h-48 overflow-y-auto space-y-2">
-                    {importData.errors.map((error, idx) => (
-                      <div
-                        key={idx}
-                        className="text-xs text-left bg-red-500/5 border border-red-500/20 rounded p-3"
-                      >
-                        <span className="font-medium text-red-400">Row {error.rowIndex + 1}:</span>
-                        <span className="text-primary-light/70 ml-2">{error.message}</span>
-                      </div>
-                    ))}
-                  </div>
+              <div className="mx-auto max-w-2xl text-left">
+                <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+                  <p className="font-semibold">{importData.errors.length} error(s) occurred</p>
+                </Alert>
+                <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
+                  {importData.errors.map((err, idx) => (
+                    <div key={idx} className="rounded-lg bg-surface-2 p-3 text-xs">
+                      <span className="font-semibold text-danger">Row {err.rowIndex + 1}:</span>
+                      <span className="ml-2 text-ink-muted">{err.message}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Success message for no errors */}
             {importData.errors.length === 0 && importData.progress.inserted > 0 && (
-              <div className="max-w-md mx-auto bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                <p className="text-sm text-green-400">
-                  ✓ All contacts were imported successfully with no errors
-                </p>
+              <div className="mx-auto max-w-md">
+                <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />}>
+                  All contacts were imported successfully with no errors
+                </Alert>
               </div>
             )}
 
-            {/* Done Button */}
-            <div className="flex justify-center gap-2 pt-4">
-              <Button 
-                onClick={handleComplete}
-                className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark font-medium px-8"
-              >
-                Done
-              </Button>
+            <div className="flex justify-center pt-2">
+              <AppButton onClick={handleComplete} className="px-8">Done</AppButton>
             </div>
           </div>
         )}
       </div>
-    </Modal>
+    </AppModal>
+  )
+}
+
+/* Conflict comparison card */
+function ConflictCard({
+  title,
+  tone,
+  data,
+}: {
+  title: string
+  tone: 'neutral' | 'accent'
+  data: { firstName?: string; lastName?: string; email?: string; phone?: string; company?: string }
+}) {
+  const rows: { label: string; value?: string }[] = [
+    { label: 'Name', value: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() },
+    { label: 'Email', value: data.email },
+    { label: 'Phone', value: data.phone },
+    { label: 'Company', value: data.company },
+  ]
+  return (
+    <div
+      className={cn(
+        'rounded-xl bg-surface p-5 ring-1 ring-inset',
+        tone === 'accent' ? 'ring-accent-soft' : 'ring-line'
+      )}
+    >
+      <h4 className={cn('mb-3 text-sm font-semibold', tone === 'accent' ? 'text-accent-strong' : 'text-ink')}>{title}</h4>
+      <div className="space-y-3 text-sm">
+        {rows.map((row) =>
+          row.value ? (
+            <div key={row.label} className="border-b border-line pb-2 last:border-0 last:pb-0">
+              <p className="mb-0.5 text-[11px] uppercase tracking-wide text-ink-subtle">{row.label}</p>
+              <p className="break-words text-ink">{row.value}</p>
+            </div>
+          ) : null
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* Result summary tile */
+function SummaryTile({ value, label, tone }: { value: number; label: string; tone: 'success' | 'info' | 'warning' | 'danger' }) {
+  const toneCls = {
+    success: 'text-success',
+    info: 'text-info',
+    warning: 'text-warning',
+    danger: 'text-danger',
+  }[tone]
+  return (
+    <div className="rounded-xl bg-surface-2 p-4">
+      <div className={cn('font-mono text-2xl font-semibold tabular-nums', toneCls)}>{value}</div>
+      <div className="mt-0.5 text-xs text-ink-muted">{label}</div>
+    </div>
   )
 }
 

@@ -6,13 +6,17 @@ import ContactForm from '../components/ContactForm'
 import ContactDetail from '../components/ContactDetail'
 import ImportContactsModal from '../components/ImportContactsModal'
 import { ScheduleJobModal } from '@/features/scheduling'
-import { Button, Modal, Card } from '@/components/ui'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  Alert,
+  AppButton,
+  AppModal,
+  CheckIcon,
+  PlusIcon,
+  UploadIcon,
+} from '../components/crmUi'
 
 const CRMPage = () => {
   const navigate = useNavigate()
-  const { theme } = useTheme()
   const {
     selectedContact,
     createContact,
@@ -41,7 +45,7 @@ const CRMPage = () => {
         setNewContactName(`${newContact.firstName} ${newContact.lastName}`)
         setShowScheduleJob(true)
       } else {
-        setConfirmationMessage('Contact Created Successfully')
+        setConfirmationMessage('Contact created successfully')
         setShowConfirmation(true)
         setTimeout(() => setShowConfirmation(false), 3000)
       }
@@ -53,7 +57,7 @@ const CRMPage = () => {
   const handleImportComplete = async () => {
     setShowImportModal(false)
     await fetchContacts()
-    setConfirmationMessage('Contacts Imported Successfully')
+    setConfirmationMessage('Contacts imported successfully')
     setShowConfirmation(true)
     setTimeout(() => setShowConfirmation(false), 3000)
   }
@@ -74,76 +78,60 @@ const CRMPage = () => {
   }, [showCreateForm, selectedContact])
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-5xl space-y-7">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className={cn(
-            "text-2xl md:text-3xl font-bold tracking-tight",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
-            <span className="text-primary-gold">Contacts</span>
-          </h1>
-          <p className={cn(
-            "text-sm md:text-base",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink md:text-3xl">Contacts</h1>
+          <p className="mt-1 text-sm text-ink-muted">
             Manage your contacts, customers, and leads
           </p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button
+        <div className="flex w-full gap-2 sm:w-auto">
+          <AppButton
             onClick={() => setShowImportModal(true)}
-            variant="outline"
+            variant="subtle"
             className="flex-1 sm:flex-initial"
           >
+            <UploadIcon className="h-4 w-4" />
             Import CSV
-          </Button>
-          <Button
+          </AppButton>
+          <AppButton
             onClick={() => setShowCreateForm(true)}
             className="flex-1 sm:flex-initial"
             title="Keyboard shortcut: Ctrl+N or ⌘N"
           >
-            Add Contact
-          </Button>
+            <PlusIcon className="h-4 w-4" />
+            Add contact
+          </AppButton>
         </div>
       </div>
 
-      {/* Error Display - hidden while the create/edit modal is open (the form shows its own error) */}
+      {/* Error display - hidden while the create/edit modal is open (the form shows its own error) */}
       {error && !showCreateForm && !selectedContact && (
-        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-red-400">{error}</p>
-            <Button variant="ghost" size="sm" onClick={clearError}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <Alert tone="danger" onDismiss={clearError}>
+          {error}
+        </Alert>
       )}
 
-      {/* Confirmation Display */}
+      {/* Confirmation display */}
       {showConfirmation && (
-        <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-green-400">✓ {confirmationMessage}</p>
-            <Button variant="ghost" size="sm" onClick={() => setShowConfirmation(false)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <Alert tone="success" icon={<CheckIcon className="h-4 w-4" />} onDismiss={() => setShowConfirmation(false)}>
+          {confirmationMessage}
+        </Alert>
       )}
 
-      {/* Contact List */}
+      {/* Contact list */}
       <ContactList onCreateClick={() => setShowCreateForm(true)} />
 
-      {/* Create Contact Modal */}
-      <Modal
+      {/* Create contact modal */}
+      <AppModal
         isOpen={showCreateForm}
         onClose={() => {
           setShowCreateForm(false)
           clearError()
         }}
-        title="Add New Contact"
+        title="Add new contact"
         size="lg"
       >
         <ContactForm
@@ -155,9 +143,9 @@ const CRMPage = () => {
           isLoading={isLoading}
           error={error}
         />
-      </Modal>
+      </AppModal>
 
-      {/* Contact Detail Modal */}
+      {/* Contact detail modal */}
       {selectedContact && (
         <ContactDetail
           contact={selectedContact}
@@ -168,13 +156,13 @@ const CRMPage = () => {
             setShowConfirmation(true)
             setTimeout(() => setShowConfirmation(false), 3000)
           }}
-          onJobCreateFailed={error => {
+          onJobCreateFailed={() => {
             // Error is already displayed by the job store
           }}
         />
       )}
 
-      {/* Schedule Job Modal - for newly created contacts */}
+      {/* Schedule job modal - for newly created contacts */}
       <ScheduleJobModal
         isOpen={showScheduleJob}
         onClose={() => {
@@ -208,7 +196,7 @@ const CRMPage = () => {
         }}
       />
 
-      {/* Import Contacts Modal */}
+      {/* Import contacts modal */}
       <ImportContactsModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}

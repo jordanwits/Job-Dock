@@ -3,9 +3,16 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useRef, useState } from 'react'
 import { contactSchema, type ContactFormData } from '../schemas/contactSchemas'
 import { Contact } from '../types/contact'
-import { Input, Button, Select, PhoneInput } from '@/components/ui'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  Alert,
+  AppButton,
+  AlertIcon,
+  CheckboxField,
+  PhoneField,
+  SelectField,
+  TextAreaField,
+  TextField,
+} from './crmUi'
 
 interface ContactFormProps {
   contact?: Contact
@@ -16,7 +23,6 @@ interface ContactFormProps {
 }
 
 const ContactForm = ({ contact, onSubmit, onCancel, isLoading, error }: ContactFormProps) => {
-  const { theme } = useTheme()
   const [scheduleJobAfterCreate, setScheduleJobAfterCreate] = useState(false)
   const errorRef = useRef<HTMLDivElement>(null)
 
@@ -28,7 +34,7 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading, error }: ContactF
       return () => cancelAnimationFrame(id)
     }
   }, [error])
-  
+
   const {
     register,
     control,
@@ -56,9 +62,6 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading, error }: ContactF
       notificationPreference: contact?.notificationPreference || 'both',
     },
   })
-
-  const statusValue = watch('status')
-  const notificationPreferenceValue = watch('notificationPreference')
 
   useEffect(() => {
     if (contact) {
@@ -102,95 +105,49 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading, error }: ContactF
   }
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
       {error && (
-        <div className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-          <p className="text-sm text-red-400 font-medium">✗ {error}</p>
-        </div>
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+          {error}
+        </Alert>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="First Name *"
-          error={errors.firstName?.message}
-          {...register('firstName')}
-        />
-        <Input
-          label="Last Name *"
-          error={errors.lastName?.message}
-          {...register('lastName')}
-        />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TextField label="First name *" error={errors.firstName?.message} {...register('firstName')} />
+        <TextField label="Last name *" error={errors.lastName?.message} {...register('lastName')} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Email"
-          type="email"
-          error={errors.email?.message}
-          {...register('email')}
-        />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TextField label="Email" type="email" error={errors.email?.message} {...register('email')} />
         <Controller
           name="phone"
           control={control}
           render={({ field }) => (
-            <PhoneInput
-              label="Phone"
-              error={errors.phone?.message}
-              {...field}
-              value={field.value ?? ''}
-            />
+            <PhoneField label="Phone" error={errors.phone?.message} {...field} value={field.value ?? ''} />
           )}
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Company"
-          error={errors.company?.message}
-          {...register('company')}
-        />
-        <Input
-          label="Job Title"
-          error={errors.jobTitle?.message}
-          {...register('jobTitle')}
-        />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TextField label="Company" error={errors.company?.message} {...register('company')} />
+        <TextField label="Job title" error={errors.jobTitle?.message} {...register('jobTitle')} />
       </div>
 
-      <Input
-        label="Address"
-        error={errors.address?.message}
-        {...register('address')}
-      />
+      <TextField label="Address" error={errors.address?.message} {...register('address')} />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Input
-          label="City"
-          error={errors.city?.message}
-          {...register('city')}
-        />
-        <Input
-          label="State"
-          error={errors.state?.message}
-          {...register('state')}
-        />
-        <Input
-          label="Zip Code"
-          error={errors.zipCode?.message}
-          {...register('zipCode')}
-        />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <TextField label="City" error={errors.city?.message} {...register('city')} />
+        <TextField label="State" error={errors.state?.message} {...register('state')} />
+        <TextField label="Zip code" error={errors.zipCode?.message} {...register('zipCode')} />
       </div>
 
-      <Input
-        label="Country"
-        error={errors.country?.message}
-        {...register('country')}
-      />
+      <TextField label="Country" error={errors.country?.message} {...register('country')} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Select
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <SelectField
           label="Status"
-          {...register('status')}
-          value={statusValue}
           error={errors.status?.message}
+          value={watch('status')}
           options={[
             { value: 'lead', label: 'Lead' },
             { value: 'prospect', label: 'Prospect' },
@@ -198,97 +155,59 @@ const ContactForm = ({ contact, onSubmit, onCancel, isLoading, error }: ContactF
             { value: 'inactive', label: 'Inactive' },
             { value: 'contact', label: 'Contact' },
           ]}
+          {...register('status')}
         />
-        <Select
+        <SelectField
           label="Notifications"
-          {...register('notificationPreference')}
-          value={notificationPreferenceValue}
           error={errors.notificationPreference?.message}
+          value={watch('notificationPreference')}
           options={[
             { value: 'both', label: 'Email & Text' },
             { value: 'email', label: 'Email only' },
             { value: 'sms', label: 'Text only' },
           ]}
+          {...register('notificationPreference')}
         />
       </div>
 
-      <div>
-        <label className={cn(
-          "block text-sm font-medium mb-2",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
-          Notes
-        </label>
-        <textarea
-          className={cn(
-            "flex min-h-[100px] w-full rounded-lg border px-3 py-2 text-sm",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            theme === 'dark'
-              ? 'border-primary-blue bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-              : 'border-gray-200 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-          )}
-          placeholder="Add notes about this contact..."
-          {...register('notes')}
-        />
-        {errors.notes && (
-          <p className="mt-1 text-sm text-red-500">{errors.notes.message}</p>
-        )}
-      </div>
+      <TextAreaField
+        label="Notes"
+        placeholder="Add notes about this contact..."
+        error={errors.notes?.message}
+        {...register('notes')}
+      />
 
       {/* Schedule job option - only show when creating new contact */}
       {!contact && (
-        <div className={cn(
-          "border-t pt-4",
-          theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
-        )}>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={scheduleJobAfterCreate}
-              onChange={(e) => setScheduleJobAfterCreate(e.target.checked)}
-              className={cn(
-                "w-4 h-4 rounded text-primary-gold focus:ring-2 focus:ring-primary-gold focus:ring-offset-0",
-                theme === 'dark'
-                  ? 'border-primary-blue bg-primary-dark-secondary'
-                  : 'border-gray-200 bg-white'
-              )}
-            />
-            <div className="flex-1">
-              <span className={cn(
-                "text-sm font-medium",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                Schedule a job for this contact
-              </span>
-              <p className={cn(
-                "text-xs mt-0.5",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>
-                After creating this contact, open the job scheduling form
-              </p>
-            </div>
-          </label>
+        <div className="border-t border-line pt-4">
+          <CheckboxField
+            id="schedule-job-after-create"
+            checked={scheduleJobAfterCreate}
+            onChange={setScheduleJobAfterCreate}
+            label="Schedule a job for this contact"
+            description="After creating this contact, open the job scheduling form"
+          />
         </div>
       )}
 
       {error && (
-        <div ref={errorRef} className="p-4 rounded-lg border border-red-500 bg-red-500/10">
-          <p className="text-sm text-red-400 font-medium">✗ {error}</p>
+        <div ref={errorRef}>
+          <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+            {error}
+          </Alert>
         </div>
       )}
 
-      <div className="flex justify-end gap-3 pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
+      <div className="flex justify-end gap-3 pt-2">
+        <AppButton type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
           Cancel
-        </Button>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : contact ? 'Update Contact' : 'Create Contact'}
-        </Button>
+        </AppButton>
+        <AppButton type="submit" isLoading={isLoading} disabled={isLoading}>
+          {isLoading ? 'Saving...' : contact ? 'Update contact' : 'Create contact'}
+        </AppButton>
       </div>
     </form>
   )
 }
 
 export default ContactForm
-
