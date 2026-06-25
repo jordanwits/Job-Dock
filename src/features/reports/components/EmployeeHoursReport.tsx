@@ -1,14 +1,17 @@
-import { useMemo, useState } from 'react'
-import { Card, Button } from '@/components/ui'
-import { services } from '@/lib/api/services'
+import { useMemo } from 'react'
 import { useAuthStore } from '@/features/auth'
 import { downloadCsv } from '../utils/exportCsv'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { TimeEntry } from '@/features/jobLogs/types/jobLog'
 import type { JobLog } from '@/features/jobLogs/types/jobLog'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  ReportSection,
+  StatGrid,
+  StatTile,
+  Avatar,
+  UsersIcon,
+} from './reportsUi'
 
 interface EmployeeHoursReportProps {
   startDate: Date
@@ -44,9 +47,7 @@ export const EmployeeHoursReport = ({
   users,
   isTeamAccount,
 }: EmployeeHoursReportProps) => {
-  const { theme } = useTheme()
   const { user: currentUser } = useAuthStore()
-  const [isExpanded, setIsExpanded] = useState(true)
 
   // Create a map of jobId -> job for quick lookup
   const jobMap = useMemo(() => {
@@ -108,10 +109,6 @@ export const EmployeeHoursReport = ({
     }
 
     // Process each time entry
-    let processedCount = 0
-    let skippedNoUserId = 0
-    let skippedSingleTier = 0
-
     filteredEntries.forEach(entry => {
       let userId = entry.userId
 
@@ -135,18 +132,10 @@ export const EmployeeHoursReport = ({
       }
 
       // Skip entries without userId
-      if (!userId) {
-        skippedNoUserId++
-        return
-      }
+      if (!userId) return
 
       // For single tier, only process current user's entries
-      if (!isTeamAccount && userId !== currentUser?.id) {
-        skippedSingleTier++
-        return
-      }
-
-      processedCount++
+      if (!isTeamAccount && userId !== currentUser?.id) return
 
       // Get or create user data entry
       let userData = dataMap.get(userId)
@@ -303,195 +292,100 @@ export const EmployeeHoursReport = ({
   const totalHours = employeeData.reduce((sum, emp) => sum + emp.totalHours, 0)
   const totalPay = employeeData.reduce((sum, emp) => sum + emp.totalPay, 0)
 
-  return (
-    <Card className="p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div className="flex-1">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            <h3 className={cn(
-              "text-lg font-semibold",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>
-              {isTeamAccount ? 'Employee Hours & Pay' : 'Your Hours'}
-            </h3>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium self-start sm:self-center"
-              aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
-            >
-              <span>Details</span>
-              <svg
-                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-          <p className={cn(
-            "text-sm mt-1",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
-            {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
-          </p>
-        </div>
-        <Button variant="secondary" size="sm" onClick={handleExport} className="self-start sm:self-auto">
-          Export CSV
-        </Button>
-      </div>
+  const isEmpty = employeeData.length === 0
 
-      {employeeData.length === 0 ? (
-        <div className="text-center py-8">
-          <p className={cn(
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
-            {isTeamAccount ? 'No team members found' : 'No time entries found for this period'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Summary */}
-          <div className={cn(
-            "grid grid-cols-2 gap-4 p-4 rounded-lg",
-            theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-          )}>
-            <div className="min-w-0">
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Total Hours</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
-                {totalHours.toLocaleString('en-US', {
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: 1,
-                })}
-                h
-              </p>
-            </div>
-            <div className="min-w-0">
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Total Pay</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
-                ${formatCurrency(totalPay)}
-              </p>
-            </div>
-          </div>
-
-          {/* Employee breakdown - Collapsible */}
-          {isExpanded && (
-            <div className="space-y-4">
-              {employeeData.map(emp => {
-            const hours = Math.floor(emp.totalHours)
-            const minutes = Math.round((emp.totalHours - hours) * 60)
-            const hasNoEntries = emp.entryCount === 0
-            return (
-              <div
-                key={emp.userId}
-                className={cn(
-                  "border rounded-lg p-4 min-w-0",
-                  theme === 'dark' ? 'border-white/5' : 'border-gray-200',
-                  hasNoEntries ? 'opacity-60' : ''
-                )}
-              >
-                <div className="flex items-center justify-between gap-2 min-w-0">
-                  <div className="min-w-0 flex-1">
-                    <p className={cn(
-                      "font-medium break-words",
-                      theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                    )}>{emp.userName}</p>
-                    {emp.userEmail && (
-                      <p className={cn(
-                        "text-xs md:text-sm break-words",
-                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                      )}>
-                        {emp.userEmail}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right min-w-0 flex-shrink-0">
-                    {hasNoEntries ? (
-                      <p className={cn(
-                        "text-xs md:text-sm",
-                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                      )}>No entries</p>
-                    ) : (
-                      <>
-                        <p className="text-base md:text-lg font-semibold text-primary-gold break-words">
-                          {hours}h {minutes}m
-                        </p>
-                        {emp.totalPay > 0 && (
-                          <p className={cn(
-                            "text-xs md:text-sm break-words",
-                            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                          )}>
-                            ${formatCurrency(emp.totalPay)}
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </div>
+  const details = (
+    <div className="divide-y divide-line">
+      {employeeData.map(emp => {
+        const hours = Math.floor(emp.totalHours)
+        const minutes = Math.round((emp.totalHours - hours) * 60)
+        const hasNoEntries = emp.entryCount === 0
+        return (
+          <div key={emp.userId} className={hasNoEntries ? 'py-4 opacity-60' : 'py-4'}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar name={emp.userName} size="sm" />
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-ink">{emp.userName}</p>
+                  {emp.userEmail && (
+                    <p className="truncate text-[13px] text-ink-subtle">{emp.userEmail}</p>
+                  )}
                 </div>
-                {!hasNoEntries && (
-                  <div className={cn(
-                    "mt-3 pt-3 border-t",
-                    theme === 'dark' ? 'border-white/5' : 'border-gray-200'
-                  )}>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className={cn(
-                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                      )}>Entries</span>
-                      <span className={cn(
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>{formatNumber(emp.entryCount)}</span>
-                    </div>
-                    {emp.jobs.length > 0 && (
-                      <div className="mt-2 space-y-2">
-                        <p className={cn(
-                          "text-xs font-medium uppercase tracking-wide",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>Job-by-job breakdown</p>
-                        {emp.jobs.map(job => (
-                          <div
-                            key={job.jobId}
-                            className={cn(
-                              "p-2 rounded text-sm",
-                              theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
-                            )}
-                          >
-                            <p className={cn(
-                              "font-medium",
-                              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                            )}>{job.jobTitle}</p>
-                            <div className={cn(
-                              "flex justify-between mt-1 gap-2 min-w-0",
-                              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                            )}>
-                              <span className="break-words">{job.hours.toFixed(2)}h</span>
-                              <span className="break-words text-right">
-                                {job.pay > 0
-                                  ? `$${formatCurrency(job.pay)} (${job.payType})`
-                                  : job.payType === 'Job-based'
-                                    ? '—'
-                                    : `— (${job.payType})`}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+              </div>
+              <div className="shrink-0 text-right">
+                {hasNoEntries ? (
+                  <p className="text-[13px] text-ink-subtle">No entries</p>
+                ) : (
+                  <>
+                    <p className="font-mono text-base font-semibold tabular-nums text-accent-strong">
+                      {hours}h {minutes}m
+                    </p>
+                    {emp.totalPay > 0 && (
+                      <p className="text-[13px] text-ink-muted">${formatCurrency(emp.totalPay)}</p>
                     )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {!hasNoEntries && (
+              <div className="mt-3 border-t border-line pt-3">
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-ink-muted">Entries</span>
+                  <span className="font-mono tabular-nums text-ink">{formatNumber(emp.entryCount)}</span>
+                </div>
+                {emp.jobs.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {emp.jobs.map(job => (
+                      <div
+                        key={job.jobId}
+                        className="flex items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-2"
+                      >
+                        <span className="min-w-0 truncate text-[13px] font-medium text-ink">
+                          {job.jobTitle}
+                        </span>
+                        <span className="shrink-0 font-mono text-[13px] tabular-nums text-ink-muted">
+                          {job.hours.toFixed(2)}h ·{' '}
+                          {job.pay > 0
+                            ? `$${formatCurrency(job.pay)}`
+                            : job.payType === 'Job-based'
+                              ? '—'
+                              : '—'}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            )
-          })}
-            </div>
-          )}
-        </div>
-      )}
-    </Card>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  return (
+    <ReportSection
+      title={isTeamAccount ? 'Employee Hours & Pay' : 'Your Hours'}
+      onExport={handleExport}
+      exportDisabled={isEmpty}
+      empty={isEmpty}
+      emptyIcon={<UsersIcon className="h-6 w-6" />}
+      emptyText={isTeamAccount ? 'No team members found' : 'No time entries found for this period'}
+      defaultOpen
+      details={details}
+    >
+      <StatGrid className="sm:max-w-md sm:grid-cols-2">
+        <StatTile
+          label="Total Hours"
+          value={`${totalHours.toLocaleString('en-US', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}h`}
+          tone="accent"
+        />
+        <StatTile label="Total Pay" value={`$${formatCurrency(totalPay)}`} tone="success" />
+      </StatGrid>
+    </ReportSection>
   )
 }

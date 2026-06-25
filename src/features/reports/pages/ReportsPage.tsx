@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Card, Button, Select, DatePicker } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
@@ -9,22 +8,19 @@ import { EmployeeHoursReport } from '../components/EmployeeHoursReport'
 import { QuotesReport } from '../components/QuotesReport'
 import { InvoicesReport } from '../components/InvoicesReport'
 import { JobsReport } from '../components/JobsReport'
+import { Panel, SelectField, DateField } from '../components/reportsUi'
 import {
   startOfMonth,
   endOfMonth,
   startOfYear,
   endOfYear,
   subMonths,
-  subDays,
   format,
 } from 'date-fns'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
 
 type DateRangePreset = 'this-month' | 'last-month' | 'last-3-months' | 'this-year' | 'custom'
 
 export const ReportsPage = () => {
-  const { theme } = useTheme()
   const { user } = useAuthStore()
   const { jobLogs, fetchJobLogs, isLoading: jobLogsLoading } = useJobLogStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
@@ -83,46 +79,27 @@ export const ReportsPage = () => {
       try {
         setLoading(true)
 
-        // Always fetch all users first - for team accounts show all, for single accounts we'll filter in the component
-        // This ensures we have complete user data for any time entries
+        // Always fetch all users first - for team accounts show all, for single
+        // accounts we'll filter in the component. Ensures complete user data for
+        // any time entries.
         const usersData = await services.users.getAll()
-        console.log('Fetched users:', usersData.length, usersData)
         setUsers(usersData)
 
         // Fetch billing status to check if team account
         const billingStatus = await services.billing.getStatus()
-        // Check subscriptionTier and canInviteTeamMembers for team accounts only
         const isTeam =
-          (billingStatus.subscriptionTier === 'team' || billingStatus.subscriptionTier === 'team-plus') ||
+          billingStatus.subscriptionTier === 'team' ||
+          billingStatus.subscriptionTier === 'team-plus' ||
           billingStatus.canInviteTeamMembers === true
         setIsTeamAccount(isTeam)
-        console.log('Billing status:', billingStatus)
-        console.log(
-          'Is team account:',
-          isTeam,
-          'subscriptionTier:',
-          billingStatus.subscriptionTier,
-          'canInviteTeamMembers:',
-          billingStatus.canInviteTeamMembers,
-          'userCount:',
-          usersData.length
-        )
 
-        // Fetch job logs (includes time entries)
+        // Fetch job logs (includes time entries), quotes and invoices
         await fetchJobLogs()
-
-        // Fetch quotes and invoices
         await fetchQuotes()
         await fetchInvoices()
 
         // Fetch all time entries (no jobLogId filter to get all entries)
         const entries = await services.timeEntries.getAll()
-        console.log('Fetched time entries:', entries.length)
-        console.log('Time entries sample:', entries.slice(0, 3))
-        console.log('Time entries with userId:', entries.filter(e => e.userId).length)
-        console.log('Time entries userIds:', [
-          ...new Set(entries.filter(e => e.userId).map(e => e.userId)),
-        ])
         setTimeEntries(entries)
       } catch (error) {
         console.error('Failed to load reports data:', error)
@@ -137,34 +114,23 @@ export const ReportsPage = () => {
   const isLoading = jobLogsLoading || quotesLoading || invoicesLoading || loading
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-5xl space-y-10">
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className={cn(
-          "text-2xl md:text-3xl font-bold tracking-tight",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
-          <span className="text-primary-gold">Reports</span>
-        </h1>
-        <p className={cn(
-          "text-sm md:text-base",
-          theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-        )}>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Reports</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           View and export business reports for hours, quotes, invoices, and more
         </p>
       </div>
 
-      {/* Date Range Selector */}
-      <Card className="p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex-1">
-            <label className={cn(
-              "block text-sm font-medium mb-2",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>Date Range</label>
-            <Select
+      {/* Date range selector */}
+      <Panel className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <div className="sm:max-w-xs sm:flex-1">
+            <SelectField
+              label="Date range"
               value={dateRangePreset}
-              onChange={e => setDateRangePreset(e.target.value as DateRangePreset)}
+              onChange={value => setDateRangePreset(value as DateRangePreset)}
               options={[
                 { value: 'this-month', label: 'This Month' },
                 { value: 'last-month', label: 'Last Month' },
@@ -176,17 +142,17 @@ export const ReportsPage = () => {
           </div>
           {dateRangePreset === 'custom' && (
             <>
-              <div className="flex-1">
-                <DatePicker
-                  label="Start Date"
+              <div className="sm:flex-1">
+                <DateField
+                  label="Start date"
                   value={customStartDate}
                   onChange={setCustomStartDate}
                   maxDate={customEndDate}
                 />
               </div>
-              <div className="flex-1">
-                <DatePicker
-                  label="End Date"
+              <div className="sm:flex-1">
+                <DateField
+                  label="End date"
                   value={customEndDate}
                   onChange={setCustomEndDate}
                   minDate={customStartDate}
@@ -195,34 +161,23 @@ export const ReportsPage = () => {
             </>
           )}
         </div>
-        {dateRangePreset !== 'custom' && (
-          <p className={cn(
-            "text-sm mt-3",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
-            {format(dateRange.start, 'MMM d, yyyy')} - {format(dateRange.end, 'MMM d, yyyy')}
-          </p>
-        )}
-      </Card>
+        <p className="mt-3 font-mono text-[13px] tabular-nums text-ink-subtle">
+          {format(dateRange.start, 'MMM d, yyyy')} – {format(dateRange.end, 'MMM d, yyyy')}
+        </p>
+      </Panel>
 
-      {/* Loading State */}
+      {/* Reports */}
       {isLoading ? (
-        <div className="space-y-4">
+        <div className="space-y-10">
           {[1, 2, 3].map(i => (
-            <Card key={i} className="p-6">
-              <div className={cn(
-                "h-6 w-48 rounded animate-pulse mb-4",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
-              <div className={cn(
-                "h-32 rounded animate-pulse",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
-            </Card>
+            <div key={i}>
+              <div className="mb-3.5 h-4 w-40 animate-pulse rounded bg-surface-2" />
+              <div className="h-40 animate-pulse rounded-xl bg-surface shadow-card" />
+            </div>
           ))}
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-10">
           {/* Employee Hours Report - only for team accounts */}
           {isTeamAccount && (
             <EmployeeHoursReport

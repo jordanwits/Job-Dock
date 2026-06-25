@@ -1,11 +1,17 @@
-import { useMemo, useState } from 'react'
-import { Card, Button } from '@/components/ui'
+import { useMemo } from 'react'
 import { downloadCsv } from '../utils/exportCsv'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { Invoice } from '@/features/invoices/types/invoice'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  ReportSection,
+  StatGrid,
+  StatTile,
+  BreakdownRow,
+  DetailLabel,
+  ReceiptIcon,
+  type Tone,
+} from './reportsUi'
 
 interface InvoicesReportProps {
   startDate: Date
@@ -13,9 +19,13 @@ interface InvoicesReportProps {
   invoices: Invoice[]
 }
 
+const PAYMENT_META: Record<string, { label: string; tone: Tone }> = {
+  pending: { label: 'Unpaid', tone: 'warning' },
+  partial: { label: 'Partially Paid', tone: 'info' },
+  paid: { label: 'Paid', tone: 'success' },
+}
+
 export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportProps) => {
-  const { theme } = useTheme()
-  const [isExpanded, setIsExpanded] = useState(false)
   // Filter invoices by date range (createdAt)
   const filteredInvoices = useMemo(() => {
     return invoices.filter(invoice => {
@@ -117,209 +127,71 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
     downloadCsv(exportData, `invoices-${dateRange}`)
   }
 
-  return (
-    <Card className="p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div className="flex-1">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            <h3 className={cn(
-              "text-lg font-semibold",
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}>Invoices Summary</h3>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1.5 text-primary-gold hover:text-primary-gold/80 transition-colors text-sm font-medium self-start sm:self-center"
-              aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
-            >
-              <span>Details</span>
-              <svg
-                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-          <p className={cn(
-            "text-sm mt-1",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
-            {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
-          </p>
-        </div>
-        <Button variant="secondary" size="sm" onClick={handleExport} className="self-start sm:self-auto">
-          Export CSV
-        </Button>
+  const isEmpty = filteredInvoices.length === 0
+
+  const details = (
+    <div className="space-y-3">
+      <DetailLabel>By payment status</DetailLabel>
+      <div className="divide-y divide-line">
+        {(['pending', 'partial', 'paid'] as const).map(paymentStatus => {
+          const group = paymentGroups[paymentStatus]
+          if (!group || group.length === 0) return null
+          const meta = PAYMENT_META[paymentStatus]
+          const total = group.reduce((sum, i) => sum + i.total, 0)
+          const paidAmount = group.reduce((sum, i) => sum + i.paidAmount, 0)
+          return (
+            <BreakdownRow
+              key={paymentStatus}
+              tone={meta.tone}
+              label={meta.label}
+              count={`${formatNumber(group.length)} ${group.length === 1 ? 'invoice' : 'invoices'}`}
+              amount={`$${formatCurrency(total)}`}
+              sub={paymentStatus !== 'pending' ? `$${formatCurrency(paidAmount)} paid` : undefined}
+            />
+          )
+        })}
       </div>
+    </div>
+  )
 
-      {filteredInvoices.length === 0 ? (
-        <div className="text-center py-8">
-          <p className={cn(
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>No invoices found for this period</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Summary Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className={cn(
-              "p-4 rounded-lg min-w-0",
-              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>
-                Total Invoices
-              </p>
-              <p className="text-xl md:text-2xl font-bold text-primary-gold mt-1 break-words">
-                {formatNumber(totals.count)}
-              </p>
-              <p className={cn(
-                "text-xs md:text-sm mt-1 break-words",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                ${formatCurrency(totals.total)}
-              </p>
-            </div>
-            <div className={cn(
-              "p-4 rounded-lg min-w-0",
-              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Paid</p>
-              <p className="text-xl md:text-2xl font-bold text-green-400 mt-1 break-words">
-                {formatNumber(totals.paidCount)}
-              </p>
-              <p className={cn(
-                "text-xs md:text-sm mt-1 break-words",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                ${formatCurrency(totals.paid)}
-              </p>
-            </div>
-            <div className={cn(
-              "p-4 rounded-lg min-w-0",
-              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Outstanding</p>
-              <p className="text-xl md:text-2xl font-bold text-primary-blue mt-1 break-words">
-                ${formatCurrency(totals.outstanding)}
-              </p>
-              <p className={cn(
-                "text-xs md:text-sm mt-1 break-words",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                {formatNumber(totals.pendingCount + totals.partialCount)} invoices
-              </p>
-            </div>
-            <div className={cn(
-              "p-4 rounded-lg min-w-0",
-              theme === 'dark' ? 'bg-primary-dark/50' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-xs uppercase tracking-wide",
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}>Overdue</p>
-              <p className="text-xl md:text-2xl font-bold text-red-400 mt-1 break-words">
-                {formatNumber(totals.overdueCount)}
-              </p>
-              <p className={cn(
-                "text-xs md:text-sm mt-1 break-words",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                ${formatCurrency(totals.overdue)}
-              </p>
-            </div>
-          </div>
-
-          {/* Status Breakdown - Collapsible */}
-          {isExpanded && (
-            <div className="space-y-6">
-              {/* By Payment Status */}
-              <div className="space-y-3">
-                <h4 className={cn(
-                  "text-sm font-semibold uppercase tracking-wide",
-                  theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                )}>
-                  By Payment Status
-                </h4>
-                <div className="space-y-2">
-                  {(['pending', 'partial', 'paid'] as const).map(paymentStatus => {
-                    const group = paymentGroups[paymentStatus]
-                    if (!group || group.length === 0) return null
-
-                    const paymentLabels: Record<string, string> = {
-                      pending: 'Unpaid',
-                      partial: 'Partially Paid',
-                      paid: 'Paid',
-                    }
-
-                    const paymentColors: Record<string, string> = {
-                      pending: theme === 'dark'
-                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                        : 'bg-amber-100 text-amber-700 border-amber-300',
-                      partial: theme === 'dark'
-                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                        : 'bg-blue-100 text-blue-700 border-blue-300',
-                      paid: theme === 'dark'
-                        ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                        : 'bg-green-100 text-green-700 border-green-300',
-                    }
-
-                    const total = group.reduce((sum, i) => sum + i.total, 0)
-                    const paidAmount = group.reduce((sum, i) => sum + i.paidAmount, 0)
-
-                    return (
-                      <div
-                        key={paymentStatus}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg gap-2 min-w-0",
-                          theme === 'dark' ? 'bg-primary-dark/30' : 'bg-gray-100'
-                        )}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${paymentColors[paymentStatus]}`}
-                          >
-                            {paymentLabels[paymentStatus]}
-                          </span>
-                          <span className={cn(
-                            "text-xs md:text-sm truncate",
-                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                          )}>
-                            {formatNumber(group.length)} invoices
-                          </span>
-                        </div>
-                        <div className="text-right shrink-0 min-w-0">
-                          <span className="text-xs md:text-sm font-semibold text-primary-gold break-words block">
-                            ${formatCurrency(total)} total
-                          </span>
-                          {paymentStatus !== 'pending' && (
-                            <span className={cn(
-                              "text-xs break-words block",
-                              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                            )}>
-                              ${formatCurrency(paidAmount)} paid
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </Card>
+  return (
+    <ReportSection
+      title="Invoices"
+      onExport={handleExport}
+      exportDisabled={isEmpty}
+      empty={isEmpty}
+      emptyIcon={<ReceiptIcon className="h-6 w-6" />}
+      emptyText="No invoices found for this period"
+      details={details}
+    >
+      <StatGrid>
+        <StatTile
+          label="Total Invoices"
+          value={formatNumber(totals.count)}
+          sub={`$${formatCurrency(totals.total)}`}
+          tone="accent"
+        />
+        <StatTile
+          label="Paid"
+          value={formatNumber(totals.paidCount)}
+          sub={`$${formatCurrency(totals.paid)}`}
+          tone="success"
+        />
+        <StatTile
+          label="Outstanding"
+          value={`$${formatCurrency(totals.outstanding)}`}
+          sub={`${formatNumber(totals.pendingCount + totals.partialCount)} ${
+            totals.pendingCount + totals.partialCount === 1 ? 'invoice' : 'invoices'
+          }`}
+          tone="info"
+        />
+        <StatTile
+          label="Overdue"
+          value={formatNumber(totals.overdueCount)}
+          sub={`$${formatCurrency(totals.overdue)}`}
+          tone={totals.overdueCount > 0 ? 'danger' : 'ink'}
+        />
+      </StatGrid>
+    </ReportSection>
   )
 }
