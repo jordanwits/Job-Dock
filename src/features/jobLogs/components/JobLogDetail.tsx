@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { Card, Button, StatusBadgeSelect, Modal, Select, ConfirmationDialog } from '@/components/ui'
 import { cn, getMapsHref } from '@/lib/utils'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
@@ -17,7 +16,22 @@ import InvoiceDetail from '@/features/invoices/components/InvoiceDetail'
 import { useJobLogStore } from '../store/jobLogStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
-import { useTheme } from '@/contexts/ThemeContext'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  AppModal,
+  ChevronLeftIcon,
+  CheckIcon,
+  PlayIcon,
+  StopIcon,
+  SelectField,
+  StatusBadge,
+  StatusSelect,
+  TagChip,
+  linkCls,
+} from './jobLogsUi'
+import { JOB_STATUS, JOB_STATUS_OPTIONS, type JobLogStatus } from './jobLogStatus'
 
 const TIMER_STORAGE_PREFIX = 'joblog-active-timer'
 const getTimerStorageKey = (userId: string | undefined): string | null =>
@@ -53,26 +67,11 @@ interface JobLogDetailProps {
 
 type Tab = 'clock' | 'photos' | 'notes'
 
-const statusOptions = [
-  { value: 'active', label: 'Active' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'inactive', label: 'Inactive' },
-] as const
-
-const getStatusColors = (theme: 'dark' | 'light'): Record<string, string> => ({
-  active:
-    theme === 'dark'
-      ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
-      : 'bg-green-100 text-green-700 ring-1 ring-green-300',
-  completed:
-    theme === 'dark'
-      ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-      : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
-  inactive:
-    theme === 'dark'
-      ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-      : 'bg-gray-200 text-gray-600 ring-1 ring-gray-300',
-})
+const resolveStatus = (status?: string): JobLogStatus => {
+  if (status === 'archived') return 'inactive'
+  if (status === 'completed' || status === 'inactive') return status
+  return 'active'
+}
 
 const JobLogDetail = ({
   jobLog,
@@ -90,8 +89,6 @@ const JobLogDetail = ({
   onQuoteSent,
   onInvoiceSent,
 }: JobLogDetailProps) => {
-  const { theme } = useTheme()
-  const statusColors = getStatusColors(theme)
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { createTimeEntry, getJobLogById } = useJobLogStore()
@@ -771,23 +768,16 @@ const JobLogDetail = ({
 
   if (isEditing) {
     return (
-      <div className="max-w-[95vw] sm:max-w-[90vw] md:max-w-6xl lg:max-w-7xl mx-auto">
-        <Card>
-          <h3
-            className={cn(
-              'text-lg font-semibold mb-4',
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}
-          >
-            Edit Job
-          </h3>
+      <div className="mx-auto max-w-[95vw] sm:max-w-[90vw] md:max-w-6xl lg:max-w-7xl">
+        <div className="rounded-xl bg-surface p-6 shadow-card">
+          <h3 className="mb-4 text-lg font-semibold tracking-tight text-ink">Edit job</h3>
           <JobLogForm
             jobLog={jobLog}
             onSubmit={onSaveEdit}
             onCancel={onCancelEdit}
             isLoading={isLoading}
           />
-        </Card>
+        </div>
       </div>
     )
   }
@@ -814,84 +804,47 @@ const JobLogDetail = ({
       <div className="flex items-center justify-between gap-2 sm:justify-start">
         <button
           onClick={onBack}
-          className={cn(
-            'flex items-center gap-1 text-sm hover:text-primary-gold transition-colors',
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}
+          className="flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink"
         >
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
+          <ChevronLeftIcon className="h-4 w-4 shrink-0" />
           Jobs
         </button>
         {/* Mobile: three-dot menu in top right */}
-        <div className="relative sm:hidden ml-auto">
+        <div className="relative ml-auto sm:hidden">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className={cn(
-              'p-2 rounded-lg transition-colors',
-              theme === 'dark'
-                ? 'hover:bg-primary-blue/20 text-primary-light'
-                : 'hover:bg-gray-100 text-primary-lightText'
-            )}
+            className="rounded-lg p-2 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
             aria-label="Actions"
           >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 12m-2 0a2 2 0 1 1 4 0a2 2 0 1 1-4 0M12 12m-2 0a2 2 0 1 1 4 0a2 2 0 1 1-4 0M18 12m-2 0a2 2 0 1 1 4 0a2 2 0 1 1-4 0" />
             </svg>
           </button>
           {showMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-              <div
-                className={cn(
-                  'absolute right-0 top-full mt-1 py-1 w-56 rounded-lg shadow-xl z-50',
-                  theme === 'dark'
-                    ? 'bg-primary-dark-secondary border border-primary-blue'
-                    : 'bg-white border border-gray-200'
-                )}
-              >
+              <div className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line">
                 {canAccessQuotes && (
                   <>
                     <button
                       onClick={linkedQuoteId ? handleViewQuote : handleCreateQuote}
-                      className={cn(
-                        'w-full text-left px-4 py-2.5 text-sm transition-colors',
-                        theme === 'dark'
-                          ? 'text-primary-light hover:bg-primary-blue/20'
-                          : 'text-primary-lightText hover:bg-gray-100'
-                      )}
+                      className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-2"
                     >
-                      {linkedQuoteId ? 'View Quote' : 'Create Quote'}
+                      {linkedQuoteId ? 'View quote' : 'Create quote'}
                     </button>
                     <button
                       onClick={linkedInvoiceId ? handleViewInvoice : handleConvertToInvoice}
-                      className={cn(
-                        'w-full text-left px-4 py-2.5 text-sm transition-colors',
-                        theme === 'dark'
-                          ? 'text-primary-light hover:bg-primary-blue/20'
-                          : 'text-primary-lightText hover:bg-gray-100'
-                      )}
+                      className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-2"
                     >
-                      {linkedInvoiceId ? 'View Invoice' : 'Convert to Invoice'}
+                      {linkedInvoiceId ? 'View invoice' : 'Convert to invoice'}
                     </button>
                   </>
                 )}
                 <button
                   onClick={handleScheduleAppointment}
-                  className={cn(
-                    'w-full text-left px-4 py-2.5 text-sm transition-colors',
-                    theme === 'dark'
-                      ? 'text-primary-light hover:bg-primary-blue/20'
-                      : 'text-primary-lightText hover:bg-gray-100'
-                  )}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-2"
                 >
-                  Schedule Job
+                  Schedule job
                 </button>
                 {canEditJobs && (
                   <button
@@ -899,12 +852,7 @@ const JobLogDetail = ({
                       setShowMenu(false)
                       onEdit()
                     }}
-                    className={cn(
-                      'w-full text-left px-4 py-2.5 text-sm transition-colors',
-                      theme === 'dark'
-                        ? 'text-primary-light hover:bg-primary-blue/20'
-                        : 'text-primary-lightText hover:bg-gray-100'
-                    )}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-2"
                   >
                     Edit
                   </button>
@@ -914,12 +862,7 @@ const JobLogDetail = ({
                     setShowMenu(false)
                     onArchiveRequest()
                   }}
-                  className={cn(
-                    'w-full text-left px-4 py-2.5 text-sm transition-colors',
-                    theme === 'dark'
-                      ? 'text-primary-light hover:bg-primary-blue/20'
-                      : 'text-primary-lightText hover:bg-gray-100'
-                  )}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-2"
                 >
                   Archive
                 </button>
@@ -928,7 +871,7 @@ const JobLogDetail = ({
                     setShowMenu(false)
                     onPermanentDeleteRequest()
                   }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/20"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-danger transition-colors hover:bg-danger-soft"
                 >
                   Delete permanently
                 </button>
@@ -941,13 +884,8 @@ const JobLogDetail = ({
       {/* Header content - title, status, assigned to, and desktop buttons */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start gap-x-3 gap-y-0 min-w-0">
-            <h1
-              className={cn(
-                'text-2xl font-bold break-words min-w-0 leading-tight',
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}
-            >
+          <div className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-0">
+            <h1 className="min-w-0 break-words text-2xl font-bold leading-tight tracking-tight text-ink">
               {jobLog.title}
             </h1>
             {onTogglePin ? (
@@ -958,8 +896,7 @@ const JobLogDetail = ({
                 title={jobLog.pinnedAt ? 'Unpin from dashboard' : 'Pin to dashboard'}
                 aria-label={jobLog.pinnedAt ? 'Unpin from dashboard' : 'Pin to dashboard'}
                 className={cn(
-                  'shrink-0 inline-flex rounded-md p-0.5 mt-0 sm:mt-0.5 transition-opacity disabled:opacity-50',
-                  'hover:opacity-90',
+                  'mt-0 inline-flex shrink-0 rounded-md p-0.5 transition-opacity hover:opacity-90 disabled:opacity-50 sm:mt-0.5',
                   !jobLog.pinnedAt && 'opacity-85'
                 )}
               >
@@ -968,44 +905,29 @@ const JobLogDetail = ({
                   alt=""
                   width={24}
                   height={24}
-                  className="w-6 h-6 object-contain pointer-events-none rotate-45"
+                  className="pointer-events-none h-6 w-6 rotate-45 object-contain"
                   draggable={false}
                 />
               </button>
             ) : null}
           </div>
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+          <div className="mt-1.5 flex flex-wrap items-center gap-3">
             {onStatusChange ? (
-              <StatusBadgeSelect
-                value={
-                  String(jobLog.status) === 'archived' ? 'inactive' : jobLog.status || 'active'
-                }
-                options={statusOptions.map(o => ({ value: o.value, label: o.label }))}
-                colorClassesByValue={statusColors}
+              <StatusSelect
+                value={resolveStatus(jobLog.status)}
+                options={JOB_STATUS_OPTIONS}
                 onChange={async v => {
                   await onStatusChange(v as 'active' | 'completed' | 'inactive')
                 }}
                 isLoading={isLoading}
-                size="md"
               />
             ) : (
-              <span
-                className={cn(
-                  'px-2.5 py-1 text-xs font-medium capitalize shrink-0',
-                  statusColors[
-                    (String(jobLog.status) === 'archived' ? 'inactive' : jobLog.status) || 'active'
-                  ]
-                )}
-              >
-                {String(jobLog.status) === 'archived' ? 'Inactive' : jobLog.status || 'Active'}
-              </span>
+              (() => {
+                const s = JOB_STATUS[resolveStatus(jobLog.status)]
+                return <StatusBadge tone={s.tone}>{s.label}</StatusBadge>
+              })()
             )}
-            <span
-              className={cn(
-                'text-sm shrink-0',
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}
-            >
+            <span className="shrink-0 font-mono text-sm tabular-nums text-ink-subtle">
               {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
             </span>
           </div>
@@ -1040,17 +962,10 @@ const JobLogDetail = ({
                   if (assignments.length > 0 && assignments[0].role) {
                     return (
                       <div>
-                        <span
-                          className={cn(
-                            'text-xs font-medium mb-1.5 block',
-                            theme === 'dark'
-                              ? 'text-primary-light/70'
-                              : 'text-primary-lightTextSecondary'
-                          )}
-                        >
+                        <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                           Assigned to
                         </span>
-                        <div className="grid grid-cols-1 gap-2 w-max max-w-md">
+                        <div className="grid w-max max-w-md grid-cols-1 gap-2">
                           {assignments.map((assignment, index) => {
                             // Find name by matching userId (more reliable than index-based matching)
                             const assignedUser = jobLog.assignedToUsers?.find(
@@ -1086,41 +1001,20 @@ const JobLogDetail = ({
                               <div
                                 key={assignment.userId || index}
                                 className={cn(
-                                  'flex items-center rounded-md w-full',
-                                  hasPayInfo ? 'flex-row gap-3 px-2 py-1.5' : 'px-2 py-1',
-                                  theme === 'dark'
-                                    ? 'bg-primary-dark-secondary/50 border border-primary-blue/30'
-                                    : 'bg-gray-50 border border-gray-200/20'
+                                  'flex w-full items-center rounded-xl border border-line bg-surface-2',
+                                  hasPayInfo ? 'flex-row gap-3 px-3 py-2' : 'px-3 py-1.5'
                                 )}
                               >
                                 <div className="min-w-0 flex-shrink">
-                                  <span
-                                    className={cn(
-                                      'font-medium',
-                                      theme === 'dark'
-                                        ? 'text-primary-light'
-                                        : 'text-primary-lightText'
-                                    )}
-                                  >
-                                    {displayName}
-                                  </span>
+                                  <span className="font-medium text-ink">{displayName}</span>
                                   {assignment.role && assignment.role !== 'Team Member' && (
-                                    <span
-                                      className={cn(
-                                        'ml-2',
-                                        theme === 'dark'
-                                          ? 'text-primary-light/60'
-                                          : 'text-primary-lightTextSecondary'
-                                      )}
-                                    >
-                                      ({assignment.role})
-                                    </span>
+                                    <span className="ml-2 text-ink-muted">({assignment.role})</span>
                                   )}
                                 </div>
                                 {hasPayInfo && (
-                                  <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                                  <div className="flex flex-shrink-0 flex-col items-end gap-0.5">
                                     {hasJobPrice && (
-                                      <span className="text-primary-gold font-semibold">
+                                      <span className="font-mono font-semibold tabular-nums text-accent-strong">
                                         $
                                         {price!.toLocaleString('en-US', {
                                           minimumFractionDigits: 2,
@@ -1131,7 +1025,7 @@ const JobLogDetail = ({
                                     )}
                                     {hasHourlyRate && (
                                       <>
-                                        <span className="text-primary-gold font-semibold">
+                                        <span className="font-mono font-semibold tabular-nums text-accent-strong">
                                           $
                                           {hourlyRate!.toLocaleString('en-US', {
                                             minimumFractionDigits: 2,
@@ -1140,14 +1034,7 @@ const JobLogDetail = ({
                                           /hr
                                         </span>
                                         {totalEarned != null && (
-                                          <span
-                                            className={cn(
-                                              'text-xs',
-                                              theme === 'dark'
-                                                ? 'text-primary-light/70'
-                                                : 'text-primary-lightTextSecondary'
-                                            )}
-                                          >
+                                          <span className="font-mono text-xs tabular-nums text-ink-subtle">
                                             Earned: $
                                             {totalEarned.toLocaleString('en-US', {
                                               minimumFractionDigits: 2,
@@ -1170,29 +1057,12 @@ const JobLogDetail = ({
                   // Fallback to simple name display for old format
                   return (
                     <div>
-                      <span
-                        className={cn(
-                          'text-xs font-medium mb-1.5 block',
-                          theme === 'dark'
-                            ? 'text-primary-light/70'
-                            : 'text-primary-lightTextSecondary'
-                        )}
-                      >
+                      <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                         Assigned to
                       </span>
                       <div className="flex flex-wrap gap-2">
                         {jobLog.assignedToName.split(',').map((name, index) => (
-                          <span
-                            key={index}
-                            className={cn(
-                              'inline-block px-2 py-1 rounded text-xs font-medium border break-words',
-                              theme === 'dark'
-                                ? 'bg-primary-blue/20 text-primary-light/90 border-primary-blue/30'
-                                : 'bg-blue-100 text-blue-700 border-blue-300'
-                            )}
-                          >
-                            {name.trim()}
-                          </span>
+                          <TagChip key={index}>{name.trim()}</TagChip>
                         ))}
                       </div>
                     </div>
@@ -1203,142 +1073,78 @@ const JobLogDetail = ({
         </div>
 
         {/* Mobile: Timer and Job Completed buttons - after header */}
-        <div className="sm:hidden flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-2 pt-2 sm:hidden">
           {!isTimerRunning ? (
             <>
-              <Button
-                onClick={handleHeaderStartJobClick}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5"
-                size="sm"
-              >
-                <svg
-                  className="w-4 h-4 mr-1.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Start Job
-              </Button>
+              <AppButton onClick={handleHeaderStartJobClick} size="sm">
+                <PlayIcon className="h-4 w-4" />
+                Start job
+              </AppButton>
               {!isCompleted && onStatusChange && (
-                <Button
+                <AppButton
+                  variant="subtle"
                   onClick={handleMarkCompleted}
-                  className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark px-4 py-1.5"
                   size="sm"
                   disabled={isLoading}
                 >
-                  <svg
-                    className="w-4 h-4 mr-1.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Job Complete
-                </Button>
+                  <CheckIcon className="h-4 w-4" />
+                  Job complete
+                </AppButton>
               )}
             </>
           ) : (
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div
-                className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-lg shrink-0',
-                  theme === 'dark'
-                    ? 'bg-primary-dark border border-primary-blue/30'
-                    : 'bg-gray-50 border border-gray-200/20'
-                )}
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-lg font-mono text-primary-gold tabular-nums">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5">
+                <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger" />
+                <span className="font-mono text-lg tabular-nums text-ink">
                   {formatElapsed(elapsedSeconds)}
                 </span>
               </div>
-              <Button
-                onClick={handleStopTimer}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 shrink-0"
-                size="sm"
-              >
-                <svg
-                  className="w-4 h-4 mr-1.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 10h6v4H9z"
-                  />
-                </svg>
-                Stop Timer
-              </Button>
+              <AppButton variant="danger" onClick={handleStopTimer} size="sm" className="shrink-0">
+                <StopIcon className="h-4 w-4" />
+                Stop timer
+              </AppButton>
             </div>
           )}
         </div>
 
         {/* Desktop: inline buttons */}
-        <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">
+        <div className="hidden shrink-0 flex-col items-end gap-2 sm:flex">
           <div className="flex flex-wrap gap-2">
             {canAccessQuotes && (
               <>
-                <Button
-                  variant="outline"
+                <AppButton
+                  variant="subtle"
                   size="sm"
                   onClick={linkedQuoteId ? handleViewQuote : handleCreateQuote}
                 >
-                  {linkedQuoteId ? 'View Quote' : 'Create Quote'}
-                </Button>
-                <Button
-                  variant="outline"
+                  {linkedQuoteId ? 'View quote' : 'Create quote'}
+                </AppButton>
+                <AppButton
+                  variant="subtle"
                   size="sm"
                   onClick={linkedInvoiceId ? handleViewInvoice : handleConvertToInvoice}
                 >
-                  {linkedInvoiceId ? 'View Invoice' : 'Convert to Invoice'}
-                </Button>
+                  {linkedInvoiceId ? 'View invoice' : 'Convert to invoice'}
+                </AppButton>
               </>
             )}
-            <Button variant="outline" size="sm" onClick={handleScheduleAppointment}>
-              Schedule Job
-            </Button>
+            <AppButton variant="subtle" size="sm" onClick={handleScheduleAppointment}>
+              Schedule job
+            </AppButton>
             {canEditJobs && (
-              <Button variant="outline" size="sm" onClick={onEdit}>
+              <AppButton variant="subtle" size="sm" onClick={onEdit}>
                 Edit
-              </Button>
+              </AppButton>
             )}
             <div className="relative">
-              <Button
-                variant="outline"
+              <AppButton
+                variant="dangerGhost"
                 size="sm"
-                className="text-red-400 border-red-500/50 hover:bg-red-500/10"
                 onClick={() => setShowDeleteMenu(!showDeleteMenu)}
               >
                 Delete
-                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -1346,38 +1152,21 @@ const JobLogDetail = ({
                     d="M19 9l-7 7-7-7"
                   />
                 </svg>
-              </Button>
+              </AppButton>
               {showDeleteMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowDeleteMenu(false)} />
-                  <div
-                    className={cn(
-                      'absolute right-0 top-full mt-2 w-64 rounded-lg shadow-xl border py-2 z-50',
-                      theme === 'dark'
-                        ? 'bg-primary-dark/95 backdrop-blur-sm border-primary-light/20'
-                        : 'bg-white border-gray-200'
-                    )}
-                  >
+                  <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line">
                     <button
                       type="button"
                       onClick={() => {
                         setShowDeleteMenu(false)
                         onArchiveRequest()
                       }}
-                      className={cn(
-                        'w-full text-left px-4 py-3 text-sm transition-colors flex items-start gap-3 group',
-                        theme === 'dark'
-                          ? 'text-primary-light hover:bg-primary-light/10'
-                          : 'text-primary-lightText hover:bg-gray-100'
-                      )}
+                      className="group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink transition-colors hover:bg-surface-2"
                     >
                       <svg
-                        className={cn(
-                          'w-5 h-5 flex-shrink-0 mt-0.5',
-                          theme === 'dark'
-                            ? 'text-primary-light/70 group-hover:text-primary-light'
-                            : 'text-gray-500 group-hover:text-primary-lightText'
-                        )}
+                        className="mt-0.5 h-5 w-5 flex-shrink-0 text-ink-subtle transition-colors group-hover:text-ink"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1391,34 +1180,20 @@ const JobLogDetail = ({
                       </svg>
                       <div>
                         <div className="font-medium">Archive</div>
-                        <div
-                          className={cn(
-                            'text-xs mt-0.5',
-                            theme === 'dark'
-                              ? 'text-primary-light/60'
-                              : 'text-primary-lightTextSecondary'
-                          )}
-                        >
-                          Can be restored later
-                        </div>
+                        <div className="mt-0.5 text-xs text-ink-subtle">Can be restored later</div>
                       </div>
                     </button>
-                    <div
-                      className={cn(
-                        'border-t my-1',
-                        theme === 'dark' ? 'border-primary-light/10' : 'border-gray-200'
-                      )}
-                    />
+                    <div className="my-1 border-t border-line" />
                     <button
                       type="button"
                       onClick={() => {
                         setShowDeleteMenu(false)
                         onPermanentDeleteRequest()
                       }}
-                      className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-start gap-3 group"
+                      className="group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-danger transition-colors hover:bg-danger-soft"
                     >
                       <svg
-                        className="w-5 h-5 flex-shrink-0 mt-0.5 group-hover:text-red-300"
+                        className="mt-0.5 h-5 w-5 flex-shrink-0"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1432,7 +1207,7 @@ const JobLogDetail = ({
                       </svg>
                       <div>
                         <div className="font-medium">Delete permanently</div>
-                        <div className="text-xs text-red-400/60 mt-0.5">Cannot be undone</div>
+                        <div className="mt-0.5 text-xs text-danger/70">Cannot be undone</div>
                       </div>
                     </button>
                   </div>
@@ -1445,97 +1220,34 @@ const JobLogDetail = ({
           <div className="flex items-center gap-2">
             {!isTimerRunning ? (
               <>
-                <Button
-                  onClick={handleHeaderStartJobClick}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5"
-                  size="sm"
-                >
-                  <svg
-                    className="w-4 h-4 mr-1.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  Start Job
-                </Button>
+                <AppButton onClick={handleHeaderStartJobClick} size="sm">
+                  <PlayIcon className="h-4 w-4" />
+                  Start job
+                </AppButton>
                 {!isCompleted && onStatusChange && (
-                  <Button
+                  <AppButton
+                    variant="subtle"
                     onClick={handleMarkCompleted}
-                    className="bg-primary-gold hover:bg-primary-gold/90 text-primary-dark px-4 py-1.5"
                     size="sm"
                     disabled={isLoading}
                   >
-                    <svg
-                      className="w-4 h-4 mr-1.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    Job Complete
-                  </Button>
+                    <CheckIcon className="h-4 w-4" />
+                    Job complete
+                  </AppButton>
                 )}
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <div
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg',
-                    theme === 'dark'
-                      ? 'bg-primary-dark border border-primary-blue/30'
-                      : 'bg-gray-50 border border-gray-200/20'
-                  )}
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-lg font-mono text-primary-gold tabular-nums">
+                <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5">
+                  <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger" />
+                  <span className="font-mono text-lg tabular-nums text-ink">
                     {formatElapsed(elapsedSeconds)}
                   </span>
                 </div>
-                <Button
-                  onClick={handleStopTimer}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5"
-                  size="sm"
-                >
-                  <svg
-                    className="w-4 h-4 mr-1.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 10h6v4H9z"
-                    />
-                  </svg>
-                  Stop Timer
-                </Button>
+                <AppButton variant="danger" onClick={handleStopTimer} size="sm">
+                  <StopIcon className="h-4 w-4" />
+                  Stop timer
+                </AppButton>
               </div>
             )}
           </div>
@@ -1570,82 +1282,34 @@ const JobLogDetail = ({
 
           return (
             <div className="space-y-3">
-              <h3
-                className={cn(
-                  'text-sm font-medium uppercase tracking-wider',
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}
-              >
-                Upcoming Bookings
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
+                Upcoming bookings
               </h3>
               <div className="space-y-2">
-                <div
-                  className={cn(
-                    'flex items-center justify-between gap-3 p-3 rounded-lg',
-                    theme === 'dark'
-                      ? 'bg-primary-dark/50 border border-primary-blue/20'
-                      : 'bg-gray-50 border border-gray-200/20'
-                  )}
-                >
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-2">
                       {nextBooking.toBeScheduled ? (
-                        <span
-                          className={cn(
-                            'text-sm',
-                            theme === 'dark'
-                              ? 'text-primary-light/70'
-                              : 'text-primary-lightTextSecondary'
-                          )}
-                        >
-                          To be scheduled
-                        </span>
+                        <span className="text-sm text-ink-muted">To be scheduled</span>
                       ) : nextBooking.startTime && nextBooking.endTime ? (
-                        <span
-                          className={cn(
-                            'text-sm',
-                            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                          )}
-                        >
+                        <span className="font-mono text-sm tabular-nums text-ink">
                           {format(new Date(nextBooking.startTime), 'MMM d, yyyy • h:mm a')} –{' '}
                           {format(new Date(nextBooking.endTime), 'h:mm a')}
                         </span>
                       ) : (
-                        <span
-                          className={cn(
-                            'text-sm',
-                            theme === 'dark'
-                              ? 'text-primary-light/70'
-                              : 'text-primary-lightTextSecondary'
-                          )}
-                        >
-                          No time set
-                        </span>
+                        <span className="text-sm text-ink-muted">No time set</span>
                       )}
-                      {recurringTag && (
-                        <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
-                          {recurringTag}
-                        </span>
-                      )}
+                      {recurringTag && <TagChip>{recurringTag}</TagChip>}
                     </div>
                     {nextBooking.service?.name && (
-                      <p
-                        className={cn(
-                          'text-xs mt-0.5',
-                          theme === 'dark'
-                            ? 'text-primary-light/50'
-                            : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        {nextBooking.service.name}
-                      </p>
+                      <p className="mt-0.5 text-xs text-ink-subtle">{nextBooking.service.name}</p>
                     )}
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
+                  <div className="flex shrink-0 flex-col items-end gap-1">
                     {canSeePrices &&
                       nextBooking.price != null &&
                       nextBooking.price !== undefined && (
-                        <span className="text-sm font-semibold text-primary-gold">
+                        <span className="font-mono text-sm font-semibold tabular-nums text-accent-strong">
                           $
                           {nextBooking.price.toLocaleString('en-US', {
                             minimumFractionDigits: 2,
@@ -1666,63 +1330,31 @@ const JobLogDetail = ({
         primaryPrice != null ||
         !!primaryServiceName ||
         (!!primaryStartTime && !!primaryEndTime)) && (
-        <dl className="space-y-3">
+        <dl className="space-y-3 border-t border-line pt-6">
           {jobLog.description && (
             <div>
-              <dt
-                className={cn(
-                  'text-xs font-medium uppercase tracking-wider',
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}
-              >
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Description
               </dt>
-              <dd
-                className={cn(
-                  'text-sm mt-1 whitespace-pre-wrap',
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                )}
-              >
+              <dd className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink">
                 {jobLog.description}
               </dd>
             </div>
           )}
           {primaryServiceName && (
             <div>
-              <dt
-                className={cn(
-                  'text-xs font-medium uppercase tracking-wider',
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}
-              >
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Service
               </dt>
-              <dd
-                className={cn(
-                  'text-sm mt-1',
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                )}
-              >
-                {primaryServiceName}
-              </dd>
+              <dd className="mt-1 text-sm text-ink">{primaryServiceName}</dd>
             </div>
           )}
           {primaryStartTime && primaryEndTime && (
             <div>
-              <dt
-                className={cn(
-                  'text-xs font-medium uppercase tracking-wider',
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}
-              >
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Scheduled
               </dt>
-              <dd
-                className={cn(
-                  'text-sm mt-1',
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                )}
-              >
+              <dd className="mt-1 font-mono text-sm tabular-nums text-ink">
                 {(() => {
                   const start = new Date(primaryStartTime)
                   const end = new Date(primaryEndTime)
@@ -1741,25 +1373,15 @@ const JobLogDetail = ({
           )}
           {jobLog.location && (
             <div>
-              <dt
-                className={cn(
-                  'text-xs font-medium uppercase tracking-wider',
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}
-              >
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Location
               </dt>
-              <dd
-                className={cn(
-                  'text-sm mt-1',
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                )}
-              >
+              <dd className="mt-1 text-sm text-ink">
                 <a
                   href={getMapsHref(jobLog.location)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary-gold hover:underline"
+                  className={linkCls}
                 >
                   {jobLog.location}
                 </a>
@@ -1768,42 +1390,21 @@ const JobLogDetail = ({
           )}
           {jobLog.contact && (
             <div>
-              <dt
-                className={cn(
-                  'text-xs font-medium uppercase tracking-wider',
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}
-              >
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Contact
               </dt>
-              <dd
-                className={cn(
-                  'text-sm mt-1',
-                  theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                )}
-              >
+              <dd className="mt-1 text-sm text-ink">
                 {jobLog.contact.name}
                 {jobLog.contact.email && (
-                  <span
-                    className={cn(
-                      theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
-                    {' '}
-                    · {jobLog.contact.email}
-                  </span>
+                  <span className="text-ink-muted"> · {jobLog.contact.email}</span>
                 )}
                 {jobLog.contact.phone?.trim() && (
-                  <span
-                    className={cn(
-                      theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
+                  <span className="text-ink-muted">
                     {' '}
                     ·{' '}
                     <a
                       href={`tel:${jobLog.contact.phone.replace(/\s/g, '')}`}
-                      className="text-primary-gold hover:underline"
+                      className={cn(linkCls, 'font-mono tabular-nums')}
                     >
                       {jobLog.contact.phone.trim()}
                     </a>
@@ -1814,15 +1415,10 @@ const JobLogDetail = ({
           )}
           {primaryPrice != null && (
             <div>
-              <dt
-                className={cn(
-                  'text-xs font-medium uppercase tracking-wider',
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}
-              >
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Price
               </dt>
-              <dd className="text-sm text-primary-gold font-semibold mt-1">
+              <dd className="mt-1 font-mono text-sm font-semibold tabular-nums text-accent-strong">
                 $
                 {primaryPrice.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
@@ -1836,70 +1432,45 @@ const JobLogDetail = ({
 
       {/* Tabbed tools: Notes | Clock | Photos */}
       <div className="pt-4">
-        <div
-          className={cn(
-            'flex gap-1 border-b mb-4',
-            theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
-          )}
-        >
-          <button
-            onClick={() => setActiveTab('notes')}
-            className={cn(
-              'px-4 py-2 text-sm font-medium transition-colors -mb-px',
-              activeTab === 'notes'
-                ? 'text-primary-gold border-b-2 border-primary-gold'
-                : theme === 'dark'
-                  ? 'text-primary-light/60 hover:text-primary-light'
-                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-            )}
-          >
-            Notes
-          </button>
-          <button
-            onClick={() => setActiveTab('clock')}
-            className={cn(
-              'px-4 py-2 text-sm font-medium transition-colors -mb-px',
-              activeTab === 'clock'
-                ? 'text-primary-gold border-b-2 border-primary-gold'
-                : theme === 'dark'
-                  ? 'text-primary-light/60 hover:text-primary-light'
-                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-            )}
-          >
-            Clock
-          </button>
-          <button
-            onClick={() => setActiveTab('photos')}
-            className={cn(
-              'px-4 py-2 text-sm font-medium transition-colors -mb-px',
-              activeTab === 'photos'
-                ? 'text-primary-gold border-b-2 border-primary-gold'
-                : theme === 'dark'
-                  ? 'text-primary-light/60 hover:text-primary-light'
-                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-            )}
-          >
-            Photos
-          </button>
+        <div className="mb-4 flex items-center gap-1 border-b border-line">
+          {(['notes', 'clock', 'photos'] as const).map(tab => {
+            const active = activeTab === tab
+            const labels: Record<Tab, string> = { notes: 'Notes', clock: 'Clock', photos: 'Photos' }
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  '-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none',
+                  active
+                    ? 'border-accent-strong text-accent-strong'
+                    : 'border-transparent text-ink-muted hover:text-ink'
+                )}
+              >
+                {labels[tab]}
+              </button>
+            )
+          })}
         </div>
 
         {activeTab === 'clock' && (
           <>
             {clockOutError && (
-              <div
-                role="alert"
-                className="mb-3 flex flex-wrap items-start gap-2 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-500"
-              >
-                <span className="flex-1">{clockOutError}</span>
-                {isTimerRunning && (
-                  <button
-                    type="button"
-                    onClick={handleDiscardTimer}
-                    className="underline hover:no-underline"
-                  >
-                    Discard timer
-                  </button>
-                )}
+              <div className="mb-3">
+                <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="flex-1">{clockOutError}</span>
+                    {isTimerRunning && (
+                      <button
+                        type="button"
+                        onClick={handleDiscardTimer}
+                        className="font-medium underline hover:no-underline"
+                      >
+                        Discard timer
+                      </button>
+                    )}
+                  </div>
+                </Alert>
               </div>
             )}
             <TimeTracker
@@ -1931,15 +1502,23 @@ const JobLogDetail = ({
         )}
       </div>
 
-      <ConfirmationDialog
+      <AppModal
         isOpen={conflictingTimer !== null}
         onClose={handleCancelConflict}
-        onConfirm={handleConfirmConflict}
         title="Switch to a new job?"
-        confirmText="Save & switch"
-        cancelText="Cancel"
-        message={
-          conflictingTimer &&
+        size="sm"
+        footer={
+          <>
+            <AppButton variant="ghost" onClick={handleCancelConflict}>
+              Cancel
+            </AppButton>
+            <AppButton variant="primary" onClick={handleConfirmConflict}>
+              Save &amp; switch
+            </AppButton>
+          </>
+        }
+      >
+        {conflictingTimer &&
           (() => {
             const sec = Math.max(
               0,
@@ -1963,13 +1542,13 @@ const JobLogDetail = ({
             const duration = formatDuration(sec)
             const priorTitle = conflictingTimer.jobLogTitle
             return (
-              <div className="space-y-3 break-words">
+              <div className="space-y-3 break-words text-sm leading-relaxed text-ink-muted">
                 <p>
                   You're still clocked in on{' '}
-                  <span className="font-semibold break-words">{priorTitle}</span>
+                  <span className="break-words font-semibold text-ink">{priorTitle}</span>
                   {duration ? (
                     <>
-                      {' '}— started <span className="font-semibold">{duration}</span> ago.
+                      {' '}— started <span className="font-semibold text-ink">{duration}</span> ago.
                     </>
                   ) : (
                     <> — you just started.</>
@@ -1977,26 +1556,22 @@ const JobLogDetail = ({
                 </p>
                 <p>
                   Save that time entry and start tracking{' '}
-                  <span className="font-semibold break-words">{jobLog.title}</span>?
+                  <span className="break-words font-semibold text-ink">{jobLog.title}</span>?
                 </p>
-                <p className="text-xs opacity-70">
+                <p className="text-xs text-ink-subtle">
                   Cancel to keep your current clock running and stay on {priorTitle}.
                 </p>
                 {conflictError && (
-                  <p
-                    role="alert"
-                    className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-sm text-red-500 break-words"
-                  >
+                  <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
                     {conflictError}
-                  </p>
+                  </Alert>
                 )}
               </div>
             )
-          })()
-        }
-      />
+          })()}
+      </AppModal>
 
-      <Modal
+      <AppModal
         isOpen={showClockInSelector}
         onClose={() => {
           setShowClockInSelector(false)
@@ -2004,29 +1579,34 @@ const JobLogDetail = ({
             setSelectedClockInUserId(user?.id || null)
           }
         }}
-        title="Clock In For"
+        title="Clock in for"
         size="sm"
+        footer={
+          <>
+            <AppButton
+              variant="ghost"
+              onClick={() => {
+                setShowClockInSelector(false)
+                setSelectedClockInUserId(user?.id || null)
+              }}
+            >
+              Cancel
+            </AppButton>
+            <AppButton
+              onClick={handleStartJobForSelected}
+              disabled={teamMembersLoading || !selectedClockInUserId}
+            >
+              Start job
+            </AppButton>
+          </>
+        }
       >
         <div className="space-y-4">
-          <p
-            className={cn(
-              'text-sm',
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}
-          >
-            Select which team member to clock in:
-          </p>
+          <p className="text-sm text-ink-muted">Select which team member to clock in:</p>
           {teamMembersLoading ? (
-            <p
-              className={cn(
-                'text-sm',
-                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-              )}
-            >
-              Loading team members...
-            </p>
+            <p className="text-sm text-ink-subtle">Loading team members...</p>
           ) : (
-            <Select
+            <SelectField
               value={selectedClockInUserId || ''}
               onChange={e => setSelectedClockInUserId(e.target.value || null)}
               options={availableUsersToClockIn.map(m => {
@@ -2040,28 +1620,8 @@ const JobLogDetail = ({
               })}
             />
           )}
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              className="flex-1"
-              onClick={handleStartJobForSelected}
-              disabled={teamMembersLoading || !selectedClockInUserId}
-            >
-              Start Job
-            </Button>
-            <Button
-              className="flex-1"
-              variant="outline"
-              onClick={() => {
-                setShowClockInSelector(false)
-                setSelectedClockInUserId(user?.id || null)
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
         </div>
-      </Modal>
+      </AppModal>
 
       {quoteForConvert && (
         <ConvertQuoteToInvoiceModal

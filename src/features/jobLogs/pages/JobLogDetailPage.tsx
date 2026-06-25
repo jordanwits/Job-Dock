@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogDetail from '../components/JobLogDetail'
-import { ConfirmationDialog, Card, Button } from '@/components/ui'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import { Alert, AlertIcon, AppButton, AppModal, CheckIcon, Spinner } from '../components/jobLogsUi'
 import DeleteRecurringJobModal from '@/features/scheduling/components/DeleteRecurringJobModal'
 import PermanentDeleteRecurringJobModal from '@/features/scheduling/components/PermanentDeleteRecurringJobModal'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
@@ -17,7 +15,6 @@ import {
 } from '../utils/workspaceJobDelete'
 
 const JobLogDetailPage = () => {
-  const { theme } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -272,18 +269,8 @@ const JobLogDetailPage = () => {
   if (isLoading && !selectedJobLog) {
     return (
       <div className="space-y-6">
-        <div
-          className={cn(
-            'h-10 w-64 rounded animate-pulse',
-            theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-          )}
-        />
-        <div
-          className={cn(
-            'h-96 rounded-xl animate-pulse',
-            theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-          )}
-        />
+        <div className="h-10 w-64 animate-pulse rounded-lg bg-surface-2" />
+        <div className="h-96 animate-pulse rounded-xl bg-surface-2" />
       </div>
     )
   }
@@ -291,16 +278,10 @@ const JobLogDetailPage = () => {
   if (!selectedJobLog || selectedJobLog.id !== id) {
     return (
       <div className="space-y-6">
-        <p
-          className={cn(
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}
-        >
-          Job not found.
-        </p>
-        <button onClick={() => navigate('/app/job-logs')} className="text-primary-gold hover:underline">
+        <p className="text-sm text-ink-muted">Job not found.</p>
+        <AppButton variant="subtle" size="sm" onClick={() => navigate('/app/job-logs')}>
           Back to Jobs
-        </button>
+        </AppButton>
       </div>
     )
   }
@@ -312,47 +293,23 @@ const JobLogDetailPage = () => {
   return (
     <div className="space-y-6">
       {metaLoading && (
-        <p
-          className={cn(
-            'text-sm',
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}
-        >
-          Loading…
+        <p className="flex items-center gap-2 text-sm text-ink-muted">
+          <Spinner /> Loading…
         </p>
       )}
       {jobLogSaveError && (
-        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-red-400">{jobLogSaveError}</p>
-            <Button variant="ghost" size="sm" onClick={() => clearJobLogError()}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />} onDismiss={() => clearJobLogError()}>
+          {jobLogSaveError}
+        </Alert>
       )}
       {sentBanner && (
-        <Card
-          className={
-            sentBanner.type === 'success'
-              ? 'bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20'
-              : 'bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20'
-          }
+        <Alert
+          tone={sentBanner.type === 'success' ? 'success' : 'danger'}
+          icon={sentBanner.type === 'success' ? <CheckIcon className="h-4 w-4" /> : <AlertIcon className="h-4 w-4" />}
+          onDismiss={() => setSentBanner(null)}
         >
-          <div className="flex items-center justify-between">
-            <p
-              className={
-                sentBanner.type === 'success' ? 'text-sm text-green-400' : 'text-sm text-red-400'
-              }
-            >
-              {sentBanner.type === 'success' ? '✓ ' : ''}
-              {sentBanner.message}
-            </p>
-            <Button variant="ghost" size="sm" onClick={() => setSentBanner(null)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+          {sentBanner.message}
+        </Alert>
       )}
       <JobLogDetail
         jobLog={selectedJobLog}
@@ -378,166 +335,116 @@ const JobLogDetailPage = () => {
       />
 
       {schedulingMeta && (
-        <ConfirmationDialog
+        <AppModal
           isOpen={showArchiveConfirm}
           onClose={() => setShowArchiveConfirm(false)}
-          onConfirm={handleConfirmArchive}
           title={archiveTitle}
-          message={
-            <div className="space-y-3">
-              {schedulingMeta.bookingId ? (
-                schedulingMeta.toBeScheduled || !schedulingMeta.startTime ? (
-                  <>
-                    <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                      Are you sure you want to delete this booking?
-                    </p>
-                    <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                      <p
-                        className={cn(
-                          'text-sm mb-2',
-                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        <strong
-                          className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}
-                        >
-                          Important:
-                        </strong>{' '}
-                        This will only delete the booking, not the job itself.
-                      </p>
-                      <p
-                        className={cn(
-                          'text-sm',
-                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        The job &quot;{schedulingMeta.title}&quot; will remain in your jobs list and can be
-                        scheduled again later.
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                      Are you sure you want to archive this job?
-                    </p>
-                    <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                      <p
-                        className={cn(
-                          'text-sm',
-                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        <strong
-                          className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}
-                        >
-                          Job:
-                        </strong>{' '}
-                        {schedulingMeta.title}
-                      </p>
-                      <p
-                        className={cn(
-                          'text-sm mt-1',
-                          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        Archived jobs can be restored later from the Archived tab on Jobs or Calendar.
-                      </p>
-                    </div>
-                  </>
-                )
-              ) : (
+          size="sm"
+          footer={
+            <>
+              <AppButton variant="ghost" onClick={() => setShowArchiveConfirm(false)}>
+                Cancel
+              </AppButton>
+              <AppButton variant="danger" onClick={handleConfirmArchive} isLoading={isLoading} disabled={isLoading}>
+                {schedulingMeta.bookingId
+                  ? schedulingMeta.toBeScheduled || !schedulingMeta.startTime
+                    ? 'Delete Booking'
+                    : 'Archive'
+                  : 'Archive'}
+              </AppButton>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            {schedulingMeta.bookingId ? (
+              schedulingMeta.toBeScheduled || !schedulingMeta.startTime ? (
                 <>
-                  <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                    Are you sure you want to archive this job?
+                  <p className="text-sm leading-relaxed text-ink-muted">
+                    Are you sure you want to delete this booking?
                   </p>
-                  <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                    <p
-                      className={cn(
-                        'text-sm',
-                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                      )}
-                    >
-                      <strong className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                        Job:
-                      </strong>{' '}
-                      {schedulingMeta.title}
+                  <div className="rounded-lg border border-line bg-surface-2 p-3">
+                    <p className="mb-2 text-sm text-ink-muted">
+                      <strong className="text-ink">Important:</strong>{' '}
+                      This will only delete the booking, not the job itself.
                     </p>
-                    <p
-                      className={cn(
-                        'text-sm mt-1',
-                        theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                      )}
-                    >
-                      Archived jobs can be restored later from the Archived tab.
+                    <p className="text-sm text-ink-muted">
+                      The job &quot;{schedulingMeta.title}&quot; will remain in your jobs list and can be
+                      scheduled again later.
                     </p>
                   </div>
                 </>
-              )}
-            </div>
-          }
-          confirmText={
-            schedulingMeta.bookingId
-              ? schedulingMeta.toBeScheduled || !schedulingMeta.startTime
-                ? 'Delete Booking'
-                : 'Archive'
-              : 'Archive'
-          }
-          confirmVariant="danger"
-        />
+              ) : (
+                <>
+                  <p className="text-sm leading-relaxed text-ink-muted">
+                    Are you sure you want to archive this job?
+                  </p>
+                  <div className="rounded-lg border border-line bg-surface-2 p-3">
+                    <p className="text-sm text-ink-muted">
+                      <strong className="text-ink">Job:</strong> {schedulingMeta.title}
+                    </p>
+                    <p className="mt-1 text-sm text-ink-muted">
+                      Archived jobs can be restored later from the Archived tab on Jobs or Calendar.
+                    </p>
+                  </div>
+                </>
+              )
+            ) : (
+              <>
+                <p className="text-sm leading-relaxed text-ink-muted">
+                  Are you sure you want to archive this job?
+                </p>
+                <div className="rounded-lg border border-line bg-surface-2 p-3">
+                  <p className="text-sm text-ink-muted">
+                    <strong className="text-ink">Job:</strong> {schedulingMeta.title}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    Archived jobs can be restored later from the Archived tab.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </AppModal>
       )}
 
       {schedulingMeta && (
-        <ConfirmationDialog
+        <AppModal
           isOpen={showPermanentConfirm}
           onClose={() => setShowPermanentConfirm(false)}
-          onConfirm={handleConfirmPermanent}
-          title="⚠️ Permanently Delete Job?"
-          message={
-            <div className="space-y-3">
-              <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                Are you sure you want to <strong className="text-red-400">PERMANENTLY</strong> remove this?
-              </p>
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                <p
-                  className={cn(
-                    'text-sm font-semibold mb-1',
-                    theme === 'dark' ? 'text-red-400' : 'text-red-600'
-                  )}
-                >
-                  ⚠️ This action cannot be undone!
-                </p>
-                <p
-                  className={cn(
-                    'text-sm',
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}
-                >
-                  {schedulingMeta.bookingId
-                    ? 'The booking will be permanently removed.'
-                    : 'The job and related data will be permanently removed.'}
-                </p>
-              </div>
-              <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                <p
-                  className={cn(
-                    'text-sm',
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}
-                >
-                  <strong
-                    className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}
-                  >
-                    Job:
-                  </strong>{' '}
-                  {schedulingMeta.title}
-                </p>
-              </div>
-            </div>
+          title="Permanently delete job?"
+          size="sm"
+          footer={
+            <>
+              <AppButton variant="ghost" onClick={() => setShowPermanentConfirm(false)}>
+                Cancel
+              </AppButton>
+              <AppButton variant="danger" onClick={handleConfirmPermanent} isLoading={isLoading} disabled={isLoading}>
+                Delete permanently
+              </AppButton>
+            </>
           }
-          confirmText="Delete Permanently"
-          confirmVariant="danger"
-        />
+        >
+          <div className="space-y-3">
+            <p className="text-sm leading-relaxed text-ink-muted">
+              Are you sure you want to <strong className="text-danger">PERMANENTLY</strong> remove this?
+            </p>
+            <div className="rounded-lg border border-danger/30 bg-danger-soft p-3">
+              <p className="mb-1 text-sm font-semibold text-danger">
+                This action cannot be undone!
+              </p>
+              <p className="text-sm text-ink-muted">
+                {schedulingMeta.bookingId
+                  ? 'The booking will be permanently removed.'
+                  : 'The job and related data will be permanently removed.'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-line bg-surface-2 p-3">
+              <p className="text-sm text-ink-muted">
+                <strong className="text-ink">Job:</strong> {schedulingMeta.title}
+              </p>
+            </div>
+          </div>
+        </AppModal>
       )}
 
       {schedulingMeta && (

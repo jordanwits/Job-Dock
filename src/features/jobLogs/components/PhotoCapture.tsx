@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
-import { Button, Textarea, ConfirmationDialog } from '@/components/ui'
+import { cn } from '@/lib/utils'
 import type { JobLogPhoto, MarkupStroke, MarkupPoint } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
+import { Alert, AlertIcon, AppButton, AppModal, CameraIcon, TextAreaField, TrashIcon, XIcon } from './jobLogsUi'
 
 function formatPhotoTimestamp(iso: string | undefined): string | null {
   if (!iso) return null
@@ -398,41 +399,43 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
         className="hidden"
         onChange={handleFileSelect}
       />
-      <Button
+      <AppButton
         size="sm"
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
+        isLoading={uploading}
       >
+        {!uploading && <CameraIcon className="h-4 w-4" />}
         {uploading ? 'Uploading...' : 'Add Photo'}
-      </Button>
+      </AppButton>
       {photos && photos.length > 0 && (
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 mt-4">
+        <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
           {photos.map((p) => {
             const isLoaded = loadedThumbnails.has(p.id)
             const capturedAt = formatPhotoTimestamp(p.createdAt)
             return (
               <div
                 key={p.id}
-                className="flex flex-col gap-1 w-full min-w-0"
+                className="flex w-full min-w-0 flex-col gap-1"
               >
-                <div className="relative rounded-lg overflow-hidden bg-primary-dark aspect-square w-full group">
+                <div className="group relative aspect-square w-full overflow-hidden rounded-lg bg-surface-2">
                 <button
                   type="button"
                   onClick={() => openFullscreen(p)}
-                  className="absolute inset-0 w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold rounded-lg"
+                  className="absolute inset-0 h-full w-full rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   {!isLoaded && (
                   <div
-                    className="absolute inset-0 bg-primary-dark/80 overflow-hidden"
+                    className="absolute inset-0 overflow-hidden bg-surface-2"
                     aria-hidden
                   >
-                    <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                    <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-ink/10 to-transparent" />
                   </div>
                 )}
                 <img
                   src={p.url}
                   alt={p.fileName}
-                  className={`w-full h-full object-cover transition-opacity duration-150 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+                  className={cn('h-full w-full object-cover transition-opacity duration-150', isLoaded ? 'opacity-100' : 'opacity-0')}
                   onLoad={() => handleThumbnailLoad(p.id)}
                 />
                 {isLoaded && (getStrokesFromPhoto(p).length > 0) && (
@@ -462,19 +465,17 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
                     e.stopPropagation()
                     setPhotoToDelete(p)
                   }}
-                  className="absolute top-1 right-1 p-1.5 rounded-full bg-black/60 text-white/80 hover:bg-red-500/80 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 focus:outline-none"
+                  className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white/80 opacity-0 transition-opacity hover:bg-danger hover:text-white focus:opacity-100 focus:outline-none group-hover:opacity-100"
                   aria-label="Delete photo"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                  <TrashIcon className="h-4 w-4" />
                 </button>
                 </div>
                 {capturedAt && (
-                  <p className="text-xs text-primary-light/60 tabular-nums">{capturedAt}</p>
+                  <p className="font-mono text-xs tabular-nums text-ink-subtle">{capturedAt}</p>
                 )}
                 {p.notes && (
-                  <p className="text-sm text-primary-light/80 line-clamp-2 break-words">{p.notes}</p>
+                  <p className="line-clamp-2 break-words text-sm text-ink-muted">{p.notes}</p>
                 )}
               </div>
             )
@@ -489,68 +490,46 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
         >
           <button
             type="button"
-            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 z-10"
+            className="absolute right-4 top-4 z-10 rounded-lg p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             onClick={closeFullscreen}
             aria-label="Close"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <XIcon className="h-6 w-6" />
           </button>
 
           <div
-            className="flex-1 flex flex-col items-center justify-center w-full max-w-4xl gap-4 overflow-auto min-h-0"
+            className="flex min-h-0 w-full max-w-4xl flex-1 flex-col items-center justify-center gap-4 overflow-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {fullscreenCapturedAt && (
-              <p className="text-sm text-white/55 tabular-nums text-center w-full">
+              <p className="w-full text-center font-mono text-sm tabular-nums text-white/55">
                 {fullscreenCapturedAt}
               </p>
             )}
             <div className="flex flex-wrap justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTool(activeTool === 'pen' ? null : 'pen')}
-                className={activeTool === 'pen' ? 'bg-primary-gold/20 border-primary-gold text-primary-gold' : ''}
-              >
+              <MarkupToolButton active={activeTool === 'pen'} onClick={() => setActiveTool(activeTool === 'pen' ? null : 'pen')}>
                 Pen
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTool(activeTool === 'highlighter' ? null : 'highlighter')}
-                className={activeTool === 'highlighter' ? 'bg-primary-gold/20 border-primary-gold text-primary-gold' : ''}
-              >
+              </MarkupToolButton>
+              <MarkupToolButton active={activeTool === 'highlighter'} onClick={() => setActiveTool(activeTool === 'highlighter' ? null : 'highlighter')}>
                 Highlighter
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTool(activeTool === 'eraser' ? null : 'eraser')}
-                className={activeTool === 'eraser' ? 'bg-red-500/15 border-red-500/40 text-red-300' : ''}
-              >
+              </MarkupToolButton>
+              <MarkupToolButton active={activeTool === 'eraser'} tone="danger" onClick={() => setActiveTool(activeTool === 'eraser' ? null : 'eraser')}>
                 Eraser
-              </Button>
-              <Button variant="outline" size="sm" onClick={undo} disabled={strokes.length === 0}>
+              </MarkupToolButton>
+              <MarkupToolButton onClick={undo} disabled={strokes.length === 0}>
                 Undo
-              </Button>
-              <Button variant="outline" size="sm" onClick={clearMarkup} disabled={strokes.length === 0}>
+              </MarkupToolButton>
+              <MarkupToolButton onClick={clearMarkup} disabled={strokes.length === 0}>
                 Clear
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fullscreenPhoto && setPhotoToDelete(fullscreenPhoto)}
-                className="text-red-400 border-red-500/40 hover:bg-red-500/20"
-              >
+              </MarkupToolButton>
+              <MarkupToolButton tone="danger" onClick={() => fullscreenPhoto && setPhotoToDelete(fullscreenPhoto)}>
                 Delete
-              </Button>
+              </MarkupToolButton>
             </div>
 
             <div
               ref={imgContainerRef}
-              className={`relative flex-shrink-0 ${activeTool ? 'cursor-crosshair touch-none' : ''}`}
+              className={cn('relative flex-shrink-0', activeTool && 'cursor-crosshair touch-none')}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -593,11 +572,11 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
               </svg>
             </div>
 
-            <div className="w-full max-w-2xl space-y-2">
+            <div className="w-full max-w-2xl space-y-2 rounded-xl bg-surface p-4 shadow-pop">
               {saveError && (
-                <p className="text-sm text-red-400">{saveError}</p>
+                <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>{saveError}</Alert>
               )}
-              <Textarea
+              <TextAreaField
                 label="Notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -606,21 +585,22 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
                 }}
                 placeholder="Add notes about this photo..."
                 rows={3}
-                className="bg-primary-dark/50 border-primary-blue text-base"
+                className="text-base"
               />
-              <Button
+              <AppButton
                 size="sm"
                 onClick={handleSave}
                 disabled={saving}
+                isLoading={saving}
               >
                 {saving ? 'Saving...' : 'Save'}
-              </Button>
+              </AppButton>
             </div>
           </div>
         </div>
       )}
 
-      <ConfirmationDialog
+      <AppModal
         isOpen={!!photoToDelete}
         onClose={() => {
           if (!deleting) {
@@ -628,22 +608,80 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
             setDeleteError(null)
           }
         }}
-        onConfirm={handleDeletePhoto}
         title="Delete photo"
-        message={
+        size="sm"
+        footer={
           <>
-            {deleteError && (
-              <p className="text-red-400 text-sm mb-2">{deleteError}</p>
-            )}
-            <p>Are you sure you want to delete this photo? This cannot be undone.</p>
+            <AppButton
+              variant="ghost"
+              onClick={() => {
+                setPhotoToDelete(null)
+                setDeleteError(null)
+              }}
+              disabled={deleting}
+            >
+              Cancel
+            </AppButton>
+            <AppButton variant="danger" onClick={handleDeletePhoto} isLoading={deleting} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AppButton>
           </>
         }
-        confirmText="Delete"
-        cancelText="Cancel"
-        confirmVariant="danger"
-        isLoading={deleting}
-      />
+      >
+        <div className="space-y-3">
+          {deleteError && (
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>{deleteError}</Alert>
+          )}
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger">
+              <AlertIcon className="h-5 w-5" />
+            </span>
+            <p className="text-sm leading-relaxed text-ink-muted">
+              Are you sure you want to delete this photo? This cannot be undone.
+            </p>
+          </div>
+        </div>
+      </AppModal>
     </div>
+  )
+}
+
+/* Markup toolbar button — token chrome over the dark lightbox backdrop. */
+function MarkupToolButton({
+  active = false,
+  tone = 'accent',
+  disabled = false,
+  onClick,
+  children,
+}: {
+  active?: boolean
+  tone?: 'accent' | 'danger'
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  const activeCls =
+    tone === 'danger'
+      ? 'bg-danger-soft text-danger ring-danger/50'
+      : 'bg-accent-soft text-accent-strong ring-accent'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-semibold ring-1 ring-inset transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        'disabled:pointer-events-none disabled:opacity-40',
+        active
+          ? activeCls
+          : tone === 'danger'
+            ? 'bg-white/10 text-danger ring-white/20 hover:bg-white/20'
+            : 'bg-white/10 text-white ring-white/20 hover:bg-white/20'
+      )}
+    >
+      {children}
+    </button>
   )
 }
 

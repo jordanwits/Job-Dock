@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { Modal, Button, DatePicker } from '@/components/ui'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import { AppButton, AppModal, DateField } from './jobLogsUi'
 
 export interface PayChangeEffectiveDateModalProps {
   isOpen: boolean
@@ -17,7 +15,6 @@ export function PayChangeEffectiveDateModal({
   onConfirm,
   isLoading = false,
 }: PayChangeEffectiveDateModalProps) {
-  const { theme } = useTheme()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const [effectiveDate, setEffectiveDate] = useState<string>(() =>
@@ -29,44 +26,29 @@ export function PayChangeEffectiveDateModal({
   }
 
   return (
-    <Modal
+    <AppModal
       isOpen={isOpen}
       onClose={onClose}
       title="Effective date for pay change"
       size="sm"
       footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+        <>
+          <AppButton variant="ghost" onClick={onClose} disabled={isLoading}>
             Cancel
-          </Button>
-          <Button onClick={handleConfirm} disabled={isLoading}>
+          </AppButton>
+          <AppButton onClick={handleConfirm} disabled={isLoading} isLoading={isLoading}>
             {isLoading ? 'Saving...' : 'Apply'}
-          </Button>
-        </div>
+          </AppButton>
+        </>
       }
     >
       <div className="space-y-4">
-        <p
-          className={cn(
-            'text-sm',
-            theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
-          )}
-        >
+        <p className="text-sm leading-relaxed text-ink-muted">
           When should this pay change take effect? Existing time entries before this date will keep
           their current rate. Entries on or after this date will use the new rate.
         </p>
-        <div>
-          <label
-            className={cn(
-              'block text-sm font-medium mb-2',
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}
-          >
-            Effective date
-          </label>
-          <DatePicker value={effectiveDate} onChange={setEffectiveDate} />
-        </div>
+        <DateField label="Effective date" value={effectiveDate} onChange={setEffectiveDate} />
       </div>
-    </Modal>
+    </AppModal>
   )
 }

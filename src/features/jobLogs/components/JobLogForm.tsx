@@ -3,13 +3,20 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { jobLogSchema, type JobLogFormData } from '../schemas/jobLogSchemas'
 import type { JobLog, JobAssignment } from '../types/jobLog'
-import { Input, Button, Select, Textarea } from '@/components/ui'
-import SearchableSelect from '@/components/ui/SearchableSelect'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  PlusIcon,
+  SearchableSelectField,
+  SelectField,
+  TextAreaField,
+  TextField,
+  labelCls,
+} from './jobLogsUi'
 import { useContactStore } from '@/features/crm/store/contactStore'
 import { useAuthStore } from '@/features/auth'
 import { services } from '@/lib/api/services'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
 import { getTeamAssignmentRoleValidationMessage } from '@/lib/utils/assignmentRoleValidation'
 import { PayChangeEffectiveDateModal } from './PayChangeEffectiveDateModal'
 
@@ -62,7 +69,6 @@ const JobLogForm = ({
   isLoading,
   isSimpleCreate = false,
 }: JobLogFormProps) => {
-  const { theme } = useTheme()
   const { contacts, fetchContacts } = useContactStore()
   const { user } = useAuthStore()
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner'
@@ -393,20 +399,20 @@ const JobLogForm = ({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} className="space-y-5 sm:space-y-4">
-      <Input
+      <TextField
         label="Title"
         {...register('title')}
         error={errors.title?.message}
         placeholder="Job site name or description"
       />
-      <Textarea
+      <TextAreaField
         label="Description"
         {...register('description')}
         error={errors.description?.message ? String(errors.description.message) : undefined}
         placeholder="Add any details for this job"
         rows={3}
       />
-      <Input
+      <TextField
         label="Location"
         {...register('location')}
         error={errors.location?.message}
@@ -415,7 +421,7 @@ const JobLogForm = ({
 
       {/* Contact field - shown in both simplified and full forms */}
       {showSimplifiedForm ? (
-        <SearchableSelect
+        <SearchableSelectField
           label="Contact *"
           placeholder="Select a contact"
           searchPlaceholder="Search by name or company..."
@@ -441,28 +447,16 @@ const JobLogForm = ({
       {!showSimplifiedForm && (
         <>
           <div>
-            <label
-              className={cn(
-                'block text-sm font-medium mb-2',
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}
-            >
-              Price
-            </label>
+            <label className={labelCls}>Price</label>
             <div className="relative">
-              <span
-                className={cn(
-                  'absolute left-3 top-1/2 -translate-y-1/2 text-sm',
-                  theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                )}
-              >
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-subtle">
                 $
               </span>
               <Controller
                 name="price"
                 control={control}
                 render={({ field }) => (
-                  <Input
+                  <TextField
                     type="number"
                     step="0.01"
                     min="0"
@@ -487,54 +481,40 @@ const JobLogForm = ({
                     }}
                     error={errors.price?.message ? String(errors.price.message) : undefined}
                     placeholder="0.00"
-                    className="pl-7"
+                    className="pl-7 font-mono tabular-nums"
                     disabled={!canSeeJobPrices}
                   />
                 )}
               />
             </div>
             {!canSeeJobPrices ? (
-              <p className="text-xs mt-1 text-yellow-400">
+              <p className="mt-1.5 text-[13px] text-warning">
                 Insufficient permissions to view or edit job price.
               </p>
             ) : (
-              <p
-                className={cn(
-                  'text-xs mt-1',
-                  theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                )}
-              >
+              <p className="mt-1.5 text-[13px] leading-relaxed text-ink-subtle">
                 This is the job price shown on the Jobs page (not the individual assignee pay).
               </p>
             )}
           </div>
-          <Textarea
+          <TextAreaField
             label="Notes"
             {...register('notes')}
             error={errors.notes?.message ? String(errors.notes.message) : undefined}
             placeholder="Internal notes (optional)"
             rows={3}
           />
-          <div>
-            <label
-              className={cn(
-                'block text-sm font-medium mb-2',
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}
-            >
-              Status
-            </label>
-            <Select
-              value={selectedStatus}
-              onChange={e => {
-                const v = e.target.value
-                setSelectedStatus(v)
-                setValue('status', v as 'active' | 'completed' | 'inactive')
-              }}
-              options={statusOptions.map(o => ({ value: o.value, label: o.label }))}
-            />
-          </div>
-          <SearchableSelect
+          <SelectField
+            label="Status"
+            value={selectedStatus}
+            onChange={e => {
+              const v = e.target.value
+              setSelectedStatus(v)
+              setValue('status', v as 'active' | 'completed' | 'inactive')
+            }}
+            options={statusOptions.map(o => ({ value: o.value, label: o.label }))}
+          />
+          <SearchableSelectField
             label="Contact (optional)"
             placeholder="None"
             searchPlaceholder="Search by name or company..."
@@ -558,44 +538,19 @@ const JobLogForm = ({
       )}
       {!showSimplifiedForm && canShowAssignee && (
         <div className="pt-2">
-          <label
-            className={cn(
-              'block text-sm font-medium mb-2',
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}
-          >
-            Assign to Team Members (with Roles & Pricing)
-          </label>
-          <p
-            className={cn(
-              'text-xs mb-4',
-              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-            )}
-          >
+          <label className={labelCls}>Assign to Team Members (with Roles &amp; Pricing)</label>
+          <p className="mb-4 text-[13px] leading-relaxed text-ink-subtle">
             Assign team members to this job and set their role and individual pricing. Team members
             can only see their own pricing.
           </p>
           <div className="space-y-3">
             {assignments.length === 0 ? (
-              <div
-                className={cn(
-                  'border rounded-lg p-4 text-center',
-                  theme === 'dark'
-                    ? 'border-primary-blue/30 bg-primary-dark-secondary/30'
-                    : 'border-gray-200/20 bg-gray-50'
-                )}
-              >
-                <p
-                  className={cn(
-                    'text-sm mb-3',
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}
-                >
-                  No team members assigned yet
-                </p>
-                <Button
+              <div className="rounded-xl border border-line bg-surface-2 p-4 text-center">
+                <p className="mb-3 text-sm text-ink-muted">No team members assigned yet</p>
+                <AppButton
                   type="button"
                   variant="ghost"
+                  size="sm"
                   onClick={() => {
                     const newAssignments = [
                       {
@@ -610,10 +565,10 @@ const JobLogForm = ({
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)
                   }}
-                  className="text-sm"
                 >
-                  + Add Team Member
-                </Button>
+                  <PlusIcon className="h-4 w-4" />
+                  Add Team Member
+                </AppButton>
               </div>
             ) : (
               <>
@@ -622,27 +577,16 @@ const JobLogForm = ({
                   return (
                     <div
                       key={index}
-                      className={cn(
-                        'border rounded-lg p-3 space-y-3',
-                        theme === 'dark'
-                          ? 'border-primary-blue bg-primary-dark-secondary/50'
-                          : 'border-gray-200/20 bg-gray-50'
-                      )}
+                      className="space-y-3 rounded-xl border border-line bg-surface-2 p-3"
                     >
-                      <div className="flex flex-col sm:flex-row items-start gap-3">
-                        <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="flex flex-col items-start gap-3 sm:flex-row">
+                        <div className="grid w-full flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                           <div>
-                            <label
-                              className={cn(
-                                'block text-xs font-medium mb-1',
-                                theme === 'dark'
-                                  ? 'text-primary-light/70'
-                                  : 'text-primary-lightTextSecondary'
-                              )}
-                            >
+                            <label className="mb-1 block text-xs font-medium text-ink-muted">
                               Team Member
                             </label>
-                            <Select
+                            <SelectField
+                              aria-label="Team Member"
                               value={assignment.userId}
                               onChange={e => {
                                 const newAssignments = [...assignments]
@@ -657,18 +601,12 @@ const JobLogForm = ({
                             />
                           </div>
                           <div>
-                            <label
-                              className={cn(
-                                'block text-xs font-medium mb-1',
-                                theme === 'dark'
-                                  ? 'text-primary-light/70'
-                                  : 'text-primary-lightTextSecondary'
-                              )}
-                            >
+                            <label className="mb-1 block text-xs font-medium text-ink-muted">
                               Role
                             </label>
                             {jobRoles.length > 0 ? (
-                              <Select
+                              <SelectField
+                                aria-label="Role"
                                 value={assignment.roleId || ''}
                                 placeholder="Select role"
                                 onChange={e => {
@@ -708,7 +646,7 @@ const JobLogForm = ({
                               />
                             ) : null}
                             {(jobRoles.length === 0 || assignment.roleId === 'custom') && (
-                              <Input
+                              <TextField
                                 type="text"
                                 value={assignment.role || ''}
                                 onChange={e => {
@@ -723,22 +661,16 @@ const JobLogForm = ({
                                   setValue('assignedTo', newAssignments)
                                 }}
                                 placeholder="e.g., Lead, Assistant"
-                                className="text-sm mt-1"
+                                className="mt-1"
                               />
                             )}
                           </div>
                           <div>
-                            <label
-                              className={cn(
-                                'block text-xs font-medium mb-1',
-                                theme === 'dark'
-                                  ? 'text-primary-light/70'
-                                  : 'text-primary-lightTextSecondary'
-                              )}
-                            >
+                            <label className="mb-1 block text-xs font-medium text-ink-muted">
                               Pay Type
                             </label>
-                            <Select
+                            <SelectField
+                              aria-label="Pay Type"
                               value={assignment.payType || 'job'}
                               onChange={e => {
                                 const newAssignments = [...assignments]
@@ -761,28 +693,14 @@ const JobLogForm = ({
                           </div>
                           {assignment.payType === 'hourly' ? (
                             <div>
-                              <label
-                                className={cn(
-                                  'block text-xs font-medium mb-1',
-                                  theme === 'dark'
-                                    ? 'text-primary-light/70'
-                                    : 'text-primary-lightTextSecondary'
-                                )}
-                              >
+                              <label className="mb-1 block text-xs font-medium text-ink-muted">
                                 Hourly Rate
                               </label>
                               <div className="relative">
-                                <span
-                                  className={cn(
-                                    'absolute left-3 top-1/2 -translate-y-1/2 text-sm',
-                                    theme === 'dark'
-                                      ? 'text-primary-light/70'
-                                      : 'text-primary-lightTextSecondary'
-                                  )}
-                                >
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-subtle">
                                   $
                                 </span>
-                                <Input
+                                <TextField
                                   type="number"
                                   step="0.01"
                                   min="0"
@@ -801,34 +719,20 @@ const JobLogForm = ({
                                     setValue('assignedTo', newAssignments)
                                   }}
                                   placeholder="0.00"
-                                  className="pl-7 text-sm"
+                                  className="pl-7 font-mono tabular-nums"
                                 />
                               </div>
                             </div>
                           ) : (
                             <div>
-                              <label
-                                className={cn(
-                                  'block text-xs font-medium mb-1',
-                                  theme === 'dark'
-                                    ? 'text-primary-light/70'
-                                    : 'text-primary-lightTextSecondary'
-                                )}
-                              >
+                              <label className="mb-1 block text-xs font-medium text-ink-muted">
                                 Price
                               </label>
                               <div className="relative">
-                                <span
-                                  className={cn(
-                                    'absolute left-3 top-1/2 -translate-y-1/2 text-sm',
-                                    theme === 'dark'
-                                      ? 'text-primary-light/70'
-                                      : 'text-primary-lightTextSecondary'
-                                  )}
-                                >
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-subtle">
                                   $
                                 </span>
-                                <Input
+                                <TextField
                                   type="number"
                                   step="0.01"
                                   min="0"
@@ -845,14 +749,16 @@ const JobLogForm = ({
                                     setValue('assignedTo', newAssignments)
                                   }}
                                   placeholder="0.00"
-                                  className="pl-7 text-sm"
+                                  className="pl-7 font-mono tabular-nums"
                                 />
                               </div>
                             </div>
                           )}
                         </div>
-                        <button
+                        <AppButton
                           type="button"
+                          variant="dangerGhost"
+                          size="sm"
                           onClick={() => {
                             const newAssignments = assignments.filter((_, i) => i !== index)
                             setAssignments(newAssignments)
@@ -863,17 +769,19 @@ const JobLogForm = ({
                               setValue('assignedTo', newAssignments)
                             }
                           }}
-                          className="text-red-500 hover:text-red-600 text-sm font-medium mt-3 sm:mt-0 sm:self-start"
+                          className="mt-3 sm:mt-0 sm:self-start"
                         >
                           Remove
-                        </button>
+                        </AppButton>
                       </div>
                     </div>
                   )
                 })}
-                <Button
+                <AppButton
                   type="button"
-                  variant="ghost"
+                  variant="subtle"
+                  size="sm"
+                  fullWidth
                   onClick={() => {
                     const newAssignments = [
                       ...assignments,
@@ -889,30 +797,30 @@ const JobLogForm = ({
                     setAssignments(newAssignments)
                     setValue('assignedTo', newAssignments)
                   }}
-                  className="w-full text-sm"
                 >
-                  + Add Another Team Member
-                </Button>
+                  <PlusIcon className="h-4 w-4" />
+                  Add Another Team Member
+                </AppButton>
               </>
             )}
           </div>
           {errors.assignedTo && (
-            <p className="text-red-500 text-xs mt-1">{errors.assignedTo.message}</p>
+            <p className="mt-1.5 text-[13px] text-danger">{errors.assignedTo.message}</p>
           )}
         </div>
       )}
       {submitError && (
-        <p className="text-sm text-red-500" role="alert">
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
           {submitError}
-        </p>
+        </Alert>
       )}
-      <div className="flex gap-3 pt-4">
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : jobLog ? 'Update' : 'Create'}
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col-reverse justify-end gap-3 pt-4 sm:flex-row">
+        <AppButton type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
           Cancel
-        </Button>
+        </AppButton>
+        <AppButton type="submit" disabled={isLoading} isLoading={isLoading}>
+          {isLoading ? 'Saving...' : jobLog ? 'Update' : 'Create'}
+        </AppButton>
       </div>
 
       <PayChangeEffectiveDateModal

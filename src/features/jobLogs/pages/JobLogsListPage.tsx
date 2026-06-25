@@ -3,11 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogList from '../components/JobLogList'
 import JobLogForm from '../components/JobLogForm'
-import { Modal, Button, Card, ConfirmationDialog } from '@/components/ui'
+import { Alert, AppButton, AppModal, PlusIcon, Tabs } from '../components/jobLogsUi'
 import type { CreateJobLogData } from '../types/jobLog'
 import { useAuthStore } from '@/features/auth'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
 import { services } from '@/lib/api/services'
 import ArchivedJobsPage from '@/features/scheduling/components/ArchivedJobsPage'
 import JobDetail from '@/features/scheduling/components/JobDetail'
@@ -16,7 +14,6 @@ import { useJobStore } from '@/features/scheduling/store/jobStore'
 import type { Job } from '@/features/scheduling/types/job'
 
 const JobLogsListPage = () => {
-  const { theme } = useTheme()
   const { user } = useAuthStore()
   const [isTeamAccount, setIsTeamAccount] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -180,80 +177,36 @@ const JobLogsListPage = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-5xl space-y-7">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <h1
-            className={cn(
-              'text-2xl md:text-3xl font-bold tracking-tight',
-              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-            )}
-          >
-            <span className="text-primary-gold">Jobs</span>
-          </h1>
-          <p
-            className={cn(
-              'text-sm md:text-base',
-              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-            )}
-          >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink md:text-3xl">Jobs</h1>
+          <p className="mt-1 text-sm text-ink-muted">
             Create jobs, track time, capture photos, and take notes on jobsites
           </p>
         </div>
         {activeJobsTab === 'jobs' && user?.canCreateJobs !== false && (
-          <Button onClick={() => setShowCreateForm(true)} className="w-full sm:w-auto">
-            Create Job
-          </Button>
+          <AppButton onClick={() => setShowCreateForm(true)} className="w-full sm:w-auto">
+            <PlusIcon className="h-4 w-4" />
+            Create job
+          </AppButton>
         )}
       </div>
 
-      <div
-        className={cn(
-          'flex items-center gap-1 sm:gap-2 border-b overflow-x-hidden overflow-y-hidden flex-shrink-0 min-w-0 -mx-4 md:-mx-6 px-4 md:px-6',
-          theme === 'dark' ? 'border-white/10' : 'border-gray-200'
-        )}
-        style={{ touchAction: 'none', overscrollBehavior: 'none' }}
-      >
-        <button
-          type="button"
-          onClick={() => setJobsTab('jobs')}
-          className={cn(
-            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
-            activeJobsTab === 'jobs'
-              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-              : theme === 'dark'
-                ? 'text-primary-light/60 hover:text-primary-light/90'
-                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-          )}
-        >
-          All jobs
-        </button>
-        <button
-          type="button"
-          onClick={() => setJobsTab('archived')}
-          className={cn(
-            'px-2.5 sm:px-3 md:px-4 py-2 font-medium transition-all whitespace-nowrap text-sm md:text-base flex-shrink-0',
-            activeJobsTab === 'archived'
-              ? 'text-primary-gold border-b-2 border-primary-gold -mb-[1px]'
-              : theme === 'dark'
-                ? 'text-primary-light/60 hover:text-primary-light/90'
-                : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-          )}
-        >
-          Archive
-        </button>
-      </div>
+      <Tabs
+        tabs={[
+          { value: 'jobs', label: 'All jobs' },
+          { value: 'archived', label: 'Archive' },
+        ]}
+        value={activeJobsTab}
+        onChange={(v) => setJobsTab(v as 'jobs' | 'archived')}
+      />
 
       {showJobError && (
-        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20 flex-shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm text-red-400">✗ {jobErrorMessage}</p>
-            <Button variant="ghost" size="sm" onClick={() => setShowJobError(false)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <Alert tone="danger" onDismiss={() => setShowJobError(false)}>
+          {jobErrorMessage}
+        </Alert>
       )}
 
       {activeJobsTab === 'jobs' ? (
@@ -275,12 +228,11 @@ const JobLogsListPage = () => {
         </div>
       )}
 
-      <Modal
+      <AppModal
         isOpen={showCreateForm}
         onClose={() => setShowCreateForm(false)}
-        title="New Job"
+        title="New job"
         size="xl"
-        fitContentOnMobile
       >
         <JobLogForm
           onSubmit={handleCreate}
@@ -288,7 +240,7 @@ const JobLogsListPage = () => {
           isLoading={isLoading}
           isSimpleCreate={true}
         />
-      </Modal>
+      </AppModal>
 
       {schedulingDetailJob && (
         <JobDetail
@@ -311,54 +263,40 @@ const JobLogsListPage = () => {
       )}
 
       {schedulingDetailJob && (
-        <ConfirmationDialog
+        <AppModal
           isOpen={showPermanentDeleteConfirm}
           onClose={() => setShowPermanentDeleteConfirm(false)}
-          onConfirm={handleConfirmPermanentDelete}
-          title="⚠️ Permanently Delete Job?"
-          message={
-            <div className="space-y-3">
-              <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                Are you sure you want to <strong className="text-red-400">PERMANENTLY</strong> delete
-                this job?
-              </p>
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                <p
-                  className={cn(
-                    'text-sm font-semibold mb-1',
-                    theme === 'dark' ? 'text-red-400' : 'text-red-600'
-                  )}
-                >
-                  ⚠️ This action cannot be undone!
-                </p>
-                <p
-                  className={cn(
-                    'text-sm',
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}
-                >
-                  The job will be removed from the database
-                  {schedulingDetailJob.archivedAt ? ' and S3 archive' : ''}.
-                </p>
-              </div>
-              <div className="bg-primary-blue/10 border border-primary-blue rounded-lg p-3">
-                <p
-                  className={cn(
-                    'text-sm',
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}
-                >
-                  <strong className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-                    Job:
-                  </strong>{' '}
-                  {schedulingDetailJob.title}
-                </p>
-              </div>
-            </div>
+          title="Permanently delete job?"
+          size="md"
+          footer={
+            <>
+              <AppButton variant="ghost" onClick={() => setShowPermanentDeleteConfirm(false)}>
+                Cancel
+              </AppButton>
+              <AppButton variant="danger" onClick={handleConfirmPermanentDelete}>
+                Delete permanently
+              </AppButton>
+            </>
           }
-          confirmText="Delete Permanently"
-          confirmVariant="danger"
-        />
+        >
+          <div className="space-y-4">
+            <p className="text-sm leading-relaxed text-ink">
+              Are you sure you want to <strong className="text-danger">permanently</strong> delete this job?
+            </p>
+            <div className="rounded-xl border border-danger/30 bg-danger-soft p-3">
+              <p className="text-sm font-semibold text-danger">This action cannot be undone</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                The job will be removed from the database
+                {schedulingDetailJob.archivedAt ? ' and S3 archive' : ''}.
+              </p>
+            </div>
+            <div className="rounded-xl border border-line bg-surface-2 p-3">
+              <p className="text-sm text-ink-muted">
+                <strong className="text-ink">Job:</strong> {schedulingDetailJob.title}
+              </p>
+            </div>
+          </div>
+        </AppModal>
       )}
 
       {schedulingDetailJob && (

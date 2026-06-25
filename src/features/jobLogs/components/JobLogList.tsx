@@ -2,17 +2,33 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogCard from './JobLogCard'
-import { Input, Button, Select, Checkbox, ConfirmationDialog } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { getRecurringTag } from '../utils/recurringPattern'
-import { useTheme } from '@/contexts/ThemeContext'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import {
   archiveWorkspaceJobSingle,
   fetchWorkspaceJobSchedulingMeta,
   permanentDeleteWorkspaceBookingOrJob,
 } from '../utils/workspaceJobDelete'
+import {
+  Alert,
+  AlertIcon,
+  AppButton,
+  AppModal,
+  CardsIcon,
+  CheckboxField,
+  DocumentIcon,
+  EmptyState,
+  ListIcon,
+  SearchIcon,
+  SelectCircle,
+  SelectField,
+  StatusBadge,
+  TagChip,
+  TextField,
+} from './jobLogsUi'
+import { JOB_STATUS, JOB_STATUS_FILTER_OPTIONS, type JobLogStatus } from './jobLogStatus'
 
 interface JobLogListProps {
   onCreateClick?: () => void
@@ -22,8 +38,19 @@ interface JobLogListProps {
 type DisplayMode = 'cards' | 'list'
 type SortBy = 'recent' | 'oldest' | 'title'
 
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Sort: Recent' },
+  { value: 'oldest', label: 'Sort: Oldest' },
+  { value: 'title', label: 'Sort: Title' },
+]
+
+const resolveStatus = (status?: string): JobLogStatus => {
+  if (status === 'archived') return 'inactive'
+  if (status === 'completed' || status === 'inactive') return status
+  return 'active'
+}
+
 const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
-  const { theme } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
   const { jobLogs, isLoading, error, fetchJobLogs, clearError } = useJobLogStore()
   const { fetchJobs } = useJobStore()
@@ -241,42 +268,39 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-500/10 border border-red-500 p-4">
-        <p className="text-sm text-red-500">{error}</p>
-        <Button
-          variant="ghost"
-          size="sm"
+      <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+        <p>{error}</p>
+        <button
           onClick={() => {
             clearError()
             fetchJobLogs()
           }}
-          className="mt-2"
+          className="mt-1.5 font-semibold underline-offset-2 hover:underline"
         >
-          Try Again
-        </Button>
-      </div>
+          Try again
+        </button>
+      </Alert>
     )
   }
 
   return (
-    <div className="space-y-4">
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+    <div className="space-y-5">
+      {/* Search and filters */}
+      <div className="flex flex-col gap-3 sm:flex-row">
         <div className="flex-1">
-          <Input
+          <TextField
             placeholder="Search jobs..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            leftIcon={<SearchIcon className="h-4 w-4" />}
+            aria-label="Search jobs"
           />
         </div>
-        <div className="flex gap-2 flex-wrap sm:flex-nowrap items-center">
-          <label
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+          <div
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg border whitespace-nowrap flex-shrink-0',
-              statusFilter === 'completed' ? 'cursor-not-allowed opacity-90' : 'cursor-pointer',
-              theme === 'dark'
-                ? 'border-primary-blue/30 bg-primary-dark-secondary'
-                : 'border-gray-200 bg-white'
+              'flex h-10 shrink-0 items-center whitespace-nowrap rounded-lg border border-line bg-surface px-3',
+              statusFilter === 'completed' && 'opacity-90'
             )}
             title={
               statusFilter === 'completed'
@@ -284,399 +308,246 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
                 : undefined
             }
           >
-            <Checkbox
+            <CheckboxField
+              id="joblogs-show-completed"
               checked={showCompletedEffective}
-              disabled={statusFilter === 'completed'}
-              onChange={e => setShowCompleted(e.target.checked)}
+              onChange={checked => {
+                if (statusFilter !== 'completed') setShowCompleted(checked)
+              }}
+              label={<span className="select-none whitespace-nowrap">Show completed</span>}
             />
-            <span
-              className={cn(
-                'text-sm select-none',
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}
-            >
-              Show completed
-            </span>
-          </label>
-          <Select
-            value={statusFilter}
-            onChange={e =>
-              setStatusFilter(e.target.value as 'all' | 'active' | 'completed' | 'inactive')
-            }
-            options={[
-              { value: 'all', label: 'All Status' },
-              { value: 'active', label: 'Active' },
-              { value: 'completed', label: 'Completed' },
-              { value: 'inactive', label: 'Inactive' },
-            ]}
-            className="w-full sm:w-auto min-w-[140px]"
-          />
-          <Select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as SortBy)}
-            options={[
-              { value: 'recent', label: 'Sort: Recent' },
-              { value: 'oldest', label: 'Sort: Oldest' },
-              { value: 'title', label: 'Sort: Title' },
-            ]}
-            className="w-full sm:w-auto min-w-[140px]"
-          />
-          <div
-            className={cn(
-              'flex gap-1 border rounded-lg p-1',
-              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-            )}
-          >
+          </div>
+          <div className="w-full sm:w-[150px]">
+            <SelectField
+              value={statusFilter}
+              onChange={e =>
+                setStatusFilter(e.target.value as 'all' | 'active' | 'completed' | 'inactive')
+              }
+              aria-label="Filter by status"
+              options={JOB_STATUS_FILTER_OPTIONS}
+            />
+          </div>
+          <div className="w-full sm:w-[150px]">
+            <SelectField
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortBy)}
+              aria-label="Sort jobs"
+              options={SORT_OPTIONS}
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-lg bg-surface-2 p-1">
             <button
               onClick={() => setDisplayMode('cards')}
               className={cn(
-                'px-3 py-1.5 rounded text-sm font-medium transition-colors',
-                displayMode === 'cards'
-                  ? 'bg-primary-gold text-primary-dark'
-                  : theme === 'dark'
-                    ? 'text-primary-light hover:bg-primary-blue/20'
-                    : 'text-primary-lightText hover:bg-gray-100'
+                'flex h-8 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                displayMode === 'cards' ? 'bg-surface text-accent-strong shadow-card' : 'text-ink-subtle hover:text-ink'
               )}
-              title="Card View"
+              title="Card view"
+              aria-label="Card view"
+              aria-pressed={displayMode === 'cards'}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                />
-              </svg>
+              <CardsIcon className="h-4 w-4" />
             </button>
             <button
               onClick={() => setDisplayMode('list')}
               className={cn(
-                'px-3 py-1.5 rounded text-sm font-medium transition-colors',
-                displayMode === 'list'
-                  ? 'bg-primary-gold text-primary-dark'
-                  : theme === 'dark'
-                    ? 'text-primary-light hover:bg-primary-blue/20'
-                    : 'text-primary-lightText hover:bg-gray-100'
+                'flex h-8 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                displayMode === 'list' ? 'bg-surface text-accent-strong shadow-card' : 'text-ink-subtle hover:text-ink'
               )}
-              title="List View"
+              title="List view"
+              aria-label="List view"
+              aria-pressed={displayMode === 'list'}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
+              <ListIcon className="h-4 w-4" />
             </button>
           </div>
 
           {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className={
-                theme === 'dark'
-                  ? 'text-primary-light/70 hover:text-primary-light'
-                  : 'text-primary-lightTextSecondary hover:text-primary-lightText'
-              }
-              title="Clear search and filters"
-            >
+            <AppButton variant="ghost" size="sm" onClick={clearFilters} title="Clear search and filters">
               Clear
-            </Button>
+            </AppButton>
           )}
         </div>
       </div>
 
-      {/* Results Count and Bulk Actions */}
-      <div className="flex items-center justify-between">
-        <div
-          className={cn(
-            'text-sm',
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}
-        >
+      {/* Results count and bulk actions */}
+      <div className="flex min-h-[2.25rem] items-center justify-between">
+        <div className="text-sm text-ink-muted">
           {selectedIds.size > 0 ? (
-            <span className="font-medium text-primary-gold">{selectedIds.size} selected</span>
+            <span className="font-medium text-accent-strong">
+              <span className="font-mono tabular-nums">{selectedIds.size}</span> selected
+            </span>
           ) : (
-            `${filteredJobLogs.length} job${filteredJobLogs.length !== 1 ? 's' : ''} found`
+            <>
+              <span className="font-mono tabular-nums text-ink">{filteredJobLogs.length}</span>{' '}
+              {filteredJobLogs.length === 1 ? 'job' : 'jobs'} found
+            </>
           )}
         </div>
         {selectedIds.size > 0 && (
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBulkArchiveConfirm(true)}
-              className="border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
-            >
+            <AppButton variant="subtle" size="sm" onClick={() => setShowBulkArchiveConfirm(true)}>
               Archive ({selectedIds.size})
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBulkPermanentConfirm(true)}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-            >
+            </AppButton>
+            <AppButton variant="dangerGhost" size="sm" onClick={() => setShowBulkPermanentConfirm(true)}>
               Delete permanently ({selectedIds.size})
-            </Button>
+            </AppButton>
           </div>
         )}
       </div>
 
-      <ConfirmationDialog
+      {/* Bulk archive confirmation */}
+      <AppModal
         isOpen={showBulkArchiveConfirm}
         onClose={() => setShowBulkArchiveConfirm(false)}
-        onConfirm={() => runBulkWorkspaceAction('archive')}
         title={`Archive ${selectedIds.size} job${selectedIds.size !== 1 ? 's' : ''}?`}
-        message={
-          <div className="space-y-3">
-            <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-              Archived jobs can be restored later from the Archive tab (Jobs or Calendar), matching
-              the calendar flow.
-            </p>
-            <p
-              className={cn(
-                'text-sm',
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}
-            >
-              Jobs that are part of a recurring series are skipped here—open each one to choose one
-              occurrence or the whole series.
-            </p>
-          </div>
+        size="sm"
+        footer={
+          <>
+            <AppButton variant="ghost" onClick={() => setShowBulkArchiveConfirm(false)}>
+              Cancel
+            </AppButton>
+            <AppButton variant="danger" onClick={() => runBulkWorkspaceAction('archive')}>
+              Archive
+            </AppButton>
+          </>
         }
-        confirmText="Archive"
-        confirmVariant="danger"
-      />
+      >
+        <div className="space-y-3">
+          <p className="text-sm leading-relaxed text-ink">
+            Archived jobs can be restored later from the Archive tab (Jobs or Calendar), matching the
+            calendar flow.
+          </p>
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Jobs that are part of a recurring series are skipped here—open each one to choose one
+            occurrence or the whole series.
+          </p>
+        </div>
+      </AppModal>
 
-      <ConfirmationDialog
+      {/* Bulk permanent delete confirmation */}
+      <AppModal
         isOpen={showBulkPermanentConfirm}
         onClose={() => setShowBulkPermanentConfirm(false)}
-        onConfirm={() => runBulkWorkspaceAction('permanent')}
         title={`Permanently remove ${selectedIds.size} job${selectedIds.size !== 1 ? 's' : ''}?`}
-        message={
-          <div className="space-y-3">
-            <p className={theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'}>
-              This cannot be undone. For jobs with a scheduled booking, only the booking is
-              permanently removed (same as the calendar). Jobs without a booking are removed
-              entirely.
-            </p>
-            <p
-              className={cn(
-                'text-sm',
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}
-            >
-              Recurring series are skipped in bulk—open each job to delete permanently with full
-              options.
-            </p>
-          </div>
+        size="sm"
+        footer={
+          <>
+            <AppButton variant="ghost" onClick={() => setShowBulkPermanentConfirm(false)}>
+              Cancel
+            </AppButton>
+            <AppButton variant="danger" onClick={() => runBulkWorkspaceAction('permanent')}>
+              Delete permanently
+            </AppButton>
+          </>
         }
-        confirmText="Delete permanently"
-        confirmVariant="danger"
-      />
+      >
+        <div className="space-y-3">
+          <p className="text-sm leading-relaxed text-ink">
+            This cannot be undone. For jobs with a scheduled booking, only the booking is permanently
+            removed (same as the calendar). Jobs without a booking are removed entirely.
+          </p>
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Recurring series are skipped in bulk—open each job to delete permanently with full
+            options.
+          </p>
+        </div>
+      </AppModal>
 
-      {/* Job Log List */}
+      {/* Job log list */}
       {isLoading ? (
         displayMode === 'cards' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  'rounded-xl border p-4 shadow-sm animate-pulse',
-                  theme === 'dark'
-                    ? 'border-white/10 bg-primary-dark-secondary shadow-black/20'
-                    : 'border-gray-200/20 bg-white'
-                )}
-              >
-                <div
-                  className={cn(
-                    'h-4 rounded w-2/3',
-                    theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
-                  )}
-                />
-                <div
-                  className={cn(
-                    'h-3 rounded w-1/2 mt-3',
-                    theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
-                  )}
-                />
-                <div
-                  className={cn(
-                    'h-3 rounded w-1/3 mt-2',
-                    theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
-                  )}
-                />
-                <div
-                  className={cn(
-                    'h-3 rounded w-full mt-4',
-                    theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
-                  )}
-                />
+              <div key={idx} className="animate-pulse rounded-xl bg-surface p-5 shadow-card">
+                <div className="h-4 w-2/3 rounded bg-surface-2" />
+                <div className="mt-3 h-3 w-1/2 rounded bg-surface-2" />
+                <div className="mt-2 h-3 w-1/3 rounded bg-surface-2" />
+                <div className="mt-4 h-3 w-full rounded bg-surface-2" />
               </div>
             ))}
           </div>
         ) : (
-          <div
-            className={cn(
-              'rounded-lg border overflow-hidden',
-              theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-            )}
-          >
+          <div className="overflow-hidden rounded-xl bg-surface shadow-card">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead
-                  className={cn(
-                    'border-b',
-                    theme === 'dark'
-                      ? 'bg-primary-dark-secondary border-primary-blue'
-                      : 'bg-gray-50 border-gray-200/20'
-                  )}
-                >
+                <thead className="border-b border-line">
                   <tr>
-                    <th className="px-4 py-3 w-12" />
-                    <th
-                      className={cn(
-                        'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider',
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
+                    <th className="w-12 px-4 py-3" />
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                       Job
                     </th>
-                    <th
-                      className={cn(
-                        'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell',
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
+                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4 md:table-cell">
                       Created
                     </th>
-                    <th
-                      className={cn(
-                        'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell',
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
+                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:px-4">
                       Contact
                     </th>
-                    <th
-                      className={cn(
-                        'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell',
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
+                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4 lg:table-cell">
                       Assigned to
                     </th>
-                    <th
-                      className={cn(
-                        'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell',
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
+                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4 lg:table-cell">
                       Location
                     </th>
-                    <th
-                      className={cn(
-                        'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider',
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
+                    <th className="px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4">
                       Status
                     </th>
-                    <th
-                      className={cn(
-                        'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell',
-                        theme === 'dark'
-                          ? 'text-primary-light/70'
-                          : 'text-primary-lightTextSecondary'
-                      )}
-                    >
+                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:px-4">
                       Total
                     </th>
                   </tr>
                 </thead>
-                <tbody
-                  className={cn(
-                    'divide-y',
-                    theme === 'dark' ? 'divide-primary-blue' : 'divide-gray-200/20'
-                  )}
-                >
-                  {Array.from({ length: 8 }).map((_, idx) => {
-                    const skeletonClass = theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
-                    return (
-                      <tr
-                        key={idx}
-                        className={cn(
-                          'animate-pulse',
-                          theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
-                        )}
-                      >
-                        <td className="px-4 py-3 w-12">
-                          <div className={cn('h-4 w-4 rounded-full mx-auto', skeletonClass)} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className={cn('h-4 rounded w-32', skeletonClass)} />
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <div className={cn('h-4 rounded w-24', skeletonClass)} />
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
-                          <div className={cn('h-4 rounded w-28', skeletonClass)} />
-                        </td>
-                        <td className="px-4 py-3 hidden lg:table-cell">
-                          <div className={cn('h-4 rounded w-24', skeletonClass)} />
-                        </td>
-                        <td className="px-4 py-3 hidden lg:table-cell">
-                          <div className={cn('h-4 rounded w-20', skeletonClass)} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className={cn('h-4 rounded w-16', skeletonClass)} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className={cn('h-4 rounded w-16', skeletonClass)} />
-                        </td>
-                      </tr>
-                    )
-                  })}
+                <tbody className="divide-y divide-line">
+                  {Array.from({ length: 8 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse bg-surface">
+                      <td className="w-12 px-4 py-3">
+                        <div className="mx-auto h-4 w-4 rounded-full bg-surface-2" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="h-4 w-32 rounded bg-surface-2" />
+                      </td>
+                      <td className="hidden px-4 py-3 md:table-cell">
+                        <div className="h-4 w-24 rounded bg-surface-2" />
+                      </td>
+                      <td className="hidden px-4 py-3 sm:table-cell">
+                        <div className="h-4 w-28 rounded bg-surface-2" />
+                      </td>
+                      <td className="hidden px-4 py-3 lg:table-cell">
+                        <div className="h-4 w-24 rounded bg-surface-2" />
+                      </td>
+                      <td className="hidden px-4 py-3 lg:table-cell">
+                        <div className="h-4 w-20 rounded bg-surface-2" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="h-4 w-16 rounded bg-surface-2" />
+                      </td>
+                      <td className="hidden px-4 py-3 sm:table-cell">
+                        <div className="h-4 w-16 rounded bg-surface-2" />
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         )
       ) : filteredJobLogs.length === 0 ? (
-        <div className="text-center py-12">
-          <p
-            className={cn(
-              'mb-4',
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}
-          >
-            {searchQuery || statusFilter !== 'all' ? 'No jobs match your filters' : 'No jobs yet'}
-          </p>
-          {!searchQuery && statusFilter === 'all' && onCreateClick && (
-            <Button variant="primary" onClick={onCreateClick}>
-              Create Your First Job
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={<DocumentIcon className="h-7 w-7" />}
+          title={
+            searchQuery || statusFilter !== 'all' ? 'No jobs match your filters.' : 'No jobs yet.'
+          }
+          action={
+            !searchQuery && statusFilter === 'all' && onCreateClick ? (
+              <AppButton onClick={onCreateClick} className="mt-1">
+                Create your first job
+              </AppButton>
+            ) : undefined
+          }
+        />
       ) : displayMode === 'cards' ? (
-        // Card Grid Layout
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        // Card grid layout
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredJobLogs.map(jobLog => (
             <JobLogCard
               key={jobLog.id}
@@ -688,243 +559,104 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
           ))}
         </div>
       ) : (
-        // List Layout (table - matches Quotes page)
-        <div
-          className={cn(
-            'rounded-lg border overflow-hidden',
-            theme === 'dark' ? 'border-primary-blue' : 'border-gray-200'
-          )}
-        >
+        // List layout (table)
+        <div className="overflow-hidden rounded-xl bg-surface shadow-card">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead
-                className={cn(
-                  'border-b',
-                  theme === 'dark'
-                    ? 'bg-primary-dark-secondary border-primary-blue'
-                    : 'bg-gray-50 border-gray-200/20'
-                )}
-              >
+              <thead className="border-b border-line">
                 <tr>
-                  <th className="px-2 sm:px-4 py-3 w-8 sm:w-12">
-                    <div
-                      onClick={toggleSelectAll}
-                      className={cn(
-                        'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
+                  <th className="w-8 px-2 py-3 sm:w-12 sm:px-4">
+                    <SelectCircle
+                      selected={
                         selectedIds.size === filteredJobLogs.length && filteredJobLogs.length > 0
-                          ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                          : theme === 'dark'
-                            ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
-                            : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100'
-                      )}
-                    >
-                      {selectedIds.size === filteredJobLogs.length &&
-                        filteredJobLogs.length > 0 && (
-                          <div
-                            className={cn(
-                              'w-2 h-2 rounded-full',
-                              theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
-                            )}
-                          />
-                        )}
-                    </div>
+                      }
+                      onClick={e => {
+                        e.stopPropagation()
+                        toggleSelectAll()
+                      }}
+                      label="Select all"
+                      className="mx-auto"
+                    />
                   </th>
-                  <th
-                    className={cn(
-                      'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider',
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
+                  <th className="px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4">
                     Job
                   </th>
-                  <th
-                    className={cn(
-                      'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider',
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
+                  <th className="px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4">
                     Created
                   </th>
-                  <th
-                    className={cn(
-                      'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell',
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
+                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell">
                     Contact
                   </th>
-                  <th
-                    className={cn(
-                      'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell',
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
+                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell">
                     Assigned to
                   </th>
-                  <th
-                    className={cn(
-                      'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell',
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
+                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell">
                     Location
                   </th>
-                  <th
-                    className={cn(
-                      'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell',
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
+                  <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:px-4">
                     Status
                   </th>
-                  <th
-                    className={cn(
-                      'px-2 sm:px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell',
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}
-                  >
+                  <th className="hidden px-2 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:px-4">
                     Total
                   </th>
                 </tr>
               </thead>
-              <tbody
-                className={cn(
-                  'divide-y',
-                  theme === 'dark' ? 'divide-primary-blue' : 'divide-gray-200/20'
-                )}
-              >
+              <tbody className="divide-y divide-line">
                 {filteredJobLogs.map(jobLog => {
                   const hasTime = (jobLog.timeEntries?.length ?? 0) > 0
                   const recurringTag = jobLog.bookings ? getRecurringTag(jobLog.bookings) : null
+                  const status = JOB_STATUS[resolveStatus(jobLog.status)]
                   return (
                     <tr
                       key={jobLog.id}
-                      className={cn(
-                        'transition-colors cursor-pointer',
-                        theme === 'dark'
-                          ? 'bg-primary-dark hover:bg-primary-dark/50'
-                          : 'bg-white hover:bg-gray-50'
-                      )}
+                      className="cursor-pointer bg-surface transition-colors hover:bg-surface-hover"
                       onClick={() => onSelectJobLog(jobLog.id)}
                     >
-                      <td className="px-2 sm:px-4 py-3" onClick={e => e.stopPropagation()}>
-                        <div
+                      <td className="px-2 py-3 sm:px-4" onClick={e => e.stopPropagation()}>
+                        <SelectCircle
+                          selected={selectedIds.has(jobLog.id)}
                           onClick={e => toggleSelection(jobLog.id, e)}
-                          className={cn(
-                            'w-4 h-4 rounded-full border-2 cursor-pointer transition-all duration-200 flex items-center justify-center mx-auto',
-                            selectedIds.has(jobLog.id)
-                              ? 'bg-primary-gold border-primary-gold shadow-lg shadow-primary-gold/50'
-                              : theme === 'dark'
-                                ? 'border-primary-light/30 bg-primary-dark hover:border-primary-gold/50 hover:bg-primary-gold/10'
-                                : 'border-gray-400 bg-white hover:border-primary-gold/50 hover:bg-gray-100'
-                          )}
-                        >
-                          {selectedIds.has(jobLog.id) && (
-                            <div
-                              className={cn(
-                                'w-2 h-2 rounded-full',
-                                theme === 'dark' ? 'bg-primary-dark' : 'bg-white'
-                              )}
-                            />
-                          )}
-                        </div>
+                          className="mx-auto"
+                        />
                       </td>
-                      <td className="px-2 sm:px-4 py-3 min-w-0">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={cn(
-                              'text-sm font-medium truncate min-w-0',
-                              theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                            )}
-                          >
+                      <td className="min-w-0 px-2 py-3 sm:px-4">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="min-w-0 truncate text-sm font-medium text-ink">
                             {jobLog.title}
                           </span>
-                          {recurringTag && (
-                            <span className="px-2 py-0.5 text-xs font-medium bg-primary-blue/20 text-primary-gold border border-primary-blue/30 rounded shrink-0">
-                              {recurringTag}
-                            </span>
-                          )}
+                          {recurringTag && <TagChip>{recurringTag}</TagChip>}
                         </div>
                       </td>
-                      <td
-                        className={cn(
-                          'px-2 sm:px-4 py-3 text-sm',
-                          theme === 'dark'
-                            ? 'text-primary-light/70'
-                            : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        <span className="hidden sm:inline whitespace-nowrap">
+                      <td className="px-2 py-3 text-sm text-ink-muted sm:px-4">
+                        <span className="hidden whitespace-nowrap font-mono tabular-nums sm:inline">
                           {format(new Date(jobLog.createdAt), 'MMM d, yyyy')}
                         </span>
-                        <span className="sm:hidden whitespace-nowrap">
+                        <span className="whitespace-nowrap font-mono tabular-nums sm:hidden">
                           {format(new Date(jobLog.createdAt), 'MMM d')}
                         </span>
                       </td>
-                      <td
-                        className={cn(
-                          'px-2 sm:px-4 py-3 whitespace-nowrap text-sm hidden sm:table-cell',
-                          theme === 'dark'
-                            ? 'text-primary-light/70'
-                            : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        <div className="truncate max-w-[150px]">{jobLog.contact?.name || '-'}</div>
-                      </td>
-                      <td
-                        className={cn(
-                          'px-2 sm:px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell',
-                          theme === 'dark'
-                            ? 'text-primary-light/70'
-                            : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        <div className="truncate max-w-[150px]">{jobLog.assignedToName || '-'}</div>
-                      </td>
-                      <td
-                        className={cn(
-                          'px-2 sm:px-4 py-3 whitespace-nowrap text-sm hidden lg:table-cell',
-                          theme === 'dark'
-                            ? 'text-primary-light/70'
-                            : 'text-primary-lightTextSecondary'
-                        )}
-                      >
-                        <div className="truncate max-w-[150px]">{jobLog.location || '-'}</div>
-                      </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell">
-                        {(() => {
-                          const s =
-                            jobLog.status === 'archived' ? 'inactive' : jobLog.status || 'active'
-                          const classes = {
-                            active:
-                              theme === 'dark'
-                                ? 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20'
-                                : 'bg-green-100 text-green-700 ring-1 ring-green-300',
-                            completed:
-                              theme === 'dark'
-                                ? 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20'
-                                : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
-                            inactive:
-                              theme === 'dark'
-                                ? 'bg-primary-light/10 text-primary-light/70 ring-1 ring-primary-light/20'
-                                : 'bg-gray-200 text-gray-600 ring-1 ring-gray-300',
-                          }
-                          return (
-                            <span
-                              className={cn(
-                                'px-2 py-0.5 rounded-full text-xs font-medium capitalize whitespace-nowrap',
-                                classes[s as keyof typeof classes] || classes.inactive
-                              )}
-                            >
-                              {s}
-                            </span>
-                          )
-                        })()}
-                      </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell">
-                        <div className="text-sm font-semibold text-primary-gold">
-                          {hasTime ? computeTotalHours(jobLog) : '—'}
+                      <td className="hidden whitespace-nowrap px-2 py-3 text-sm text-ink-muted sm:table-cell sm:px-4">
+                        <div className="max-w-[150px] truncate">
+                          {jobLog.contact?.name || <span className="text-ink-subtle">—</span>}
                         </div>
+                      </td>
+                      <td className="hidden whitespace-nowrap px-2 py-3 text-sm text-ink-muted sm:px-4 lg:table-cell">
+                        <div className="max-w-[150px] truncate">
+                          {jobLog.assignedToName || <span className="text-ink-subtle">—</span>}
+                        </div>
+                      </td>
+                      <td className="hidden whitespace-nowrap px-2 py-3 text-sm text-ink-muted sm:px-4 lg:table-cell">
+                        <div className="max-w-[150px] truncate">
+                          {jobLog.location || <span className="text-ink-subtle">—</span>}
+                        </div>
+                      </td>
+                      <td className="hidden whitespace-nowrap px-2 py-3 sm:table-cell sm:px-4">
+                        <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                      </td>
+                      <td className="hidden whitespace-nowrap px-2 py-3 text-right sm:table-cell sm:px-4">
+                        <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                          {hasTime ? computeTotalHours(jobLog) : '—'}
+                        </span>
                       </td>
                     </tr>
                   )
