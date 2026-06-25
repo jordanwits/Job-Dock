@@ -1,11 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import { Button, Input, Card, Select, Checkbox } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
 import { TEAM_COLORS } from '@/lib/utils/teamColors'
 import { JobRolesSection } from './JobRolesSection'
-import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import {
+  AppButton,
+  Panel,
+  TextField,
+  SelectField,
+  CheckboxField,
+  StatusBadge,
+  Alert,
+  Avatar,
+  CheckIcon,
+  AlertIcon,
+} from './settingsUi'
 
 interface TeamMember {
   id: string
@@ -30,7 +40,6 @@ function parseName(fullName: string): { firstName: string; lastName: string } {
 }
 
 export const TeamMembersSection = () => {
-  const { theme } = useTheme()
   const { user, updateUser } = useAuthStore()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,7 +62,7 @@ export const TeamMembersSection = () => {
   const [customColorValue, setCustomColorValue] = useState<string>('#3b82f6')
   const [pendingColorValue, setPendingColorValue] = useState<string | null>(null)
   const colorPickerSectionRef = useRef<HTMLDivElement>(null)
-  
+
   // Initialize custom color value when opening color picker
   useEffect(() => {
     if (editingColorUserId) {
@@ -68,7 +77,7 @@ export const TeamMembersSection = () => {
       }
     }
   }, [editingColorUserId, members])
-  
+
   // Handle clicks outside color picker section to close it
   useEffect(() => {
     if (editingColorUserId) {
@@ -83,12 +92,12 @@ export const TeamMembersSection = () => {
           setPendingColorValue(null)
         }
       }
-      
+
       // Use a small delay to avoid immediate closing when opening
       const timeout = setTimeout(() => {
         document.addEventListener('mousedown', handleClickOutside)
       }, 100)
-      
+
       return () => {
         clearTimeout(timeout)
         document.removeEventListener('mousedown', handleClickOutside)
@@ -196,7 +205,7 @@ export const TeamMembersSection = () => {
         canEditJobs: permission === 'canEditJobs' ? value : (member.canEditJobs ?? false),
         canEditAssignedJobsOnly: permission === 'canEditAssignedJobsOnly' ? value : (member.canEditAssignedJobsOnly ?? false),
       }
-      
+
       await services.users.updateRole(userId, currentRole as 'admin' | 'employee', permissions)
       await loadMembers()
     } catch (err: any) {
@@ -230,13 +239,13 @@ export const TeamMembersSection = () => {
       setUpdatingColor(null)
     }
   }
-  
+
   const handleSaveColor = () => {
     if (editingColorUserId) {
       handleColorChange(editingColorUserId, pendingColorValue)
     }
   }
-  
+
   const handleCancelColor = () => {
     setEditingColorUserId(null)
     setPendingColorValue(null)
@@ -276,17 +285,17 @@ export const TeamMembersSection = () => {
 
   const showTeamCount = teamMemberLimit != null && teamMemberCount != null
 
+  const roleBadgeTone = (role: string): 'accent' | 'info' | 'neutral' => {
+    if (role === 'owner') return 'accent'
+    if (role === 'admin') return 'info'
+    return 'neutral'
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className={cn(
-          "text-xl font-semibold",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Team Members</h2>
-        <div className={cn(
-          "h-20 rounded-lg animate-pulse",
-          theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-        )} />
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Team Members</h2>
+        <div className="h-20 rounded-xl bg-surface-2 animate-pulse" />
       </div>
     )
   }
@@ -294,44 +303,32 @@ export const TeamMembersSection = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 flex-wrap">
-        <h2 className={cn(
-          "text-xl font-semibold",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Team Members</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Team Members</h2>
         {showTeamCount && (
-          <span className={cn(
-            "text-sm font-medium px-2 py-0.5 rounded",
-            theme === 'dark' ? 'text-primary-light/80 bg-primary-dark-secondary' : 'text-primary-lightTextSecondary bg-gray-100'
-          )}>
+          <span className="text-sm font-medium font-mono tabular-nums px-2 py-0.5 rounded bg-surface-2 text-ink-muted">
             {teamMemberCount}/{teamMemberLimit}
           </span>
         )}
       </div>
       <div className="space-y-4">
         {error && !inviteModal && (
-          <div className="text-red-400 text-sm">{error}</div>
+          <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>{error}</Alert>
         )}
 
         {!canInvite ? (
-          <p className={cn(
-            "text-sm",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
+          <p className="text-sm text-ink-muted">
             {teamLimitReached
               ? 'Team plan limit reached (5 users). Upgrade to Team+ in Billing to add more members.'
               : 'Upgrade to the Team or Team+ plan to invite team members. Admins have full access; employees can track hours and add notes on jobs.'}
           </p>
         ) : (
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <p className={cn(
-              "text-sm flex-1",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
+            <p className="text-sm flex-1 text-ink-muted">
               Invite team members to collaborate. Admins have full access; employees can track hours and add notes on jobs.
             </p>
-            <Button variant="primary" onClick={() => { setError(null); setInviteModal(true) }} className="w-full sm:w-auto flex-shrink-0">
+            <AppButton variant="primary" onClick={() => { setError(null); setInviteModal(true) }} className="w-full sm:w-auto flex-shrink-0">
               Invite team member
-            </Button>
+            </AppButton>
           </div>
         )}
 
@@ -347,112 +344,102 @@ export const TeamMembersSection = () => {
             const isEditingOwnerName = ownerEditUserId === m.id
 
             return (
-            <Card key={m.id} className="relative flex flex-col py-4 px-4 gap-4">
+            <Panel key={m.id} className="relative flex flex-col py-4 px-4 gap-4">
               {/* Role badge in top right */}
               <div className="absolute top-4 right-4">
-                <span className={cn(
-                  "text-xs px-2 py-1 rounded capitalize",
-                  theme === 'dark'
-                    ? 'bg-primary-dark/50 text-primary-light/80'
-                    : 'bg-gray-100 text-primary-lightText'
-                )}>
+                <StatusBadge tone={roleBadgeTone(m.role)}>
                   {m.role}
-                </span>
+                </StatusBadge>
               </div>
 
               <div className="flex-1 min-w-0 pr-20">
                 {isEditingOwnerName ? (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
-                      <Input
+                      <TextField
                         label="First name"
                         value={ownerEditFirstName}
                         onChange={(e) => setOwnerEditFirstName(e.target.value)}
                         placeholder="Your first name"
-                        className="text-sm"
                       />
-                      <Input
+                      <TextField
                         label="Last name"
                         value={ownerEditLastName}
                         onChange={(e) => setOwnerEditLastName(e.target.value)}
                         placeholder="Last name"
-                        className="text-sm"
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="primary" size="sm" onClick={handleOwnerNameSave} disabled={ownerSaving}>
+                      <AppButton variant="primary" size="sm" onClick={handleOwnerNameSave} disabled={ownerSaving} isLoading={ownerSaving}>
                         {ownerSaving ? 'Saving...' : 'Save'}
-                      </Button>
-                      <Button variant="secondary" size="sm" onClick={cancelOwnerNameEdit} disabled={ownerSaving}>
+                      </AppButton>
+                      <AppButton variant="subtle" size="sm" onClick={cancelOwnerNameEdit} disabled={ownerSaving}>
                         Cancel
-                      </Button>
+                      </AppButton>
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <p className={cn(
-                        "font-medium",
-                        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                      )}>{m.name || 'Owner'}</p>
-                      {/* Color indicator */}
-                      {m.color && (
-                        <div
-                          className={`w-4 h-4 rounded-full border-2 ${
-                            m.color.startsWith('#') 
-                              ? '' 
-                              : (TEAM_COLORS.find(c => c.value === m.color)?.border || 'border-gray-500')
-                          } ${
-                            m.color.startsWith('#')
-                              ? ''
-                              : (TEAM_COLORS.find(c => c.value === m.color)?.bg || 'bg-gray-500/20')
-                          }`}
-                          style={m.color.startsWith('#') ? {
-                            backgroundColor: m.color,
-                            borderColor: m.color,
-                            opacity: 0.8,
-                          } : undefined}
-                          title={`Calendar color: ${m.color}`}
-                        />
-                      )}
+                  <div className="flex items-center gap-3">
+                    <Avatar name={m.name || 'Owner'} size="md" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <p className="font-medium text-ink">{m.name || 'Owner'}</p>
+                        {/* Color indicator */}
+                        {m.color && (
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 ${
+                              m.color.startsWith('#')
+                                ? ''
+                                : (TEAM_COLORS.find(c => c.value === m.color)?.border || 'border-line-strong')
+                            } ${
+                              m.color.startsWith('#')
+                                ? ''
+                                : (TEAM_COLORS.find(c => c.value === m.color)?.bg || 'bg-surface-2')
+                            }`}
+                            style={m.color.startsWith('#') ? {
+                              backgroundColor: m.color,
+                              borderColor: m.color,
+                              opacity: 0.8,
+                            } : undefined}
+                            title={`Calendar color: ${m.color}`}
+                          />
+                        )}
+                      </div>
+                      <p className="text-sm text-ink-muted">{m.email}</p>
                     </div>
-                    <p className={cn(
-                      "text-sm",
-                      theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                    )}>{m.email}</p>
-                  </>
+                  </div>
                 )}
               </div>
-              
+
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 {isCurrentUserOwner && !isEditingOwnerName && (
-                  <Button
-                    variant="outline"
+                  <AppButton
+                    variant="subtle"
                     size="sm"
                     onClick={() => startOwnerNameEdit(m)}
-                    className="text-sm w-full sm:w-auto"
+                    className="w-full sm:w-auto"
                   >
                     Edit name
-                  </Button>
+                  </AppButton>
                 )}
                 {/* Color picker button - available for all users */}
                 {canInvite && !isEditingOwnerName && editingColorUserId !== m.id && (
-                  <Button
-                    variant="outline"
+                  <AppButton
+                    variant="subtle"
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation()
                       setEditingColorUserId(m.id)
                     }}
-                    className="text-sm w-full sm:w-auto"
+                    className="w-full sm:w-auto"
                     disabled={updatingColor === m.id}
                   >
                     Set Color
-                  </Button>
+                  </AppButton>
                 )}
                 {m.role !== 'owner' && canInvite && (
                   <>
-                    <Select
+                    <SelectField
                       value={m.role}
                       onChange={(e) =>
                         handleRoleChange(m.id, e.target.value as 'admin' | 'employee', m)
@@ -463,159 +450,79 @@ export const TeamMembersSection = () => {
                       ]}
                       className="w-full sm:w-32"
                     />
-                    <Button
-                      variant="outline"
+                    <AppButton
+                      variant="subtle"
                       size="sm"
                       onClick={() => setExpandedMemberId(expandedMemberId === m.id ? null : m.id)}
-                      className="text-sm w-full sm:w-auto"
+                      className="w-full sm:w-auto"
                       disabled={updatingPermissions === m.id}
                     >
                       {expandedMemberId === m.id ? 'Hide Permissions' : 'Permissions'}
-                    </Button>
-                    <Button
+                    </AppButton>
+                    <AppButton
                       variant="danger"
                       size="sm"
                       onClick={() => handleRemove(m.id, m.name)}
-                      className="text-sm w-full sm:w-auto"
+                      className="w-full sm:w-auto"
                     >
                       Remove
-                    </Button>
+                    </AppButton>
                   </>
                 )}
               </div>
-              
+
               {/* Permissions Section */}
               {m.role !== 'owner' && canInvite && expandedMemberId === m.id && (
-                <div className={cn(
-                  "mt-2 pt-4 border-t rounded-lg p-4 -mx-4 -mb-4",
-                  theme === 'dark'
-                    ? 'border-primary-blue/30 bg-primary-dark/30'
-                    : 'border-gray-200/20 bg-gray-50'
-                )}>
-                  <p className={cn(
-                    "text-sm font-semibold mb-3",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>Permissions</p>
+                <div className="mt-2 pt-4 border-t border-line rounded-lg p-4 -mx-4 -mb-4 bg-surface-2">
+                  <p className="text-sm font-semibold tracking-tight mb-3 text-ink">Permissions</p>
                   <div className="space-y-3">
-                    <label className="flex items-start gap-3 cursor-pointer group">
-                      <div className="mt-0.5 flex-shrink-0">
-                        <Checkbox
-                          checked={m.canCreateJobs ?? false}
-                          onChange={(e) => handlePermissionChange(m.id, 'canCreateJobs', e.target.checked, m.role)}
-                          disabled={updatingPermissions === m.id}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <span className={cn(
-                          "text-sm block",
-                          theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                        )}>Can create jobs</span>
-                        <span className={cn(
-                          "text-xs mt-0.5 block",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>Allow this team member to create new jobs</span>
-                      </div>
-                    </label>
-                    <label className="flex items-start gap-3 cursor-pointer group">
-                      <div className="mt-0.5 flex-shrink-0">
-                        <Checkbox
-                          checked={m.canScheduleAppointments ?? false}
-                          onChange={(e) => handlePermissionChange(m.id, 'canScheduleAppointments', e.target.checked, m.role)}
-                          disabled={updatingPermissions === m.id}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <span className={cn(
-                          "text-sm block",
-                          theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                        )}>Can schedule appointments</span>
-                        <span className={cn(
-                          "text-xs mt-0.5 block",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>Allow this team member to set start and end times for jobs</span>
-                      </div>
-                    </label>
+                    <CheckboxField
+                      checked={m.canCreateJobs ?? false}
+                      onChange={(checked) => handlePermissionChange(m.id, 'canCreateJobs', checked, m.role)}
+                      disabled={updatingPermissions === m.id}
+                      label="Can create jobs"
+                      description="Allow this team member to create new jobs"
+                    />
+                    <CheckboxField
+                      checked={m.canScheduleAppointments ?? false}
+                      onChange={(checked) => handlePermissionChange(m.id, 'canScheduleAppointments', checked, m.role)}
+                      disabled={updatingPermissions === m.id}
+                      label="Can schedule appointments"
+                      description="Allow this team member to set start and end times for jobs"
+                    />
                     {m.role === 'employee' && (
                       <>
-                        <label className="flex items-start gap-3 cursor-pointer group">
-                          <div className="mt-0.5 flex-shrink-0">
-                            <Checkbox
-                              checked={m.canSeeOtherJobs ?? false}
-                              onChange={(e) => handlePermissionChange(m.id, 'canSeeOtherJobs', e.target.checked, m.role)}
-                              disabled={updatingPermissions === m.id}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <span className={cn(
-                              "text-sm block",
-                              theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                            )}>Can see other people's jobs</span>
-                            <span className={cn(
-                              "text-xs mt-0.5 block",
-                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                            )}>Allow this team member to see, edit, and delete jobs created by others</span>
-                          </div>
-                        </label>
-                        <label className="flex items-start gap-3 cursor-pointer group">
-                          <div className="mt-0.5 flex-shrink-0">
-                            <Checkbox
-                              checked={m.canSeeJobPrices ?? false}
-                              onChange={(e) => handlePermissionChange(m.id, 'canSeeJobPrices', e.target.checked, m.role)}
-                              disabled={updatingPermissions === m.id}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <span className={cn(
-                              "text-sm block",
-                              theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                            )}>Can see job prices</span>
-                            <span className={cn(
-                              "text-xs mt-0.5 block",
-                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                            )}>Allow this team member to see job prices and assignment prices</span>
-                          </div>
-                        </label>
+                        <CheckboxField
+                          checked={m.canSeeOtherJobs ?? false}
+                          onChange={(checked) => handlePermissionChange(m.id, 'canSeeOtherJobs', checked, m.role)}
+                          disabled={updatingPermissions === m.id}
+                          label="Can see other people's jobs"
+                          description="Allow this team member to see, edit, and delete jobs created by others"
+                        />
+                        <CheckboxField
+                          checked={m.canSeeJobPrices ?? false}
+                          onChange={(checked) => handlePermissionChange(m.id, 'canSeeJobPrices', checked, m.role)}
+                          disabled={updatingPermissions === m.id}
+                          label="Can see job prices"
+                          description="Allow this team member to see job prices and assignment prices"
+                        />
                         <div>
-                          <label className="flex items-start gap-3 cursor-pointer group">
-                            <div className="mt-0.5 flex-shrink-0">
-                              <Checkbox
-                                checked={m.canEditJobs ?? false}
-                                onChange={(e) => handlePermissionChange(m.id, 'canEditJobs', e.target.checked, m.role)}
-                                disabled={updatingPermissions === m.id}
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <span className={cn(
-                                "text-sm block",
-                                theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                              )}>Can edit jobs</span>
-                              <span className={cn(
-                                "text-xs mt-0.5 block",
-                                theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                              )}>Allow this team member to edit and delete jobs</span>
-                            </div>
-                          </label>
+                          <CheckboxField
+                            checked={m.canEditJobs ?? false}
+                            onChange={(checked) => handlePermissionChange(m.id, 'canEditJobs', checked, m.role)}
+                            disabled={updatingPermissions === m.id}
+                            label="Can edit jobs"
+                            description="Allow this team member to edit and delete jobs"
+                          />
                           {(m.canEditJobs ?? false) && (
-                            <div className="ml-7 mt-2">
-                              <label className="flex items-start gap-3 cursor-pointer group">
-                                <div className="mt-0.5 flex-shrink-0">
-                                  <Checkbox
-                                    checked={m.canEditAssignedJobsOnly ?? false}
-                                    onChange={(e) => handlePermissionChange(m.id, 'canEditAssignedJobsOnly', e.target.checked, m.role)}
-                                    disabled={updatingPermissions === m.id}
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <span className={cn(
-                                    "text-sm block",
-                                    theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                                  )}>Assigned jobs only</span>
-                                  <span className={cn(
-                                    "text-xs mt-0.5 block",
-                                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                                  )}>When checked, they can only edit jobs they are assigned to. Uncheck to allow editing all jobs.</span>
-                                </div>
-                              </label>
+                            <div className="ml-8 mt-2">
+                              <CheckboxField
+                                checked={m.canEditAssignedJobsOnly ?? false}
+                                onChange={(checked) => handlePermissionChange(m.id, 'canEditAssignedJobsOnly', checked, m.role)}
+                                disabled={updatingPermissions === m.id}
+                                label="Assigned jobs only"
+                                description="When checked, they can only edit jobs they are assigned to. Uncheck to allow editing all jobs."
+                              />
                             </div>
                           )}
                         </div>
@@ -624,43 +531,21 @@ export const TeamMembersSection = () => {
                     {m.role === 'admin' && (
                       <>
                         <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 border-primary-blue flex items-center justify-center",
-                            theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
-                          )}>
-                            <svg className="w-3 h-3 text-primary-gold" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
+                          <span className="mt-0.5 flex-shrink-0 flex h-5 w-5 items-center justify-center rounded-md border border-accent-strong bg-accent-strong">
+                            <CheckIcon className="h-3.5 w-3.5 text-accent-contrast" />
+                          </span>
                           <div className="flex-1">
-                            <span className={cn(
-                              "text-sm block",
-                              theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                            )}>Can see other people's jobs</span>
-                            <span className={cn(
-                              "text-xs mt-0.5 block italic",
-                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                            )}>Admins can see all jobs by default</span>
+                            <span className="text-sm block text-ink">Can see other people's jobs</span>
+                            <span className="text-[13px] mt-0.5 block italic text-ink-subtle">Admins can see all jobs by default</span>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 border-primary-blue flex items-center justify-center",
-                            theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-white'
-                          )}>
-                            <svg className="w-3 h-3 text-primary-gold" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
+                          <span className="mt-0.5 flex-shrink-0 flex h-5 w-5 items-center justify-center rounded-md border border-accent-strong bg-accent-strong">
+                            <CheckIcon className="h-3.5 w-3.5 text-accent-contrast" />
+                          </span>
                           <div className="flex-1">
-                            <span className={cn(
-                              "text-sm block",
-                              theme === 'dark' ? 'text-primary-light/90' : 'text-primary-lightText'
-                            )}>Can edit jobs</span>
-                            <span className={cn(
-                              "text-xs mt-0.5 block italic",
-                              theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                            )}>Admins can edit all jobs by default</span>
+                            <span className="text-sm block text-ink">Can edit jobs</span>
+                            <span className="text-[13px] mt-0.5 block italic text-ink-subtle">Admins can edit all jobs by default</span>
                           </div>
                         </div>
                       </>
@@ -671,34 +556,20 @@ export const TeamMembersSection = () => {
 
               {/* Color Picker Section */}
               {canInvite && editingColorUserId === m.id && (
-                <div 
+                <div
                   ref={colorPickerSectionRef}
-                  className={cn(
-                    "mt-2 pt-4 border-t rounded-lg p-4 -mx-4 -mb-4 color-picker-container",
-                    theme === 'dark'
-                      ? 'border-primary-blue/30 bg-primary-dark/30'
-                      : 'border-gray-200/20 bg-gray-50'
-                  )}
+                  className="mt-2 pt-4 border-t border-line rounded-lg p-4 -mx-4 -mb-4 color-picker-container bg-surface-2"
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
-                  <p className={cn(
-                    "text-sm font-semibold mb-3",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>Calendar Color</p>
-                  <p className={cn(
-                    "text-xs mb-4",
-                    theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                  )}>
+                  <p className="text-sm font-semibold tracking-tight mb-3 text-ink">Calendar Color</p>
+                  <p className="text-[13px] mb-4 text-ink-muted">
                     Choose a color to identify this team member in the calendar view.
                   </p>
-                  
+
                   {/* Preset Colors */}
                   <div className="mb-4" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    <p className={cn(
-                      "text-xs mb-2",
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Preset Colors</p>
+                    <p className="text-[13px] mb-2 text-ink-muted">Preset Colors</p>
                     <div className="grid grid-cols-6 gap-2">
                       {TEAM_COLORS.map((color) => {
                         const isSelected = pendingColorValue === color.value
@@ -714,7 +585,7 @@ export const TeamMembersSection = () => {
                             className={`
                               w-10 h-10 rounded-lg border-2 transition-all
                               ${color.bg} ${color.border}
-                              ${isSelected ? 'ring-2 ring-primary-gold ring-offset-2 ring-offset-primary-dark' : ''}
+                              ${isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-surface' : ''}
                               hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed
                             `}
                             title={color.value}
@@ -729,30 +600,19 @@ export const TeamMembersSection = () => {
                         onMouseDown={(e) => e.stopPropagation()}
                         disabled={updatingColor === m.id}
                         className={cn(
-                          "w-10 h-10 rounded-lg border-2 border-dashed hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center",
-                          theme === 'dark'
-                            ? 'border-primary-light/30 bg-primary-dark-secondary hover:bg-primary-dark'
-                            : 'border-gray-200/30 bg-white hover:bg-gray-100',
-                          pendingColorValue === null && 'ring-2 ring-primary-gold ring-offset-2',
-                          theme === 'dark' && pendingColorValue === null && 'ring-offset-primary-dark',
-                          theme === 'light' && pendingColorValue === null && 'ring-offset-white'
+                          "w-10 h-10 rounded-lg border-2 border-dashed border-line-strong bg-surface hover:bg-surface-hover hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center",
+                          pendingColorValue === null && 'ring-2 ring-accent ring-offset-2 ring-offset-surface'
                         )}
                         title="Use default (auto-assigned)"
                       >
-                        <span className={cn(
-                          "text-xs",
-                          theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                        )}>Auto</span>
+                        <span className="text-[13px] text-ink-muted">Auto</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Custom Color Picker */}
                   <div className="mb-4" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    <p className={cn(
-                      "text-xs mb-2",
-                      theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                    )}>Custom Color</p>
+                    <p className="text-[13px] mb-2 text-ink-muted">Custom Color</p>
                     <div className="flex items-center gap-3">
                       <div className="relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                         <input
@@ -767,13 +627,13 @@ export const TeamMembersSection = () => {
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
                           disabled={updatingColor === m.id}
-                          className="w-16 h-10 rounded-lg border-2 border-primary-blue/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded"
+                          className="w-16 h-10 rounded-lg border-2 border-line cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded"
                           style={{
                             backgroundColor: pendingColorValue && pendingColorValue.startsWith('#') ? pendingColorValue : (customColorValue || '#3b82f6'),
                           }}
                         />
                         {pendingColorValue && pendingColorValue.startsWith('#') && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary-gold ring-2 ring-primary-dark pointer-events-none" />
+                          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent ring-2 ring-surface pointer-events-none" />
                         )}
                       </div>
                       <div className="flex-1" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
@@ -795,41 +655,29 @@ export const TeamMembersSection = () => {
                           disabled={updatingColor === m.id}
                           placeholder="#000000"
                           maxLength={7}
-                          className={cn(
-                            "w-full h-10 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-gold focus:border-primary-gold disabled:opacity-50 disabled:cursor-not-allowed",
-                            theme === 'dark'
-                              ? 'border-primary-blue/30 bg-primary-dark-secondary text-primary-light placeholder:text-primary-light/50'
-                              : 'border-gray-200/30 bg-white text-primary-lightText placeholder:text-primary-lightTextSecondary'
-                          )}
+                          className="w-full h-10 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-subtle outline-none transition-[color,border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] disabled:opacity-50 disabled:cursor-not-allowed font-mono tabular-nums"
                         />
                       </div>
                     </div>
-                    <p className={cn(
-                      "text-xs mt-1",
-                      theme === 'dark' ? 'text-primary-light/50' : 'text-primary-lightTextSecondary'
-                    )}>
+                    <p className="text-[13px] mt-1 text-ink-subtle">
                       Enter a hex color code (e.g., #FF5733) or use the color picker
                     </p>
                   </div>
 
                   {/* Save/Cancel Buttons */}
-                  <div className={cn(
-                    "flex gap-2 justify-end pt-2 border-t",
-                    theme === 'dark' ? 'border-primary-blue/20' : 'border-gray-200/20'
-                  )}>
-                    <Button
-                      variant="secondary"
+                  <div className="flex gap-2 justify-end pt-2 border-t border-line">
+                    <AppButton
+                      variant="subtle"
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleCancelColor()
                       }}
                       disabled={updatingColor === m.id}
-                      className="text-sm"
                     >
                       Cancel
-                    </Button>
-                    <Button
+                    </AppButton>
+                    <AppButton
                       variant="primary"
                       size="sm"
                       onClick={(e) => {
@@ -838,26 +686,22 @@ export const TeamMembersSection = () => {
                       }}
                       disabled={updatingColor === m.id}
                       isLoading={updatingColor === m.id}
-                      className="text-sm"
                     >
                       Save
-                    </Button>
+                    </AppButton>
                   </div>
                 </div>
               )}
-            </Card>
+            </Panel>
             )
           })}
         </div>
 
         {inviteModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <Card className="w-full max-w-md p-6 space-y-4">
-              <h3 className={cn(
-                "text-xl font-semibold",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>Invite team member</h3>
-              <Input
+            <Panel className="w-full max-w-md p-6 space-y-4">
+              <h3 className="text-lg font-semibold tracking-tight text-ink">Invite team member</h3>
+              <TextField
                 label="Email"
                 type="email"
                 value={inviteEmail}
@@ -865,20 +709,20 @@ export const TeamMembersSection = () => {
                 placeholder="colleague@example.com"
               />
               <div className="grid grid-cols-2 gap-4">
-                <Input
+                <TextField
                   label="First name"
                   value={inviteFirstName}
                   onChange={(e) => setInviteFirstName(e.target.value)}
                   placeholder="Jane"
                 />
-                <Input
+                <TextField
                   label="Last name"
                   value={inviteLastName}
                   onChange={(e) => setInviteLastName(e.target.value)}
                   placeholder="Doe"
                 />
               </div>
-              <Select
+              <SelectField
                 label="Role"
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as 'admin' | 'employee')}
@@ -888,34 +732,29 @@ export const TeamMembersSection = () => {
                 ]}
               />
               {error && (
-                <div className="p-3 rounded-lg border border-red-500 bg-red-500/10">
-                  <p className="text-sm text-red-400 font-medium">✗ {error}</p>
-                </div>
+                <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>{error}</Alert>
               )}
               <div className="flex gap-2 justify-end">
-                <Button
-                  variant="secondary"
+                <AppButton
+                  variant="subtle"
                   onClick={() => {
                     setError(null)
                     setInviteModal(false)
                   }}
                 >
                   Cancel
-                </Button>
-                <Button variant="primary" onClick={handleInvite} disabled={inviting}>
+                </AppButton>
+                <AppButton variant="primary" onClick={handleInvite} disabled={inviting} isLoading={inviting}>
                   {inviting ? 'Sending...' : 'Send invite'}
-                </Button>
+                </AppButton>
               </div>
-            </Card>
+            </Panel>
           </div>
         )}
       </div>
 
       {/* Job Roles Section */}
-      <div className={cn(
-        "mt-8 pt-8 border-t",
-        theme === 'dark' ? 'border-primary-blue/30' : 'border-gray-200/20'
-      )}>
+      <div className="mt-8 pt-8 border-t border-line">
         <JobRolesSection />
       </div>
     </div>

@@ -1,8 +1,14 @@
 import { useRef } from 'react'
-import { Button } from '@/components/ui'
 import { TenantSettings } from '@/lib/api/settings'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  AppButton,
+  SettingsSection,
+  SubHeading,
+  InfoPanel,
+  UploadIcon,
+  ExternalLinkIcon,
+  linkCls,
+} from './settingsUi'
 
 interface PdfTemplatesSectionProps {
   settings: TenantSettings | null
@@ -15,7 +21,6 @@ export const PdfTemplatesSection = ({
   onInvoicePdfUpload,
   onQuotePdfUpload,
 }: PdfTemplatesSectionProps) => {
-  const { theme } = useTheme()
   const invoiceFileInputRef = useRef<HTMLInputElement>(null)
   const quoteFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -40,52 +45,35 @@ export const PdfTemplatesSection = ({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h2 className={cn(
-          "text-xl font-semibold",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>PDF Templates</h2>
-        <p className={cn(
-          "text-sm",
-          theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-        )}>
-          Upload custom PDF backgrounds for invoices and quotes. Your template will be used as the background with dynamic content overlaid. Max size: 10MB per file.
-        </p>
-      </div>
-
-      <div className="space-y-6">
+    <SettingsSection
+      title="PDF Templates"
+      description="Upload custom PDF backgrounds for invoices and quotes. Your template will be used as the background with dynamic content overlaid. Max size: 10MB per file."
+    >
+      <div className="space-y-8">
         {/* Invoice PDF Template */}
         <div>
-          <h3 className={cn(
-            "text-lg font-medium mb-3",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
-            Invoice Template
-          </h3>
+          <SubHeading className="mb-3">Invoice template</SubHeading>
 
           {settings?.invoicePdfTemplateKey && (
-            <div className={cn(
-              "mb-3 p-4 rounded-lg",
-              theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-sm mb-2",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                Current template: <span className="text-primary-gold">{settings.invoicePdfTemplateKey.split('/').pop()}</span>
+            <InfoPanel className="mb-3">
+              <p className="mb-2 text-ink">
+                Current template:{' '}
+                <span className="font-medium text-accent-strong">
+                  {settings.invoicePdfTemplateKey.split('/').pop()}
+                </span>
               </p>
               {settings.invoicePdfSignedUrl && (
                 <a
                   href={settings.invoicePdfSignedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-primary-blue hover:underline"
+                  className={`inline-flex items-center gap-1 text-[13px] ${linkCls}`}
                 >
-                  Preview Template
+                  <ExternalLinkIcon className="h-3.5 w-3.5" />
+                  Preview template
                 </a>
               )}
-            </div>
+            </InfoPanel>
           )}
 
           <input
@@ -96,45 +84,36 @@ export const PdfTemplatesSection = ({
             className="hidden"
           />
 
-          <Button
-            variant="outline"
-            onClick={() => invoiceFileInputRef.current?.click()}
-          >
-            {settings?.invoicePdfTemplateKey ? 'Change Invoice Template' : 'Upload Invoice Template'}
-          </Button>
+          <AppButton variant="subtle" onClick={() => invoiceFileInputRef.current?.click()}>
+            <UploadIcon className="h-4 w-4" />
+            {settings?.invoicePdfTemplateKey ? 'Change invoice template' : 'Upload invoice template'}
+          </AppButton>
         </div>
 
         {/* Quote PDF Template */}
         <div>
-          <h3 className={cn(
-            "text-lg font-medium mb-3",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
-            Quote Template
-          </h3>
+          <SubHeading className="mb-3">Quote template</SubHeading>
 
           {settings?.quotePdfTemplateKey && (
-            <div className={cn(
-              "mb-3 p-4 rounded-lg",
-              theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-100'
-            )}>
-              <p className={cn(
-                "text-sm mb-2",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                Current template: <span className="text-primary-gold">{settings.quotePdfTemplateKey.split('/').pop()}</span>
+            <InfoPanel className="mb-3">
+              <p className="mb-2 text-ink">
+                Current template:{' '}
+                <span className="font-medium text-accent-strong">
+                  {settings.quotePdfTemplateKey.split('/').pop()}
+                </span>
               </p>
               {settings.quotePdfSignedUrl && (
                 <a
                   href={settings.quotePdfSignedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-primary-blue hover:underline"
+                  className={`inline-flex items-center gap-1 text-[13px] ${linkCls}`}
                 >
-                  Preview Template
+                  <ExternalLinkIcon className="h-3.5 w-3.5" />
+                  Preview template
                 </a>
               )}
-            </div>
+            </InfoPanel>
           )}
 
           <input
@@ -145,15 +124,12 @@ export const PdfTemplatesSection = ({
             className="hidden"
           />
 
-          <Button
-            variant="outline"
-            onClick={() => quoteFileInputRef.current?.click()}
-          >
-            {settings?.quotePdfTemplateKey ? 'Change Quote Template' : 'Upload Quote Template'}
-          </Button>
+          <AppButton variant="subtle" onClick={() => quoteFileInputRef.current?.click()}>
+            <UploadIcon className="h-4 w-4" />
+            {settings?.quotePdfTemplateKey ? 'Change quote template' : 'Upload quote template'}
+          </AppButton>
         </div>
       </div>
-    </div>
+    </SettingsSection>
   )
 }
-

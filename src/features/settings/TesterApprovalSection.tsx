@@ -1,8 +1,17 @@
 import { useState } from 'react'
-import { Button, Card, Input, Select } from '@/components/ui'
 import { services } from '@/lib/api/services'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/contexts/ThemeContext'
+import {
+  AppButton,
+  Panel,
+  TextField,
+  SelectField,
+  Alert,
+  AlertIcon,
+  InfoPanel,
+  CodeChip,
+  CopyIcon,
+  CheckIcon,
+} from './settingsUi'
 
 function platformAdminEmails(): string[] {
   const raw = (import.meta.env.VITE_PLATFORM_ADMIN_EMAILS || 'jordan@westwavecreative.com').trim()
@@ -19,7 +28,6 @@ export function isTesterApprovalUiVisible(email: string | undefined): boolean {
 }
 
 export const TesterApprovalSection = () => {
-  const { theme } = useTheme()
   const [userId, setUserId] = useState('')
   const [plan, setPlan] = useState<'solo' | 'team' | 'team-plus'>('solo')
   const [loading, setLoading] = useState(false)
@@ -64,38 +72,32 @@ export const TesterApprovalSection = () => {
   }
 
   return (
-    <Card
-      className={cn(
-        'p-6',
-        theme === 'dark' ? 'border-amber-900/40 bg-amber-950/20' : 'border-amber-200 bg-amber-50/80'
-      )}
-    >
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Approve tester</h2>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        Generate a private Stripe Checkout link for an approved tenant owner (6-month trial, tester discount). Not
-        shown to other users.
-      </p>
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Approve tester</h2>
+        <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+          Generate a private Stripe Checkout link for an approved tenant owner (6-month trial,
+          tester discount). Not shown to other users.
+        </p>
+      </div>
 
-      <div className="mt-4 space-y-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-            Owner (JobDock id, Cognito sub, or email)
-          </label>
-          <Input
+      <Panel className="p-5 ring-1 ring-inset ring-warning/30">
+        <div className="space-y-4">
+          <TextField
+            label="Owner (JobDock id, Cognito sub, or email)"
             value={userId}
             onChange={e => setUserId(e.target.value)}
             placeholder="e.g. Cognito sub, or their login email"
-            className="font-mono text-sm"
+            className="font-mono"
           />
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            The Cognito console &quot;User ID&quot; (sub) is accepted. It is not the same as the UUID in the{' '}
-            <code className="rounded bg-slate-200/80 px-1 dark:bg-slate-700">users</code> table unless you paste sub
-            here—we match that as <code className="rounded bg-slate-200/80 px-1 dark:bg-slate-700">cognitoId</code>.
-          </p>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Plan</label>
-          <Select
+          <InfoPanel>
+            The Cognito console &quot;User ID&quot; (sub) is accepted. It is not the same as the UUID
+            in the <CodeChip>users</CodeChip> table unless you paste sub here — we match that as{' '}
+            <CodeChip>cognitoId</CodeChip>.
+          </InfoPanel>
+
+          <SelectField
+            label="Plan"
             value={plan}
             onChange={e => setPlan(e.target.value as 'solo' | 'team' | 'team-plus')}
             options={[
@@ -104,21 +106,31 @@ export const TesterApprovalSection = () => {
               { value: 'team-plus', label: 'Team+' },
             ]}
           />
+
+          {error && (
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+              {error}
+            </Alert>
+          )}
+
+          <AppButton type="button" onClick={handleApprove} isLoading={loading}>
+            Approve tester
+          </AppButton>
+
+          {checkoutUrl && (
+            <div className="rounded-lg bg-surface-2 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-subtle">
+                Checkout link
+              </p>
+              <p className="mt-1 break-all font-mono text-sm text-ink">{checkoutUrl}</p>
+              <AppButton type="button" variant="subtle" size="sm" className="mt-3" onClick={copyLink}>
+                {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+                {copied ? 'Copied' : 'Copy link'}
+              </AppButton>
+            </div>
+          )}
         </div>
-        {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
-        <Button type="button" variant="primary" onClick={handleApprove} disabled={loading} isLoading={loading}>
-          Approve tester
-        </Button>
-        {checkoutUrl ? (
-          <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Checkout link</p>
-            <p className="mt-1 break-all text-sm text-slate-800 dark:text-slate-200">{checkoutUrl}</p>
-            <Button type="button" variant="secondary" className="mt-3" size="sm" onClick={copyLink}>
-              {copied ? 'Copied' : 'Copy link'}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    </Card>
+      </Panel>
+    </section>
   )
 }

@@ -1,8 +1,12 @@
 import { useRef, useState } from 'react'
-import { Input, Button, PhoneInput } from '@/components/ui'
 import { TenantSettings } from '@/lib/api/settings'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  AppButton,
+  TextField,
+  PhoneField,
+  SettingsSection,
+  UploadIcon,
+} from './settingsUi'
 
 interface CompanyBrandingSectionProps {
   formData: {
@@ -23,7 +27,6 @@ export const CompanyBrandingSection = ({
   onLogoUpload,
   onSave,
 }: CompanyBrandingSectionProps) => {
-  const { theme } = useTheme()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -54,61 +57,42 @@ export const CompanyBrandingSection = ({
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className={cn(
-        "text-xl font-semibold",
-        theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-      )}>Company & Branding</h2>
+    <SettingsSection title="Company & Branding">
       <div className="space-y-4">
-        <Input
-          label="Company Name"
+        <TextField
+          label="Company name"
           value={formData.companyDisplayName}
-          onChange={(e) => onFieldChange('companyDisplayName', e.target.value)}
+          onChange={e => onFieldChange('companyDisplayName', e.target.value)}
           placeholder="Your Company Name"
         />
 
-        <Input
-          label="Support Email"
+        <TextField
+          label="Support email"
           type="email"
           value={formData.companySupportEmail}
-          onChange={(e) => onFieldChange('companySupportEmail', e.target.value)}
+          onChange={e => onFieldChange('companySupportEmail', e.target.value)}
           placeholder="support@yourcompany.com"
           helperText="Displayed in email footers and on invoices/quotes"
         />
 
-        <PhoneInput
-          label="Phone Number"
+        <PhoneField
+          label="Phone number"
           value={formData.companyPhone}
-          onChange={(e) => onFieldChange('companyPhone', e.target.value)}
+          onChange={e => onFieldChange('companyPhone', e.target.value)}
           placeholder="123-456-7890"
           helperText="Displayed on invoices and quotes for customer contact"
         />
 
         <div>
-          <label className={cn(
-            "block text-sm font-medium mb-2",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>
-            Company Logo
-          </label>
-          <p className={cn(
-            "text-sm mb-3",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
-            Upload your company logo. It will appear on invoices, quotes, and emails.
-            Supported formats: PNG, JPEG, SVG. Max size: 5MB.
+          <label className="mb-1.5 block text-sm font-medium text-ink">Company logo</label>
+          <p className="mb-3 text-[13px] leading-relaxed text-ink-subtle">
+            Upload your company logo. It will appear on invoices, quotes, and emails. Supported
+            formats: PNG, JPEG, SVG. Max size: 5MB.
           </p>
 
           {settings?.logoSignedUrl && (
-            <div className={cn(
-              "mb-3 p-4 rounded-lg",
-              theme === 'dark' ? 'bg-primary-dark-secondary' : 'bg-gray-100'
-            )}>
-              <img
-                src={settings.logoSignedUrl}
-                alt="Company logo"
-                className="max-h-24 object-contain"
-              />
+            <div className="mb-3 rounded-lg bg-surface-2 p-4">
+              <img src={settings.logoSignedUrl} alt="Company logo" className="max-h-24 object-contain" />
             </div>
           )}
 
@@ -120,22 +104,18 @@ export const CompanyBrandingSection = ({
             className="hidden"
           />
 
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingLogo}
-          >
-            {uploadingLogo ? 'Uploading...' : settings?.logoUrl ? 'Change Logo' : 'Upload Logo'}
-          </Button>
+          <AppButton variant="subtle" onClick={() => fileInputRef.current?.click()} isLoading={uploadingLogo}>
+            {!uploadingLogo && <UploadIcon className="h-4 w-4" />}
+            {uploadingLogo ? 'Uploading…' : settings?.logoUrl ? 'Change logo' : 'Upload logo'}
+          </AppButton>
         </div>
 
         <div className="flex justify-end pt-4">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
+          <AppButton onClick={handleSave} isLoading={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </AppButton>
         </div>
       </div>
-    </div>
+    </SettingsSection>
   )
 }
-

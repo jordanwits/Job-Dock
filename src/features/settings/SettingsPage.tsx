@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Card, Button } from '@/components/ui'
 import { settingsApi, TenantSettings } from '@/lib/api/settings'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
@@ -14,7 +13,7 @@ import { HelpSection } from './HelpSection'
 import { FeedbackSection } from './FeedbackSection'
 import { TesterApprovalSection, isTesterApprovalUiVisible } from './TesterApprovalSection'
 import { cn } from '@/lib/utils'
-import { useTheme } from '@/contexts/ThemeContext'
+import { Alert, AlertIcon, ChevronLeftIcon, ChevronRightIcon } from './settingsUi'
 
 type TabId =
   | 'billing'
@@ -38,7 +37,6 @@ interface TabConfig {
 }
 
 export const SettingsPage = () => {
-  const { theme } = useTheme()
   const { user } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const [settings, setSettings] = useState<TenantSettings | null>(null)
@@ -311,23 +309,18 @@ export const SettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className={cn(
-          "rounded-xl border p-6 shadow-sm",
-          theme === 'dark'
-            ? 'border-white/5 bg-primary-dark-secondary/50 shadow-black/20'
-            : 'border-gray-200 bg-primary-lightSecondary shadow-gray-200/50'
-        )}>
-          <div className={cn(
-            "h-6 w-48 rounded animate-pulse mb-6",
-            theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-          )}></div>
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className={cn(
-                "h-20 rounded-lg animate-pulse",
-                theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-              )}></div>
+      <div className="space-y-8">
+        <div className="h-8 w-40 animate-pulse rounded-lg bg-surface-2" />
+        <div className="flex flex-col gap-6 md:flex-row">
+          <div className="hidden w-56 shrink-0 space-y-1.5 md:block">
+            {[0, 1, 2, 3, 4].map(i => (
+              <div key={i} className="h-9 animate-pulse rounded-lg bg-surface-2" />
+            ))}
+          </div>
+          <div className="flex-1 space-y-4">
+            <div className="h-6 w-48 animate-pulse rounded bg-surface-2" />
+            {[0, 1, 2].map(i => (
+              <div key={i} className="h-20 animate-pulse rounded-xl bg-surface shadow-card" />
             ))}
           </div>
         </div>
@@ -335,21 +328,24 @@ export const SettingsPage = () => {
     )
   }
 
+  const navItemCls = (isActive: boolean) =>
+    cn(
+      'flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
+      isActive
+        ? 'bg-accent-soft text-accent-strong'
+        : 'text-ink-muted hover:bg-surface-2 hover:text-ink'
+    )
+
   return (
     <div className="space-y-6 md:space-y-8">
       <div>
-        <h1 className={cn(
-          "text-2xl md:text-3xl font-bold tracking-tight",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>
-          <span className="text-primary-gold">Settings</span>
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Settings</h1>
       </div>
 
       {error && (
-        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20">
-          <p className="text-red-400">{error}</p>
-        </Card>
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />} onDismiss={() => setError(null)}>
+          {error}
+        </Alert>
       )}
 
       {/* Mobile: Show list or detail view */}
@@ -361,36 +357,25 @@ export const SettingsPage = () => {
               <button
                 key={tab.id}
                 onClick={() => handleTabSelect(tab.id)}
-                className={cn(
-                  'w-full flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left',
-                  theme === 'dark'
-                    ? 'text-primary-light/70 hover:bg-primary-dark hover:text-primary-light active:bg-primary-dark'
-                    : 'text-primary-lightTextSecondary hover:bg-gray-100 hover:text-primary-lightText active:bg-gray-100'
-                )}
+                className={cn(navItemCls(false), 'justify-between')}
               >
                 <span>{tab.label}</span>
+                <ChevronRightIcon className="h-4 w-4 text-ink-subtle" />
               </button>
             ))}
           </div>
         ) : (
           /* Mobile: Detail view with back button */
           activeTabConfig && (
-            <div className="space-y-4">
-              <Button
-                variant="ghost"
+            <div className="space-y-5">
+              <button
+                type="button"
                 onClick={handleBackToList}
-                className="flex items-center gap-2 -ml-2"
+                className="-ml-1 flex items-center gap-1.5 rounded-sm text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
+                <ChevronLeftIcon className="h-4 w-4" />
                 Back to Settings
-              </Button>
+              </button>
               <div>{activeTabConfig.component}</div>
             </div>
           )
@@ -398,43 +383,24 @@ export const SettingsPage = () => {
       </div>
 
       {/* Desktop: Side-by-side layout */}
-      <div className="hidden md:flex md:flex-row gap-6 min-h-[600px]">
+      <div className="hidden min-h-[600px] gap-8 md:flex md:flex-row">
         {/* Desktop: Vertical nav list */}
         <nav className="w-56 flex-shrink-0">
           <div className="space-y-1">
-            {visibleTabs.map(tab => {
-              const isActive = activeTab === tab.id
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'w-full flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left',
-                    isActive
-                      ? 'bg-primary-blue text-primary-light'
-                      : theme === 'dark'
-                        ? 'text-primary-light/70 hover:bg-primary-dark hover:text-primary-light'
-                        : 'text-primary-lightTextSecondary hover:bg-gray-100 hover:text-primary-lightText'
-                  )}
-                >
-                  <span>{tab.label}</span>
-                </button>
-              )
-            })}
+            {visibleTabs.map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={navItemCls(activeTab === tab.id)}>
+                <span>{tab.label}</span>
+              </button>
+            ))}
           </div>
         </nav>
 
         {/* Desktop: Content Panel - Borderless */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="min-w-0 flex-1 overflow-y-auto">
           {activeTabConfig ? (
             <div className="pb-6">{activeTabConfig.component}</div>
           ) : (
-            <div className={cn(
-              "pb-6",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
-              Select a setting category to get started
-            </div>
+            <div className="pb-6 text-sm text-ink-muted">Select a setting category to get started</div>
           )}
         </div>
       </div>

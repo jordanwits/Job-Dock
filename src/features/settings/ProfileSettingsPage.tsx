@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Card, Button, Input } from '@/components/ui'
 import { useAuthStore } from '@/features/auth'
 import { usersService } from '@/lib/api/services'
+import {
+  AppButton,
+  TextField,
+  Alert,
+  AlertIcon,
+  CheckCircleIcon,
+  SettingsSection,
+} from './settingsUi'
 
 function parseName(fullName: string): { firstName: string; lastName: string } {
   const parts = (fullName || '').trim().split(/\s+/)
@@ -50,59 +57,52 @@ export const ProfileSettingsPage = () => {
   }
 
   return (
-    <div className="space-y-6 md:space-y-8">
+    <div className="mx-auto max-w-2xl space-y-6 md:space-y-8">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-primary-light tracking-tight">
-          <span className="text-primary-gold">Profile</span>
-        </h1>
-        <p className="text-primary-light/60 mt-1">
-          Edit your personal information
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Profile</h1>
+        <p className="mt-1 text-sm text-ink-muted">Edit your personal information</p>
       </div>
 
       {error && (
-        <Card className="bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20">
-          <p className="text-red-400">{error}</p>
-        </Card>
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />} onDismiss={() => setError(null)}>
+          {error}
+        </Alert>
       )}
 
       {success && (
-        <Card className="bg-green-500/10 border-green-500/30 ring-1 ring-green-500/20">
-          <p className="text-green-400">Profile updated successfully</p>
-        </Card>
+        <Alert tone="success" icon={<CheckCircleIcon className="h-4 w-4" />}>
+          Profile updated successfully
+        </Alert>
       )}
 
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-primary-light mb-4">Personal Information</h2>
-          <div className="space-y-4 max-w-2xl">
-            <Input
-              label="First name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="First name"
-            />
-            <Input
-              label="Last name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Last name"
-            />
-            <Input
-              label="Email"
-              type="email"
-              value={user?.email ?? ''}
-              disabled
-              helperText="Email cannot be changed. Contact your admin if you need to update it."
-            />
-            <div className="flex justify-end pt-2">
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
+      <SettingsSection title="Personal information">
+        <div className="space-y-4">
+          <TextField
+            label="First name"
+            value={firstName}
+            onChange={e => setFirstName(e.target.value)}
+            placeholder="First name"
+          />
+          <TextField
+            label="Last name"
+            value={lastName}
+            onChange={e => setLastName(e.target.value)}
+            placeholder="Last name"
+          />
+          <TextField
+            label="Email"
+            type="email"
+            value={user?.email ?? ''}
+            disabled
+            helperText="Email cannot be changed. Contact your admin if you need to update it."
+          />
+          <div className="flex justify-end pt-2">
+            <AppButton onClick={handleSave} isLoading={saving}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </AppButton>
           </div>
         </div>
-      </div>
+      </SettingsSection>
     </div>
   )
 }

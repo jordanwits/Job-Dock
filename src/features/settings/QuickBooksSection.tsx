@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Button, Card } from '@/components/ui'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/contexts/ThemeContext'
 import { useQuickBooksStore } from '@/features/quickbooks'
+import { AppButton, Panel, SettingsSection, Alert, AlertIcon, Dot } from './settingsUi'
 
 /**
  * Settings tab for linking a tenant's QuickBooks Online company. Owner only.
  * Mirrors the structure of BillingSection.
  */
 export const QuickBooksSection = () => {
-  const { theme } = useTheme()
   const { status, loading, error, loadStatus, startConnect, disconnect } = useQuickBooksStore()
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -40,81 +37,57 @@ export const QuickBooksSection = () => {
   const connected = status?.connected
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2
-          className={cn(
-            'text-xl font-semibold',
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}
-        >
-          QuickBooks
-        </h2>
-        <p
-          className={cn(
-            'mt-1 text-sm',
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}
-        >
-          Link your QuickBooks Online company to send payable invoices and accept payments through
-          QuickBooks Payments. Payment status flows back into JobDock automatically.
-        </p>
-      </div>
-
+    <SettingsSection
+      title="QuickBooks"
+      description="Link your QuickBooks Online company to send payable invoices and accept payments through QuickBooks Payments. Payment status flows back into JobDock automatically."
+    >
       {error && (
-        <Card className="bg-red-500/10 border-red-500/30">
-          <p className="text-sm text-red-400">{error}</p>
-        </Card>
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+          {error}
+        </Alert>
       )}
 
-      <Card>
+      <Panel className="p-5">
         {loading && !status ? (
-          <p className="text-sm text-gray-500">Loading...</p>
+          <p className="text-sm text-ink-muted">Loading…</p>
         ) : connected ? (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
-              <span className="font-medium">Connected</span>
+              <Dot tone="success" />
+              <span className="font-medium text-ink">Connected</span>
               {status?.realmId && (
-                <span className="text-sm text-gray-500">(Company {status.realmId})</span>
+                <span className="font-mono text-sm tabular-nums text-ink-subtle">
+                  (Company {status.realmId})
+                </span>
               )}
             </div>
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-1.5 text-sm text-ink-muted">
               <li>
                 QuickBooks Payments:{' '}
                 {status?.paymentsConnected
                   ? 'Enabled'
-                  : 'Not enabled - clients cannot pay online yet'}
+                  : 'Not enabled — clients cannot pay online yet'}
               </li>
               {status?.lastSyncAt && (
                 <li>Last sync: {new Date(status.lastSyncAt).toLocaleString()}</li>
               )}
               {status?.lastErrorMessage && (
-                <li className="text-red-500">Last error: {status.lastErrorMessage}</li>
+                <li className="text-danger">Last error: {status.lastErrorMessage}</li>
               )}
             </ul>
-            <Button
-              onClick={handleDisconnect}
-              disabled={disconnecting}
-              variant="ghost"
-              className="text-red-500"
-            >
-              {disconnecting ? 'Disconnecting...' : 'Disconnect QuickBooks'}
-            </Button>
+            <AppButton onClick={handleDisconnect} isLoading={disconnecting} variant="dangerGhost">
+              {disconnecting ? 'Disconnecting…' : 'Disconnect QuickBooks'}
+            </AppButton>
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-gray-500">QuickBooks is not connected.</p>
-            <Button
-              onClick={handleConnect}
-              disabled={connecting}
-              className="bg-primary-blue text-primary-light"
-            >
-              {connecting ? 'Redirecting...' : 'Connect QuickBooks'}
-            </Button>
+            <p className="text-sm text-ink-muted">QuickBooks is not connected.</p>
+            <AppButton onClick={handleConnect} isLoading={connecting}>
+              {connecting ? 'Redirecting…' : 'Connect QuickBooks'}
+            </AppButton>
           </div>
         )}
-      </Card>
-    </div>
+      </Panel>
+    </SettingsSection>
   )
 }

@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react'
-import { Button, Input, Card, Select, Modal, ConfirmationDialog } from '@/components/ui'
+import { Modal, ConfirmationDialog } from '@/components/ui'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  AppButton,
+  Panel,
+  SettingsSection,
+  TextField,
+  SelectField,
+  StatusBadge,
+  EmptyState,
+  Alert,
+  AlertIcon,
+} from './settingsUi'
 
 interface JobRole {
   id: string
@@ -18,7 +27,6 @@ interface JobRole {
 }
 
 export const JobRolesSection = () => {
-  const { theme } = useTheme()
   const { user } = useAuthStore()
   const [roles, setRoles] = useState<JobRole[]>([])
   const [loading, setLoading] = useState(true)
@@ -142,114 +150,74 @@ export const JobRolesSection = () => {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className={cn(
-          "text-xl font-semibold",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>Job Roles</h2>
-        <div className={cn(
-          "h-20 rounded-lg animate-pulse",
-          theme === 'dark' ? 'bg-primary-dark' : 'bg-gray-200'
-        )} />
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Job Roles</h2>
+        <div className="h-20 animate-pulse rounded-xl bg-surface-2" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h2 className={cn(
-            "text-xl font-semibold",
-            theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-          )}>Job Roles</h2>
-          <p className={cn(
-            "text-sm mt-1",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>
-            Create custom roles for team members assigned to jobs. Set permissions for clocking in
-            and editing time entries.
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          onClick={handleOpenCreate}
-          className="w-full sm:w-auto flex-shrink-0"
-        >
+    <SettingsSection
+      title="Job Roles"
+      description="Create custom roles for team members assigned to jobs. Set permissions for clocking in and editing time entries."
+      action={
+        <AppButton variant="primary" onClick={handleOpenCreate}>
           Create Role
-        </Button>
-      </div>
-
+        </AppButton>
+      }
+    >
       {error && !editModalOpen && (
-        <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
           {error}
-        </div>
+        </Alert>
       )}
 
       {roles.length === 0 ? (
-        <Card className="p-6 text-center">
-          <p className={cn(
-            "mb-4",
-            theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-          )}>No job roles created yet</p>
-          <Button variant="primary" onClick={handleOpenCreate}>
-            Create your first role
-          </Button>
-        </Card>
+        <Panel>
+          <EmptyState
+            title="No job roles created yet"
+            action={
+              <AppButton variant="primary" onClick={handleOpenCreate}>
+                Create your first role
+              </AppButton>
+            }
+          />
+        </Panel>
       ) : (
-        <div className="space-y-3">
+        <Panel className="divide-y divide-line">
           {roles.map(role => (
-            <Card key={role.id} className="p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className={cn(
-                    "font-medium mb-2",
-                    theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-                  )}>{role.title}</h3>
-                  <div className="flex flex-wrap gap-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                      )}>Clock in:</span>
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-xs",
-                        theme === 'dark'
-                          ? 'bg-primary-dark text-primary-light/80'
-                          : 'bg-gray-200 text-primary-lightText'
-                      )}>
-                        {getPermissionLabel(role.permissions?.canClockInFor || 'self')}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                      )}>Edit entries:</span>
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-xs",
-                        theme === 'dark'
-                          ? 'bg-primary-dark text-primary-light/80'
-                          : 'bg-gray-200 text-primary-lightText'
-                      )}>
-                        {getPermissionLabel(role.permissions?.canEditTimeEntriesFor || 'self')}
-                      </span>
-                    </div>
+            <div
+              key={role.id}
+              className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0 flex-1">
+                <h3 className="mb-2 font-medium text-ink">{role.title}</h3>
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-ink-muted">Clock in:</span>
+                    <StatusBadge tone="neutral">
+                      {getPermissionLabel(role.permissions?.canClockInFor || 'self')}
+                    </StatusBadge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-ink-muted">Edit entries:</span>
+                    <StatusBadge tone="neutral">
+                      {getPermissionLabel(role.permissions?.canEditTimeEntriesFor || 'self')}
+                    </StatusBadge>
                   </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => handleOpenEdit(role)}>
-                    Edit
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => setDeleteId(role.id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
               </div>
-            </Card>
+              <div className="flex shrink-0 gap-2">
+                <AppButton variant="subtle" size="sm" onClick={() => handleOpenEdit(role)}>
+                  Edit
+                </AppButton>
+                <AppButton variant="dangerGhost" size="sm" onClick={() => setDeleteId(role.id)}>
+                  Delete
+                </AppButton>
+              </div>
+            </div>
           ))}
-        </div>
+        </Panel>
       )}
 
       <Modal
@@ -259,12 +227,12 @@ export const JobRolesSection = () => {
       >
         <div className="space-y-4">
           {error && (
-            <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
               {error}
-            </div>
+            </Alert>
           )}
 
-          <Input
+          <TextField
             label="Role Title"
             value={formTitle}
             onChange={e => setFormTitle(e.target.value)}
@@ -272,70 +240,53 @@ export const JobRolesSection = () => {
             autoFocus
           />
 
-          <div>
-            <label className={cn(
-              "block text-sm font-medium mb-2",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
-              Can clock in for
-            </label>
-            <Select
-              value={formCanClockInFor}
-              onChange={e =>
-                setFormCanClockInFor(e.target.value as 'self' | 'assigned' | 'everyone')
-              }
-              options={[
-                { value: 'self', label: 'Self only' },
-                { value: 'assigned', label: 'Assigned to same job' },
-                { value: 'everyone', label: 'Everyone' },
-              ]}
-            />
-            <p className={cn(
-              "text-xs mt-1",
-              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-            )}>
-              Who can this role clock in on behalf of?
-            </p>
-          </div>
+          <SelectField
+            label="Can clock in for"
+            value={formCanClockInFor}
+            onChange={e =>
+              setFormCanClockInFor(e.target.value as 'self' | 'assigned' | 'everyone')
+            }
+            options={[
+              { value: 'self', label: 'Self only' },
+              { value: 'assigned', label: 'Assigned to same job' },
+              { value: 'everyone', label: 'Everyone' },
+            ]}
+            helperText="Who can this role clock in on behalf of?"
+          />
 
-          <div>
-            <label className={cn(
-              "block text-sm font-medium mb-2",
-              theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-            )}>
-              Can edit time entries for
-            </label>
-            <Select
-              value={formCanEditTimeEntriesFor}
-              onChange={e =>
-                setFormCanEditTimeEntriesFor(e.target.value as 'self' | 'assigned' | 'everyone')
-              }
-              options={[
-                { value: 'self', label: 'Self only' },
-                { value: 'assigned', label: 'Assigned to same job' },
-                { value: 'everyone', label: 'Everyone' },
-              ]}
-            />
-            <p className={cn(
-              "text-xs mt-1",
-              theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-            )}>
-              Whose time entries can this role edit?
-            </p>
-          </div>
+          <SelectField
+            label="Can edit time entries for"
+            value={formCanEditTimeEntriesFor}
+            onChange={e =>
+              setFormCanEditTimeEntriesFor(e.target.value as 'self' | 'assigned' | 'everyone')
+            }
+            options={[
+              { value: 'self', label: 'Self only' },
+              { value: 'assigned', label: 'Assigned to same job' },
+              { value: 'everyone', label: 'Everyone' },
+            ]}
+            helperText="Whose time entries can this role edit?"
+          />
 
           <div className="flex gap-3 pt-4">
-            <Button variant="primary" onClick={handleSave} disabled={saving} className="flex-1">
+            <AppButton
+              variant="primary"
+              onClick={handleSave}
+              isLoading={saving}
+              fullWidth
+              className="flex-1"
+            >
               {saving ? 'Saving...' : editingRole ? 'Update' : 'Create'}
-            </Button>
-            <Button
-              variant="secondary"
+            </AppButton>
+            <AppButton
+              variant="subtle"
               onClick={handleCloseModal}
               disabled={saving}
+              fullWidth
               className="flex-1"
             >
               Cancel
-            </Button>
+            </AppButton>
           </div>
         </div>
       </Modal>
@@ -350,6 +301,6 @@ export const JobRolesSection = () => {
         cancelText="Cancel"
         variant="danger"
       />
-    </div>
+    </SettingsSection>
   )
 }
