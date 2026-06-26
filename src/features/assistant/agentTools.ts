@@ -19,6 +19,8 @@ import {
   servicesService,
 } from '@/lib/api/services'
 import { helpApi } from '@/lib/api/help'
+import { QUOTE_STATUS_LABELS, type QuoteStatus } from '@/features/quotes/types/quote'
+import { INVOICE_STATUS_LABELS, type InvoiceStatus } from '@/features/invoices/types/invoice'
 import type { DataEntity } from './dataEvents'
 
 /** Runtime context handed to a tool when it executes (not from the model). */
@@ -38,13 +40,49 @@ export interface AgentTool {
   affects?: DataEntity | DataEntity[]
   /** OpenAI function/tool schema. */
   schema: OpenAI.Chat.Completions.ChatCompletionTool
-  /** Short human-readable summary of the pending action, shown in the confirm prompt. */
-  summarize?: (args: any) => string
+  /**
+   * Short, human-readable summary of the action — shown in the confirm prompt
+   * (for writes) and as the activity status line while the tool runs. NEVER
+   * include raw record ids here; resolve a friendly label (number/title/name)
+   * instead. May be async so it can look the record up first.
+   */
+  summarize?: (args: any) => string | Promise<string>
   /** Execute the tool. Returns a JSON-serializable result handed back to the model. */
   execute: (args: any, ctx?: ToolContext) => Promise<unknown>
 }
 
 // --- Helpers ---------------------------------------------------------------
+
+/** Format a number as USD for display, or null when there's nothing to show. */
+const money = (n: any): string | null =>
+  n == null || n === ''
+    ? null
+    : `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+/** Friendly percent from a decimal rate (0.08 -> "8%"), or null. */
+const percent = (rate: any): string | null => {
+  if (rate == null || rate === '') return null
+  const pct = Number(rate) * 100
+  return `${Number.isInteger(pct) ? pct : pct.toFixed(2)}%`
+}
+
+const JOB_STATUS_LABELS: Record<string, string> = {
+  active: 'Active',
+  scheduled: 'Scheduled',
+  'in-progress': 'In progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  'pending-confirmation': 'Pending confirmation',
+}
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: 'Unpaid',
+  partial: 'Partially paid',
+  paid: 'Paid',
+}
+const quoteStatusLabel = (s: any) => QUOTE_STATUS_LABELS[s as QuoteStatus] || s || null
+const invoiceStatusLabel = (s: any) => INVOICE_STATUS_LABELS[s as InvoiceStatus] || s || null
+const jobStatusLabel = (s: any) => JOB_STATUS_LABELS[s] || s || null
+const paymentStatusLabel = (s: any) => (s ? PAYMENT_STATUS_LABELS[s] || s : null)
 
 const contactName = (c: any) =>
   [c?.firstName, c?.lastName].filter(Boolean).join(' ').trim() || c?.contactName || 'Unnamed'
@@ -79,7 +117,7 @@ const slimService = (s: any) => ({
   id: s?.id,
   name: s?.name,
   durationMinutes: s?.duration ?? null,
-  price: s?.price ?? null,
+  price: money(s?.price),
   isActive: s?.isActive ?? true,
 })
 
@@ -90,7 +128,7 @@ const slimJob = (j: any) => ({
   serviceName: j?.serviceName || null,
   startTime: j?.startTime || null,
   endTime: j?.endTime || null,
-  status: j?.status,
+  status: jobStatusLabel(j?.status),
   location: j?.location || null,
 })
 
@@ -106,25 +144,26 @@ const detailJob = (j: any) => ({
 const slimLineItem = (li: any) => ({
   description: li?.description || '',
   quantity: li?.quantity ?? null,
-  unitPrice: li?.unitPrice ?? null,
-  total: li?.total ?? null,
+  unitPrice: money(li?.unitPrice),
+  total: money(li?.total),
 })
 
 const slimQuote = (q: any) => ({
   id: q?.id,
   quoteNumber: q?.quoteNumber,
+  title: q?.title || null,
   contactName: q?.contactName || null,
-  total: q?.total,
-  status: q?.status,
+  total: money(q?.total),
+  status: quoteStatusLabel(q?.status),
 })
 
 const detailQuote = (q: any) => ({
   ...slimQuote(q),
   contactId: q?.contactId || null,
   lineItems: Array.isArray(q?.lineItems) ? q.lineItems.map(slimLineItem) : [],
-  subtotal: q?.subtotal ?? null,
-  taxRate: q?.taxRate ?? null,
-  discount: q?.discount ?? null,
+  subtotal: money(q?.subtotal),
+  taxRate: percent(q?.taxRate),
+  discount: money(q?.discount),
   notes: q?.notes || null,
   validUntil: q?.validUntil || null,
 })
@@ -132,19 +171,20 @@ const detailQuote = (q: any) => ({
 const slimInvoice = (i: any) => ({
   id: i?.id,
   invoiceNumber: i?.invoiceNumber,
+  title: i?.title || null,
   contactName: i?.contactName || null,
-  total: i?.total,
-  status: i?.status,
-  paymentStatus: i?.paymentStatus || null,
+  total: money(i?.total),
+  status: invoiceStatusLabel(i?.status),
+  paymentStatus: paymentStatusLabel(i?.paymentStatus),
 })
 
 const detailInvoice = (i: any) => ({
   ...slimInvoice(i),
   contactId: i?.contactId || null,
   lineItems: Array.isArray(i?.lineItems) ? i.lineItems.map(slimLineItem) : [],
-  subtotal: i?.subtotal ?? null,
-  taxRate: i?.taxRate ?? null,
-  discount: i?.discount ?? null,
+  subtotal: money(i?.subtotal),
+  taxRate: percent(i?.taxRate),
+  discount: money(i?.discount),
   notes: i?.notes || null,
   dueDate: i?.dueDate || null,
   paymentTerms: i?.paymentTerms || null,
@@ -203,6 +243,52 @@ const definedOnly = <T extends Record<string, any>>(obj: T): Partial<T> => {
 
 const jobStatusEnum = ['scheduled', 'in-progress', 'completed', 'cancelled', 'pending-confirmation'] as const
 
+/**
+ * Friendly-label resolvers used to build confirmation/activity summaries.
+ *
+ * These never expose a raw record id: they look the record up and return a
+ * human label ("quote Q-1042 — Kitchen Remodel"), falling back to a generic
+ * phrase if the lookup fails. Used only for the summary string, so a failed
+ * lookup is non-fatal — the action itself still runs.
+ */
+const labelContact = async (id?: string): Promise<string> => {
+  if (!id) return 'the customer'
+  try {
+    return contactName(await contactsService.getById(id))
+  } catch {
+    return 'the customer'
+  }
+}
+const labelQuote = async (id?: string): Promise<string> => {
+  if (!id) return 'the quote'
+  try {
+    const q: any = await quotesService.getById(id)
+    if (!q) return 'the quote'
+    return `quote ${q.quoteNumber}${q.title ? ` — ${q.title}` : ''}`
+  } catch {
+    return 'the quote'
+  }
+}
+const labelInvoice = async (id?: string): Promise<string> => {
+  if (!id) return 'the invoice'
+  try {
+    const i: any = await invoicesService.getById(id)
+    if (!i) return 'the invoice'
+    return `invoice ${i.invoiceNumber}${i.title ? ` — ${i.title}` : ''}`
+  } catch {
+    return 'the invoice'
+  }
+}
+const labelJob = async (id?: string): Promise<string> => {
+  if (!id) return 'the appointment'
+  try {
+    const j: any = await jobsService.getById(id)
+    return j?.title ? `“${j.title}”` : 'the appointment'
+  } catch {
+    return 'the appointment'
+  }
+}
+
 // --- Tools -----------------------------------------------------------------
 
 export const agentTools: AgentTool[] = [
@@ -210,6 +296,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'search_help',
     mutates: false,
+    summarize: () => 'Searching help',
     schema: {
       type: 'function',
       function: {
@@ -242,6 +329,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'list_contacts',
     mutates: false,
+    summarize: () => 'Looking up customers',
     schema: {
       type: 'function',
       function: {
@@ -276,6 +364,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'get_contact',
     mutates: false,
+    summarize: () => 'Loading customer details',
     schema: {
       type: 'function',
       function: {
@@ -352,7 +441,7 @@ export const agentTools: AgentTool[] = [
     name: 'update_contact',
     mutates: true,
     affects: 'contacts',
-    summarize: a => `Update contact ${a?.id}`,
+    summarize: async a => `Update ${await labelContact(a?.id)}’s details`,
     schema: {
       type: 'function',
       function: {
@@ -394,6 +483,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'list_services',
     mutates: false,
+    summarize: () => 'Checking your services',
     schema: {
       type: 'function',
       function: {
@@ -413,6 +503,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'list_jobs',
     mutates: false,
+    summarize: () => 'Checking your schedule',
     schema: {
       type: 'function',
       function: {
@@ -439,6 +530,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'get_job',
     mutates: false,
+    summarize: () => 'Loading appointment details',
     schema: {
       type: 'function',
       function: {
@@ -460,10 +552,13 @@ export const agentTools: AgentTool[] = [
     name: 'create_appointment',
     mutates: true,
     affects: 'jobs',
-    summarize: a => {
-      if (a?.toBeScheduled) return `Create job "${a?.title || 'appointment'}" (to be scheduled)`
-      const when = a?.startTime ? new Date(a.startTime).toLocaleString() : 'an unspecified time'
-      return `Book "${a?.title || 'appointment'}" at ${when}`
+    summarize: async a => {
+      const who = a?.contactId ? ` for ${await labelContact(a.contactId)}` : ''
+      if (a?.toBeScheduled) return `Add “${a?.title || 'appointment'}”${who} (to be scheduled)`
+      const when = a?.startTime
+        ? new Date(a.startTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+        : 'an unspecified time'
+      return `Book “${a?.title || 'appointment'}”${who} at ${when}`
     },
     schema: {
       type: 'function',
@@ -514,7 +609,7 @@ export const agentTools: AgentTool[] = [
     name: 'update_appointment',
     mutates: true,
     affects: 'jobs',
-    summarize: a => `Update job ${a?.id}`,
+    summarize: async a => `Update ${await labelJob(a?.id)}`,
     schema: {
       type: 'function',
       function: {
@@ -550,6 +645,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'list_quotes',
     mutates: false,
+    summarize: () => 'Looking up your quotes',
     schema: {
       type: 'function',
       function: {
@@ -567,6 +663,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'get_quote',
     mutates: false,
+    summarize: () => 'Loading quote details',
     schema: {
       type: 'function',
       function: {
@@ -584,9 +681,11 @@ export const agentTools: AgentTool[] = [
     name: 'create_quote',
     mutates: true,
     affects: 'quotes',
-    summarize: a => {
-      const items = Array.isArray(a?.lineItems) ? a.lineItems.length : 0
-      return `Create a quote with ${items} line item${items === 1 ? '' : 's'}`
+    summarize: async a => {
+      const items = normalizeLineItems(a?.lineItems)
+      const title = deriveDocTitle(a?.title, items, 'New Quote')
+      const who = a?.contactId ? ` for ${await labelContact(a.contactId)}` : ''
+      return `Create quote “${title}”${who}`
     },
     schema: {
       type: 'function',
@@ -635,7 +734,7 @@ export const agentTools: AgentTool[] = [
     name: 'update_quote',
     mutates: true,
     affects: 'quotes',
-    summarize: a => `Update quote ${a?.id}`,
+    summarize: async a => `Update ${await labelQuote(a?.id)}`,
     schema: {
       type: 'function',
       function: {
@@ -675,7 +774,7 @@ export const agentTools: AgentTool[] = [
     name: 'send_quote',
     mutates: true,
     affects: 'quotes',
-    summarize: a => `Send quote ${a?.id} to the customer`,
+    summarize: async a => `Send ${await labelQuote(a?.id)} to the customer`,
     schema: {
       type: 'function',
       function: {
@@ -694,6 +793,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'list_invoices',
     mutates: false,
+    summarize: () => 'Looking up your invoices',
     schema: {
       type: 'function',
       function: {
@@ -711,6 +811,7 @@ export const agentTools: AgentTool[] = [
   {
     name: 'get_invoice',
     mutates: false,
+    summarize: () => 'Loading invoice details',
     schema: {
       type: 'function',
       function: {
@@ -728,9 +829,11 @@ export const agentTools: AgentTool[] = [
     name: 'create_invoice',
     mutates: true,
     affects: 'invoices',
-    summarize: a => {
-      const items = Array.isArray(a?.lineItems) ? a.lineItems.length : 0
-      return `Create an invoice with ${items} line item${items === 1 ? '' : 's'}`
+    summarize: async a => {
+      const items = normalizeLineItems(a?.lineItems)
+      const title = deriveDocTitle(a?.title, items, 'New Invoice')
+      const who = a?.contactId ? ` for ${await labelContact(a.contactId)}` : ''
+      return `Create invoice “${title}”${who}`
     },
     schema: {
       type: 'function',
@@ -781,7 +884,7 @@ export const agentTools: AgentTool[] = [
     name: 'update_invoice',
     mutates: true,
     affects: 'invoices',
-    summarize: a => `Update invoice ${a?.id}`,
+    summarize: async a => `Update ${await labelInvoice(a?.id)}`,
     schema: {
       type: 'function',
       function: {
@@ -820,7 +923,7 @@ export const agentTools: AgentTool[] = [
     name: 'send_invoice',
     mutates: true,
     affects: 'invoices',
-    summarize: a => `Send invoice ${a?.id} to the customer`,
+    summarize: async a => `Send ${await labelInvoice(a?.id)} to the customer`,
     schema: {
       type: 'function',
       function: {
@@ -840,7 +943,7 @@ export const agentTools: AgentTool[] = [
     name: 'convert_quote_to_invoice',
     mutates: true,
     affects: ['quotes', 'invoices'],
-    summarize: a => `Convert quote ${a?.quoteId} into a new invoice`,
+    summarize: async a => `Convert ${await labelQuote(a?.quoteId)} into a new invoice`,
     schema: {
       type: 'function',
       function: {
@@ -892,9 +995,9 @@ export const agentTools: AgentTool[] = [
     name: 'record_payment',
     mutates: true,
     affects: 'invoices',
-    summarize: a => {
-      const amt = a?.paidAmount != null ? ` ($${a.paidAmount})` : ''
-      return `Mark invoice ${a?.id} as ${a?.paymentStatus}${amt}`
+    summarize: async a => {
+      const amt = a?.paidAmount != null ? ` (${money(a.paidAmount)})` : ''
+      return `Mark ${await labelInvoice(a?.id)} as ${paymentStatusLabel(a?.paymentStatus)}${amt}`
     },
     schema: {
       type: 'function',
@@ -931,7 +1034,7 @@ export const agentTools: AgentTool[] = [
     mutates: true,
     destructive: true,
     affects: 'contacts',
-    summarize: a => `Delete contact ${a?.id} — this cannot be undone`,
+    summarize: async a => `Delete ${await labelContact(a?.id)} — this can’t be undone`,
     schema: {
       type: 'function',
       function: {
@@ -952,7 +1055,7 @@ export const agentTools: AgentTool[] = [
     mutates: true,
     destructive: true,
     affects: 'jobs',
-    summarize: a => `Delete job/appointment ${a?.id} — this cannot be undone`,
+    summarize: async a => `Delete ${await labelJob(a?.id)} — this can’t be undone`,
     schema: {
       type: 'function',
       function: {
@@ -973,7 +1076,7 @@ export const agentTools: AgentTool[] = [
     mutates: true,
     destructive: true,
     affects: 'quotes',
-    summarize: a => `Delete quote ${a?.id} — this cannot be undone`,
+    summarize: async a => `Delete ${await labelQuote(a?.id)} — this can’t be undone`,
     schema: {
       type: 'function',
       function: {
@@ -993,7 +1096,7 @@ export const agentTools: AgentTool[] = [
     mutates: true,
     destructive: true,
     affects: 'invoices',
-    summarize: a => `Delete invoice ${a?.id} — this cannot be undone`,
+    summarize: async a => `Delete ${await labelInvoice(a?.id)} — this can’t be undone`,
     schema: {
       type: 'function',
       function: {
