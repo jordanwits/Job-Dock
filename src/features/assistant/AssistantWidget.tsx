@@ -1,8 +1,7 @@
-﻿import { FormEvent, useState, useRef, useEffect, useCallback } from 'react'
+import { FormEvent, useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
-import { Button, Modal, Textarea } from '@/components/ui'
 import { helpApi } from '@/lib/api/help'
-import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
 import { runAssistant, isAssistantConfigured, type ChatLine } from './assistantClient'
 import { useSpeechToText } from './useSpeechToText'
@@ -14,10 +13,74 @@ export interface AssistantWidgetProps {
 
 type PendingConfirm = { summary: string; destructive?: boolean; resolve: (ok: boolean) => void }
 
+/* ── Icons ────────────────────────────────────────────────────────────── */
+type IconProps = { className?: string }
+const SparkleIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+    <path d="M12 2l1.7 4.9a3 3 0 0 0 1.9 1.9L20.5 10.5l-4.9 1.7a3 3 0 0 0-1.9 1.9L12 19l-1.7-4.9a3 3 0 0 0-1.9-1.9L3.5 10.5l4.9-1.7a3 3 0 0 0 1.9-1.9L12 2z" />
+    <path d="M19 14.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z" opacity="0.85" />
+  </svg>
+)
+const SendIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+    <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+  </svg>
+)
+const MicIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" />
+    <path d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z" />
+  </svg>
+)
+const XIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M6 18L18 6M6 6l12 12" />
+  </svg>
+)
+const RefreshIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" />
+  </svg>
+)
+const FlagIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M4 21V4m0 0c3-1.5 6 1.5 9 0s5-1 7 0v9c-2-1-4-1.5-7 0s-6-1.5-9 0" />
+  </svg>
+)
+const AlertIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+  </svg>
+)
+
+/** The little gradient sparkle avatar that gives the bot a face. */
+function AssistantMark({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg'; className?: string }) {
+  const sizes = { sm: 'h-7 w-7', md: 'h-8 w-8', lg: 'h-10 w-10' }
+  const icon = { sm: 'h-3.5 w-3.5', md: 'h-4 w-4', lg: 'h-5 w-5' }
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-strong text-accent-contrast shadow-sm ring-1 ring-inset ring-white/15',
+        sizes[size],
+        className
+      )}
+      aria-hidden
+    >
+      <SparkleIcon className={icon[size]} />
+    </span>
+  )
+}
+
+const SUGGESTIONS = [
+  'How do I send a quote?',
+  "What's overdue this week?",
+  'Book a 1-hour consult with Sarah tomorrow at 2pm',
+]
+
 export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
-  const { theme } = useTheme()
   const location = useLocation()
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [messages, setMessages] = useState<ChatLine[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,6 +94,7 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
   const [reportNotice, setReportNotice] = useState<string | null>(null)
   const [reportSessionId, setReportSessionId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   // The input text when voice input started - spoken words are appended to it.
   const speechBaseRef = useRef('')
 
@@ -59,6 +123,43 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
     speechBaseRef.current = input
     startListening()
   }
+
+  // Entrance/exit animation + close helper.
+  // Use a timer (not requestAnimationFrame) so the panel still becomes visible
+  // when the tab is backgrounded/hidden — rAF callbacks are paused while hidden.
+  useEffect(() => {
+    if (!open) return
+    const id = window.setTimeout(() => setMounted(true), 10)
+    return () => window.clearTimeout(id)
+  }, [open])
+
+  const closePanel = useCallback(() => {
+    stopListening()
+    setMounted(false)
+    window.setTimeout(() => setOpen(false), 180)
+  }, [stopListening])
+
+  // Escape closes the panel
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePanel()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, closePanel])
+
+  // Lock body scroll while the mobile sheet is open
+  useEffect(() => {
+    if (!open) return
+    const mq = window.matchMedia('(max-width: 639px)')
+    if (!mq.matches) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -131,9 +232,9 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
     setPendingConfirm(null)
   }
 
-  const sendMessage = async (e?: FormEvent) => {
+  const sendMessage = async (e?: FormEvent, override?: string) => {
     e?.preventDefault()
-    const text = input.trim()
+    const text = (override ?? input).trim()
     if (!text || loading) return
     if (isListening) stopListening()
     setError(null)
@@ -167,309 +268,296 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
 
   if (!enabled) return null
 
-  const threadBg = theme === 'dark' ? 'bg-black/25' : 'bg-slate-100/90'
+  /* ── Launcher (FAB) ───────────────────────────────────────────────────── */
+  const launcher = (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className={cn(
+        'group fixed right-5 z-40 inline-flex items-center gap-2 rounded-full bg-accent-strong py-2.5 pl-2.5 pr-4 text-sm font-semibold text-accent-contrast shadow-pop',
+        'bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))]',
+        'transition-transform duration-200 hover:-translate-y-0.5 hover:bg-accent active:translate-y-0',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
+        open && 'pointer-events-none scale-90 opacity-0'
+      )}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-label="Open AI assistant"
+    >
+      <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
+        <span className="absolute inset-0 animate-ping rounded-full bg-white/20" style={{ animationDuration: '2.4s' }} />
+        <SparkleIcon className="relative h-4 w-4" />
+      </span>
+      Assistant
+    </button>
+  )
 
-  return (
+  /* ── Bubbles ──────────────────────────────────────────────────────────── */
+  const Bubble = ({ role, children }: { role: ChatLine['role']; children: ReactNode }) => {
+    if (role === 'user') {
+      return (
+        <div className="flex w-full justify-end">
+          <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent-strong px-3.5 py-2.5 text-sm text-accent-contrast shadow-sm">
+            {children}
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="flex w-full items-end gap-2">
+        <AssistantMark size="sm" className="mb-0.5" />
+        <div className="max-w-[82%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md bg-surface px-3.5 py-2.5 text-sm text-ink shadow-sm ring-1 ring-line">
+          {children}
+        </div>
+      </div>
+    )
+  }
+
+  const panel = (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
+      {/* Mobile backdrop */}
+      <div
         className={cn(
-          'fixed z-40 right-5 rounded-full shadow-lg px-4 py-3 text-sm font-medium inline-flex items-center gap-1.5',
-          'bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))]',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-          'bg-teal-700 text-white hover:bg-teal-800 focus-visible:ring-teal-600'
+          'fixed inset-0 z-[95] bg-black/40 transition-opacity duration-200 sm:hidden',
+          mounted ? 'opacity-100' : 'opacity-0'
         )}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M12 2l1.9 4.8L18.7 8.7 13.9 10.6 12 15.4 10.1 10.6 5.3 8.7l4.8-1.9L12 2zm6 11l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3zM5 14l.7 1.8 1.8.7-1.8.7L5 19l-.7-1.8L2.5 16.5l1.8-.7L5 14z" />
-        </svg>
-        Assistant
-      </button>
+        onClick={closePanel}
+        aria-hidden
+      />
 
-      <Modal
-        isOpen={open}
-        onClose={() => {
-          stopListening()
-          setOpen(false)
-        }}
-        title="AI Assistant"
-        size="lg"
-        mobilePosition="bottom"
-        closeOnOverlayClick
-        fitContentOnMobile
-        compactOnMobile
-        headerRight={
-          <div className="flex items-center gap-2 shrink-0">
+      <div
+        role="dialog"
+        aria-label="AI Assistant"
+        className={cn(
+          'fixed z-[100] flex flex-col overflow-hidden bg-canvas shadow-pop ring-1 ring-line',
+          // mobile bottom sheet
+          'inset-x-0 bottom-0 h-[88dvh] max-h-[88dvh] rounded-t-2xl',
+          // desktop docked card
+          'sm:inset-x-auto sm:bottom-5 sm:right-5 sm:h-[min(640px,82vh)] sm:w-[400px] sm:rounded-2xl',
+          'transition-all duration-200 ease-out',
+          mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+        )}
+      >
+        {/* Header */}
+        <header className="flex shrink-0 items-center gap-3 border-b border-line bg-surface px-4 py-3">
+          <AssistantMark size="md" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold leading-tight text-ink">Assistant</p>
+            <p className="flex items-center gap-1.5 text-[12px] leading-tight text-ink-subtle">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
+              JobDock AI · online
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={() => {
                 setReportOpen(v => !v)
                 setReportNotice(null)
               }}
+              title="Report a problem"
+              aria-label="Report a problem"
               className={cn(
-                'text-xs font-medium rounded-md px-2 py-1 -mr-1 transition-colors',
-                theme === 'dark'
-                  ? 'text-primary-light/80 hover:bg-white/10'
-                  : 'text-primary-lightTextSecondary hover:bg-black/5',
-                reportOpen && (theme === 'dark' ? 'bg-white/10' : 'bg-black/5')
+                'inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                reportOpen && 'bg-surface-2 text-ink'
               )}
             >
-              Report a problem
+              <FlagIcon className="h-[18px] w-[18px]" />
             </button>
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
               onClick={resetConversation}
-              className="text-xs px-2"
+              title="New chat"
+              aria-label="New chat"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              New chat
-            </Button>
+              <RefreshIcon className="h-[18px] w-[18px]" />
+            </button>
+            <button
+              type="button"
+              onClick={closePanel}
+              title="Close"
+              aria-label="Close assistant"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <XIcon className="h-[18px] w-[18px]" />
+            </button>
           </div>
-        }
-      >
-        <div className="flex flex-col -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 min-h-[min(70dvh,520px)] max-h-[min(85dvh,600px)] sm:max-h-[560px]">
-          {/* Message thread */}
-          <div
-            className={cn('flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-2', threadBg)}
-            role="log"
-            aria-label="Assistant messages"
-          >
-            {reportNotice && (
-              <p
-                className={cn(
-                  'text-center text-xs py-2 px-3 rounded-lg mx-4',
-                  theme === 'dark'
-                    ? 'bg-emerald-500/15 text-emerald-200'
-                    : 'bg-emerald-50 text-emerald-800'
-                )}
-                role="status"
-              >
-                {reportNotice}
-              </p>
-            )}
+        </header>
 
-            {messages.length === 0 && !loading && (
-              <div
-                className={cn(
-                  'flex flex-col items-center justify-center text-center px-6 py-12 max-w-sm mx-auto',
-                  theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-                )}
-              >
-                <p className="text-sm leading-relaxed">
-                  Ask me how something works, or tell me what to do - I can answer JobDock questions
-                  and take actions for you. Try{' '}
-                  <span className="font-medium text-current">“How do I send a quote?”</span> or{' '}
-                  <span className="font-medium text-current">
-                    “Book a 1-hour consultation with Sarah tomorrow at 2pm”
-                  </span>
-                  . I’ll ask you to confirm before changing anything.
-                </p>
-              </div>
-            )}
-
-            {messages.map((m, i) => (
-              <div
-                key={`${i}-${m.role}-${m.content.slice(0, 12)}`}
-                className={cn('flex w-full', m.role === 'user' ? 'justify-end' : 'justify-start')}
-              >
-                <div
-                  className={cn(
-                    'max-w-[88%] sm:max-w-[80%] px-3.5 py-2.5 text-sm whitespace-pre-wrap break-words shadow-sm',
-                    m.role === 'user'
-                      ? cn(
-                          'rounded-2xl rounded-br-md',
-                          theme === 'dark'
-                            ? 'bg-primary-blue text-primary-light'
-                            : 'bg-primary-blue text-white'
-                        )
-                      : cn(
-                          'rounded-2xl rounded-bl-md',
-                          theme === 'dark'
-                            ? 'bg-primary-dark-secondary text-primary-light/95 border border-primary-blue/40'
-                            : 'bg-white text-primary-lightText border border-gray-200/80'
-                        )
-                  )}
-                >
-                  {m.content}
-                </div>
-              </div>
-            ))}
-
-            {/* Confirmation card for write actions */}
-            {pendingConfirm && (
-              <div
-                className={cn(
-                  'mx-1 my-1 rounded-2xl border px-4 py-3 shadow-sm',
-                  pendingConfirm.destructive
-                    ? theme === 'dark'
-                      ? 'bg-red-500/10 border-red-500/50 text-red-100'
-                      : 'bg-red-50 border-red-300 text-red-900'
-                    : theme === 'dark'
-                      ? 'bg-primary-dark-secondary border-primary-gold/50 text-primary-light/95'
-                      : 'bg-amber-50 border-amber-300 text-amber-900'
-                )}
-                role="alertdialog"
-                aria-label="Confirm action"
-              >
-                <p className="text-sm font-medium mb-1">
-                  {pendingConfirm.destructive ? '⚠️ Confirm deletion' : 'Confirm this action?'}
-                </p>
-                <p className="text-sm mb-3">{pendingConfirm.summary}</p>
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => resolveConfirm(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={pendingConfirm.destructive ? 'danger' : 'primary'}
-                    onClick={() => resolveConfirm(true)}
-                  >
-                    {pendingConfirm.destructive ? 'Delete' : 'Confirm'}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {loading && !pendingConfirm && (
-              <div className="flex justify-start">
-                <div
-                  className={cn(
-                    'rounded-2xl rounded-bl-md px-4 py-3 text-sm flex gap-2 items-center',
-                    theme === 'dark'
-                      ? 'bg-primary-dark-secondary text-primary-light/70 border border-primary-blue/40'
-                      : 'bg-white text-primary-lightTextSecondary border border-gray-200/80'
-                  )}
-                  aria-busy="true"
-                >
-                  {toolStatus ? (
-                    <span className="text-xs">{toolStatus}…</span>
-                  ) : (
-                    <span className="inline-flex gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60 animate-pulse" />
-                      <span
-                        className="w-1.5 h-1.5 rounded-full bg-current opacity-60 animate-pulse"
-                        style={{ animationDelay: '150ms' }}
-                      />
-                      <span
-                        className="w-1.5 h-1.5 rounded-full bg-current opacity-60 animate-pulse"
-                        style={{ animationDelay: '300ms' }}
-                      />
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div ref={bottomRef} className="h-1" />
-          </div>
-
-          {reportOpen && (
-            <div
-              className={cn(
-                'border-t px-3 py-3 space-y-2',
-                theme === 'dark' ? 'border-primary-blue/30 bg-primary-dark' : 'border-gray-200 bg-white'
-              )}
-            >
-              <p
-                className={cn(
-                  'text-xs',
-                  theme === 'dark' ? 'text-primary-light/65' : 'text-primary-lightTextSecondary'
-                )}
-              >
-                Found a bug or stuck on something? Add an optional note - we’ll include this
-                conversation and send it to our engineering team.
-              </p>
-              <Textarea
-                value={reportNote}
-                onChange={e => setReportNote(e.target.value)}
-                placeholder="What happened? (optional)"
-                rows={2}
-                disabled={reportLoading}
-                className="min-h-[72px] resize-none text-sm rounded-xl"
-              />
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setReportOpen(false)
-                    setReportNote('')
-                  }}
-                  disabled={reportLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void sendReport()}
-                  disabled={reportLoading}
-                  isLoading={reportLoading}
-                >
-                  Send to engineering
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <p
-              className={cn(
-                'text-xs px-3 py-2 border-t',
-                theme === 'dark' ? 'border-primary-blue/20 text-red-400' : 'border-gray-100 text-red-600'
-              )}
-              role="alert"
-            >
-              {error}
+        {/* Message thread */}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3.5 py-4" role="log" aria-label="Assistant messages">
+          {reportNotice && (
+            <p className="mx-auto max-w-[90%] rounded-lg bg-success-soft px-3 py-2 text-center text-xs text-success" role="status">
+              {reportNotice}
             </p>
           )}
 
-          {!configured ? (
+          {messages.length === 0 && !loading && (
+            <div className="flex flex-col items-center px-2 pb-2 pt-6 text-center">
+              <AssistantMark size="lg" className="mb-3" />
+              <p className="text-[15px] font-semibold text-ink">How can I help?</p>
+              <p className="mx-auto mt-1.5 max-w-[34ch] text-[13px] leading-relaxed text-ink-muted">
+                Ask how something works, or tell me what to do — I can answer JobDock questions and
+                take actions for you. I’ll always confirm before changing anything.
+              </p>
+              <div className="mt-5 flex w-full flex-col gap-2">
+                {SUGGESTIONS.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => void sendMessage(undefined, s)}
+                    className="group flex items-center gap-2.5 rounded-xl bg-surface px-3.5 py-2.5 text-left text-[13px] text-ink shadow-card ring-1 ring-line transition-colors hover:bg-surface-2 hover:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <SparkleIcon className="h-3.5 w-3.5 shrink-0 text-accent-strong" />
+                    <span className="min-w-0">{s}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((m, i) => (
+            <Bubble key={`${i}-${m.role}-${m.content.slice(0, 12)}`} role={m.role}>
+              {m.content}
+            </Bubble>
+          ))}
+
+          {/* Confirmation card for write actions */}
+          {pendingConfirm && (
             <div
               className={cn(
-                'p-4 border-t text-sm',
-                theme === 'dark'
-                  ? 'border-primary-blue/30 bg-primary-dark-secondary text-primary-light/80'
-                  : 'border-gray-200 bg-white text-primary-lightTextSecondary'
+                'flex items-start gap-2.5 rounded-2xl px-4 py-3 shadow-sm ring-1 ring-inset',
+                pendingConfirm.destructive
+                  ? 'bg-danger-soft text-danger ring-danger/30'
+                  : 'bg-warning-soft text-warning ring-warning/30'
               )}
+              role="alertdialog"
+              aria-label="Confirm action"
             >
-              Assistant unavailable in dev mode. To test locally add{" "}
-              <code className="font-mono text-xs">VITE_OPENAI_API_KEY</code>{" "}
-              to{" "}
-              <code className="font-mono text-xs">.env.local</code>{" "}
-              and restart. (Dev-only key - not needed in production.)
+              <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  {pendingConfirm.destructive ? 'Confirm deletion' : 'Confirm this action?'}
+                </p>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-ink">{pendingConfirm.summary}</p>
+                <div className="mt-3 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => resolveConfirm(false)}
+                    className="inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-semibold text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resolveConfirm(true)}
+                    className={cn(
+                      'inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                      pendingConfirm.destructive ? 'bg-danger focus-visible:ring-danger' : 'bg-accent-strong text-accent-contrast focus-visible:ring-accent'
+                    )}
+                  >
+                    {pendingConfirm.destructive ? 'Delete' : 'Confirm'}
+                  </button>
+                </div>
+              </div>
             </div>
-          ) : (
-            <form
-              onSubmit={sendMessage}
-              className={cn(
-                'flex gap-2 items-end p-3 border-t',
-                theme === 'dark'
-                  ? 'border-primary-blue/30 bg-primary-dark-secondary'
-                  : 'border-gray-200 bg-white'
-              )}
-            >
-              <Textarea
+          )}
+
+          {loading && !pendingConfirm && (
+            <div className="flex w-full items-end gap-2" aria-busy="true">
+              <AssistantMark size="sm" className="mb-0.5" />
+              <div className="rounded-2xl rounded-bl-md bg-surface px-4 py-3 text-sm text-ink-muted shadow-sm ring-1 ring-line">
+                {toolStatus ? (
+                  <span className="text-xs">{toolStatus}…</span>
+                ) : (
+                  <span className="inline-flex gap-1">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-subtle" style={{ animationDelay: '0ms' }} />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-subtle" style={{ animationDelay: '150ms' }} />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-subtle" style={{ animationDelay: '300ms' }} />
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div ref={bottomRef} className="h-1" />
+        </div>
+
+        {/* Report a problem */}
+        {reportOpen && (
+          <div className="shrink-0 space-y-2 border-t border-line bg-surface px-3.5 py-3">
+            <p className="text-[12px] leading-relaxed text-ink-subtle">
+              Found a bug or stuck on something? Add an optional note — we’ll include this
+              conversation and send it to our engineering team.
+            </p>
+            <textarea
+              value={reportNote}
+              onChange={e => setReportNote(e.target.value)}
+              placeholder="What happened? (optional)"
+              rows={2}
+              disabled={reportLoading}
+              className="min-h-[64px] w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-subtle outline-none transition-[border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] disabled:opacity-60"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setReportOpen(false)
+                  setReportNote('')
+                }}
+                disabled={reportLoading}
+                className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] font-semibold text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void sendReport()}
+                disabled={reportLoading}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-accent-strong px-3 text-[13px] font-semibold text-accent-contrast transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {reportLoading && (
+                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+                Send to engineering
+              </button>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <p className="shrink-0 border-t border-line bg-danger-soft px-3.5 py-2 text-xs text-danger" role="alert">
+            {error}
+          </p>
+        )}
+
+        {/* Composer */}
+        {!configured ? (
+          <div className="shrink-0 border-t border-line bg-surface p-4 text-sm text-ink-muted">
+            Assistant unavailable in dev mode. To test locally add{' '}
+            <code className="rounded bg-surface-2 px-1 font-mono text-xs text-accent-strong">VITE_OPENAI_API_KEY</code>{' '}
+            to <code className="rounded bg-surface-2 px-1 font-mono text-xs text-accent-strong">.env.local</code> and
+            restart. (Dev-only key — not needed in production.)
+          </div>
+        ) : (
+          <form
+            onSubmit={sendMessage}
+            className="shrink-0 border-t border-line bg-surface p-3"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+          >
+            <div className="flex items-end gap-1.5 rounded-2xl bg-surface-2 p-1.5 ring-1 ring-line transition-shadow focus-within:ring-2 focus-within:ring-accent">
+              <textarea
+                ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 placeholder={isListening ? 'Listening… speak now' : 'Ask me to do something…'}
                 rows={1}
                 disabled={loading}
-                className={cn(
-                  'flex-1 min-h-[44px] max-h-[120px] resize-none text-sm rounded-2xl py-3',
-                  theme === 'dark' ? 'bg-primary-dark' : 'bg-slate-50'
-                )}
+                className="max-h-[120px] min-h-[36px] flex-1 resize-none bg-transparent px-2.5 py-2 text-sm text-ink placeholder:text-ink-subtle outline-none disabled:opacity-60"
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
@@ -485,41 +573,36 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
                   aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
                   aria-pressed={isListening}
                   className={cn(
-                    'shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors',
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors',
+                    'disabled:cursor-not-allowed disabled:opacity-40',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-2',
                     isListening
-                      ? 'bg-red-500 text-white focus-visible:ring-red-500 animate-pulse'
-                      : theme === 'dark'
-                        ? 'bg-primary-dark text-primary-light/80 border border-primary-blue/40 hover:bg-primary-dark/70 focus-visible:ring-primary-gold'
-                        : 'bg-slate-100 text-primary-lightTextSecondary hover:bg-slate-200 focus-visible:ring-primary-gold'
+                      ? 'animate-pulse bg-danger text-white focus-visible:ring-danger'
+                      : 'text-ink-subtle hover:bg-surface hover:text-ink focus-visible:ring-accent'
                   )}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" />
-                    <path d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z" />
-                  </svg>
+                  <MicIcon className="h-[18px] w-[18px]" />
                 </button>
               )}
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className={cn(
-                  'shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-opacity',
-                  'disabled:opacity-40 disabled:cursor-not-allowed',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:ring-offset-2',
-                  'bg-primary-gold text-primary-dark hover:bg-primary-gold/90'
-                )}
                 aria-label="Send message"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-strong text-accent-contrast transition-[opacity,transform] hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-2"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-                </svg>
+                <SendIcon className="h-[18px] w-[18px]" />
               </button>
-            </form>
-          )}
-        </div>
-      </Modal>
+            </div>
+          </form>
+        )}
+      </div>
+    </>
+  )
+
+  return (
+    <>
+      {launcher}
+      {open && createPortal(panel, document.body)}
     </>
   )
 }
