@@ -34,6 +34,14 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
     })
   }, [invoices, startDate, endDate])
 
+  // Billable invoices = issued and not voided. Drafts (not yet sent) and cancelled
+  // invoices are excluded from every revenue / outstanding figure — they aren't
+  // receivables, so counting them would overstate income and money owed.
+  const billableInvoices = useMemo(
+    () => filteredInvoices.filter(i => i.status !== 'draft' && i.status !== 'cancelled'),
+    [filteredInvoices]
+  )
+
   // Group by status and payment status
   const statusGroups = useMemo(() => {
     const groups: Record<string, Invoice[]> = {
@@ -62,7 +70,7 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
       paid: [],
     }
 
-    filteredInvoices.forEach(invoice => {
+    billableInvoices.forEach(invoice => {
       const paymentStatus = invoice.paymentStatus || 'pending'
       if (groups[paymentStatus]) {
         groups[paymentStatus].push(invoice)
@@ -72,12 +80,13 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
     })
 
     return groups
-  }, [filteredInvoices])
+  }, [billableInvoices])
 
   // Calculate totals
   const totals = useMemo(() => {
-    const total = filteredInvoices.reduce((sum, i) => sum + i.total, 0)
-    const paid = filteredInvoices.reduce((sum, i) => sum + i.paidAmount, 0)
+    // Revenue/outstanding are computed over billable invoices only (no draft/cancelled).
+    const total = billableInvoices.reduce((sum, i) => sum + i.total, 0)
+    const paid = billableInvoices.reduce((sum, i) => sum + i.paidAmount, 0)
     const outstanding = total - paid
 
     const sent = statusGroups.sent.reduce((sum, i) => sum + i.total, 0)
@@ -91,7 +100,8 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
       sent,
       overdue,
       draft,
-      count: filteredInvoices.length,
+      count: billableInvoices.length,
+      excludedCount: filteredInvoices.length - billableInvoices.length,
       sentCount: statusGroups.sent.length,
       overdueCount: statusGroups.overdue.length,
       draftCount: statusGroups.draft.length,
@@ -99,7 +109,7 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
       partialCount: paymentGroups.partial.length,
       pendingCount: paymentGroups.pending.length,
     }
-  }, [filteredInvoices, statusGroups, paymentGroups])
+  }, [filteredInvoices, billableInvoices, statusGroups, paymentGroups])
 
   const paymentStatusLabel = (ps: string | undefined) =>
     ps === 'pending' ? 'Unpaid' : ps === 'partial' ? 'Partially Paid' : ps === 'paid' ? 'Paid' : ps ?? ''
@@ -164,34 +174,42 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
       emptyText="No invoices found for this period"
       details={details}
     >
-      <StatGrid>
-        <StatTile
-          label="Total Invoices"
-          value={formatNumber(totals.count)}
-          sub={`$${formatCurrency(totals.total)}`}
-          tone="accent"
-        />
-        <StatTile
-          label="Paid"
-          value={formatNumber(totals.paidCount)}
-          sub={`$${formatCurrency(totals.paid)}`}
-          tone="success"
-        />
-        <StatTile
-          label="Outstanding"
-          value={`$${formatCurrency(totals.outstanding)}`}
-          sub={`${formatNumber(totals.pendingCount + totals.partialCount)} ${
-            totals.pendingCount + totals.partialCount === 1 ? 'invoice' : 'invoices'
-          }`}
-          tone="info"
-        />
-        <StatTile
-          label="Overdue"
-          value={formatNumber(totals.overdueCount)}
-          sub={`$${formatCurrency(totals.overdue)}`}
-          tone={totals.overdueCount > 0 ? 'danger' : 'ink'}
-        />
-      </StatGrid>
+      <div className="space-y-2">
+        <StatGrid>
+          <StatTile
+            label="Total Invoices"
+            value={formatNumber(totals.count)}
+            sub={`$${formatCurrency(totals.total)}`}
+            tone="accent"
+          />
+          <StatTile
+            label="Paid"
+            value={formatNumber(totals.paidCount)}
+            sub={`$${formatCurrency(totals.paid)}`}
+            tone="success"
+          />
+          <StatTile
+            label="Outstanding"
+            value={`$${formatCurrency(totals.outstanding)}`}
+            sub={`${formatNumber(totals.pendingCount + totals.partialCount)} ${
+              totals.pendingCount + totals.partialCount === 1 ? 'invoice' : 'invoices'
+            }`}
+            tone="info"
+          />
+          <StatTile
+            label="Overdue"
+            value={formatNumber(totals.overdueCount)}
+            sub={`$${formatCurrency(totals.overdue)}`}
+            tone={totals.overdueCount > 0 ? 'danger' : 'ink'}
+          />
+        </StatGrid>
+        {totals.excludedCount > 0 && (
+          <p className="text-[13px] text-ink-subtle">
+            Excludes {formatNumber(totals.excludedCount)}{' '}
+            {totals.excludedCount === 1 ? 'draft or cancelled invoice' : 'draft or cancelled invoices'}.
+          </p>
+        )}
+      </div>
     </ReportSection>
   )
 }

@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { services } from '@/lib/api/services'
 import { useAuthStore } from '@/features/auth'
-import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
+import type { JobLog } from '@/features/jobLogs/types/jobLog'
 import { EmployeeHoursReport } from '../components/EmployeeHoursReport'
 import { QuotesReport } from '../components/QuotesReport'
 import { InvoicesReport } from '../components/InvoicesReport'
@@ -14,15 +14,26 @@ import {
   endOfMonth,
   startOfYear,
   endOfYear,
+  startOfDay,
+  endOfDay,
   subMonths,
   format,
 } from 'date-fns'
 
 type DateRangePreset = 'this-month' | 'last-month' | 'last-3-months' | 'this-year' | 'custom'
 
+// Parse a 'yyyy-MM-dd' value as a LOCAL calendar date. `new Date('yyyy-MM-dd')`
+// parses as UTC midnight, which in non-UTC timezones shifts the boundary into the
+// adjacent day — silently dropping most of the chosen end day from custom ranges.
+const parseLocalDate = (value: string): Date | null => {
+  const [y, m, d] = value.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const date = new Date(y, m - 1, d)
+  return isNaN(date.getTime()) ? null : date
+}
+
 export const ReportsPage = () => {
   const { user } = useAuthStore()
-  const { jobLogs, fetchJobLogs, isLoading: jobLogsLoading } = useJobLogStore()
   const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
   const { invoices, fetchInvoices, isLoading: invoicesLoading } = useInvoiceStore()
 
@@ -35,6 +46,7 @@ export const ReportsPage = () => {
   const [isTeamAccount, setIsTeamAccount] = useState(false)
   const [users, setUsers] = useState<Array<{ id: string; name: string; email: string }>>([])
   const [timeEntries, setTimeEntries] = useState<any[]>([])
+  const [jobLogs, setJobLogs] = useState<JobLog[]>([])
   const [loading, setLoading] = useState(true)
 
   // Calculate date range based on preset
@@ -61,10 +73,14 @@ export const ReportsPage = () => {
         start = startOfYear(now)
         end = endOfYear(now)
         break
-      case 'custom':
-        start = customStartDate ? new Date(customStartDate) : startOfMonth(now)
-        end = customEndDate ? new Date(customEndDate) : endOfMonth(now)
+      case 'custom': {
+        const parsedStart = customStartDate ? parseLocalDate(customStartDate) : null
+        const parsedEnd = customEndDate ? parseLocalDate(customEndDate) : null
+        // Inclusive of the whole local end day (00:00:00 → 23:59:59.999).
+        start = parsedStart ? startOfDay(parsedStart) : startOfMonth(now)
+        end = parsedEnd ? endOfDay(parsedEnd) : endOfMonth(now)
         break
+      }
       default:
         start = startOfMonth(now)
         end = endOfMonth(now)
@@ -93,10 +109,15 @@ export const ReportsPage = () => {
           billingStatus.canInviteTeamMembers === true
         setIsTeamAccount(isTeam)
 
-        // Fetch job logs (includes time entries), quotes and invoices
-        await fetchJobLogs()
+        // Fetch quotes and invoices via their stores
         await fetchQuotes()
         await fetchInvoices()
+
+        // Fetch jobs WITH archived included so reports reflect completed/closed-out
+        // work, not just the active book. Archived jobs are hidden on the Jobs page
+        // but their revenue, labor cost, and per-employee pay still belong in reports.
+        const jobs = await services.jobLogs.getAll({ includeArchived: true })
+        setJobLogs(jobs)
 
         // Fetch all time entries (no jobLogId filter to get all entries)
         const entries = await services.timeEntries.getAll()
@@ -109,9 +130,9 @@ export const ReportsPage = () => {
     }
 
     loadData()
-  }, [fetchJobLogs, fetchQuotes, fetchInvoices, user])
+  }, [fetchQuotes, fetchInvoices, user])
 
-  const isLoading = jobLogsLoading || quotesLoading || invoicesLoading || loading
+  const isLoading = quotesLoading || invoicesLoading || loading
 
   return (
     <div className="mx-auto max-w-5xl space-y-10">

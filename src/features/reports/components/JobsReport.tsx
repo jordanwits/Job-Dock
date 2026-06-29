@@ -122,6 +122,8 @@ export const JobsReport = ({
   const cost = useMemo(() => {
     let totalCost = 0
     const jobPayCounted = new Set<string>() // jobId_userId to avoid double-counting job-based pay
+    const workedPairs = new Set<string>() // every jobId_userId that logged time in range
+    const pricedPairs = new Set<string>() // those that contributed a known labor cost
 
     // Filter time entries by date range
     const filteredEntries = timeEntries.filter(entry => {
@@ -149,6 +151,8 @@ export const JobsReport = ({
       }
 
       if (!jobId || !userId) return
+      const key = `${jobId}_${userId}`
+      workedPairs.add(key)
 
       const job = jobLogs.find(j => j.id === jobId)
       if (!job || !job.assignedTo) return
@@ -165,22 +169,24 @@ export const JobsReport = ({
       const payType = assignment.payType || 'job'
       if (payType === 'hourly') {
         const rate = (entry as any).hourlyRate ?? assignment.hourlyRate
-        if (rate != null && !isNaN(rate)) {
+        if (rate != null && !isNaN(rate) && rate > 0) {
           const start = new Date(entry.startTime).getTime()
           const end = new Date(entry.endTime).getTime()
           const breakMinutes = entry.breakMinutes || 0
           const hours = ((end - start) / 60000 - breakMinutes) / 60
-          totalCost += hours * rate
+          // Ignore malformed/in-progress entries so they can't distort labor cost.
+          if (hours > 0) {
+            totalCost += hours * rate
+            pricedPairs.add(key)
+          }
         }
       } else {
-        // Job-based: fixed price per job per employee (assignment.price or job price)
-        const jobPrice =
-          assignment.price ??
-          job.price ??
-          (job as { job?: { price?: number | null } }).job?.price ??
-          0
+        // Job-based: per-person flat pay from assignment.price ONLY. job.price is the
+        // customer price (revenue), not labor — using it here would charge each
+        // assignee the full customer price and overstate cost on shared jobs.
+        const jobPrice = assignment.price
         if (jobPrice != null && !isNaN(jobPrice) && jobPrice > 0) {
-          const key = `${jobId}_${userId}`
+          pricedPairs.add(key)
           if (!jobPayCounted.has(key)) {
             jobPayCounted.add(key)
             totalCost += jobPrice
@@ -189,7 +195,13 @@ export const JobsReport = ({
       }
     })
 
-    return totalCost
+    // Assignees who logged time but whose pay couldn't be priced (no rate/price set).
+    let unpricedCount = 0
+    workedPairs.forEach(key => {
+      if (!pricedPairs.has(key)) unpricedCount++
+    })
+
+    return { total: totalCost, unpricedCount }
   }, [timeEntries, jobLogs, startDate, endDate])
 
   // Calculate totals
@@ -206,8 +218,9 @@ export const JobsReport = ({
       revenue: revenue.total,
       paidRevenue: revenue.paid,
       outstandingRevenue: revenue.outstanding,
-      cost,
-      profit: revenue.total - cost,
+      cost: cost.total,
+      profit: revenue.total - cost.total,
+      unpricedAssignees: cost.unpricedCount,
     }
   }, [filteredJobs.length, statusGroups, revenue, cost])
 
@@ -239,16 +252,24 @@ export const JobsReport = ({
 
   const details = (
     <div className="space-y-6">
-      <StatGrid>
-        <StatTile label="Revenue" value={`$${formatCurrency(totals.revenue)}`} tone="accent" />
-        <StatTile label="Paid" value={`$${formatCurrency(totals.paidRevenue)}`} tone="success" />
-        <StatTile label="Cost" value={`$${formatCurrency(totals.cost)}`} tone="danger" />
-        <StatTile
-          label="Profit"
-          value={`$${formatCurrency(totals.profit)}`}
-          tone={totals.profit >= 0 ? 'success' : 'danger'}
-        />
-      </StatGrid>
+      <div className="space-y-2">
+        <StatGrid>
+          <StatTile label="Revenue" value={`$${formatCurrency(totals.revenue)}`} tone="accent" />
+          <StatTile label="Paid" value={`$${formatCurrency(totals.paidRevenue)}`} tone="success" />
+          <StatTile label="Cost" value={`$${formatCurrency(totals.cost)}`} tone="danger" />
+          <StatTile
+            label="Profit"
+            value={`$${formatCurrency(totals.profit)}`}
+            tone={totals.profit >= 0 ? 'success' : 'danger'}
+          />
+        </StatGrid>
+        {totals.unpricedAssignees > 0 && (
+          <p className="text-[13px] text-ink-subtle">
+            Labor cost excludes {formatNumber(totals.unpricedAssignees)}{' '}
+            {totals.unpricedAssignees === 1 ? 'assignee' : 'assignees'} with no pay configured.
+          </p>
+        )}
+      </div>
 
       <div className="space-y-3">
         <DetailLabel>By status</DetailLabel>

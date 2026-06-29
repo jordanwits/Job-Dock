@@ -178,62 +178,68 @@ export const EmployeeHoursReport = ({
       const minutes = (end - start) / 60000 - breakMinutes
       const hours = minutes / 60
 
+      // Skip malformed/in-progress entries (bad dates, end <= start, or a break
+      // longer than the worked time) so they can't silently subtract from totals.
+      if (!Number.isFinite(minutes) || minutes <= 0) return
+
       userData.totalMinutes += minutes
       userData.totalHours += hours
       userData.entryCount += 1
 
-      // Find job and calculate pay
-      // Backend returns jobId (from TimeEntry.jobId), frontend type has jobLogId
-      // Both refer to the same Job/JobLog entity
+      // Attribute this entry's hours to its job so the per-job breakdown always
+      // reconciles with the member's headline total — even when the user has no pay
+      // assignment on the job (assignment removed, or clocked into an unassigned job)
+      // or the job is archived. Pay is only added when a rate/price is configured.
+      // Backend returns jobId (from TimeEntry.jobId); the frontend type has jobLogId.
       const jobId = (entry as any).jobId || (entry as any).jobLogId
       if (jobId) {
         const job = jobMap.get(jobId)
-        if (job && job.assignedTo) {
-          // Find assignment for this user
-          const assignments = Array.isArray(job.assignedTo)
-            ? job.assignedTo
-            : typeof job.assignedTo === 'string'
-              ? [{ userId, role: '', payType: 'job' as const }]
-              : []
+        const assignments =
+          job && job.assignedTo
+            ? Array.isArray(job.assignedTo)
+              ? job.assignedTo
+              : typeof job.assignedTo === 'string'
+                ? [{ userId, role: '', payType: 'job' as const }]
+                : []
+            : []
 
-          const assignment = assignments.find((a: any) => a.userId === userId)
-          if (assignment) {
-            const payType = assignment.payType || 'job'
-            let pay = 0
+        const assignment = assignments.find((a: any) => a.userId === userId)
+        const payType = assignment?.payType || 'job'
+        let pay = 0
 
-            if (payType === 'hourly') {
-              const rate = (entry as any).hourlyRate ?? assignment.hourlyRate
-              if (rate != null && !isNaN(rate)) pay = hours * rate
-              userData.totalPay += pay
-            } else if (payType === 'job') {
-              // Job-based: fixed price per job per employee (assignment.price or job price)
-              const jobPrice =
-                assignment.price ?? job.price ?? (job as { job?: { price?: number | null } }).job?.price ?? 0
-              if (jobPrice != null && !isNaN(jobPrice) && jobPrice > 0) {
-                const existingJob = userData.jobs.find(j => j.jobId === jobId)
-                if (!existingJob) {
-                  // Attribute job price once per job per user (not per time entry)
-                  pay = jobPrice
-                  userData.totalPay += pay
-                }
+        if (assignment) {
+          if (payType === 'hourly') {
+            const rate = (entry as any).hourlyRate ?? assignment.hourlyRate
+            if (rate != null && !isNaN(rate)) pay = hours * rate
+            userData.totalPay += pay
+          } else if (payType === 'job') {
+            // Job-based: per-person flat pay from assignment.price ONLY. job.price is the
+            // customer price (revenue), not labor — matching how JobLogDetail shows $X/job.
+            const jobPrice = assignment.price
+            if (jobPrice != null && !isNaN(jobPrice) && jobPrice > 0) {
+              const alreadyCounted = userData.jobs.some(j => j.jobId === jobId)
+              if (!alreadyCounted) {
+                // Attribute job price once per job per user (not per time entry)
+                pay = jobPrice
+                userData.totalPay += pay
               }
             }
-
-            // Track job details
-            const existingJob = userData.jobs.find(j => j.jobId === jobId)
-            if (!existingJob) {
-              userData.jobs.push({
-                jobId: jobId,
-                jobTitle: job.title,
-                hours,
-                pay,
-                payType: payType === 'hourly' ? 'Hourly' : 'Job-based',
-              })
-            } else {
-              existingJob.hours += hours
-              existingJob.pay += pay
-            }
           }
+        }
+
+        // Track per-job hours/pay (accumulate across this user's entries on the job).
+        const existingJob = userData.jobs.find(j => j.jobId === jobId)
+        if (!existingJob) {
+          userData.jobs.push({
+            jobId: jobId,
+            jobTitle: job?.title ?? 'Unknown job',
+            hours,
+            pay,
+            payType: payType === 'hourly' ? 'Hourly' : 'Job-based',
+          })
+        } else {
+          existingJob.hours += hours
+          existingJob.pay += pay
         }
       }
     })
@@ -346,11 +352,11 @@ export const EmployeeHoursReport = ({
                         </span>
                         <span className="shrink-0 font-mono text-[13px] tabular-nums text-ink-muted">
                           {job.hours.toFixed(2)}h ·{' '}
-                          {job.pay > 0
-                            ? `$${formatCurrency(job.pay)}`
-                            : job.payType === 'Job-based'
-                              ? '—'
-                              : '—'}
+                          {job.pay > 0 ? (
+                            `$${formatCurrency(job.pay)}`
+                          ) : (
+                            <span className="not-italic text-ink-subtle">Pay not set</span>
+                          )}
                         </span>
                       </div>
                     ))}
