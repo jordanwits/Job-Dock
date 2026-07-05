@@ -52,11 +52,12 @@ $bucketName = ($outputs | Where-Object { $_.OutputKey -eq "FrontendBucketName" }
 if ($bucketName) {
     $objectCount = aws s3 ls "s3://$bucketName/" --recursive | Measure-Object -Line | Select-Object -ExpandProperty Lines
     
+    # NOTE: the live site is served by Vercel (git push), NOT this S3/CloudFront bucket.
+    # This bucket is legacy/vestigial; its contents do not affect thejobdock.com.
     if ($objectCount -gt 0) {
-        Write-Host "  ✅ Frontend deployed ($objectCount files in S3)" -ForegroundColor Green
+        Write-Host "  ℹ️  $objectCount files in legacy S3 bucket (NOT the live site — Vercel serves prod)" -ForegroundColor DarkGray
     } else {
-        Write-Host "  ⚠️  Frontend bucket is empty" -ForegroundColor Yellow
-        Write-Host "     Run: .\deploy-frontend-prod.ps1" -ForegroundColor White
+        Write-Host "  ℹ️  Legacy S3 bucket empty (expected — Vercel serves prod)" -ForegroundColor DarkGray
     }
 } else {
     Write-Host "  ❌ Could not find frontend bucket" -ForegroundColor Red

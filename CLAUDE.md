@@ -67,8 +67,9 @@ models, everything hanging off `Tenant`).
 - **DB migrations:** `.\migrate.ps1 -Env prod -Action deploy` invokes the MigrationLambda
   (`run-migration-lambda.ps1 -Environment prod` is an equivalent older script). See Gotchas.
 - **Full pipeline:** root `npm run deploy:prod` (`deploy-production.ps1`) = CDK → env sync → migrations →
-  S3+CloudFront frontend upload. That S3/CloudFront step (and `deploy-frontend-prod.ps1`) is VESTIGIAL —
-  it does NOT update the live site; users are served by Vercel.
+  a vestigial S3+CloudFront frontend upload step that does NOT update the live site (users are served by
+  Vercel) — treat it as dead. The standalone `deploy-frontend-prod.ps1` script and its `deploy:prod:frontend`
+  npm alias were removed 2026-07-05 for being misleading.
 - Secrets live in gitignored `.env.local` (`RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `OPENAI_API_KEY`,
   `TWILIO_*`, `APPROVAL_SECRET`, `PHOTO_ACCESS_SECRET`, …). Never print or commit their values.
 

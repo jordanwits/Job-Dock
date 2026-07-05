@@ -41,6 +41,21 @@ coverage
 # Migration Lambda CLI output (local)
 migration-response.json
 
+# Operational log / response dumps (local only — never commit)
+lambda-logs*.json
+latest*.json
+latest*.txt
+logs.json
+cw-logs.json
+send_logs.json
+errors.txt
+migration-response*.json
+migration-result.json
+migration-deploy-direct.json
+migration-tobe-scheduled-response.json
+test-response*.json
+test-prod-response.json
+
 # Build
 build
 .cache

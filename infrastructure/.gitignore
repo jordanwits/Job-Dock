@@ -1,5 +1,7 @@
 node_modules/
 cdk.out/
+cdk.out*/
+migration-response*.json
 *.js
 !jest.config.js
 !deploy-with-env.js
