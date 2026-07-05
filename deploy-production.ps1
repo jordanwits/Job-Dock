@@ -5,7 +5,6 @@ param(
     [switch]$SkipDomainCheck,
     [switch]$SkipInfrastructure,
     [switch]$SkipMigrations,
-    [switch]$SkipFrontend,
     [switch]$SkipSESCheck,
     [string]$Domain,
     [string]$CertificateArn
@@ -286,57 +285,12 @@ if (-not $SkipMigrations) {
     Write-Host ""
 }
 
-# Step 7: Build and deploy frontend
-if (-not $SkipFrontend) {
-    Write-Host "Step 7: Building and Deploying Frontend" -ForegroundColor Yellow
-    Write-Host "----------------------------------------" -ForegroundColor Yellow
-    Write-Host ""
-    
-    Write-Host "Building production frontend..." -ForegroundColor Yellow
-    npm run build
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Frontend build failed" -ForegroundColor Red
-        exit 1
-    }
-    
-    Write-Host ""
-    Write-Host "Getting S3 bucket name..." -ForegroundColor Yellow
-    $stackName = "JobDockStack-prod"
-    $bucketName = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text
-    
-    if ([string]::IsNullOrEmpty($bucketName) -or $bucketName -eq "None") {
-        Write-Host "❌ Could not find frontend bucket" -ForegroundColor Red
-        exit 1
-    }
-    
-    Write-Host "Deploying to S3 bucket: $bucketName" -ForegroundColor Yellow
-    aws s3 sync dist/ "s3://$bucketName/" --delete
-    
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "✅ Frontend deployed" -ForegroundColor Green
-        Write-Host ""
-    } else {
-        Write-Host "❌ Frontend deployment failed" -ForegroundColor Red
-        exit 1
-    }
-    
-    # Invalidate CloudFront cache (use stack output; do not guess from list-distributions)
-    Write-Host "Invalidating CloudFront cache..." -ForegroundColor Yellow
-    $distributionId = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" --output text 2>$null
-
-    if (-not [string]::IsNullOrEmpty($distributionId) -and $distributionId -ne "None") {
-        aws cloudfront create-invalidation --distribution-id $distributionId.Trim() --paths "/*"
-        Write-Host "CloudFront cache invalidated" -ForegroundColor Green
-        Write-Host ""
-    } else {
-        Write-Host "CloudFrontDistributionId output missing - skip invalidation (run CDK deploy once with latest stack)." -ForegroundColor Yellow
-        Write-Host ""
-    }
-} else {
-    Write-Host "Skipping frontend deployment (`--SkipFrontend flag)" -ForegroundColor Yellow
-    Write-Host ""
-}
+# Frontend deploy: nothing to do here.
+# The live site (https://thejobdock.com) is served by Vercel, which auto-deploys on git
+# push (see vercel.json / .vercel). The AWS stack still provisions an S3 bucket and a
+# CloudFront distribution, but no users are served from them, so there is intentionally
+# NO "aws s3 sync dist/" upload step here. Do not re-add one - it would deploy nothing
+# that users can see.
 
 # Step 8: Get deployment URLs
 Write-Host "Step 8: Deployment Complete!" -ForegroundColor Green
@@ -345,18 +299,17 @@ Write-Host ""
 
 $stackName = "JobDockStack-prod"
 $apiUrl = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text
-$cloudFrontUrl = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='CloudFrontUrl'].OutputValue" --output text
 $userPoolId = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text
 
 Write-Host "Your JobDock production environment is ready!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Frontend URL: $cloudFrontUrl" -ForegroundColor Cyan
+Write-Host "Frontend (Vercel): https://thejobdock.com  (deploys automatically on git push)" -ForegroundColor Cyan
 Write-Host "API URL: $apiUrl" -ForegroundColor Cyan
 Write-Host "Cognito User Pool: $userPoolId" -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host 'Next steps:' -ForegroundColor Yellow
-Write-Host '  1. Visit the frontend URL to test your deployment' -ForegroundColor White
+Write-Host '  1. Visit https://thejobdock.com to test your deployment' -ForegroundColor White
 Write-Host '  2. Create your first user account' -ForegroundColor White
 Write-Host '  3. Set up billing alerts in AWS Console' -ForegroundColor White
 Write-Host '  4. Configure your DNS if using a custom domain' -ForegroundColor White
