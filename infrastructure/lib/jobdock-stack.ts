@@ -431,6 +431,10 @@ export class JobDockStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.resolve(backendDir, 'src', 'functions', 'auth', 'handler.ts'),
       handler: 'handler',
+      // aws-cdk-lib >=2.244 requires entry to live under the inferred project
+      // root (the dir of the lock file, default: infrastructure/). Backend
+      // entries live in ../backend, so anchor the project root there explicitly.
+      depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
       bundling: commonBundlingOptions,
       // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
       ...(config.env !== 'prod' && {
@@ -505,6 +509,10 @@ export class JobDockStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.resolve(backendDir, 'src', 'functions', 'data', 'handler.ts'),
       handler: 'handler',
+      // aws-cdk-lib >=2.244 requires entry to live under the inferred project
+      // root (the dir of the lock file, default: infrastructure/). Backend
+      // entries live in ../backend, so anchor the project root there explicitly.
+      depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
       bundling: commonBundlingOptions,
       // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
       ...(config.env !== 'prod' && {
@@ -587,6 +595,10 @@ export class JobDockStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.resolve(backendDir, 'src', 'functions', 'migrate', 'handler.ts'),
       handler: 'handler',
+      // aws-cdk-lib >=2.244 requires entry to live under the inferred project
+      // root (the dir of the lock file, default: infrastructure/). Backend
+      // entries live in ../backend, so anchor the project root there explicitly.
+      depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
       bundling: commonBundlingOptions,
       // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
       ...(config.env !== 'prod' && {
@@ -624,6 +636,10 @@ export class JobDockStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.resolve(backendDir, 'src', 'functions', 'cleanup-jobs', 'handler.ts'),
       handler: 'handler',
+      // aws-cdk-lib >=2.244 requires entry to live under the inferred project
+      // root (the dir of the lock file, default: infrastructure/). Backend
+      // entries live in ../backend, so anchor the project root there explicitly.
+      depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
       bundling: commonBundlingOptions,
       // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
       ...(config.env !== 'prod' && {
@@ -686,6 +702,7 @@ export class JobDockStack extends cdk.Stack {
           'handler.ts'
         ),
         handler: 'handler',
+        depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
         bundling: commonBundlingOptions,
         ...(config.env !== 'prod' && {
           vpc: this.vpc,
@@ -745,6 +762,7 @@ export class JobDockStack extends cdk.Stack {
           'handler.ts'
         ),
         handler: 'handler',
+        depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
         bundling: commonBundlingOptions,
         ...(config.env !== 'prod' && {
           vpc: this.vpc,
