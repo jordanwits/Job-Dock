@@ -144,7 +144,8 @@ export class JobDockStack extends cdk.Stack {
         publiclyAccessible: config.env === 'prod', // Enable public access for prod to eliminate NAT Gateway
         databaseName: 'jobdock',
         removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-        backupRetention: cdk.Duration.days(1), // Free tier limit
+        deletionProtection: config.env === 'prod', // Guard prod DB against direct console/API/CLI deletion
+        backupRetention: cdk.Duration.days(config.env === 'prod' ? 14 : 1),
         deleteAutomatedBackups: config.env !== 'prod',
         storageEncrypted: true,
         monitoringInterval: cdk.Duration.seconds(60),
@@ -246,7 +247,15 @@ export class JobDockStack extends cdk.Stack {
       cors: [
         {
           allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
-          allowedOrigins: ['*'], // Configure with your domain in production
+          // Lock to real app origins in prod; dev/staging (no config.domain) keep '*'.
+          allowedOrigins: config.domain
+            ? [
+                `https://${config.domain}`,
+                `https://www.${config.domain}`,
+                `https://app.${config.domain}`,
+                'https://*.vercel.app',
+              ]
+            : ['*'],
           allowedHeaders: ['*'],
           maxAge: 3000,
         },

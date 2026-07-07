@@ -18,7 +18,10 @@
       "PowerShell(Get-ChildItem -Path \"G:\\\\JobDock\\\\backend\\\\src\" -Recurse | Where-Object {$_.Extension -in @\\('.ts', '.tsx'\\)} | Select-Object -ExpandProperty FullName)",
       "PowerShell(ls -Path 'G:\\\\JobDock\\\\backend\\\\src' -Recurse | Where-Object { $_.Extension -in '.ts', '.js' } | Select-Object -First 40 -ExpandProperty FullName)",
       "PowerShell(head -20)",
-      "Bash(xargs grep -l \"stripe\\\\|Stripe\\\\|payment\\\\|Payment\")"
+      "Bash(xargs grep -l \"stripe\\\\|Stripe\\\\|payment\\\\|Payment\")",
+      "Bash(aws sts *)",
+      "Bash(aws ec2 *)",
+      "PowerShell(Test-Path \"$env:USERPROFILE\\\\.ssh\")"
     ]
   }
 }

@@ -13,6 +13,47 @@ export interface LambdaContext {
   userEmail: string
 }
 
+// --- CORS origin allowlist ---
+// `Access-Control-Allow-Origin` can only name a single origin, so we resolve the request's
+// Origin against an allowlist per-invocation instead of returning a blanket '*'. Add extra
+// origins via the CORS_ALLOWED_ORIGINS env var (comma-separated).
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://thejobdock.com',
+  'https://www.thejobdock.com',
+  'https://app.thejobdock.com',
+]
+const ALLOWED_ORIGINS = [
+  ...DEFAULT_ALLOWED_ORIGINS,
+  ...(process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean),
+]
+const PRIMARY_ORIGIN = ALLOWED_ORIGINS[0]!
+
+function isAllowedOrigin(origin: string): boolean {
+  if (ALLOWED_ORIGINS.includes(origin)) return true
+  try {
+    const host = new URL(origin).hostname
+    if (host.endsWith('.vercel.app')) return true // Vercel preview/prod deployments
+    if (host === 'localhost' || host === '127.0.0.1') return true // local dev
+  } catch {
+    /* not a valid origin URL */
+  }
+  return false
+}
+
+// Set once at the top of each Lambda handler. Lambda runs a single request at a time per
+// execution environment, so a module-level value is safe (invocations never interleave).
+// Unknown origins fall back to the primary app origin, which the browser will reject as a
+// mismatch — denying the cross-origin read without breaking the app's own same-origin calls.
+let activeCorsOrigin = PRIMARY_ORIGIN
+
+export function setRequestOrigin(event: APIGatewayProxyEvent): void {
+  const origin = event.headers?.origin || event.headers?.Origin || ''
+  activeCorsOrigin = origin && isAllowedOrigin(origin) ? origin : PRIMARY_ORIGIN
+}
+
 /**
  * Extract tenant ID from request
  * Priority: JWT token (if authenticated) > X-Tenant-ID header (for public/unauthenticated) > error
@@ -70,7 +111,8 @@ export function successResponse(data: any, statusCode: number = 200): APIGateway
     statusCode,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*', // Configure properly in production
+      'Access-Control-Allow-Origin': activeCorsOrigin,
+      Vary: 'Origin',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
       // Prevent browsers/CDNs from caching API responses (important for fresh photo lists)
@@ -94,7 +136,8 @@ export function binaryResponse(
     statusCode,
     headers: {
       'Content-Type': contentType,
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': activeCorsOrigin,
+      Vary: 'Origin',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
       // Avoid caching signed/tokenized photo URLs
@@ -129,7 +172,8 @@ export function errorResponse(
     statusCode,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': activeCorsOrigin,
+      Vary: 'Origin',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -149,7 +193,8 @@ export function corsResponse(): APIGatewayProxyResult {
   return {
     statusCode: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': activeCorsOrigin,
+      Vary: 'Origin',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',

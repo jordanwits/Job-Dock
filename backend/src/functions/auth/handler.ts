@@ -20,7 +20,7 @@ import {
   adminSetPassword,
   type CognitoUser,
 } from '../../lib/auth'
-import { successResponse, errorResponse, corsResponse } from '../../lib/middleware'
+import { successResponse, errorResponse, corsResponse, setRequestOrigin } from '../../lib/middleware'
 import prisma from '../../lib/db'
 import { dataServices } from '../../lib/dataService'
 import { sendPasswordResetEmail } from '../../lib/email'
@@ -34,6 +34,7 @@ const cognitoClient = new CognitoIdentityProviderClient({
 const USER_POOL_ID = process.env.USER_POOL_ID!
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  setRequestOrigin(event)
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return corsResponse()

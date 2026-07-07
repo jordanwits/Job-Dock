@@ -6,10 +6,11 @@ export function isPlatformAdmin(email: string | undefined | null): boolean {
   const normalized = (email || '').trim().toLowerCase()
   if (!normalized) return false
 
+  // Fail closed: if no allowlist is configured, nobody is a platform admin.
+  // (Set JOBDOCK_PLATFORM_ADMIN_EMAILS in the Lambda env — wired in jobdock-stack.ts.)
   const raw = (process.env.JOBDOCK_PLATFORM_ADMIN_EMAILS || '').trim()
-  const allow = raw
-    ? raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
-    : ['jordan@westwavecreative.com']
+  if (!raw) return false
+  const allow = raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
 
   return allow.includes(normalized)
 }

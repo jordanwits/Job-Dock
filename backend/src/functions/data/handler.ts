@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse, corsResponse, extractContext, binaryResponse } from '../../lib/middleware'
+import { successResponse, errorResponse, corsResponse, extractContext, binaryResponse, setRequestOrigin } from '../../lib/middleware'
 import { dataServices } from '../../lib/dataService'
 import * as quickbooks from '../../lib/quickbooks'
 import { extractTenantId } from '../../lib/middleware'
@@ -63,6 +63,7 @@ function stripPricingFieldsForCreate(payload: any): void {
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  setRequestOrigin(event)
   if (event.httpMethod === 'OPTIONS') {
     return corsResponse()
   }

@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 
 /**
  * Resolve the HMAC signing secret for approval tokens.
@@ -45,16 +45,13 @@ export function verifyApprovalToken(
   token: string
 ): boolean {
   const expectedToken = generateApprovalToken(resource, id, tenantId)
-  
-  // Use constant-time comparison to prevent timing attacks
-  if (token.length !== expectedToken.length) {
+
+  // Constant-time comparison to prevent timing attacks. timingSafeEqual requires
+  // equal-length buffers, so length-check first (a valid token is a fixed-length hex digest).
+  const provided = Buffer.from(token)
+  const expected = Buffer.from(expectedToken)
+  if (provided.length !== expected.length) {
     return false
   }
-  
-  let result = 0
-  for (let i = 0; i < token.length; i++) {
-    result |= token.charCodeAt(i) ^ expectedToken.charCodeAt(i)
-  }
-  
-  return result === 0
+  return timingSafeEqual(provided, expected)
 }
