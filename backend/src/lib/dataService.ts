@@ -471,7 +471,10 @@ function visibleHourlyRate(
   return te.hourlyRate != null ? Number(te.hourlyRate) : undefined
 }
 
-// Send assignment notification email (call after successful create/update)
+// Send assignment notification email (call after successful create/update).
+// Callers must AWAIT this (with .catch so a mail failure never fails the API
+// call) — a fire-and-forget promise gets frozen when the Lambda returns and
+// the email intermittently never sends.
 async function sendAssignmentNotification(params: {
   tenantId: string
   assignedTo: any
@@ -919,7 +922,12 @@ async function createRecurringJobs(params: {
     const assignedToName = await getAssignedToName(tenantId, merged.assignedTo)
     return {
       ...merged,
+      // Restore job identity after the booking spread (booking title/contactId
+      // are null for job-backed bookings and would clobber the job's).
       id: job.id,
+      title: job.title,
+      contactId: job.contactId,
+      bookingId: firstBooking.id,
       assignedToName,
       recurrenceId: jobRecurrence.id,
       occurrenceCount: bookings.length,
@@ -943,12 +951,32 @@ const withContactInfo = (
 })
 
 async function generateSequentialNumber(tenantId: string, model: 'quote' | 'invoice') {
-  const count =
-    model === 'quote'
-      ? await prisma.quote.count({ where: { tenantId } })
-      : await prisma.invoice.count({ where: { tenantId } })
   const prefix = model === 'quote' ? 'QT' : 'INV'
-  return `${prefix}-${new Date().getFullYear()}-${String(count + 1).padStart(3, '0')}`
+  const yearPrefix = `${prefix}-${new Date().getFullYear()}-`
+  // Next number = highest existing suffix for this tenant+year + 1 — NOT
+  // count+1, which reissues a live number after any delete (duplicate
+  // documents sent to customers; QuickBooks then rejects the duplicate
+  // DocNumber on sync). Numbers restart at 001 each calendar year; the year
+  // in the prefix keeps them unique across years.
+  const numbers: string[] =
+    model === 'quote'
+      ? (
+          await prisma.quote.findMany({
+            where: { tenantId, quoteNumber: { startsWith: yearPrefix } },
+            select: { quoteNumber: true },
+          })
+        ).map(r => r.quoteNumber)
+      : (
+          await prisma.invoice.findMany({
+            where: { tenantId, invoiceNumber: { startsWith: yearPrefix } },
+            select: { invoiceNumber: true },
+          })
+        ).map(r => r.invoiceNumber)
+  const maxSuffix = numbers.reduce((max, value) => {
+    const suffix = parseInt(value.slice(yearPrefix.length), 10)
+    return Number.isFinite(suffix) && suffix > max ? suffix : max
+  }, 0)
+  return `${yearPrefix}${String(maxSuffix + 1).padStart(3, '0')}`
 }
 
 const CLIENT_DECLINE_REASON_MAX_LEN = 2000
@@ -2705,7 +2733,7 @@ export const dataServices = {
         })
         if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
           const jobWithContact = job as { contact?: { firstName?: string; lastName?: string } }
-          sendAssignmentNotification({
+          await sendAssignmentNotification({
             tenantId,
             assignedTo: normalizedAssignedTo,
             assignerUserId: payload.createdById,
@@ -2777,7 +2805,7 @@ export const dataServices = {
           const recWithContact = recurringResult as {
             contact?: { firstName?: string; lastName?: string }
           }
-          sendAssignmentNotification({
+          await sendAssignmentNotification({
             tenantId,
             assignedTo: recurringResult.assignedTo,
             assignerUserId: payload.createdById,
@@ -2837,7 +2865,7 @@ export const dataServices = {
       const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
       if (job.assignedTo && Array.isArray(job.assignedTo)) {
         const jobWithContact = job as { contact?: { firstName?: string; lastName?: string } }
-        sendAssignmentNotification({
+        await sendAssignmentNotification({
           tenantId,
           assignedTo: job.assignedTo as any,
           assignerUserId: payload.createdById,
@@ -2942,6 +2970,14 @@ export const dataServices = {
       return {
         ...job,
         ...booking,
+        // Restore job identity after the booking spread: the booking's `id`,
+        // `title` and `contactId` (null for job-backed bookings) would clobber
+        // the job's, so the frontend edits PUT /jobs/{bookingId} and 404s.
+        // Matches the flattened shape jobs.getAll returns.
+        id: job.id,
+        title: job.title,
+        contactId: job.contactId,
+        bookingId: booking.id,
         serviceId: booking.serviceId,
         service: booking.service,
         startTime: booking.startTime?.toISOString(),
@@ -3211,7 +3247,7 @@ export const dataServices = {
         const newlyAddedUserIds = newUserIds.filter(id => !oldUserIds.has(id))
 
         if (newlyAddedUserIds.length > 0) {
-          sendAssignmentNotification({
+          await sendAssignmentNotification({
             tenantId,
             assignedTo: jobUpdateData.assignedTo,
             assignerUserId: payload._actingUserId,
@@ -4793,6 +4829,13 @@ export const dataServices = {
           job = {
             ...createdJob,
             ...bookings[0],
+            // Restore job identity after the booking spread — the booking's id
+            // would otherwise leak into the reschedule token/URL below, making
+            // every emailed/SMS'd reschedule link resolve to a missing job (404).
+            id: createdJob.id,
+            title: createdJob.title,
+            contactId: createdJob.contactId,
+            bookingId: bookings[0].id,
             serviceId: service.id,
             service,
             startTime: bookings[0].startTime,
@@ -4834,6 +4877,13 @@ export const dataServices = {
           job = {
             ...createdJob,
             ...booking,
+            // Restore job identity after the booking spread — the booking's id
+            // would otherwise leak into the reschedule token/URL below, making
+            // every emailed/SMS'd reschedule link resolve to a missing job (404).
+            id: createdJob.id,
+            title: createdJob.title,
+            contactId: createdJob.contactId,
+            bookingId: booking.id,
             serviceId: service.id,
             service,
             startTime,
@@ -5962,7 +6012,7 @@ export const dataServices = {
         const createdWithContact = created as {
           contact?: { firstName?: string; lastName?: string }
         }
-        sendAssignmentNotification({
+        await sendAssignmentNotification({
           tenantId,
           assignedTo: normalizedAssignedTo,
           assignerUserId: payload._actingUserId,
@@ -6108,7 +6158,7 @@ export const dataServices = {
         if (newlyAddedUserIds.length > 0) {
           const b = (updated as { bookings: Array<{ startTime?: Date; endTime?: Date }> })
             .bookings[0]
-          sendAssignmentNotification({
+          await sendAssignmentNotification({
             tenantId,
             assignedTo: newAssignedTo,
             assignerUserId: payload._actingUserId,

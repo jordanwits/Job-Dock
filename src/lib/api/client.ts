@@ -50,17 +50,20 @@ apiClient.interceptors.request.use(
 // Track if we're already handling a session timeout to prevent multiple redirects
 let isHandlingSessionTimeout = false
 let isRefreshingToken = false
-let refreshSubscribers: Array<(token: string) => void> = []
+let refreshSubscribers: Array<(token: string | null) => void> = []
 
 // Function to add request to queue while token is refreshing
-function subscribeTokenRefresh(callback: (token: string) => void) {
+function subscribeTokenRefresh(callback: (token: string | null) => void) {
   refreshSubscribers.push(callback)
 }
 
-// Function to notify all queued requests when token is refreshed
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach(callback => callback(token))
+// Notify all queued requests when the refresh settles. `token` is null when
+// the refresh FAILED — subscribers must reject then, otherwise their promises
+// stay pending forever (spinners that never resolve).
+function onRefreshed(token: string | null) {
+  const subscribers = refreshSubscribers
   refreshSubscribers = []
+  subscribers.forEach(callback => callback(token))
 }
 
 // Response interceptor for error handling and auto-refresh
@@ -109,8 +112,13 @@ apiClient.interceptors.response.use(
 
       // If already refreshing, queue this request
       if (isRefreshingToken) {
-        return new Promise(resolve => {
-          subscribeTokenRefresh((token: string) => {
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh((token: string | null) => {
+            if (!token) {
+              // The refresh failed — fail this queued request too.
+              reject(error)
+              return
+            }
             originalRequest.headers.Authorization = `Bearer ${token}`
             resolve(apiClient(originalRequest))
           })
@@ -155,6 +163,9 @@ apiClient.interceptors.response.use(
       }
 
       isRefreshingToken = false
+      // Release any requests queued during the failed refresh so they reject
+      // instead of hanging forever.
+      onRefreshed(null)
 
       // If refresh failed, handle session timeout
       if (!isHandlingSessionTimeout) {

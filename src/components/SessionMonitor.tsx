@@ -40,9 +40,19 @@ const SessionMonitor = () => {
 
       const remaining = getTokenTimeRemaining(token)
 
-      // Auto-refresh token when less than 5 minutes remaining
-      if (remaining > 0 && remaining <= 300 && !isRefreshingRef.current) {
-        console.log(`Token expiring in ${remaining}s, refreshing automatically...`)
+      // Auto-refresh when the token is close to expiry OR already expired
+      // (remaining === 0 — e.g. a tab resuming after laptop sleep, where the
+      // interval never got to run). The refresh token stays valid for days,
+      // so an expired access token is recoverable — logging out here was the
+      // "signed out every time I come back to the tab" bug. Only redirect to
+      // login when the refresh itself fails.
+      if (remaining <= 300) {
+        if (isRefreshingRef.current) return
+        console.log(
+          remaining > 0
+            ? `Token expiring in ${remaining}s, refreshing automatically...`
+            : 'Token expired, attempting refresh with stored refresh token...'
+        )
         isRefreshingRef.current = true
 
         try {
@@ -69,14 +79,8 @@ const SessionMonitor = () => {
         return
       }
 
-      // If token is already expired, clear session and redirect
-      if (!checkTokenValidity()) {
-        clearSession()
-        navigate(
-          '/auth/login?session=expired&message=' +
-            encodeURIComponent('Your session has expired. Please log in again.')
-        )
-      }
+      // Token has more than 5 minutes left — nothing to do. (Malformed tokens
+      // report 0 remaining and go through the refresh path above.)
     }
 
     // Check token validity and auto-refresh every 30 seconds

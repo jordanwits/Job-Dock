@@ -146,12 +146,17 @@ export const helpService = {
         ? '(No knowledge base excerpts matched this query. You are still required to follow the scope rules: refuse general or non-JobDock questions. For JobDock-only questions, do not invent product facts; suggest using "Send report to engineering" when they need product support or a bug investigation.)'
         : chunks.map((c, i) => `[${i + 1}] Source: ${c.source}\n${c.content}`).join('\n\n---\n\n')
 
-    const history = await prisma.helpChatMessage.findMany({
-      where: { sessionId },
-      orderBy: { createdAt: 'asc' },
-      take: MAX_HISTORY,
-      select: { role: true, content: true },
-    })
+    // Latest MAX_HISTORY messages in chronological order. `asc` + take would
+    // return the OLDEST N — past 24 messages the model would never see the
+    // question that was just asked.
+    const history = (
+      await prisma.helpChatMessage.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: 'desc' },
+        take: MAX_HISTORY,
+        select: { role: true, content: true },
+      })
+    ).reverse()
 
     const routeNote = payload.clientRoute
       ? `The user reports they are viewing this route in the app: ${payload.clientRoute}\n`
