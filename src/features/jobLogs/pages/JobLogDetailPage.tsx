@@ -266,7 +266,10 @@ const JobLogDetailPage = () => {
     return null
   }
 
-  if (isLoading && !selectedJobLog) {
+  // A selected job log with a different id means we just navigated between
+  // detail pages (e.g. "Switch shift") and the new fetch hasn't landed yet —
+  // show the skeleton, not "Job not found".
+  if ((isLoading && !selectedJobLog) || (selectedJobLog && selectedJobLog.id !== id)) {
     return (
       <div className="space-y-6">
         <div className="h-10 w-64 animate-pulse rounded-lg bg-surface-2" />
@@ -275,7 +278,7 @@ const JobLogDetailPage = () => {
     )
   }
 
-  if (!selectedJobLog || selectedJobLog.id !== id) {
+  if (!selectedJobLog) {
     return (
       <div className="space-y-6">
         <p className="text-sm text-ink-muted">Job not found.</p>

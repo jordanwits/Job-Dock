@@ -91,7 +91,13 @@ const JobLogDetail = ({
 }: JobLogDetailProps) => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { createTimeEntry, getJobLogById } = useJobLogStore()
+  const {
+    createTimeEntry,
+    getJobLogById,
+    jobLogs,
+    fetchJobLogs,
+    isLoading: jobLogsLoading,
+  } = useJobLogStore()
   const { convertQuoteToInvoice, setSelectedInvoice } = useInvoiceStore()
   const { deleteQuote } = useQuoteStore()
   const [showConvertModal, setShowConvertModal] = useState(false)
@@ -169,6 +175,14 @@ const JobLogDetail = ({
   } | null>(null)
   const [conflictError, setConflictError] = useState<string | null>(null)
 
+  // "Switch shift": pick another active job, save this job's entry, then start
+  // the selected job's timer and navigate to its detail page.
+  const [showSwitchShift, setShowSwitchShift] = useState(false)
+  const [switchTargetId, setSwitchTargetId] = useState<string | null>(null)
+  const [switchFilter, setSwitchFilter] = useState('')
+  const [switchError, setSwitchError] = useState<string | null>(null)
+  const [switchSaving, setSwitchSaving] = useState(false)
+
   const extractErrorMessage = (e: unknown, fallback: string) =>
     (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data
       ?.message ||
@@ -221,6 +235,32 @@ const JobLogDetail = ({
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [isTimerRunning, timerStart, tick])
+
+  // Re-sync timer state from localStorage when the job (or user) changes. The
+  // useState initializers above only run on mount; after a client-side switch
+  // to another job's detail page this component can receive a new jobLog
+  // without remounting, and the new job's already-running timer must show.
+  useEffect(() => {
+    let running = false
+    let start: Date | null = null
+    if (timerStorageKey) {
+      try {
+        const stored = localStorage.getItem(timerStorageKey)
+        if (stored) {
+          const { jobLogId: storedId, startTime } = JSON.parse(stored)
+          if (storedId === jobLog.id && startTime) {
+            running = true
+            start = new Date(startTime)
+          }
+        }
+      } catch {
+        // unreadable storage — treat as no timer
+      }
+    }
+    setIsTimerRunning(running)
+    setTimerStart(start)
+    setElapsedSeconds(start ? Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000)) : 0)
+  }, [jobLog.id, timerStorageKey])
 
   const formatElapsed = (sec: number) => {
     const h = Math.floor(sec / 3600)
@@ -591,6 +631,131 @@ const JobLogDetail = ({
         // ignore
       }
     }
+  }
+
+  // ── Switch shift (job → job) ──────────────────────────────────────────────
+
+  const switchCandidates = useMemo(
+    () =>
+      jobLogs.filter(jl => jl.id !== jobLog.id && jl.status === 'active' && !jl.archivedAt),
+    [jobLogs, jobLog.id]
+  )
+
+  const filteredSwitchCandidates = useMemo(() => {
+    const q = switchFilter.trim().toLowerCase()
+    if (!q) return switchCandidates
+    return switchCandidates.filter(
+      jl =>
+        jl.title.toLowerCase().includes(q) ||
+        (jl.contact?.name || '').toLowerCase().includes(q)
+    )
+  }, [switchCandidates, switchFilter])
+
+  const switchTarget = switchTargetId
+    ? (switchCandidates.find(jl => jl.id === switchTargetId) ?? null)
+    : null
+
+  const openSwitchShift = () => {
+    setSwitchError(null)
+    setSwitchTargetId(null)
+    setSwitchFilter('')
+    setShowSwitchShift(true)
+    if (jobLogs.length === 0) {
+      fetchJobLogs()
+    }
+  }
+
+  const closeSwitchShift = () => {
+    if (switchSaving) return
+    setShowSwitchShift(false)
+    setSwitchError(null)
+    setSwitchTargetId(null)
+  }
+
+  const handleConfirmSwitchShift = async () => {
+    if (!switchTarget) return
+    setSwitchError(null)
+    // localStorage is the source of truth for the outgoing entry's start time
+    // and tracked user (survives navigation/refresh) — same as the stop logic.
+    let startTime: string | null = null
+    let storedUserId: string | undefined
+    try {
+      const stored = timerStorageKey ? localStorage.getItem(timerStorageKey) : null
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed?.jobLogId === jobLog.id && parsed.startTime) {
+          startTime = parsed.startTime
+          storedUserId = (parsed.userId as string | null | undefined) ?? undefined
+        }
+      }
+    } catch {
+      // unreadable storage — fall back to in-memory state below
+    }
+    if (!startTime) {
+      if (timerStart) {
+        startTime = timerStart.toISOString()
+      } else {
+        setSwitchError(
+          'No active timer found for this job. The timer may have been started on a different job or device.'
+        )
+        return
+      }
+    }
+    // Continuity: if the timer tracks someone else (clock-in-for-others), the
+    // switch keeps tracking that same person.
+    const targetUserId = storedUserId || selectedClockInUserId || user?.id
+    setSwitchSaving(true)
+    try {
+      if (targetUserId) {
+        await createTimeEntry({
+          jobLogId: jobLog.id,
+          startTime,
+          endTime: new Date().toISOString(),
+          userId: targetUserId,
+        })
+      } else {
+        console.warn('handleConfirmSwitchShift - No valid userId to create time entry for')
+      }
+    } catch (e) {
+      // Failure: keep the running timer and localStorage untouched so nothing
+      // is lost; show the error inside the modal and do NOT start the new timer.
+      console.error('Switch shift: failed to save outgoing time entry:', e)
+      setSwitchError(
+        extractErrorMessage(
+          e,
+          'Failed to save time entry. Your timer is still running — please try again.'
+        )
+      )
+      setSwitchSaving(false)
+      return
+    }
+    // Success only: start the new job's timer and navigate to its detail page.
+    if (timerStorageKey) {
+      try {
+        localStorage.setItem(
+          timerStorageKey,
+          JSON.stringify({
+            jobLogId: switchTarget.id,
+            jobLogTitle: switchTarget.title,
+            startTime: new Date().toISOString(),
+            userId: targetUserId,
+          })
+        )
+      } catch {
+        // ignore
+      }
+    }
+    setSwitchSaving(false)
+    setShowSwitchShift(false)
+    setSwitchTargetId(null)
+    setClockOutError(null)
+    // This job's timer is over; the destination page hydrates the running
+    // timer from localStorage (see the re-sync effect above).
+    setIsTimerRunning(false)
+    setTimerStart(null)
+    setElapsedSeconds(0)
+    setSelectedClockInUserId(user?.id || null)
+    navigate(`/app/job-logs/${switchTarget.id}`)
   }
 
   const handleMarkCompleted = async () => {
@@ -1093,7 +1258,7 @@ const JobLogDetail = ({
               )}
             </>
           ) : (
-            <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <div className="flex shrink-0 items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5">
                 <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger" />
                 <span className="font-mono text-lg tabular-nums text-ink">
@@ -1103,6 +1268,14 @@ const JobLogDetail = ({
               <AppButton variant="danger" onClick={handleStopTimer} size="sm" className="shrink-0">
                 <StopIcon className="h-4 w-4" />
                 Stop timer
+              </AppButton>
+              <AppButton
+                variant="subtle"
+                onClick={openSwitchShift}
+                size="sm"
+                className="shrink-0"
+              >
+                Switch shift
               </AppButton>
             </div>
           )}
@@ -1247,6 +1420,9 @@ const JobLogDetail = ({
                 <AppButton variant="danger" onClick={handleStopTimer} size="sm">
                   <StopIcon className="h-4 w-4" />
                   Stop timer
+                </AppButton>
+                <AppButton variant="subtle" onClick={openSwitchShift} size="sm">
+                  Switch shift
                 </AppButton>
               </div>
             )}
@@ -1555,8 +1731,10 @@ const JobLogDetail = ({
                   )}
                 </p>
                 <p>
-                  Save that time entry and start tracking{' '}
-                  <span className="break-words font-semibold text-ink">{jobLog.title}</span>?
+                  Complete{' '}
+                  <span className="break-words font-semibold text-ink">{`"${priorTitle}"`}</span>{' '}
+                  and switch to{' '}
+                  <span className="break-words font-semibold text-ink">{`"${jobLog.title}"`}</span>?
                 </p>
                 <p className="text-xs text-ink-subtle">
                   Cancel to keep your current clock running and stay on {priorTitle}.
@@ -1569,6 +1747,90 @@ const JobLogDetail = ({
               </div>
             )
           })()}
+      </AppModal>
+
+      <AppModal
+        isOpen={showSwitchShift}
+        onClose={closeSwitchShift}
+        title="Switch shift"
+        size="sm"
+        footer={
+          <>
+            <AppButton variant="ghost" onClick={closeSwitchShift} disabled={switchSaving}>
+              Cancel
+            </AppButton>
+            <AppButton
+              variant="primary"
+              onClick={handleConfirmSwitchShift}
+              disabled={!switchTarget || switchSaving}
+              isLoading={switchSaving}
+            >
+              Save &amp; switch
+            </AppButton>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-ink-muted">Select the job to switch to:</p>
+          {switchCandidates.length > 8 && (
+            <input
+              type="text"
+              value={switchFilter}
+              onChange={e => setSwitchFilter(e.target.value)}
+              placeholder="Filter jobs…"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-subtle outline-none transition-[color,border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+            />
+          )}
+          {jobLogsLoading && switchCandidates.length === 0 ? (
+            <p className="text-sm text-ink-subtle">Loading jobs…</p>
+          ) : filteredSwitchCandidates.length === 0 ? (
+            <p className="text-sm text-ink-muted">
+              {switchCandidates.length === 0
+                ? 'No other active jobs to switch to.'
+                : 'No jobs match your filter.'}
+            </p>
+          ) : (
+            <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+              {filteredSwitchCandidates.map(jl => {
+                const selected = switchTargetId === jl.id
+                const secondary =
+                  jl.contact?.name ||
+                  (jl.startTime ? format(new Date(jl.startTime), 'MMM d • h:mm a') : null)
+                return (
+                  <button
+                    key={jl.id}
+                    type="button"
+                    onClick={() => setSwitchTargetId(selected ? null : jl.id)}
+                    className={cn(
+                      'w-full rounded-lg border px-3 py-2 text-left transition-colors',
+                      selected
+                        ? 'border-accent bg-accent-soft'
+                        : 'border-line bg-surface-2 hover:bg-surface-hover'
+                    )}
+                  >
+                    <span className="block truncate text-sm font-medium text-ink">
+                      {jl.title}
+                    </span>
+                    {secondary && (
+                      <span className="block truncate text-xs text-ink-subtle">{secondary}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {switchTarget && (
+            <p className="break-words text-sm leading-relaxed text-ink">
+              Complete <span className="font-semibold">{`"${jobLog.title}"`}</span> and switch to{' '}
+              <span className="font-semibold">{`"${switchTarget.title}"`}</span>?
+            </p>
+          )}
+          {switchError && (
+            <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+              {switchError}
+            </Alert>
+          )}
+        </div>
       </AppModal>
 
       <AppModal
