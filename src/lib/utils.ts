@@ -22,6 +22,23 @@ export function formatNumber(num: number): string {
   return num.toLocaleString('en-US')
 }
 
+/**
+ * Convert a stored fractional tax rate (e.g. 0.07) to its percent value (7)
+ * without float artifacts like 7.000000000000001.
+ */
+export function taxRateToPercent(rate: number): number {
+  return Number((rate * 100).toFixed(4))
+}
+
+/**
+ * Format fractional hours as "Xh Ym" with minutes carried into hours,
+ * so 1.9993h renders "2h 0m" — never "1h 60m".
+ */
+export function formatHoursMinutes(totalHours: number): { hours: number; minutes: number } {
+  const totalMinutes = Math.round(totalHours * 60)
+  return { hours: Math.floor(totalMinutes / 60), minutes: totalMinutes % 60 }
+}
+
 /** Parts of a mailing address used for maps search. */
 export interface ContactAddressParts {
   address?: string

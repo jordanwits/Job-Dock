@@ -7,6 +7,7 @@ import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
 import { format, startOfMonth, endOfMonth, addDays, isSameDay } from 'date-fns'
 import { getUpcomingBookingListInstant } from '@/features/scheduling/utils/upcomingBookingDisplay'
+import { formatHoursMinutes } from '@/lib/utils'
 import type { JobLog } from '@/features/jobLogs/types/jobLog'
 import {
   HeroMetric,
@@ -94,8 +95,7 @@ function JobRow({ jobLog }: { jobLog: JobLog }) {
       const breakMin = te.breakMinutes ?? 0
       return sum + (end - start) / 60000 - breakMin
     }, 0) ?? 0
-  const hours = Math.floor(totalMinutes / 60)
-  const mins = Math.round(totalMinutes % 60)
+  const { hours, minutes: mins } = formatHoursMinutes(totalMinutes / 60)
   // `archived` can appear at runtime even though it's not in the status union.
   const rawStatus = jobLog.status as string
   const statusLabel = (rawStatus === 'archived' ? 'inactive' : rawStatus) || 'active'

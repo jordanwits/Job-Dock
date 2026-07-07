@@ -154,8 +154,17 @@ const SchedulingPage = () => {
   const [showEditRecurringModal, setShowEditRecurringModal] = useState(false)
   const [editUpdateAll, setEditUpdateAll] = useState(false)
   const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
+  // Guards the notify modal's Yes/No/close handlers against firing twice in the
+  // same tick (double-click before the close re-renders) — that double-created
+  // the job/booking and double-sent client notifications. Reset on each open.
+  const notifyHandledRef = useRef(false)
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<any>(null)
   const [pendingCreatePayload, setPendingCreatePayload] = useState<any>(null)
+
+  useEffect(() => {
+    if (showNotifyClientModal) notifyHandledRef.current = false
+  }, [showNotifyClientModal])
+
   const [showJobConfirmation, setShowJobConfirmation] = useState(false)
   const [jobConfirmationMessage, setJobConfirmationMessage] = useState('')
 
@@ -1615,6 +1624,8 @@ const SchedulingPage = () => {
             : 'Would you like to notify the client about this schedule update?'
         }
         onClose={() => {
+          if (notifyHandledRef.current) return
+          notifyHandledRef.current = true
           if (pendingCreatePayload) {
             performCreateJob(pendingCreatePayload, false)
           } else if (pendingUpdatePayload) {
@@ -1663,6 +1674,8 @@ const SchedulingPage = () => {
           setPendingUpdatePayload(null)
         }}
         onNotify={notify => {
+          if (notifyHandledRef.current) return
+          notifyHandledRef.current = true
           if (pendingCreatePayload) {
             performCreateJob(pendingCreatePayload, notify)
           } else if (pendingUpdatePayload) {

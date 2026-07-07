@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useRef, useState } from 'react'
 import { invoiceSchema, type InvoiceFormData } from '../schemas/invoiceSchemas'
 import { Invoice } from '../types/invoice'
+import { taxRateToPercent } from '@/lib/utils'
 import {
   Alert,
   AlertIcon,
@@ -95,7 +96,7 @@ const InvoiceForm = ({
         (defaultPrice != null
           ? [{ description: defaultTitle || 'Services', quantity: 1, unitPrice: defaultPrice }]
           : [{ description: '', quantity: 1, unitPrice: '' }]),
-      taxRate: invoice ? (invoice.taxRate > 0 ? invoice.taxRate * 100 : '') : '',
+      taxRate: invoice ? (invoice.taxRate > 0 ? taxRateToPercent(invoice.taxRate) : '') : '',
       discount: invoice?.discount && invoice.discount > 0 ? invoice.discount : '',
       discountReason: invoice?.discountReason || '',
       notes: invoice?.notes || defaultNotes || '',
@@ -137,7 +138,7 @@ const InvoiceForm = ({
           quantity: item.quantity > 0 ? item.quantity : '',
           unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
         })),
-        taxRate: invoice.taxRate > 0 ? invoice.taxRate * 100 : '',
+        taxRate: invoice.taxRate > 0 ? taxRateToPercent(invoice.taxRate) : '',
         discount: invoice.discount > 0 ? invoice.discount : '',
         discountReason: invoice.discountReason || '',
         notes: invoice.notes || '',

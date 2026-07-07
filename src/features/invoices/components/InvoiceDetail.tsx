@@ -3,7 +3,8 @@ import { useInvoiceStore } from '../store/invoiceStore'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import InvoiceForm from './InvoiceForm'
-import { cn } from '@/lib/utils'
+import { cn, taxRateToPercent } from '@/lib/utils'
+import { formatDateOnly } from '@/lib/utils/dateUtils'
 import { ScheduleJobModal } from '@/features/scheduling'
 import { QuickBooksInvoicePanel } from '@/features/quickbooks'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
@@ -419,7 +420,7 @@ const InvoiceDetail = ({
               <p className="font-medium">This invoice is overdue</p>
               <p className="mt-1 text-[13px] opacity-80">
                 Due date:{' '}
-                <span className="font-mono tabular-nums">{new Date(invoice.dueDate!).toLocaleDateString()}</span>
+                <span className="font-mono tabular-nums">{formatDateOnly(invoice.dueDate!)}</span>
               </p>
             </Alert>
           )}
@@ -482,7 +483,7 @@ const InvoiceDetail = ({
                 <span className="font-mono tabular-nums text-ink">{formatCurrency(invoice.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-ink-muted">Tax ({invoice.taxRate * 100}%)</span>
+                <span className="text-ink-muted">Tax ({taxRateToPercent(invoice.taxRate)}%)</span>
                 <span className="font-mono tabular-nums text-ink">{formatCurrency(invoice.taxAmount)}</span>
               </div>
               {invoice.discount > 0 && (
@@ -516,7 +517,7 @@ const InvoiceDetail = ({
                 <div>
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">Due date</span>
                   <p className={cn('mt-1 font-mono text-sm tabular-nums', isOverdue ? 'font-medium text-danger' : 'text-ink')}>
-                    {new Date(invoice.dueDate).toLocaleDateString()}
+                    {formatDateOnly(invoice.dueDate)}
                   </p>
                 </div>
               )}

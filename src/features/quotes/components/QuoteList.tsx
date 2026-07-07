@@ -81,6 +81,12 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
     localStorage.setItem('quotes-display-mode', displayMode)
   }, [displayMode])
 
+  // Clear bulk selection when the visible set changes, so "Delete selected"
+  // can never act on quotes hidden by the current filter/search.
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [statusFilter, searchQuery])
+
   // Filter and search quotes
   const filteredQuotes = useMemo(() => {
     let filtered = quotes

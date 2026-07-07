@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useAuthStore } from '@/features/auth'
 import { downloadCsv } from '../utils/exportCsv'
-import { formatCurrency, formatNumber } from '@/lib/utils'
+import { formatCurrency, formatHoursMinutes, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { TimeEntry } from '@/features/jobLogs/types/jobLog'
 import type { JobLog } from '@/features/jobLogs/types/jobLog'
@@ -303,8 +303,7 @@ export const EmployeeHoursReport = ({
   const details = (
     <div className="divide-y divide-line">
       {employeeData.map(emp => {
-        const hours = Math.floor(emp.totalHours)
-        const minutes = Math.round((emp.totalHours - hours) * 60)
+        const { hours, minutes } = formatHoursMinutes(emp.totalHours)
         const hasNoEntries = emp.entryCount === 0
         return (
           <div key={emp.userId} className={hasNoEntries ? 'py-4 opacity-60' : 'py-4'}>

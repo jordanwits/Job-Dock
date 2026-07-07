@@ -77,6 +77,12 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
     localStorage.setItem('crm-display-mode', displayMode)
   }, [displayMode])
 
+  // Clear bulk selection when the visible set changes, so "Delete selected"
+  // can never act on contacts hidden by the current filter/search.
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [statusFilter, searchQuery])
+
   // Base filtered list - applies search and (for non-status views) statusFilter
   const baseFilteredContacts = useMemo(() => {
     let filtered = contacts

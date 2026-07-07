@@ -34,8 +34,13 @@ const parseLocalDate = (value: string): Date | null => {
 
 export const ReportsPage = () => {
   const { user } = useAuthStore()
-  const { quotes, fetchQuotes, isLoading: quotesLoading } = useQuoteStore()
-  const { invoices, fetchInvoices, isLoading: invoicesLoading } = useInvoiceStore()
+  const { quotes, fetchQuotes, isLoading: quotesLoading, error: quotesError } = useQuoteStore()
+  const {
+    invoices,
+    fetchInvoices,
+    isLoading: invoicesLoading,
+    error: invoicesError,
+  } = useInvoiceStore()
 
   const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('this-month')
   const now = new Date()
@@ -48,6 +53,8 @@ export const ReportsPage = () => {
   const [timeEntries, setTimeEntries] = useState<any[]>([])
   const [jobLogs, setJobLogs] = useState<JobLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
 
   // Calculate date range based on preset
   const dateRange = useMemo(() => {
@@ -94,6 +101,7 @@ export const ReportsPage = () => {
     const loadData = async () => {
       try {
         setLoading(true)
+        setLoadError(null)
 
         // Always fetch all users first - for team accounts show all, for single
         // accounts we'll filter in the component. Ensures complete user data for
@@ -124,15 +132,19 @@ export const ReportsPage = () => {
         setTimeEntries(entries)
       } catch (error) {
         console.error('Failed to load reports data:', error)
+        setLoadError('Some report data failed to load.')
       } finally {
         setLoading(false)
       }
     }
 
     loadData()
-  }, [fetchQuotes, fetchInvoices, user])
+  }, [fetchQuotes, fetchInvoices, user, reloadToken])
 
   const isLoading = quotesLoading || invoicesLoading || loading
+  // Surface any failed fetch instead of rendering zeroed reports as fact.
+  // The quote/invoice stores swallow fetch errors into their own error state.
+  const loadFailed = !isLoading && (loadError || quotesError || invoicesError)
 
   return (
     <div className="mx-auto max-w-5xl space-y-10">
@@ -197,6 +209,21 @@ export const ReportsPage = () => {
             </div>
           ))}
         </div>
+      ) : loadFailed ? (
+        <Panel className="p-5">
+          <p className="text-sm font-medium text-danger">Couldn't load report data</p>
+          <p className="mt-1 text-sm text-ink-muted">{loadError || quotesError || invoicesError}</p>
+          <p className="mt-1 text-sm text-ink-muted">
+            Totals aren't shown because they would be incomplete.
+          </p>
+          <button
+            type="button"
+            onClick={() => setReloadToken(t => t + 1)}
+            className="mt-3 inline-flex h-9 items-center rounded-lg bg-accent-strong px-3 text-[13px] font-semibold text-accent-contrast transition-opacity hover:opacity-90"
+          >
+            Retry
+          </button>
+        </Panel>
       ) : (
         <div className="space-y-10">
           {/* Employee Hours Report - only for team accounts */}

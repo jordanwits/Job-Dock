@@ -1,6 +1,7 @@
 import { Invoice } from '../types/invoice'
 import { useInvoiceStore } from '../store/invoiceStore'
 import { cn } from '@/lib/utils'
+import { formatDateOnly } from '@/lib/utils/dateUtils'
 import { SelectCircle, StatusBadge } from './invoicesUi'
 import { INVOICE_STATUS, PAYMENT_STATUS } from './invoiceStatus'
 
@@ -107,7 +108,7 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
       {invoice.dueDate && (
         <p className={cn('mt-2 text-[12px]', isOverdue ? 'font-medium text-danger' : 'text-ink-subtle')}>
           {isOverdue ? 'Overdue · due ' : 'Due '}
-          <span className="font-mono tabular-nums">{new Date(invoice.dueDate).toLocaleDateString()}</span>
+          <span className="font-mono tabular-nums">{formatDateOnly(invoice.dueDate)}</span>
         </p>
       )}
     </div>

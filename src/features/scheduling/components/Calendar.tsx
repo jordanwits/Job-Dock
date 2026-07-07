@@ -169,7 +169,15 @@ const Calendar = ({
   const justDraggedRef = useRef(false) // Used to suppress the post-drag click
   const [justFinishedDrag, setJustFinishedDrag] = useState(false) // Disable transitions after drop
   const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
+  // Guards the notify modal's Yes/No/close handlers against firing twice in the
+  // same tick (double-click before the close re-renders), which double-fired the
+  // update and double-sent client notifications. Reset on each open.
+  const notifyHandledRef = useRef(false)
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<Record<string, unknown> | null>(null)
+
+  useEffect(() => {
+    if (showNotifyClientModal) notifyHandledRef.current = false
+  }, [showNotifyClientModal])
   // Mobile day-view slide transition (from month view).
   // The sheet mounts on top of the month view and slides up. When the animation
   // completes we commit the real viewMode='day' via onDateClick and unmount the
@@ -2433,6 +2441,8 @@ const Calendar = ({
       <NotifyClientModal
         isOpen={showNotifyClientModal}
         onClose={() => {
+          if (notifyHandledRef.current) return
+          notifyHandledRef.current = true
           if (pendingUpdatePayload) {
             const { isIndependent, ...rest } = pendingUpdatePayload as { isIndependent?: boolean; id: string; startTime?: string; endTime?: string; bookingId?: string; notifyClient?: boolean }
             if (isIndependent) {
@@ -2453,6 +2463,8 @@ const Calendar = ({
           setPendingUpdatePayload(null)
         }}
         onNotify={(notify) => {
+          if (notifyHandledRef.current) return
+          notifyHandledRef.current = true
           if (pendingUpdatePayload) {
             const { isIndependent, ...rest } = pendingUpdatePayload as { isIndependent?: boolean; id: string; startTime?: string; endTime?: string; bookingId?: string; notifyClient?: boolean }
             const successMessage = notify ? 'Sent via email and SMS' : (isIndependent ? 'Appointment updated successfully' : 'Job updated successfully')

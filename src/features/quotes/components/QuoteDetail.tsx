@@ -8,6 +8,7 @@ import CreateJobFromQuoteModal from './CreateJobFromQuoteModal'
 import { useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { getSendValidationError } from '@/lib/utils/sendValidation'
+import { taxRateToPercent } from '@/lib/utils'
 import {
   Alert,
   AlertIcon,
@@ -299,7 +300,7 @@ const QuoteDetail = ({
                 <span className="font-mono tabular-nums text-ink">{formatCurrency(quote.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-ink-muted">Tax ({quote.taxRate * 100}%)</span>
+                <span className="text-ink-muted">Tax ({taxRateToPercent(quote.taxRate)}%)</span>
                 <span className="font-mono tabular-nums text-ink">{formatCurrency(taxAmount)}</span>
               </div>
               {quote.discount > 0 && (

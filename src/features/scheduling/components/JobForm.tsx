@@ -54,6 +54,7 @@ import { useJobStore } from '../store/jobStore'
 import { services as apiServices } from '@/lib/api/services'
 import { format, addWeeks, addMonths } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { parseDateStringLocal } from '@/lib/utils/dateUtils'
 import { getTeamAssignmentRoleValidationMessage } from '@/lib/utils/assignmentRoleValidation'
 
 interface JobFormProps {
@@ -1515,14 +1516,18 @@ const JobForm = ({
             <div className="font-mono text-xs tabular-nums text-ink-subtle">
               {isAllDay ? (
                 <p>
-                  All-day event: {format(new Date(startDate), 'MMM d, yyyy')}
+                  {/* Parse the date-input value as a LOCAL date — new Date('YYYY-MM-DD')
+                      is UTC midnight and renders the previous day in US timezones. */}
+                  All-day event:{' '}
+                  {format(parseDateStringLocal(startDate) ?? new Date(startDate), 'MMM d, yyyy')}
                   {durationValue > 1 && (
                     <>
                       {' '}
                       through{' '}
                       {format(
                         new Date(
-                          new Date(startDate).getTime() + (durationValue - 1) * 24 * 60 * 60 * 1000
+                          (parseDateStringLocal(startDate) ?? new Date(startDate)).getTime() +
+                            (durationValue - 1) * 24 * 60 * 60 * 1000
                         ),
                         'MMM d, yyyy'
                       )}
@@ -1853,8 +1858,10 @@ const JobForm = ({
                   const mode = e.target.value as 'never' | 'on-date'
                   setEndRepeatMode(mode)
                   if (mode === 'on-date' && !endRepeatDate && startDate) {
-                    // Set default end date to 3 months from start
-                    const defaultEnd = new Date(startDate)
+                    // Set default end date to 3 months from start. Parse as a LOCAL
+                    // date — UTC parsing lands the default one day early for
+                    // US-timezone users.
+                    const defaultEnd = parseDateStringLocal(startDate) ?? new Date(startDate)
                     defaultEnd.setMonth(defaultEnd.getMonth() + 3)
                     setEndRepeatDate(format(defaultEnd, 'yyyy-MM-dd'))
                   }
@@ -1885,7 +1892,8 @@ const JobForm = ({
               {endRepeatMode === 'on-date' && endRepeatDate && (
                 <div className="rounded-lg border border-info/30 bg-info-soft p-3">
                   <p className="font-mono text-xs tabular-nums text-info">
-                    Will repeat until {format(new Date(endRepeatDate), 'MMM d, yyyy')}
+                    Will repeat until{' '}
+                    {format(parseDateStringLocal(endRepeatDate) ?? new Date(endRepeatDate), 'MMM d, yyyy')}
                   </p>
                 </div>
               )}

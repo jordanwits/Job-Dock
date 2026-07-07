@@ -4,6 +4,7 @@ import { useInvoiceStore } from '../store/invoiceStore'
 import type { Invoice } from '../types/invoice'
 import InvoiceCard from './InvoiceCard'
 import { cn } from '@/lib/utils'
+import { formatDateOnly } from '@/lib/utils/dateUtils'
 import { invoicesService } from '@/lib/api/services'
 import type { Quote } from '@/features/quotes/types/quote'
 import ConvertQuoteToInvoiceModal from '@/features/quotes/components/ConvertQuoteToInvoiceModal'
@@ -125,6 +126,12 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
   useEffect(() => {
     localStorage.setItem('invoices-display-mode', displayMode)
   }, [displayMode])
+
+  // Clear bulk selection when the visible set changes, so "Delete selected"
+  // can never act on invoices hidden by the current filter/search.
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [statusFilter, paymentStatusFilter, searchQuery])
 
   // Filter and search invoices
   const filteredInvoices = useMemo(() => {
@@ -530,7 +537,7 @@ function InvoiceTable({
                   <td className="hidden whitespace-nowrap px-4 py-3 text-sm lg:table-cell">
                     {invoice.dueDate ? (
                       <span className={cn('font-mono tabular-nums', isOverdue ? 'font-medium text-danger' : 'text-ink-muted')}>
-                        {new Date(invoice.dueDate).toLocaleDateString()}
+                        {formatDateOnly(invoice.dueDate)}
                       </span>
                     ) : (
                       <span className="text-ink-subtle">—</span>

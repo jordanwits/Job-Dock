@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJobLogStore } from '../store/jobLogStore'
 import JobLogCard from './JobLogCard'
-import { cn } from '@/lib/utils'
+import { cn, formatHoursMinutes } from '@/lib/utils'
 import { format } from 'date-fns'
 import { getRecurringTag } from '../utils/recurringPattern'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
@@ -110,6 +110,12 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
     prevStatusFilterRef.current = statusFilter
     // eslint-disable-next-line react-hooks/exhaustive-deps -- read showCompleted only when statusFilter changes
   }, [statusFilter])
+
+  // Clear bulk selection when the visible set changes, so bulk archive/delete
+  // can never act on jobs hidden by the current filter/search.
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [statusFilter, searchQuery, showCompleted])
 
   useEffect(() => {
     localStorage.setItem('joblogs-display-mode', displayMode)
@@ -261,8 +267,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
         const breakMin = te.breakMinutes ?? 0
         return sum + (end - start) / 60000 - breakMin
       }, 0) ?? 0
-    const h = Math.floor(totalMinutes / 60)
-    const m = Math.round(totalMinutes % 60)
+    const { hours: h, minutes: m } = formatHoursMinutes(totalMinutes / 60)
     return `${h}h ${m}m`
   }
 

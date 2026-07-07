@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Quote } from '../types/quote'
 import { AppButton, AppModal, DateField, SelectField } from './quotesUi'
+import { parseDateStringLocal } from '@/lib/utils/dateUtils'
+
+// Render a YYYY-MM-DD value as a local calendar date. new Date('YYYY-MM-DD') is
+// UTC midnight, which displays as the PREVIOUS day in US timezones.
+const formatDueDate = (value: string) =>
+  (parseDateStringLocal(value) ?? new Date(value)).toLocaleDateString()
 
 interface ConvertQuoteToInvoiceModalProps {
   quote: Quote
@@ -214,7 +220,7 @@ const ConvertQuoteToInvoiceModal = ({
           <div className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3">
             <span className="text-sm text-ink-muted">Due date</span>
             <span className="font-mono text-sm font-medium tabular-nums text-ink">
-              {new Date(dueDate).toLocaleDateString()}
+              {formatDueDate(dueDate)}
             </span>
           </div>
         )}
@@ -223,7 +229,7 @@ const ConvertQuoteToInvoiceModal = ({
           <p className="text-xs text-ink-subtle">
             Due date:{' '}
             <span className="font-mono tabular-nums">
-              {dueDate ? new Date(dueDate).toLocaleDateString() : 'Calculating...'}
+              {dueDate ? formatDueDate(dueDate) : 'Calculating...'}
             </span>
           </p>
         )}

@@ -725,7 +725,15 @@ export function buildClientRescheduleEmail(data: {
     companyPhone?: string | null
   }
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location, tenantName, breaks, timezoneOffset = -8, companyName, logoUrl, settings } = data
+  const { clientName: rawClientName, serviceName: rawServiceName, startTime, endTime, location: rawLocation, tenantName: rawTenantName, breaks, timezoneOffset = -8, companyName: rawCompanyName, logoUrl, settings } = data
+
+  // HTML-escape dynamic values before templating (same pattern as
+  // buildClientConfirmationEmail); subject stays raw.
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const serviceName = escapeHtmlForEmail(rawServiceName)
+  const location = escapeHtmlForEmail(rawLocation)
+  const tenantName = escapeHtmlForEmail(rawTenantName)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
   const endLocal = getLocalTimeComponents(endTime, timezoneOffset)
@@ -737,7 +745,7 @@ export function buildClientRescheduleEmail(data: {
   const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
   const endTimeStr = formatTime12Hour(endLocal.hours, endLocal.minutes)
 
-  const subject = `Your appointment has been rescheduled - ${serviceName}`
+  const subject = `Your appointment has been rescheduled - ${rawServiceName}`
 
   let breaksHtml = ''
   if (breaks && breaks.length > 0) {
@@ -900,7 +908,13 @@ export function buildClientPendingEmail(data: {
   jobId?: string
   rescheduleToken?: string
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, timezoneOffset = -8, companyName, logoUrl, settings, jobId, rescheduleToken } = data
+  const { clientName: rawClientName, serviceName: rawServiceName, startTime, endTime, timezoneOffset = -8, companyName: rawCompanyName, logoUrl, settings, jobId, rescheduleToken } = data
+
+  // HTML-escape dynamic values before templating (same pattern as
+  // buildClientConfirmationEmail); subject stays raw.
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const serviceName = escapeHtmlForEmail(rawServiceName)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   // Get local time components
   const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
@@ -909,7 +923,7 @@ export function buildClientPendingEmail(data: {
   const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
 
   const bookingId = `#${Date.now().toString().slice(-6)}`
-  const subject = `Booking request received ${bookingId} - ${serviceName}`
+  const subject = `Booking request received ${bookingId} - ${rawServiceName}`
 
   const displayCompanyName = companyName || 'JobDock'
   
@@ -1196,7 +1210,16 @@ export function buildJobAssignmentNotificationEmail(data: {
     companyPhone?: string | null
   }
 }): EmailPayload {
-  const { assigneeName, assigneeEmail, assignerName, jobTitle, startTime, endTime, location, contactName, viewPath = '/app/scheduling', fromName, replyTo, companyName, logoUrl, settings } = data
+  const { assigneeName: rawAssigneeName, assigneeEmail, assignerName: rawAssignerName, jobTitle: rawJobTitle, startTime, endTime, location: rawLocation, contactName: rawContactName, viewPath = '/app/scheduling', fromName, replyTo, companyName: rawCompanyName, logoUrl, settings } = data
+
+  // HTML-escape dynamic values before templating (same pattern as
+  // buildClientConfirmationEmail); subject and the fromName header stay raw.
+  const assigneeName = escapeHtmlForEmail(rawAssigneeName)
+  const assignerName = escapeHtmlForEmail(rawAssignerName)
+  const jobTitle = escapeHtmlForEmail(rawJobTitle)
+  const location = escapeHtmlForEmail(rawLocation)
+  const contactName = escapeHtmlForEmail(rawContactName)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   const dateStr = startTime
     ? (() => {
@@ -1213,9 +1236,9 @@ export function buildJobAssignmentNotificationEmail(data: {
         })()
       : ''
 
-  const subject = `You've been assigned: ${jobTitle}`
+  const subject = `You've been assigned: ${rawJobTitle}`
 
-  const displayCompanyName = companyName || fromName || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')
   
   const jobDetailsCard = `
@@ -1340,7 +1363,14 @@ export function buildClientBookingConfirmedEmail(data: {
   jobId?: string
   rescheduleToken?: string
 }): EmailPayload {
-  const { clientName, serviceName, startTime, endTime, location, breaks, timezoneOffset = -8, companyName, logoUrl, settings, jobId, rescheduleToken } = data
+  const { clientName: rawClientName, serviceName: rawServiceName, startTime, endTime, location: rawLocation, breaks, timezoneOffset = -8, companyName: rawCompanyName, logoUrl, settings, jobId, rescheduleToken } = data
+
+  // HTML-escape dynamic values before templating (same pattern as
+  // buildClientConfirmationEmail); subject stays raw.
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const serviceName = escapeHtmlForEmail(rawServiceName)
+  const location = escapeHtmlForEmail(rawLocation)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   // Get local time components
   const startLocal = getLocalTimeComponents(startTime, timezoneOffset)
@@ -1356,7 +1386,7 @@ export function buildClientBookingConfirmedEmail(data: {
   const endTimeStr = formatTime12Hour(endLocal.hours, endLocal.minutes)
 
   const bookingId = `#${Date.now().toString().slice(-6)}`
-  const subject = `Your booking has been confirmed ${bookingId} - ${serviceName}`
+  const subject = `Your booking has been confirmed ${bookingId} - ${rawServiceName}`
 
   // Build breaks section if present
   let breaksHtml = ''
@@ -1531,14 +1561,22 @@ export function buildClientBookingDeclinedEmail(data: {
     companyPhone?: string | null
   }
 }): EmailPayload {
-  const { clientName, serviceName, startTime, reason, companyName, logoUrl, settings } = data
+  const { clientName: rawClientName, serviceName: rawServiceName, startTime, reason: rawReason, companyName: rawCompanyName, logoUrl, settings } = data
+
+  // HTML-escape dynamic values before templating (same pattern as
+  // buildClientConfirmationEmail); subject stays raw. `reason` is free text
+  // typed by the business owner when declining.
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const serviceName = escapeHtmlForEmail(rawServiceName)
+  const reason = escapeHtmlForEmail(rawReason)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   // Get local time components (using default timezone offset)
   const startLocal = getLocalTimeComponents(startTime, -8)
   const dateStr = formatDateLong(startLocal.year, startLocal.month, startLocal.day)
   const startTimeStr = formatTime12Hour(startLocal.hours, startLocal.minutes)
 
-  const subject = `Booking request declined - ${serviceName}`
+  const subject = `Booking request declined - ${rawServiceName}`
 
   const displayCompanyName = companyName || 'JobDock'
   
@@ -1629,16 +1667,22 @@ export function buildQuoteAcceptedNotificationEmail(data: {
     companyPhone?: string | null
   }
 }): EmailPayload {
-  const { userName, userEmail, quoteNumber, clientName, total, companyName, logoUrl, fromName, replyTo, settings } = data
+  const { userName: rawUserName, userEmail, quoteNumber, clientName: rawClientName, total, companyName: rawCompanyName, logoUrl, fromName, replyTo, settings } = data
+
+  // HTML-escape dynamic values before templating; subject and the fromName
+  // header stay raw.
+  const userName = escapeHtmlForEmail(rawUserName)
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   const formattedTotal = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
   }).format(total)
 
-  const subject = `Quote ${quoteNumber} accepted by ${clientName}`
+  const subject = `Quote ${quoteNumber} accepted by ${rawClientName}`
 
-  const displayCompanyName = companyName || fromName || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/quotes`
 
@@ -1740,16 +1784,22 @@ export function buildInvoiceAcceptedNotificationEmail(data: {
     companyPhone?: string | null
   }
 }): EmailPayload {
-  const { userName, userEmail, invoiceNumber, clientName, total, companyName, logoUrl, fromName, replyTo, settings } = data
+  const { userName: rawUserName, userEmail, invoiceNumber, clientName: rawClientName, total, companyName: rawCompanyName, logoUrl, fromName, replyTo, settings } = data
+
+  // HTML-escape dynamic values before templating; subject and the fromName
+  // header stay raw.
+  const userName = escapeHtmlForEmail(rawUserName)
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   const formattedTotal = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
   }).format(total)
 
-  const subject = `Invoice ${invoiceNumber} accepted by ${clientName}`
+  const subject = `Invoice ${invoiceNumber} accepted by ${rawClientName}`
 
-  const displayCompanyName = companyName || fromName || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/invoices`
 
@@ -1853,27 +1903,33 @@ export function buildQuoteDeclinedNotificationEmail(data: {
   }
 }): EmailPayload {
   const {
-    userName,
+    userName: rawUserName,
     userEmail,
     quoteNumber,
-    clientName,
+    clientName: rawClientName,
     total,
     declineReason,
-    companyName,
+    companyName: rawCompanyName,
     logoUrl,
     fromName,
     replyTo,
     settings,
   } = data
 
+  // HTML-escape dynamic values before templating; subject and the fromName
+  // header stay raw. declineReason is already escaped at its usage site.
+  const userName = escapeHtmlForEmail(rawUserName)
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
+
   const formattedTotal = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
   }).format(total)
 
-  const subject = `Quote ${quoteNumber} declined by ${clientName}`
+  const subject = `Quote ${quoteNumber} declined by ${rawClientName}`
 
-  const displayCompanyName = companyName || fromName || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/quotes`
 
@@ -1987,27 +2043,33 @@ export function buildInvoiceDeclinedNotificationEmail(data: {
   }
 }): EmailPayload {
   const {
-    userName,
+    userName: rawUserName,
     userEmail,
     invoiceNumber,
-    clientName,
+    clientName: rawClientName,
     total,
     declineReason,
-    companyName,
+    companyName: rawCompanyName,
     logoUrl,
     fromName,
     replyTo,
     settings,
   } = data
 
+  // HTML-escape dynamic values before templating; subject and the fromName
+  // header stay raw. declineReason is already escaped at its usage site.
+  const userName = escapeHtmlForEmail(rawUserName)
+  const clientName = escapeHtmlForEmail(rawClientName)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
+
   const formattedTotal = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
   }).format(total)
 
-  const subject = `Invoice ${invoiceNumber} declined by ${clientName}`
+  const subject = `Invoice ${invoiceNumber} declined by ${rawClientName}`
 
-  const displayCompanyName = companyName || fromName || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/invoices`
 
@@ -2363,17 +2425,18 @@ export async function sendQuoteEmail(data: {
     settings?.quoteEmailBody ||
     `Hi {{customer_name}}, please find your quote attached.`
 
-  // Replace template variables
+  // Replace template variables. Function replacements so `$` in real names
+  // ("Bob $& Sons") isn't expanded as a String.replace special pattern.
   const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
   subject = subject
-    .replace(/\{\{company_name\}\}/g, companyName)
-    .replace(/\{\{quote_number\}\}/g, quoteData.quoteNumber)
-    .replace(/\{\{customer_name\}\}/g, clientName)
+    .replace(/\{\{company_name\}\}/g, () => companyName)
+    .replace(/\{\{quote_number\}\}/g, () => quoteData.quoteNumber)
+    .replace(/\{\{customer_name\}\}/g, () => clientName)
 
   bodyTemplate = bodyTemplate
-    .replace(/\{\{company_name\}\}/g, companyName)
-    .replace(/\{\{quote_number\}\}/g, quoteData.quoteNumber)
-    .replace(/\{\{customer_name\}\}/g, clientName)
+    .replace(/\{\{company_name\}\}/g, () => companyName)
+    .replace(/\{\{quote_number\}\}/g, () => quoteData.quoteNumber)
+    .replace(/\{\{customer_name\}\}/g, () => clientName)
 
   const displayTitle = (quoteData.title && quoteData.title.trim()) ? quoteData.title.trim() : quoteData.quoteNumber
 
@@ -2385,11 +2448,16 @@ export async function sendQuoteEmail(data: {
       })
     : 'N/A'
 
-  // Convert body template newlines to HTML
+  // Convert body template newlines to HTML. The template is plain text
+  // (tenant-authored + customer name substituted), so HTML-escape each line.
   const bodyHtml = bodyTemplate
     .split('\n')
-    .map(line => `<p>${line}</p>`)
+    .map(line => `<p>${escapeHtmlForEmail(line)}</p>`)
     .join('')
+
+  // Escaped copies for the HTML shell; subject/text/PDF/fromName use the raws.
+  const safeDisplayTitle = escapeHtmlForEmail(displayTitle)
+  const safeCompanyName = escapeHtmlForEmail(companyName)
 
   // Use provided token or generate (allows reuse for SMS)
   const approvalToken = providedToken ?? generateApprovalToken('quote', quoteData.id, tenantId)
@@ -2416,7 +2484,7 @@ export async function sendQuoteEmail(data: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>${displayTitle}</title>
+  <title>${safeDisplayTitle}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f4f4f4;">
@@ -2430,23 +2498,23 @@ export async function sendQuoteEmail(data: {
                 <tr>
                   <td align="center" style="vertical-align: middle;">
                     ${logoUrl ? `
-                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 70px; max-width: 280px; display: block; margin: 0 auto;" />
+                      <img src="${logoUrl}" alt="${safeCompanyName}" style="max-height: 70px; max-width: 280px; display: block; margin: 0 auto;" />
                     ` : `
-                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center;">${companyName}</h1>
+                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center;">${safeCompanyName}</h1>
                     `}
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          
+
           <!-- Content -->
           <tr>
             <td style="padding: 40px;">
-              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">${displayTitle}</h2>
-              
+              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">${safeDisplayTitle}</h2>
+
               ${bodyHtml}
-              
+
               <!-- Action Buttons -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
                 <tr>
@@ -2580,8 +2648,15 @@ export function buildTeamInviteEmail(data: {
     companyPhone?: string | null
   }
 }) {
-  const { inviteeEmail, inviteeName, inviterName, role, tempPassword, appUrl, companyName, logoUrl, settings } = data
+  const { inviteeEmail, inviteeName: rawInviteeName, inviterName: rawInviterName, role, tempPassword: rawTempPassword, appUrl, companyName: rawCompanyName, logoUrl, settings } = data
   const loginUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/auth/login` : 'https://app.thejobdock.com/auth/login'
+
+  // HTML-escape dynamic values before templating (names are user-typed; the
+  // temp password can contain HTML-special symbols).
+  const inviteeName = escapeHtmlForEmail(rawInviteeName)
+  const inviterName = escapeHtmlForEmail(rawInviterName)
+  const tempPassword = escapeHtmlForEmail(rawTempPassword)
+  const companyName = escapeHtmlForEmail(rawCompanyName)
 
   const subject = `You've been invited to join JobDock`
   const roleDesc =
@@ -2646,7 +2721,9 @@ export function buildTeamInviteEmail(data: {
     to: inviteeEmail,
     subject,
     htmlBody,
-    textBody: `Hi ${inviteeName}, ${inviterName} has invited you to JobDock as ${role} (${roleDesc}). Temporary password: ${tempPassword}. Log in at ${loginUrl} and change your password.`,
+    // Text body stays raw — an escaped temp password ("&amp;") would be typed
+    // literally by the recipient and fail to log in.
+    textBody: `Hi ${rawInviteeName}, ${rawInviterName} has invited you to JobDock as ${role} (${roleDesc}). Temporary password: ${rawTempPassword}. Log in at ${loginUrl} and change your password.`,
   }
 }
 
@@ -2729,17 +2806,18 @@ export async function sendInvoiceEmail(data: {
     settings?.invoiceEmailBody ||
     `Hi {{customer_name}}, please find your invoice attached.`
 
-  // Replace template variables
+  // Replace template variables. Function replacements so `$` in real names
+  // ("Bob $& Sons") isn't expanded as a String.replace special pattern.
   const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
   subject = subject
-    .replace(/\{\{company_name\}\}/g, companyName)
-    .replace(/\{\{invoice_number\}\}/g, invoiceData.invoiceNumber)
-    .replace(/\{\{customer_name\}\}/g, clientName)
+    .replace(/\{\{company_name\}\}/g, () => companyName)
+    .replace(/\{\{invoice_number\}\}/g, () => invoiceData.invoiceNumber)
+    .replace(/\{\{customer_name\}\}/g, () => clientName)
 
   bodyTemplate = bodyTemplate
-    .replace(/\{\{company_name\}\}/g, companyName)
-    .replace(/\{\{invoice_number\}\}/g, invoiceData.invoiceNumber)
-    .replace(/\{\{customer_name\}\}/g, clientName)
+    .replace(/\{\{company_name\}\}/g, () => companyName)
+    .replace(/\{\{invoice_number\}\}/g, () => invoiceData.invoiceNumber)
+    .replace(/\{\{customer_name\}\}/g, () => clientName)
 
   const dueDateText = invoiceData.dueDate
     ? new Date(invoiceData.dueDate).toLocaleDateString('en-US', {
@@ -2751,11 +2829,16 @@ export async function sendInvoiceEmail(data: {
 
   const displayTitle = (invoiceData.title && invoiceData.title.trim()) ? invoiceData.title.trim() : invoiceData.invoiceNumber
 
-  // Convert body template newlines to HTML
+  // Convert body template newlines to HTML. The template is plain text
+  // (tenant-authored + customer name substituted), so HTML-escape each line.
   const bodyHtml = bodyTemplate
     .split('\n')
-    .map(line => `<p>${line}</p>`)
+    .map(line => `<p>${escapeHtmlForEmail(line)}</p>`)
     .join('')
+
+  // Escaped copies for the HTML shell; subject/text/PDF/fromName use the raws.
+  const safeDisplayTitle = escapeHtmlForEmail(displayTitle)
+  const safeCompanyName = escapeHtmlForEmail(companyName)
 
   // Invoices always link to the branded public invoice page (where the client taps "Pay Now").
   // Accept/Decline is no longer offered for invoices; the approval token simply authorizes the view.
@@ -2789,7 +2872,7 @@ export async function sendInvoiceEmail(data: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>${displayTitle}</title>
+  <title>${safeDisplayTitle}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f4f4f4;">
@@ -2803,20 +2886,20 @@ export async function sendInvoiceEmail(data: {
                 <tr>
                   <td align="center" style="vertical-align: middle;">
                     ${logoUrl ? `
-                      <img src="${logoUrl}" alt="${companyName}" style="max-height: 70px; max-width: 280px; display: block; margin: 0 auto;" />
+                      <img src="${logoUrl}" alt="${safeCompanyName}" style="max-height: 70px; max-width: 280px; display: block; margin: 0 auto;" />
                     ` : `
-                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center;">${companyName}</h1>
+                      <h1 style="margin: 0; color: #D4AF37; font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center;">${safeCompanyName}</h1>
                     `}
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          
+
           <!-- Content -->
           <tr>
             <td style="padding: 40px;">
-              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">${displayTitle}</h2>
+              <h2 style="margin: 0 0 20px 0; color: #0B132B; font-size: 24px; font-weight: 600; line-height: 1.3;">${safeDisplayTitle}</h2>
               
               ${bodyHtml}
 

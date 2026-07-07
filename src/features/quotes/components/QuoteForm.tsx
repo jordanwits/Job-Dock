@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useRef, useState } from 'react'
 import { quoteSchema, type QuoteFormData } from '../schemas/quoteSchemas'
 import { Quote } from '../types/quote'
+import { taxRateToPercent } from '@/lib/utils'
 import {
   Alert,
   AlertIcon,
@@ -94,7 +95,7 @@ const QuoteForm = ({
         (defaultPrice != null
           ? [{ description: defaultTitle || 'Services', quantity: 1, unitPrice: defaultPrice }]
           : [{ description: '', quantity: 1, unitPrice: '' }]),
-      taxRate: quote ? (quote.taxRate > 0 ? quote.taxRate * 100 : '') : '',
+      taxRate: quote ? (quote.taxRate > 0 ? taxRateToPercent(quote.taxRate) : '') : '',
       discount: quote?.discount && quote.discount > 0 ? quote.discount : '',
       discountReason: quote?.discountReason || '',
       notes: quote?.notes || defaultNotes || '',
@@ -132,7 +133,7 @@ const QuoteForm = ({
           quantity: item.quantity > 0 ? item.quantity : '',
           unitPrice: item.unitPrice > 0 ? item.unitPrice : '',
         })),
-        taxRate: quote.taxRate > 0 ? quote.taxRate * 100 : '', // Convert decimal to percentage for display
+        taxRate: quote.taxRate > 0 ? taxRateToPercent(quote.taxRate) : '', // Convert decimal to percentage for display
         discount: quote.discount > 0 ? quote.discount : '',
         discountReason: quote.discountReason || '',
         notes: quote.notes || '',

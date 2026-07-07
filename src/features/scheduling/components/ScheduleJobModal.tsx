@@ -48,6 +48,7 @@ const ScheduleJobModal = ({
   const effectiveAllowLinkExistingJob = allowLinkExistingJob ?? (sourceContext === 'contact')
   const { createJob, createIndependentBooking, updateJob, isLoading, error, clearError } = useJobStore()
   const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
+  const [notifySubmitting, setNotifySubmitting] = useState(false)
   const [pendingCreatePayload, setPendingCreatePayload] = useState<{ data: CreateJobData; existingJobIdParam?: string } | null>(null)
 
   const handleSubmit = async (data: CreateJobData, existingJobIdParam?: string, isIndependent?: boolean) => {
@@ -109,7 +110,10 @@ const ScheduleJobModal = ({
   }
 
   const performCreateWithNotify = async (notifyClient: boolean) => {
-    if (!pendingCreatePayload) return
+    // notifySubmitting guards double-click on Yes/No (and Esc/backdrop close,
+    // which also creates) — without it a slow create fires twice and books twice.
+    if (!pendingCreatePayload || notifySubmitting) return
+    setNotifySubmitting(true)
     try {
       const jobData = {
         ...pendingCreatePayload.data,
@@ -127,6 +131,8 @@ const ScheduleJobModal = ({
       }
     } catch (error: any) {
       // Keep modal open on error
+    } finally {
+      setNotifySubmitting(false)
     }
   }
 
@@ -139,6 +145,7 @@ const ScheduleJobModal = ({
     <>
       <NotifyClientModal
         isOpen={showNotifyClientModal}
+        isLoading={notifySubmitting}
         message="Would you like to notify the client about this appointment?"
         onClose={() => {
           performCreateWithNotify(false)

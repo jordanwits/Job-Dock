@@ -1,4 +1,5 @@
 import { format } from 'date-fns'
+import { formatHoursMinutes } from '@/lib/utils'
 import type { JobLog } from '../types/jobLog'
 import { getRecurringTag } from '../utils/recurringPattern'
 import { SelectCircle, StatusBadge, TagChip } from './jobLogsUi'
@@ -25,8 +26,7 @@ const JobLogCard = ({ jobLog, onClick, isSelected, onToggleSelect }: JobLogCardP
       const breakMin = te.breakMinutes ?? 0
       return sum + (end - start) / 60000 - breakMin
     }, 0) ?? 0
-  const hours = Math.floor(totalMinutes / 60)
-  const mins = Math.round(totalMinutes % 60)
+  const { hours, minutes: mins } = formatHoursMinutes(totalMinutes / 60)
   const timeEntryCount = jobLog.timeEntries?.length ?? 0
   const photoCount = jobLog.photos?.length ?? 0
 
