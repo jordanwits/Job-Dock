@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { publicApiClient } from '@/lib/api/client'
-import { DeclineSuccessIcon } from './DeclineSuccessIcon'
+import { getErrorMessage } from '@/lib/utils/errorHandler'
+import {
+  BrandingMark,
+  CenterCard,
+  PublicButton,
+  PublicLoading,
+  PublicPanel,
+  PublicTextArea,
+  StatusCircle,
+} from '@/components/public/publicUi'
 
 const DECLINE_REASON_MAX_LEN = 2000
 
@@ -40,14 +49,9 @@ const QuoteViewPage = () => {
           setCompanyDisplayName(brandingRes.data.companyDisplayName || brandingRes.data.tenantName || null)
         }
         if (pdfRes.data.pdfUrl) setPdfUrl(pdfRes.data.pdfUrl)
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to load quote:', err)
-        setError(
-          err.response?.data?.error?.message ||
-            err.response?.data?.message ||
-            err.message ||
-            'Failed to load quote. The link may be invalid or expired.'
-        )
+        setError(getErrorMessage(err, 'Failed to load quote. The link may be invalid or expired.'))
       } finally {
         setLoading(false)
       }
@@ -76,181 +80,169 @@ const QuoteViewPage = () => {
       const response = await publicApiClient.post(`${endpoint}?token=${token}`, body)
       setQuoteNumber(response.data.quoteNumber || id)
       setSuccess(action)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Approval error:', err)
       setError(
-        err.response?.data?.error?.message ||
-          err.response?.data?.message ||
-          err.message ||
-          'Failed to process your response. The link may be invalid or expired.'
+        getErrorMessage(err, 'Failed to process your response. The link may be invalid or expired.')
       )
     } finally {
       setSubmitting(null)
     }
   }
 
+  const branding = { logoSignedUrl: companyLogoUrl, name: companyDisplayName }
+
   if (loading) {
-    return (
-      <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-gold mx-auto mb-4"></div>
-          <p className="text-primary-light/70 text-sm sm:text-base">Loading your quote...</p>
-        </div>
-      </div>
-    )
+    return <PublicLoading message="Loading your quote..." />
   }
 
   if (error && !success) {
     return (
-      <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-6 sm:p-8 text-center">
-          <div className="text-4xl sm:text-5xl mb-4">❌</div>
-          <h2 className="text-xl sm:text-2xl font-semibold text-red-500 mb-2">Error</h2>
-          <p className="text-primary-light/70 text-sm sm:text-base">{error}</p>
-          <p className="text-sm text-primary-light/50 mt-6">
-            Please contact the contractor directly if you need assistance.
-          </p>
-        </div>
-      </div>
+      <CenterCard>
+        <StatusCircle kind="danger" label="Error" />
+        <h2 className="mb-2 text-xl font-semibold tracking-tight text-ink">Something went wrong</h2>
+        <p className="text-sm leading-relaxed text-ink-muted">{error}</p>
+        <p className="mt-6 text-[13px] text-ink-subtle">
+          Please contact the contractor directly if you need assistance.
+        </p>
+      </CenterCard>
     )
   }
 
   if (success) {
     return (
-      <div className="min-h-[100dvh] bg-primary-dark flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-primary-dark-secondary rounded-lg shadow-xl p-6 sm:p-8 text-center">
-          <div className="mb-4 sm:mb-6">
-            {companyLogoUrl ? (
-              <img
-                src={companyLogoUrl}
-                alt={companyDisplayName || 'Company logo'}
-                className="h-10 sm:h-12 w-auto max-w-[160px] sm:max-w-[200px] mx-auto object-contain"
-              />
-            ) : companyDisplayName ? (
-              <h1 className="text-2xl sm:text-3xl font-bold text-primary-gold">{companyDisplayName}</h1>
-            ) : (
-              <h1 className="text-2xl sm:text-3xl font-bold text-primary-gold">JobDock</h1>
-            )}
-          </div>
+      <CenterCard branding={branding}>
+        {success === 'accept' ? (
+          <StatusCircle kind="success" label="Accepted" />
+        ) : (
+          <StatusCircle kind="declined" label="Declined" />
+        )}
+        <h2 className="mb-2 text-xl font-semibold tracking-tight text-ink">
+          {success === 'accept' ? 'Quote accepted' : 'Quote declined'}
+        </h2>
+        <p className="text-sm leading-relaxed text-ink-muted">
           {success === 'accept' ? (
-            <div className="text-4xl sm:text-5xl mb-4">✅</div>
+            <>
+              Thank you for accepting quote{' '}
+              <span className="font-mono tabular-nums">{quoteNumber}</span>. The contractor has been
+              notified and will be in touch soon.
+            </>
           ) : (
-            <DeclineSuccessIcon />
+            <>
+              We've recorded that you declined quote{' '}
+              <span className="font-mono tabular-nums">{quoteNumber}</span>. The contractor has been
+              notified.
+            </>
           )}
-          <h2 className="text-xl sm:text-2xl font-semibold text-primary-light mb-2">
-            {success === 'accept' ? 'Quote Accepted!' : 'Quote Declined'}
-          </h2>
-          <p className="text-primary-light/70 text-sm sm:text-base">
-            {success === 'accept'
-              ? `Thank you for accepting quote ${quoteNumber}. The contractor has been notified and will be in touch soon.`
-              : `We've recorded that you declined quote ${quoteNumber}. The contractor has been notified.`}
-          </p>
-          <p className="text-sm text-primary-light/50 mt-6">You can safely close this window.</p>
-        </div>
-      </div>
+        </p>
+        <p className="mt-6 text-[13px] text-ink-subtle">You can safely close this window.</p>
+      </CenterCard>
     )
   }
 
   return (
-    <div className="min-h-[100dvh] bg-primary-dark flex flex-col safe-area-inset">
-      <header className="bg-primary-dark-secondary border-b border-primary-dark/50 px-3 py-2 sm:px-4 sm:py-3 shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center justify-center sm:justify-start">
-          {companyLogoUrl ? (
-            <img
-              src={companyLogoUrl}
-              alt={companyDisplayName || 'Company'}
-              className="h-8 sm:h-10 w-auto max-w-[120px] sm:max-w-[160px] object-contain"
-            />
-          ) : (
-            <h1 className="text-lg sm:text-xl font-bold text-primary-gold truncate max-w-[200px] sm:max-w-none">
-              {companyDisplayName || 'JobDock'}
-            </h1>
-          )}
+    <div className="safe-area-inset flex min-h-[100dvh] flex-col bg-canvas">
+      <header className="shrink-0 border-b border-line bg-surface px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-4xl items-center justify-center sm:justify-start">
+          <BrandingMark branding={branding} />
         </div>
       </header>
 
-      <main className="flex-1 p-3 sm:p-4 max-w-4xl mx-auto w-full min-w-0 flex flex-col">
-        <div className="bg-primary-dark-secondary rounded-lg overflow-hidden mb-4 sm:mb-6 flex-1 min-h-0 flex flex-col">
+      <main className="mx-auto flex w-full max-w-4xl min-w-0 flex-1 flex-col p-3 sm:p-4">
+        <PublicPanel className="mb-4 flex min-h-0 flex-1 flex-col overflow-hidden sm:mb-6">
           {pdfUrl ? (
             <>
               <iframe
                 src={pdfUrl}
                 title="Quote PDF"
-                className="w-full flex-1 min-h-[50vh] sm:min-h-[400px] border-0"
+                className="min-h-[50vh] w-full flex-1 border-0 sm:min-h-[400px]"
               />
               <a
                 href={pdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block sm:hidden py-2 text-center text-sm text-primary-gold hover:text-primary-gold/80"
+                className="block border-t border-line py-2.5 text-center text-sm font-medium text-accent-strong transition-colors hover:text-accent sm:hidden"
               >
                 Open PDF in new tab
               </a>
             </>
           ) : (
-            <div className="min-h-[50vh] sm:min-h-[400px] flex items-center justify-center text-primary-light/50 text-sm">
+            <div className="flex min-h-[50vh] items-center justify-center text-sm text-ink-subtle sm:min-h-[400px]">
               PDF could not be loaded
             </div>
           )}
-        </div>
+        </PublicPanel>
 
         {declineStep === 'confirm' && (
-          <div className="mb-4 space-y-2 shrink-0 max-w-xl mx-auto w-full">
-            <label htmlFor="quote-view-decline-reason" className="block text-sm text-primary-light/80">
-              Reason for declining <span className="text-primary-light/50">(optional)</span>
-            </label>
-            <textarea
+          <div className="mx-auto mb-4 w-full max-w-xl shrink-0">
+            <PublicTextArea
               id="quote-view-decline-reason"
+              label={
+                <>
+                  Reason for declining <span className="font-normal text-ink-subtle">(optional)</span>
+                </>
+              }
               value={declineReason}
               onChange={e => setDeclineReason(e.target.value.slice(0, DECLINE_REASON_MAX_LEN))}
               rows={3}
               placeholder="The contractor will see this in JobDock."
-              className="w-full rounded-lg border border-primary-light/20 bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/40 focus:border-primary-gold focus:outline-none focus:ring-1 focus:ring-primary-gold"
             />
-            <p className="text-xs text-primary-light/50 text-right">
+            <p className="mt-1 text-right font-mono text-xs tabular-nums text-ink-subtle">
               {declineReason.length}/{DECLINE_REASON_MAX_LEN}
             </p>
           </div>
         )}
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 justify-center shrink-0">
-          <button
+        {error && (
+          <p className="mb-3 shrink-0 text-center text-sm text-danger" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex shrink-0 flex-col justify-center gap-2 pb-2 sm:flex-row sm:gap-3">
+          <PublicButton
             onClick={() => handleAction('accept')}
             disabled={!!submitting || declineStep === 'confirm'}
-            className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-gold text-primary-dark font-semibold rounded-lg hover:bg-primary-gold/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
+            isLoading={submitting === 'accept'}
+            className="sm:w-auto"
+            fullWidth
           >
-            {submitting === 'accept' ? 'Processing...' : 'Accept Quote'}
-          </button>
+            {submitting === 'accept' ? 'Processing...' : 'Accept quote'}
+          </PublicButton>
           {declineStep === 'idle' ? (
-            <button
-              type="button"
+            <PublicButton
+              variant="subtle"
               onClick={() => handleAction('decline')}
               disabled={!!submitting}
-              className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation min-h-[48px]"
+              className="sm:w-auto"
+              fullWidth
             >
               Decline
-            </button>
+            </PublicButton>
           ) : (
             <>
-              <button
-                type="button"
+              <PublicButton
+                variant="subtle"
                 onClick={() => {
                   setDeclineStep('idle')
                   setDeclineReason('')
                 }}
                 disabled={!!submitting}
-                className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-primary-dark-secondary border border-primary-light/30 text-primary-light font-semibold rounded-lg hover:bg-primary-dark/80 disabled:opacity-50 min-h-[48px]"
+                className="sm:w-auto"
+                fullWidth
               >
                 Back
-              </button>
-              <button
-                type="button"
+              </PublicButton>
+              <PublicButton
+                variant="danger"
                 onClick={() => handleAction('decline')}
                 disabled={!!submitting}
-                className="w-full sm:w-auto px-6 py-3.5 sm:py-3 bg-red-600/90 text-white font-semibold rounded-lg hover:bg-red-600 disabled:opacity-50 min-h-[48px]"
+                isLoading={submitting === 'decline'}
+                className="sm:w-auto"
+                fullWidth
               >
                 {submitting === 'decline' ? 'Processing...' : 'Confirm decline'}
-              </button>
+              </PublicButton>
             </>
           )}
         </div>

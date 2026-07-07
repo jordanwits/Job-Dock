@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { format, parse, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, startOfWeek, endOfWeek } from 'date-fns'
-import { Button, Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { PublicPanel } from '@/components/public/publicUi'
 import type { DaySlots, AvailableSlot } from '../types/booking'
 
 interface AvailabilityCalendarProps {
@@ -11,6 +11,12 @@ interface AvailabilityCalendarProps {
   onMonthChange?: (date: Date) => void
   isLoading?: boolean
 }
+
+const ChevronIcon = ({ direction, className }: { direction: 'left' | 'right'; className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden>
+    <path d={direction === 'left' ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'} />
+  </svg>
+)
 
 const AvailabilityCalendar = ({
   slots,
@@ -46,16 +52,6 @@ const AvailabilityCalendar = ({
     if (!slots || slots.length === 0) return []
     const dateStr = format(date, 'yyyy-MM-dd')
     const daySlots = slots.find((s) => s.date === dateStr)
-    
-    // Debug logging
-    if (date.getDate() === 9 || date.getDate() === 10 || date.getDate() === 13) {
-      console.log(`🔍 Checking date ${dateStr}:`, {
-        availableDates: slots.map(s => s.date),
-        found: !!daySlots,
-        slotsCount: daySlots?.slots?.length || 0
-      })
-    }
-    
     return daySlots?.slots || []
   }
 
@@ -71,52 +67,51 @@ const AvailabilityCalendar = ({
   return (
     <div className="space-y-4">
       {/* Month navigation */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-primary-light">
-          Select Date & Time
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <h2 className="whitespace-nowrap text-lg font-semibold tracking-tight text-ink">
+          Select date &amp; time
         </h2>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
             onClick={handlePrevMonth}
             disabled={isLoading}
+            aria-label="Previous month"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Button>
-          <span className="text-primary-light font-medium min-w-[140px] text-center">
+            <ChevronIcon direction="left" className="h-5 w-5" />
+          </button>
+          <span className="min-w-[120px] text-center font-mono text-sm font-medium tabular-nums text-ink">
             {format(currentMonth, 'MMMM yyyy')}
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             onClick={handleNextMonth}
             disabled={isLoading}
+            aria-label="Next month"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Button>
+            <ChevronIcon direction="right" className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8">
-          <p className="text-primary-light/70">Loading availability...</p>
-        </div>
+        <PublicPanel className="p-4">
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 35 }, (_, i) => (
+              <div key={i} className="aspect-square animate-pulse rounded-lg bg-surface-2" />
+            ))}
+          </div>
+        </PublicPanel>
       ) : (
         <>
           {/* Calendar grid */}
-          <Card>
+          <PublicPanel className="p-3 sm:p-4">
             <div className="grid grid-cols-7 gap-1">
               {/* Weekday headers */}
               {weekDays.map((day) => (
-                <div
-                  key={day}
-                  className="text-center text-xs font-medium text-primary-light/70 p-2"
-                >
+                <div key={day} className="p-2 text-center text-xs font-medium text-ink-subtle">
                   {day}
                 </div>
               ))}
@@ -133,52 +128,59 @@ const AvailabilityCalendar = ({
                 return (
                   <button
                     key={day.toISOString()}
+                    type="button"
                     onClick={() => hasSlots && handleDateClick(day)}
                     disabled={!hasSlots || isPast}
                     className={cn(
-                      'aspect-square p-2 rounded-lg text-sm transition-colors relative',
-                      'disabled:cursor-not-allowed disabled:opacity-40',
-                      !isCurrentMonth && 'text-primary-light/30',
-                      isCurrentMonth && !hasSlots && 'text-primary-light/50',
-                      hasSlots && !isPast && 'cursor-pointer hover:bg-primary-blue/20',
-                      isSelected && 'bg-primary-gold/20 border-2 border-primary-gold',
-                      isToday(day) && !isSelected && 'border border-primary-gold',
+                      'relative aspect-square rounded-lg p-2 font-mono text-sm tabular-nums transition-colors duration-150',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                      'disabled:cursor-not-allowed',
+                      !isCurrentMonth && 'text-ink-subtle/50',
+                      isCurrentMonth && !hasSlots && 'text-ink-subtle',
+                      hasSlots && !isPast && 'cursor-pointer text-ink hover:bg-accent-soft/60',
+                      isSelected && 'bg-accent-strong text-accent-contrast hover:bg-accent-strong',
+                      isToday(day) && !isSelected && 'ring-1 ring-inset ring-accent'
                     )}
                   >
-                    <span className={cn(
-                      'block',
-                      isToday(day) && 'font-bold text-primary-gold'
-                    )}>
+                    <span className={cn('block', isToday(day) && !isSelected && 'font-semibold text-accent-strong')}>
                       {format(day, 'd')}
                     </span>
                     {hasSlots && (
-                      <span className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-primary-gold" />
+                      <span
+                        className={cn(
+                          'absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full',
+                          isSelected ? 'bg-accent-contrast' : 'bg-accent-strong'
+                        )}
+                      />
                     )}
                   </button>
                 )
               })}
             </div>
-          </Card>
+          </PublicPanel>
 
           {/* Time slots for selected date */}
           {selectedDate && selectedDateSlots.length > 0 && (
-            <Card>
-              <h3 className="text-sm font-semibold text-primary-light mb-3">
+            <PublicPanel className="p-4">
+              <h3 className="mb-3 text-sm font-semibold text-ink">
                 Available times for {format(parse(selectedDate, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d')}
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4" role="radiogroup" aria-label="Available times">
                 {selectedDateSlots.map((slot) => {
                   const isSelected = selectedSlot?.start === slot.start
                   return (
                     <button
                       key={slot.start}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
                       onClick={() => onSlotSelect(slot)}
                       className={cn(
-                        'px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                        'border-2',
+                        'h-10 rounded-lg px-3 font-mono text-sm font-medium tabular-nums transition-colors duration-150',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                         isSelected
-                          ? 'bg-primary-gold text-primary-dark border-primary-gold'
-                          : 'bg-primary-dark-secondary text-primary-light border-primary-blue hover:border-primary-gold hover:bg-primary-gold/10'
+                          ? 'bg-accent-strong text-accent-contrast'
+                          : 'bg-surface text-ink ring-1 ring-inset ring-line hover:bg-accent-soft/60 hover:ring-accent'
                       )}
                     >
                       {format(new Date(slot.start), 'h:mm a')}
@@ -186,15 +188,13 @@ const AvailabilityCalendar = ({
                   )
                 })}
               </div>
-            </Card>
+            </PublicPanel>
           )}
 
           {selectedDate && selectedDateSlots.length === 0 && (
-            <Card>
-              <p className="text-sm text-primary-light/70 text-center py-4">
-                No available times for this date
-              </p>
-            </Card>
+            <PublicPanel className="p-4">
+              <p className="py-4 text-center text-sm text-ink-muted">No available times for this date</p>
+            </PublicPanel>
           )}
         </>
       )}
@@ -203,4 +203,3 @@ const AvailabilityCalendar = ({
 }
 
 export default AvailabilityCalendar
-

@@ -1,4 +1,3 @@
-import { Card } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { Service } from '@/features/scheduling/types/service'
 
@@ -8,58 +7,65 @@ interface ServicePickerProps {
   onServiceSelect: (serviceId: string) => void
 }
 
+const ClockIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden>
+    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+)
+
 const ServicePicker = ({ services, selectedServiceId, onServiceSelect }: ServicePickerProps) => {
   if (services.length === 0) {
     return (
-      <div className="text-center p-6">
-        <p className="text-primary-light/70">No services available for booking</p>
+      <div className="p-6 text-center">
+        <p className="text-sm text-ink-muted">No services available for booking</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
-      <h2 className="text-lg font-semibold text-primary-light mb-4">Select a Service</h2>
-      <div className="grid grid-cols-1 gap-3">
-        {services.map((service) => (
-          <Card
-            key={service.id}
-            className={cn(
-              'cursor-pointer transition-all hover:border-primary-gold',
-              selectedServiceId === service.id && 'border-primary-gold bg-primary-gold/5'
-            )}
-            onClick={() => onServiceSelect(service.id)}
-          >
-            <div className="space-y-2">
-              <h3 className="font-semibold text-primary-light">{service.name}</h3>
-              {service.description && (
-                <p className="text-sm text-primary-light/70 line-clamp-2">
-                  {service.description}
-                </p>
+    <div>
+      <h2 className="mb-4 text-lg font-semibold tracking-tight text-ink">Select a service</h2>
+      <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label="Services">
+        {services.map(service => {
+          const isSelected = selectedServiceId === service.id
+          return (
+            <button
+              key={service.id}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              onClick={() => onServiceSelect(service.id)}
+              className={cn(
+                'w-full rounded-2xl bg-surface p-4 text-left shadow-card ring-1 transition-[box-shadow,background-color] duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                isSelected
+                  ? 'bg-accent-soft/40 ring-2 ring-accent'
+                  : 'ring-line hover:bg-surface-hover hover:ring-line-strong'
               )}
-              <div className="flex flex-wrap items-center gap-3 text-sm text-primary-light/70">
-                <span className="flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {service.duration} minutes
-                </span>
-                {service.price && (
-                  <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    ${Number(service.price).toFixed(2)}
-                  </span>
+            >
+              <div className="space-y-2">
+                <h3 className="font-semibold text-ink">{service.name}</h3>
+                {service.description && (
+                  <p className="line-clamp-2 text-sm leading-relaxed text-ink-muted">{service.description}</p>
                 )}
+                <div className="flex flex-wrap items-center gap-3 text-sm text-ink-muted">
+                  <span className="flex items-center gap-1.5">
+                    <ClockIcon className="h-4 w-4 text-ink-subtle" />
+                    <span className="font-mono tabular-nums">{service.duration} min</span>
+                  </span>
+                  {service.price && (
+                    <span className="font-mono font-medium tabular-nums text-ink">
+                      ${Number(service.price).toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
 }
 
 export default ServicePicker
-

@@ -2,8 +2,15 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
-import { Input, Button, Card, Select, PhoneInput } from '@/components/ui'
 import { format, addDays, addWeeks, addMonths } from 'date-fns'
+import {
+  PublicButton,
+  PublicPanel,
+  PublicPhoneField,
+  PublicSelectField,
+  PublicTextArea,
+  PublicTextField,
+} from '@/components/public/publicUi'
 import type { AvailableSlot, RecurrenceFrequency } from '../types/booking'
 import type { Service } from '@/features/scheduling/types/service'
 import { normalizePhoneNumber } from '@/lib/utils/phone'
@@ -28,10 +35,16 @@ interface BookingFormProps {
   isLoading?: boolean
 }
 
+const CalendarIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden>
+    <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+)
+
 const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingFormProps) => {
   const [repeatPattern, setRepeatPattern] = useState<string>('none')
   const [occurrenceCount, setOccurrenceCount] = useState<number>(6)
-  
+
   const {
     register,
     handleSubmit,
@@ -39,7 +52,7 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
   } = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
   })
-  
+
   const handleFormSubmit = async (data: BookingFormData) => {
     let recurrence
     if (repeatPattern !== 'none') {
@@ -49,15 +62,15 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
     }
     await onSubmit(data, recurrence)
   }
-  
+
   const getRecurrenceEndDate = () => {
     if (!selectedSlot || repeatPattern === 'none') return null
-    
+
     const start = new Date(selectedSlot.start)
     const [frequency, intervalStr] = repeatPattern.split('-')
     const interval = parseInt(intervalStr) || 1
     const count = occurrenceCount - 1
-    
+
     let endDate = new Date(start)
     if (frequency === 'daily') {
       endDate = addDays(start, interval * count)
@@ -66,22 +79,18 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
     } else if (frequency === 'monthly') {
       endDate = addMonths(start, interval * count)
     }
-    
+
     return format(endDate, 'MMM d, yyyy')
   }
 
   if (!service || !selectedSlot) {
     return (
-      <Card>
-        <div className="text-center py-8">
-          <svg className="w-12 h-12 mx-auto text-primary-light/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <p className="text-primary-light/70">
-            Please select a service and time slot to continue
-          </p>
+      <PublicPanel className="p-6">
+        <div className="py-8 text-center">
+          <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-ink-subtle/60" />
+          <p className="text-sm text-ink-muted">Please select a service and time slot to continue</p>
         </div>
-      </Card>
+      </PublicPanel>
     )
   }
 
@@ -89,81 +98,78 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
   const requiredFields = bookingSettings?.bookingFormFields || ['name', 'email', 'phone']
 
   return (
-    <Card>
-      <h3 className="text-lg font-semibold text-primary-light mb-4">
-        Your Information
-      </h3>
+    <PublicPanel className="p-5 sm:p-6">
+      <h3 className="mb-4 text-lg font-semibold tracking-tight text-ink">Your information</h3>
 
       {/* Booking summary */}
-      <div className="mb-6 p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
-        <div className="space-y-1 text-sm">
-          <p className="text-primary-light font-medium">{service.name}</p>
-          <p className="text-primary-light/70">
-            {format(new Date(selectedSlot.start), 'EEEE, MMMM d, yyyy')}
-          </p>
-          <p className="text-primary-light/70">
-            {format(new Date(selectedSlot.start), 'h:mm a')} - {format(new Date(selectedSlot.end), 'h:mm a')}
-          </p>
-          {service.duration && (
-            <p className="text-primary-light/70">{service.duration} minutes</p>
-          )}
-        </div>
+      <div className="mb-6 rounded-xl bg-accent-soft/50 p-4 ring-1 ring-inset ring-accent/20">
+        <p className="font-medium text-ink">{service.name}</p>
+        <p className="mt-1 font-mono text-sm tabular-nums text-ink-muted">
+          {format(new Date(selectedSlot.start), 'EEEE, MMMM d, yyyy')}
+        </p>
+        <p className="font-mono text-sm tabular-nums text-ink-muted">
+          {format(new Date(selectedSlot.start), 'h:mm a')} – {format(new Date(selectedSlot.end), 'h:mm a')}
+          {service.duration ? ` · ${service.duration} min` : ''}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-        <Input
-          label="Full Name *"
+        <PublicTextField
+          label="Full name *"
           {...register('name')}
           error={errors.name?.message}
           placeholder="John Doe"
+          autoComplete="name"
           disabled={isLoading}
         />
 
         {requiredFields.includes('email') && (
-          <Input
+          <PublicTextField
             label="Email *"
             type="email"
             {...register('email')}
             error={errors.email?.message}
             placeholder="john@example.com"
+            autoComplete="email"
             disabled={isLoading}
           />
         )}
 
         {requiredFields.includes('phone') && (
-          <PhoneInput
+          <PublicPhoneField
             label="Phone *"
             {...register('phone')}
             error={errors.phone?.message}
             placeholder="123-456-7890"
+            autoComplete="tel"
             disabled={isLoading}
           />
         )}
 
         {requiredFields.includes('company') && (
-          <Input
+          <PublicTextField
             label="Company"
             {...register('company')}
             error={errors.company?.message}
             placeholder="Acme Inc."
+            autoComplete="organization"
             disabled={isLoading}
           />
         )}
 
-        <Input
+        <PublicTextField
           label="Address"
           {...register('address')}
           error={errors.address?.message}
           placeholder="123 Main St, City, State ZIP"
+          autoComplete="street-address"
           disabled={isLoading}
         />
 
-        {/* Recurrence Section */}
-        <div className="border-t border-primary-blue pt-3">
-          <label className="block text-sm font-medium text-primary-light mb-2">
-            How often?
-          </label>
-          <Select
+        {/* Recurrence */}
+        <div className="border-t border-line pt-4">
+          <PublicSelectField
+            label="How often?"
             value={repeatPattern}
             onChange={(e) => setRepeatPattern(e.target.value)}
             disabled={isLoading}
@@ -177,10 +183,10 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
               { value: 'monthly-1', label: 'Every month' },
             ]}
           />
-          
+
           {repeatPattern !== 'none' && (
             <div className="mt-3 space-y-3">
-              <Select
+              <PublicSelectField
                 label="Number of visits"
                 value={occurrenceCount.toString()}
                 onChange={(e) => setOccurrenceCount(Number(e.target.value))}
@@ -194,50 +200,42 @@ const BookingForm = ({ service, selectedSlot, onSubmit, isLoading }: BookingForm
                   { value: '12', label: '12 visits' },
                 ]}
               />
-              
+
               {getRecurrenceEndDate() && (
-                <div className="p-3 rounded-lg bg-primary-blue/10 border border-primary-blue">
-                  <p className="text-xs text-primary-light/70">
-                    {occurrenceCount} visits scheduled through {getRecurrenceEndDate()}
-                  </p>
-                </div>
+                <p className="rounded-lg bg-surface-2 px-3 py-2.5 font-mono text-xs tabular-nums text-ink-muted">
+                  {occurrenceCount} visits scheduled through {getRecurrenceEndDate()}
+                </p>
               )}
             </div>
           )}
         </div>
 
         {requiredFields.includes('notes') && (
-          <div>
-            <label className="block text-sm font-medium text-primary-light mb-2">
-              Additional Notes
-            </label>
-            <textarea
-              {...register('notes')}
-              rows={3}
-              className="w-full rounded-lg border border-primary-blue bg-primary-dark-secondary px-3 py-2 text-sm text-primary-light placeholder:text-primary-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-gold focus-visible:border-primary-gold disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder="Any special requests or information..."
-              disabled={isLoading}
-            />
-          </div>
+          <PublicTextArea
+            label="Additional notes"
+            {...register('notes')}
+            rows={3}
+            placeholder="Any special requests or information..."
+            disabled={isLoading}
+          />
         )}
 
-        <Button
-          type="submit"
-          disabled={isLoading}
-          className="w-full"
-        >
-          {isLoading ? 'Booking...' : repeatPattern !== 'none' ? `Book ${occurrenceCount} Visits` : 'Confirm Booking'}
-        </Button>
+        <PublicButton type="submit" disabled={isLoading} isLoading={isLoading} fullWidth>
+          {isLoading
+            ? 'Booking...'
+            : repeatPattern !== 'none'
+              ? `Book ${occurrenceCount} visits`
+              : 'Confirm booking'}
+        </PublicButton>
 
         {bookingSettings?.requireConfirmation && (
-          <p className="text-xs text-primary-light/60 text-center">
+          <p className="text-center text-xs text-ink-subtle">
             Your booking will require confirmation from the service provider
           </p>
         )}
       </form>
-    </Card>
+    </PublicPanel>
   )
 }
 
 export default BookingForm
-
