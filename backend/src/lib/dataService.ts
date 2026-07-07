@@ -759,6 +759,7 @@ async function createRecurringJobs(params: {
   recurrence: RecurrencePayload
   forceBooking?: boolean
   excludeJobId?: string // Job ID to exclude from conflict checking (for converting existing job to recurring)
+  existingJobId?: string // Reuse this Job row instead of creating one (converting an existing job to recurring)
   createdById?: string
 }) {
   const {
@@ -780,6 +781,7 @@ async function createRecurringJobs(params: {
     recurrence,
     forceBooking = false,
     excludeJobId,
+    existingJobId,
     createdById,
   } = params
 
@@ -867,27 +869,53 @@ async function createRecurringJobs(params: {
 
     // Double booking check removed - allowing overlapping recurring jobs
 
-    // 4. Create one Job and multiple Bookings (one per instance)
-    const job = await tx.job.create({
-      data: {
-        tenantId,
-        title,
-        description,
-        contactId,
-        serviceId: serviceId ?? null,
-        quoteId,
-        invoiceId,
-        status: 'active',
-        location,
-        price: price !== undefined ? price : null,
-        notes,
-        assignedTo: (assignedToForJobs ?? undefined) as unknown as Prisma.InputJsonValue,
-        createdById: createdById ?? undefined,
-      },
-      include: {
-        contact: true,
-      },
-    })
+    // 4. Create (or reuse) one Job and multiple Bookings (one per instance)
+    let job
+    if (existingJobId) {
+      // Converting an existing job to recurring: replace its bookings but keep
+      // the Job row itself so time entries, photos, and job-log history survive.
+      await tx.booking.deleteMany({ where: { jobId: existingJobId, tenantId } })
+      job = await tx.job.update({
+        where: { id: existingJobId },
+        data: {
+          title,
+          description,
+          contactId,
+          serviceId: serviceId ?? null,
+          quoteId,
+          invoiceId,
+          status: 'active',
+          location,
+          ...(price !== undefined ? { price } : {}),
+          notes,
+          assignedTo: (assignedToForJobs ?? undefined) as unknown as Prisma.InputJsonValue,
+        },
+        include: {
+          contact: true,
+        },
+      })
+    } else {
+      job = await tx.job.create({
+        data: {
+          tenantId,
+          title,
+          description,
+          contactId,
+          serviceId: serviceId ?? null,
+          quoteId,
+          invoiceId,
+          status: 'active',
+          location,
+          price: price !== undefined ? price : null,
+          notes,
+          assignedTo: (assignedToForJobs ?? undefined) as unknown as Prisma.InputJsonValue,
+          createdById: createdById ?? undefined,
+        },
+        include: {
+          contact: true,
+        },
+      })
+    }
 
     const bookings = await Promise.all(
       instances.map(instance =>
@@ -3079,10 +3107,11 @@ export const dataServices = {
           assignedTo: jobUpdateData.assignedTo ?? existingJob.assignedTo ?? undefined,
           breaks: bookingUpdateData.breaks ?? (primaryBooking?.breaks as any) ?? undefined,
           recurrence: payload.recurrence,
+          // Reuse the existing Job row (replacing only its bookings) so time
+          // entries, photos, and job-log history survive the conversion.
+          existingJobId: id,
           createdById: (existingJob as any).createdById ?? payload.createdById,
         })
-        await prisma.booking.deleteMany({ where: { jobId: id } })
-        await prisma.job.delete({ where: { id } })
         return recurringResult
       }
 

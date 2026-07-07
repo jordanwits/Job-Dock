@@ -21,7 +21,7 @@ const EditRecurringJobModal = ({
     <AppModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Edit recurring job?"
+      title="Edit recurring appointment?"
       size="md"
       footer={
         <>
@@ -29,19 +29,19 @@ const EditRecurringJobModal = ({
             Cancel
           </AppButton>
           <AppButton variant="subtle" onClick={onEditOne} fullWidth className="sm:w-auto">
-            This job only
+            This appointment only
           </AppButton>
           <AppButton variant="primary" onClick={onEditAll} fullWidth className="sm:w-auto">
-            All future jobs
+            All future appointments
           </AppButton>
         </>
       }
     >
       <div className="space-y-4">
         <p className="text-sm leading-relaxed text-ink-muted">
-          This job is part of a recurring series
-          {occurrenceCount ? ` with ${occurrenceCount} occurrence${occurrenceCount !== 1 ? 's' : ''}` : ''}.
-          Would you like to edit just this job, or all future jobs in the series?
+          This appointment is part of a recurring series
+          {occurrenceCount ? ` with ${occurrenceCount} appointment${occurrenceCount !== 1 ? 's' : ''}` : ''}.
+          Would you like to edit just this appointment, or all future appointments in the series?
         </p>
 
         <div className="rounded-xl border border-line bg-surface-2 p-3">

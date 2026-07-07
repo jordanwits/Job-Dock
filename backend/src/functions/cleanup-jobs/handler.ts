@@ -1,10 +1,14 @@
 /**
  * Job Cleanup Lambda
- * 
+ *
  * This Lambda function runs on a schedule to:
- * 1. Archive jobs older than 1 year to S3
- * 2. Delete archived jobs from the database
- * 
+ * 1. Snapshot jobs whose bookings ended over 1 year ago to S3
+ * 2. Archive those old bookings (and the job itself once no active bookings remain)
+ *
+ * It never deletes rows from the database. Archived jobs stay in the Archive tab
+ * until a user permanently deletes them — a user deleting a single calendar
+ * appointment (which archives that booking) must never cost them the job.
+ *
  * Scheduled to run: Weekly via EventBridge
  */
 
@@ -32,15 +36,14 @@ export const handler = async (
   context: Context
 ): Promise<CleanupResult> => {
   console.log('Job Cleanup Lambda invoked', { event, requestId: context.awsRequestId })
-  
+
   const dryRun = event.dryRun || false
   const now = new Date()
   const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-  
+
   const errors: string[] = []
   let archivedCount = 0
-  let deletedCount = 0
-  
+
   try {
     // 1. Find bookings older than 1 year that need archiving
     const bookingsToArchive = await prisma.booking.findMany({
@@ -48,20 +51,16 @@ export const handler = async (
         endTime: { lt: oneYearAgo },
         archivedAt: null,
       },
-      include: {
-        job: {
-          include: {
-            contact: true,
-            bookings: { include: { service: true } },
-          },
-        },
-      },
+      select: { jobId: true },
     })
-    
-    const jobIdsToArchive = [...new Set(bookingsToArchive.map(b => b.jobId))]
-    console.log(`Found ${jobIdsToArchive.length} jobs to archive`)
-    
-    // 2. Archive each job to S3
+
+    // Independent appointments (null jobId) have no job to archive
+    const jobIdsToArchive = [
+      ...new Set(bookingsToArchive.map(b => b.jobId).filter((id): id is string => id != null)),
+    ]
+    console.log(`Found ${jobIdsToArchive.length} jobs with year-old bookings to archive`)
+
+    // 2. Snapshot each job to S3, then archive only its year-old bookings
     for (const jobId of jobIdsToArchive) {
       try {
         const job = await prisma.job.findFirst({
@@ -72,14 +71,14 @@ export const handler = async (
           },
         })
         if (!job) continue
-        
+
         const archiveKey = `archives/jobs/${job.tenantId}/${job.id}.json`
         const archiveData = {
           ...job,
           archivedDate: now.toISOString(),
           retentionPolicy: '1-year',
         }
-        
+
         if (!dryRun) {
           await s3.send(new PutObjectCommand({
             Bucket: process.env.FILES_BUCKET!,
@@ -92,10 +91,23 @@ export const handler = async (
               archivedDate: now.toISOString(),
             },
           }))
+          // Only the bookings that are actually over a year old — an active
+          // recurring series keeps its current and future appointments.
           await prisma.booking.updateMany({
-            where: { jobId },
+            where: { jobId, endTime: { lt: oneYearAgo }, archivedAt: null },
             data: { archivedAt: now },
           })
+          // Archive the job itself only once it has no active bookings left,
+          // so it moves to the Archive tab instead of lingering unscheduled.
+          const activeBookings = await prisma.booking.count({
+            where: { jobId, archivedAt: null },
+          })
+          if (activeBookings === 0 && !job.archivedAt) {
+            await prisma.job.update({
+              where: { id: jobId },
+              data: { archivedAt: now },
+            })
+          }
           console.log(`Archived job ${job.id} to ${archiveKey}`)
         } else {
           console.log(`[DRY RUN] Would archive job ${job.id} to ${archiveKey}`)
@@ -107,53 +119,24 @@ export const handler = async (
         errors.push(errorMsg)
       }
     }
-    
-    // 3. Find bookings archived long ago, ready for deletion
-    const gracePeriodDays = 30
-    const gracePeriodDate = new Date(now)
-    gracePeriodDate.setDate(gracePeriodDate.getDate() - gracePeriodDays)
-    
-    const oldArchivedBookings = await prisma.booking.findMany({
-      where: {
-        archivedAt: { not: null, lt: gracePeriodDate },
-      },
-      select: { jobId: true },
-    })
-    const jobsToDelete = [...new Set(oldArchivedBookings.map(b => b.jobId))]
-    
-    console.log(`Found ${jobsToDelete.length} archived jobs ready for deletion (older than ${gracePeriodDays} days)`)
-    
-    if (jobsToDelete.length > 0) {
-      if (!dryRun) {
-        const deleteResult = await prisma.job.deleteMany({
-          where: { id: { in: jobsToDelete } },
-        })
-        
-        deletedCount = deleteResult.count
-        console.log(`Deleted ${deletedCount} archived jobs from database`)
-      } else {
-        deletedCount = jobsToDelete.length
-        console.log(`[DRY RUN] Would delete ${deletedCount} archived jobs from database`)
-      }
-    }
-    
+
     return {
       success: true,
       archived: archivedCount,
-      deleted: deletedCount,
+      deleted: 0,
       errors,
       timestamp: now.toISOString(),
       dryRun,
     }
-    
+
   } catch (error: any) {
     console.error('Job cleanup failed:', error)
     errors.push(`Fatal error: ${error.message}`)
-    
+
     return {
       success: false,
       archived: archivedCount,
-      deleted: deletedCount,
+      deleted: 0,
       errors,
       timestamp: now.toISOString(),
       dryRun,

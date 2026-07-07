@@ -21,7 +21,7 @@ const DeleteRecurringJobModal = ({
     <AppModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Delete recurring job?"
+      title="Delete recurring appointment?"
       size="md"
       footer={
         <>
@@ -29,19 +29,20 @@ const DeleteRecurringJobModal = ({
             Cancel
           </AppButton>
           <AppButton variant="dangerGhost" onClick={onDeleteOne} fullWidth className="sm:w-auto">
-            This job only
+            This appointment only
           </AppButton>
           <AppButton variant="danger" onClick={onDeleteAll} fullWidth className="sm:w-auto">
-            Delete all
+            Delete series
           </AppButton>
         </>
       }
     >
       <div className="space-y-4">
         <p className="text-sm leading-relaxed text-ink-muted">
-          This job is part of a recurring series
-          {occurrenceCount ? ` with ${occurrenceCount} occurrence${occurrenceCount !== 1 ? 's' : ''}` : ''}.
-          Would you like to delete just this job, or all jobs in the series?
+          This appointment is part of a recurring series
+          {occurrenceCount ? ` with ${occurrenceCount} appointment${occurrenceCount !== 1 ? 's' : ''}` : ''}.
+          Deleting only this appointment keeps the job and the rest of the series on the calendar.
+          Deleting the series removes every appointment and archives the job on your Jobs page.
         </p>
 
         <div className="rounded-xl border border-line bg-surface-2 p-3">

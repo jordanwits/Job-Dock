@@ -1879,13 +1879,7 @@ const SchedulingPage = () => {
         <AppModal
           isOpen={showDeleteConfirm}
           onClose={() => setShowDeleteConfirm(false)}
-          title={
-            selectedJob?.bookingId
-              ? selectedJob?.toBeScheduled || !selectedJob?.startTime
-                ? 'Delete Booking?'
-                : 'Archive Job?'
-              : 'Delete Job?'
-          }
+          title={selectedJob?.bookingId ? 'Delete appointment?' : 'Archive job?'}
           size="sm"
           footer={
             <>
@@ -1904,51 +1898,35 @@ const SchedulingPage = () => {
                   }
                 }}
               >
-                {selectedJob?.bookingId
-                  ? selectedJob?.toBeScheduled || !selectedJob?.startTime
-                    ? 'Delete Booking'
-                    : 'Archive'
-                  : 'Delete Job'}
+                {selectedJob?.bookingId ? 'Delete appointment' : 'Archive job'}
               </AppButton>
             </>
           }
         >
           <div className="space-y-3">
             {selectedJob?.bookingId ? (
-              selectedJob?.toBeScheduled || !selectedJob?.startTime ? (
-                <>
-                  <p className="text-ink">Are you sure you want to delete this booking?</p>
-                  <div className="rounded-lg bg-info-soft p-3">
-                    <p className="text-sm mb-2 text-ink-muted">
-                      <strong className="text-ink">Important:</strong> This will only delete the
-                      booking, not the job itself.
-                    </p>
-                    <p className="text-sm text-ink-muted">
-                      The job "{selectedJob?.title}" will remain in your jobs list and can be
-                      scheduled again later.
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-ink">Are you sure you want to archive this job?</p>
-                  <div className="rounded-lg bg-info-soft p-3">
-                    <p className="text-sm text-ink-muted">
-                      <strong className="text-ink">Job:</strong> {selectedJob?.title}
-                    </p>
-                    <p className="text-sm mt-1 text-ink-muted">
-                      Archived jobs can be restored later from the Archived tab.
-                    </p>
-                  </div>
-                </>
-              )
+              <>
+                <p className="text-ink">
+                  Are you sure you want to delete this appointment from the calendar?
+                </p>
+                <div className="rounded-lg bg-info-soft p-3">
+                  <p className="text-sm mb-2 text-ink-muted">
+                    <strong className="text-ink">Important:</strong> This only removes the
+                    appointment, not the job itself.
+                  </p>
+                  <p className="text-sm text-ink-muted">
+                    The job "{selectedJob?.title}" will remain on your Jobs page and can be
+                    scheduled again later.
+                  </p>
+                </div>
+              </>
             ) : (
               <>
-                <p className="text-ink">This job has no booking. Delete the job?</p>
+                <p className="text-ink">This job has no appointments. Archive the job?</p>
                 <div className="rounded-lg bg-info-soft p-3">
                   <p className="text-sm text-ink-muted">
-                    This will permanently remove "{selectedJob?.title}" from your Jobs list and
-                    Scheduling.
+                    "{selectedJob?.title}" will move to the Archive tab on the Jobs page, where it
+                    can be restored later.
                   </p>
                 </div>
               </>
@@ -1962,7 +1940,7 @@ const SchedulingPage = () => {
         <AppModal
           isOpen={showPermanentDeleteConfirm}
           onClose={() => setShowPermanentDeleteConfirm(false)}
-          title="Permanently Delete Job?"
+          title="Permanently delete appointment?"
           size="sm"
           footer={
             <>
@@ -1978,20 +1956,20 @@ const SchedulingPage = () => {
           <div className="space-y-3">
             <p className="text-ink">
               Are you sure you want to <strong className="text-danger">PERMANENTLY</strong> delete
-              this job?
+              this appointment?
             </p>
             <div className="rounded-lg bg-danger-soft p-3">
               <p className="text-sm font-semibold mb-1 text-danger">
                 This action cannot be undone!
               </p>
               <p className="text-sm text-ink-muted">
-                The job will be removed from the database
-                {selectedJob.archivedAt ? ' and S3 archive' : ''}.
+                The appointment will be removed from the calendar and database.
               </p>
             </div>
             <div className="rounded-lg bg-info-soft p-3">
               <p className="text-sm text-ink-muted">
-                <strong className="text-ink">Job:</strong> {selectedJob.title}
+                The job "{selectedJob.title}" itself stays on your Jobs page. To delete the job,
+                use the Jobs page.
               </p>
             </div>
           </div>

@@ -308,6 +308,7 @@ const JobLogsListPage = () => {
           jobTitle={schedulingDetailJob.title}
           occurrenceCount={schedulingDetailJob.occurrenceCount}
           isArchived={!!schedulingDetailJob.archivedAt}
+          context="jobs"
         />
       )}
     </div>
