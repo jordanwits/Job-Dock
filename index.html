@@ -62,7 +62,36 @@
     <title>Cleaning Business Software — Quote, Schedule & Get Paid | JobDock</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        Static fallback describing the app for clients that don't run JavaScript
+        (crawlers, link previewers, and OAuth homepage verification). React replaces
+        this the moment it mounts, so JS-enabled users only see it for an instant.
+      -->
+      <div
+        style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: #ffffff; color: #0f172a; font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;"
+      >
+        <main style="max-width: 640px; text-align: center;">
+          <h1 style="font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 12px;">
+            JobDock
+          </h1>
+          <p style="font-size: 18px; font-weight: 600; color: #0d9488; margin: 0 0 16px;">
+            Cleaning business software — quote, schedule, and get paid in one app.
+          </p>
+          <p style="font-size: 16px; line-height: 1.6; color: #475569; margin: 0 0 16px;">
+            JobDock is scheduling and invoicing software for residential and commercial
+            cleaning businesses. Owners and their crews create quotes, schedule and manage
+            recurring jobs, take online bookings, track time and before/after job photos,
+            send invoices, collect payments by card or ACH, and optionally sync their
+            appointments to Google Calendar — all from one web and mobile app.
+          </p>
+          <p style="font-size: 14px; color: #94a3b8; margin: 0;">
+            Loading the app… If it doesn't load, visit
+            <a href="https://thejobdock.com" style="color: #0d9488;">thejobdock.com</a>.
+          </p>
+        </main>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
