@@ -26,6 +26,7 @@ import {
 import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/onboarding'
 import { BillingSuccessPage, BillingCancelledPage } from '@/features/billing/billingPages'
 import { QuickBooksCallbackPage } from '@/features/quickbooks'
+import { GoogleCalendarCallbackPage } from '@/features/googleCalendar'
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -118,6 +119,16 @@ function App() {
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <QuickBooksCallbackPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Google Calendar OAuth callback (authenticated; exchanges the Google code) */}
+        <Route
+          path="/google-calendar/callback"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <GoogleCalendarCallbackPage />
             </ProtectedRoute>
           }
         />

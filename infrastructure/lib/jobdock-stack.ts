@@ -572,6 +572,12 @@ export class JobDockStack extends cdk.Stack {
         QUICKBOOKS_REDIRECT_URI: process.env.QUICKBOOKS_REDIRECT_URI || '',
         QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN: process.env.QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN || '',
         QUICKBOOKS_TOKEN_ENC_KEY: process.env.QUICKBOOKS_TOKEN_ENC_KEY || '',
+        // Google Calendar two-way sync (OAuth). GOOGLE_SYNC_FUNCTION_NAME is wired below, after the
+        // sync Lambda is defined, to avoid a construct-ordering issue.
+        GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+        GOOGLE_TOKEN_ENC_KEY: process.env.GOOGLE_TOKEN_ENC_KEY || '',
+        GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || '',
         JOBDOCK_PLATFORM_ADMIN_EMAILS: process.env.JOBDOCK_PLATFORM_ADMIN_EMAILS || '',
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
         JOBDOCK_SUPPORT_ENGINEER_EMAIL: process.env.JOBDOCK_SUPPORT_ENGINEER_EMAIL || '',
@@ -801,6 +807,87 @@ export class JobDockStack extends cdk.Stack {
       description: 'Triggers daily QuickBooks payment reconciliation poll',
     })
     quickbooksReconcileRule.addTarget(new targets.LambdaFunction(quickbooksReconcileLambda))
+
+    // Google Calendar sync Lambda - reconcile engine for two-way sync. Invoked async by the data
+    // Lambda after mutating requests (instant push) and on a 5-minute EventBridge schedule (pulls
+    // Google-side changes and covers anything the instant path missed).
+    const googleCalendarSyncLogGroup = new logs.LogGroup(this, 'GoogleCalendarSyncLogGroup', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: config.env !== 'prod' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN,
+    })
+    // Dedicated role (not the shared lambdaRole): this function is granted invoke access from
+    // dataLambda below. If it used the same role as dataLambda, that role's policy would need to
+    // reference this function while this function also depends on that same role — a circular
+    // CloudFormation dependency. DB access is granted explicitly to this role after creation.
+    const googleCalendarSyncRole = new iam.Role(this, 'GoogleCalendarSyncExecutionRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
+      ],
+    })
+    const googleCalendarSyncLambda = new lambdaNodejs.NodejsFunction(
+      this,
+      'GoogleCalendarSyncLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_22_X,
+        entry: path.resolve(
+          backendDir,
+          'src',
+          'functions',
+          'google-calendar-sync',
+          'handler.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
+        bundling: commonBundlingOptions,
+        ...(config.env !== 'prod' && {
+          vpc: this.vpc,
+          vpcSubnets: privateSubnetSelection,
+          securityGroups: [lambdaSecurityGroup],
+        }),
+        role: googleCalendarSyncRole,
+        timeout: cdk.Duration.seconds(300),
+        memorySize: 512,
+        environment: {
+          DATABASE_SECRET_ARN: this.database.secret?.secretArn ?? '',
+          DATABASE_ENDPOINT: databaseHost,
+          DATABASE_NAME: 'jobdock',
+          DATABASE_HOST: databaseHost,
+          DATABASE_USER: databaseUserSecret.toString(),
+          DATABASE_PASSWORD: databasePasswordSecret.toString(),
+          DATABASE_PORT: '5432',
+          DATABASE_OPTIONS: 'schema=public',
+          ENVIRONMENT: config.env,
+          PUBLIC_APP_URL: config.vercelDomain
+            ? `https://${config.vercelDomain}`
+            : config.domain
+              ? `https://${config.domain}`
+              : 'http://localhost:3000',
+          GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+          GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+          GOOGLE_TOKEN_ENC_KEY: process.env.GOOGLE_TOKEN_ENC_KEY || '',
+          GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || '',
+        },
+        logGroup: googleCalendarSyncLogGroup,
+        description: 'Two-way Google Calendar sync engine (instant push + 5-minute pull sweep)',
+      }
+    )
+
+    this.database.secret?.grantRead(googleCalendarSyncLambda)
+    this.database.grantConnect(googleCalendarSyncLambda, 'jobdock')
+
+    // Run the pull/reconcile sweep every 5 minutes.
+    const googleCalendarSyncRule = new events.Rule(this, 'GoogleCalendarSyncSchedule', {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      description: 'Triggers the Google Calendar sync sweep every 5 minutes',
+    })
+    googleCalendarSyncRule.addTarget(new targets.LambdaFunction(googleCalendarSyncLambda))
+
+    // Wire the data Lambda -> sync Lambda: pass the function name for the instant-push trigger and
+    // grant invoke. (Done here, after both are defined, so the sync Lambda never references the data
+    // Lambda — that would create a circular dependency.)
+    dataLambda.addEnvironment('GOOGLE_SYNC_FUNCTION_NAME', googleCalendarSyncLambda.functionName)
+    googleCalendarSyncLambda.grantInvoke(dataLambda)
 
     const authResource = this.api.root.addResource('auth')
     authResource.addResource('register').addMethod('POST', authIntegration)

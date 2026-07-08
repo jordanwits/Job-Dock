@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse, corsResponse, extractContext, binaryResponse, setRequestOrigin } from '../../lib/middleware'
 import { dataServices } from '../../lib/dataService'
 import * as quickbooks from '../../lib/quickbooks'
+import * as googleCalendar from '../../lib/googleCalendar'
 import { extractTenantId } from '../../lib/middleware'
 import { ensureTenantExists, getDefaultTenantId } from '../../lib/tenant'
 import { ApiError } from '../../lib/errors'
@@ -60,6 +61,25 @@ function stripPricingFieldsForCreate(payload: any): void {
       return a
     })
   }
+}
+
+// Resources whose successful mutations should fan out to the Google Calendar sync engine.
+const GOOGLE_SYNC_RESOURCES = new Set(['jobs', 'bookings', 'contacts'])
+
+/**
+ * Whether a successful mutating dispatch (POST/PUT/PATCH/DELETE) should trigger a Google Calendar
+ * sync. Covers direct jobs/bookings/contacts writes plus the public booking-creation path
+ * (POST /services/:id/book). The public reschedule path is resource 'jobs', already covered.
+ * GETs and the google-calendar resource itself are never triggered.
+ */
+function shouldTriggerGoogleSync(
+  resource: string | undefined,
+  action: string | undefined
+): boolean {
+  if (!resource) return false
+  if (GOOGLE_SYNC_RESOURCES.has(resource)) return true
+  if (resource === 'services' && action === 'book') return true
+  return false
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -489,6 +509,67 @@ We look forward to working with you!',
       }
 
       return errorResponse('QuickBooks route not found', 404)
+    }
+
+    // Handle Google Calendar integration endpoints. Authed (JWT); per-user — every role manages
+    // ONLY their own connection (NOT owner-gated). syncMode is clamped for employees inside the
+    // service. Segments: /google-calendar/<action>.
+    if (resource === 'google-calendar') {
+      const { default: prisma } = await import('../../lib/db')
+      const context = await extractContext(event)
+      const tenantId = context.tenantId
+      const userId = context.userId
+      const gcalAction = id // second path segment is the action, mirroring the QuickBooks branch
+
+      const gcalUser = await prisma.user.findUnique({
+        where: { cognitoId: userId },
+        select: { id: true, role: true },
+      })
+      if (!gcalUser) {
+        return errorResponse('User not found', 404)
+      }
+      const requestUser = { id: gcalUser.id, role: gcalUser.role }
+
+      if (gcalAction === 'status' && event.httpMethod === 'GET') {
+        return successResponse(await googleCalendar.getStatus(requestUser))
+      }
+
+      if (gcalAction === 'connect-url' && event.httpMethod === 'GET') {
+        const syncMode = event.queryStringParameters?.syncMode
+        return successResponse(googleCalendar.getConnectUrl(tenantId, requestUser, syncMode))
+      }
+
+      if (gcalAction === 'connect' && event.httpMethod === 'POST') {
+        const body = parseBody(event)
+        return successResponse(
+          await googleCalendar.connect(tenantId, requestUser, {
+            code: body?.code,
+            state: body?.state,
+          })
+        )
+      }
+
+      if (gcalAction === 'disconnect' && event.httpMethod === 'POST') {
+        const body = parseOptionalJsonBody(event)
+        return successResponse(
+          await googleCalendar.disconnect(requestUser, {
+            removeCalendar: body?.removeCalendar as boolean | undefined,
+          })
+        )
+      }
+
+      if (gcalAction === 'settings' && event.httpMethod === 'POST') {
+        const body = parseBody(event)
+        return successResponse(
+          await googleCalendar.updateSettings(tenantId, requestUser, { syncMode: body?.syncMode })
+        )
+      }
+
+      if (gcalAction === 'sync' && event.httpMethod === 'POST') {
+        return successResponse(await googleCalendar.syncNow(tenantId, requestUser))
+      }
+
+      return errorResponse('Google Calendar route not found', 404)
     }
 
     // Handle users/team endpoints (owner or admin, team tier for invite)
@@ -1190,10 +1271,21 @@ We look forward to working with you!',
     switch (event.httpMethod) {
       case 'GET':
         return successResponse(await handleGet(resource as ResourceKey, service, tenantId, id, action, event))
-      case 'POST':
-        return successResponse(await handlePost(resource as ResourceKey, service, tenantId, id, action, event))
+      case 'POST': {
+        const result = await handlePost(resource as ResourceKey, service, tenantId, id, action, event)
+        if (shouldTriggerGoogleSync(resource, action)) {
+          // The public booking path resolves its own tenant from the service; the created record
+          // carries it. Every other triggered POST uses the resolved request tenant.
+          const syncTenantId =
+            resource === 'services' && action === 'book'
+              ? (result as { tenantId?: string } | null | undefined)?.tenantId
+              : tenantId
+          if (syncTenantId) await googleCalendar.triggerGoogleCalendarSync(syncTenantId)
+        }
+        return successResponse(result)
+      }
       case 'PUT':
-      case 'PATCH':
+      case 'PATCH': {
         // Settings resource doesn't require an ID
         if (resource === 'settings') {
           return successResponse(await handlePut(service, tenantId, id, event))
@@ -1201,60 +1293,65 @@ We look forward to working with you!',
         if (!id) {
           return errorResponse('Resource ID required', 400)
         }
-        return successResponse(await handlePut(service, tenantId, id, event))
-      case 'DELETE':
+        const result = await handlePut(service, tenantId, id, event)
+        if (shouldTriggerGoogleSync(resource, action)) {
+          await googleCalendar.triggerGoogleCalendarSync(tenantId)
+        }
+        return successResponse(result)
+      }
+      case 'DELETE': {
         if (!id) {
           return errorResponse('Resource ID required', 400)
         }
-        if ('delete' in service) {
-          // For jobs, check if deleteAll query parameter is present
-          const deleteAll = event.queryStringParameters?.deleteAll === 'true'
-          // Check if permanent delete is requested
-          const permanent = event.queryStringParameters?.permanent === 'true'
+        if (!('delete' in service)) {
+          return errorResponse('Delete method not supported', 405)
+        }
+        // For jobs, check if deleteAll query parameter is present
+        const deleteAll = event.queryStringParameters?.deleteAll === 'true'
+        // Check if permanent delete is requested
+        const permanent = event.queryStringParameters?.permanent === 'true'
 
-          if (resource === 'jobs' && permanent && 'permanentDelete' in service) {
-            return successResponse(
-              await (service as typeof dataServices.jobs).permanentDelete(tenantId, id, deleteAll)
-            )
-          }
-
-          // For bookings, handle permanent delete
-          if (resource === 'bookings' && permanent && 'permanentDelete' in service) {
-            return successResponse(
-              await (service as typeof dataServices.bookings).permanentDelete(tenantId, id)
-            )
-          }
-
-          // For time-entries delete: pass user context for permission checks
-          if (resource === 'time-entries') {
-            try {
-              const context = await extractContext(event)
-              const { default: prisma } = await import('../../lib/db')
-              const user = await prisma.user.findFirst({
-                where: { cognitoId: context.userId },
-                select: { id: true, role: true },
-              })
-              if (user) {
-                return successResponse(
-                  await (service as typeof dataServices['time-entries']).delete(
-                    tenantId,
-                    id,
-                    user.id,
-                    user.role
-                  )
+        // For time-entries delete: pass user context for permission checks. time-entries is not a
+        // Google-sync resource, so it returns directly without triggering a sync.
+        if (resource === 'time-entries') {
+          try {
+            const context = await extractContext(event)
+            const { default: prisma } = await import('../../lib/db')
+            const user = await prisma.user.findFirst({
+              where: { cognitoId: context.userId },
+              select: { id: true, role: true },
+            })
+            if (user) {
+              return successResponse(
+                await (service as typeof dataServices['time-entries']).delete(
+                  tenantId,
+                  id,
+                  user.id,
+                  user.role
                 )
-              }
-            } catch {
-              /* ignore */
+              )
             }
+          } catch {
+            /* ignore */
           }
+        }
 
+        let result: unknown
+        if (resource === 'jobs' && permanent && 'permanentDelete' in service) {
+          result = await (service as typeof dataServices.jobs).permanentDelete(tenantId, id, deleteAll)
+        } else if (resource === 'bookings' && permanent && 'permanentDelete' in service) {
+          result = await (service as typeof dataServices.bookings).permanentDelete(tenantId, id)
+        } else {
           // Default: soft delete (or regular delete for other resources)
           // For bookings, deleteAll is not used
           const deleteAllParam = resource === 'bookings' ? undefined : deleteAll
-          return successResponse(await service.delete(tenantId, id, deleteAllParam))
+          result = await service.delete(tenantId, id, deleteAllParam)
         }
-        return errorResponse('Delete method not supported', 405)
+        if (shouldTriggerGoogleSync(resource, action)) {
+          await googleCalendar.triggerGoogleCalendarSync(tenantId)
+        }
+        return successResponse(result)
+      }
       default:
         return errorResponse('Method not allowed', 405)
     }

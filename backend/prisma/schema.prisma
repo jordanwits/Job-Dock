@@ -38,6 +38,7 @@ model Tenant {
   jobRoles                 JobRole[]
   helpChatSessions         HelpChatSession[]
   quickbooksConnection     QuickBooksConnection?
+  googleCalendarConnections GoogleCalendarConnection[]
 
   @@index([subdomain])
   @@index([stripeCustomerId])
@@ -74,6 +75,7 @@ model User {
   timeEntries           TimeEntry[]
   helpChatSessions      HelpChatSession[]
   helpChatDailyUsage    HelpChatDailyUsage[]
+  googleCalendarConnection GoogleCalendarConnection?
 
   @@index([tenantId])
   @@index([cognitoId])
@@ -368,6 +370,7 @@ model Booking {
   recurrence     JobRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdBy      User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  googleCalendarEventMaps GoogleCalendarEventMap[]
 
   @@index([tenantId])
   @@index([jobId])
@@ -525,6 +528,53 @@ model QuickBooksWebhookEvent {
 
   @@index([realmId])
   @@map("quickbooks_webhook_events")
+}
+
+/// Per-user Google Calendar OAuth connection. Events sync to a dedicated "JobDock" calendar
+/// created in the user's Google account. Tokens stored encrypted (AES-256-GCM, same format as QB).
+model GoogleCalendarConnection {
+  id                   String    @id @default(uuid())
+  tenantId             String
+  userId               String    @unique // one connection per user (User.id, not cognitoId)
+  googleEmail          String
+  accessToken          String    // encrypted ciphertext
+  refreshToken         String    // encrypted ciphertext
+  accessTokenExpiresAt DateTime
+  scope                String?
+  calendarId           String?   // dedicated "JobDock" calendar id in the user's account
+  syncMode             String    @default("all") // 'all' | 'mine'
+  syncToken            String?   // Google incremental sync token for events.list
+  syncInProgressAt     DateTime? // atomic claim for the concurrency guard; stale after 5 min
+  status               String    @default("connected") // 'connected' | 'error' | 'disconnected'
+  lastSyncAt           DateTime?
+  lastErrorMessage     String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventMaps            GoogleCalendarEventMap[]
+
+  @@index([tenantId])
+  @@map("google_calendar_connections")
+}
+
+/// Maps one JobDock booking to one Google event per connection. Fingerprint enables echo
+/// suppression across the shared push/pull code path.
+model GoogleCalendarEventMap {
+  id            String   @id @default(uuid())
+  connectionId  String
+  bookingId     String?  // SetNull on booking hard-delete so the sweep can delete the orphan Google event
+  googleEventId String
+  fingerprint   String   // sha256 of the pushed event payload fields
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  connection    GoogleCalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  booking       Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@unique([connectionId, bookingId])
+  @@unique([connectionId, googleEventId])
+  @@index([bookingId])
+  @@map("google_calendar_event_maps")
 }
 
 model JobRole {

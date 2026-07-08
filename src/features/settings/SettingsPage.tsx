@@ -8,6 +8,7 @@ import { EmailTemplatesSection } from './EmailTemplatesSection'
 import { PdfTemplatesSection } from './PdfTemplatesSection'
 import { BillingSection } from './BillingSection'
 import { QuickBooksSection } from './QuickBooksSection'
+import { GoogleCalendarSection } from './GoogleCalendarSection'
 import { TeamMembersSection } from './TeamMembersSection'
 import { HelpSection } from './HelpSection'
 import { FeedbackSection } from './FeedbackSection'
@@ -18,6 +19,7 @@ import { Alert, AlertIcon, ChevronLeftIcon, ChevronRightIcon } from './settingsU
 type TabId =
   | 'billing'
   | 'quickbooks'
+  | 'google-calendar'
   | 'team'
   | 'company'
   | 'email'
@@ -46,6 +48,8 @@ export const SettingsPage = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId | null>(null)
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list')
+  // Error carried back from the Google Calendar OAuth callback (?tab=google-calendar&error=…).
+  const [googleConnectError, setGoogleConnectError] = useState<string | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -71,6 +75,11 @@ export const SettingsPage = () => {
     const connected = searchParams.get('connected')
     if (subscribed === '1' || upgraded === '1' || canceled === '1') {
       setActiveTab('billing')
+      setSearchParams({}, { replace: true })
+    } else if (tab === 'google-calendar') {
+      // OAuth return: land on the tab and capture any error to show inside the section.
+      setActiveTab('google-calendar')
+      setGoogleConnectError(searchParams.get('error'))
       setSearchParams({}, { replace: true })
     } else if (tab === 'quickbooks' || connected === '1') {
       setActiveTab('quickbooks')
@@ -187,6 +196,12 @@ export const SettingsPage = () => {
         roles: ['owner'],
       },
       {
+        // No roles restriction: every user manages their own Google Calendar connection.
+        id: 'google-calendar',
+        label: 'Google Calendar',
+        component: <GoogleCalendarSection connectError={googleConnectError} />,
+      },
+      {
         id: 'email',
         label: 'Email Templates',
         component: (
@@ -228,6 +243,7 @@ export const SettingsPage = () => {
     [
       formData,
       settings,
+      googleConnectError,
       handleFieldChange,
       handleSave,
       handleLogoUpload,
