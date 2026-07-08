@@ -618,10 +618,10 @@ export const mockInvoicesService = {
   },
 }
 
-// First day (UTC) of a month derived from `base`; `addMonth` advances one month.
-// Mirrors the backend `computeNextDueMonthISO` so staged-monthly chips match live behavior.
-const mockNextDueMonthISO = (base: Date, addMonth: boolean): string =>
-  new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + (addMonth ? 1 : 0), 1)).toISOString()
+// 'YYYY-MM' for the given date — marks a staged series' start month so the frontend can
+// gate which viewed months show a virtual chip. Mirrors the backend `seriesStartMonth`.
+const mockYearMonth = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
 // Mock Jobs Service
 export const mockJobsService = {
@@ -670,12 +670,18 @@ export const mockJobsService = {
     const service = data.serviceId ? mockStorage.services.find(s => s.id === data.serviceId) : null
 
     const toBeScheduled = data.toBeScheduled === true
-    // Staged monthly = to-be-scheduled + a monthly recurrence. Persist it as a rolling
-    // placeholder: null times, a generated recurrenceId, and a nextDueDate for the chip label.
+    // Staged monthly = to-be-scheduled + a monthly recurrence. Persist ONE anchor entry that
+    // marks the series (isStagedSeries + seriesStartMonth); the frontend expands it into one
+    // virtual chip per viewed month. No rolling placeholder.
     const isStagedMonthly = toBeScheduled && data.recurrence?.frequency === 'monthly'
     const jobId = String(Date.now())
     const stagedFields = isStagedMonthly
-      ? { recurrenceId: `rec-${jobId}`, nextDueDate: mockNextDueMonthISO(new Date(), false) }
+      ? {
+          recurrenceId: `rec-${jobId}`,
+          isStagedSeries: true,
+          seriesStartMonth: mockYearMonth(new Date()),
+          jobId,
+        }
       : {}
 
     const newJob = {
@@ -710,60 +716,64 @@ export const mockJobsService = {
     if (index === -1) throw new Error('Job not found')
 
     const prev = mockStorage.jobs[index] as Record<string, unknown>
-    // `recurrence` / `removeRecurrence` are control signals, not persisted job fields.
-    const { recurrence, removeRecurrence, ...persistable } = data
+
+    // Stop a staged monthly series: remove the anchor entry so it stops producing chips.
+    // Already-scheduled occurrences (separate entries sharing the recurrenceId) remain.
+    if (data.removeRecurrence === true) {
+      mockStorage.jobs.splice(index, 1)
+      saveMockStorage()
+      return { ...prev, recurrenceId: undefined, isStagedSeries: false }
+    }
+
+    // Schedule ONE occurrence of a staged series: push a NEW scheduled entry sharing the
+    // series' recurrenceId + jobId (and the anchor's service). The anchor is untouched
+    // (no rolling). serviceName carries over from `...prev` since the chip uses the series'
+    // service.
+    if (data.scheduleStagedOccurrence === true) {
+      const occurrence: Record<string, unknown> = {
+        ...prev,
+        id: String(Date.now()),
+        jobId: (prev.jobId as string) ?? id,
+        recurrenceId: data.recurrenceId ?? prev.recurrenceId,
+        serviceId: data.serviceId ?? prev.serviceId,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        toBeScheduled: false,
+        isStagedSeries: false,
+        seriesStartMonth: undefined,
+        status: 'scheduled',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      mockStorage.jobs.push(occurrence)
+      saveMockStorage()
+      return occurrence
+    }
+
+    // Strip control signals so they aren't persisted as job fields.
+    const persistable = { ...data }
+    delete persistable.recurrence
+    delete persistable.removeRecurrence
+    delete persistable.scheduleStagedOccurrence
     const updatedJob = {
       ...prev,
       ...persistable,
       updatedAt: new Date().toISOString(),
     }
 
-    // Staged monthly: turn OFF -> drop the recurrence so rolling stops (job stays unscheduled).
-    if (removeRecurrence === true) {
-      updatedJob.recurrenceId = undefined
-      updatedJob.nextDueDate = undefined
-    }
-    // Staged monthly: turn ON (upgrade an existing unscheduled job).
+    // Staged monthly: turn ON (upgrade an existing unscheduled job into a series).
     if (
       data.toBeScheduled === true &&
-      recurrence?.frequency === 'monthly' &&
+      data.recurrence?.frequency === 'monthly' &&
       !prev.recurrenceId
     ) {
       updatedJob.toBeScheduled = true
       updatedJob.startTime = null
       updatedJob.endTime = null
       updatedJob.recurrenceId = `rec-${id}`
-      updatedJob.nextDueDate = mockNextDueMonthISO(new Date(), false)
-    }
-
-    // Staged monthly ROLL: scheduling this placeholder (times set, toBeScheduled cleared)
-    // spawns next month's placeholder, but only if none exists yet (idempotence).
-    const isScheduling =
-      persistable.startTime != null &&
-      persistable.endTime != null &&
-      persistable.toBeScheduled !== true
-    const wasStagedPlaceholder = prev.toBeScheduled === true && !!prev.recurrenceId
-    if (isScheduling && wasStagedPlaceholder) {
-      updatedJob.toBeScheduled = false
-      updatedJob.nextDueDate = undefined
-      const hasPending = mockStorage.jobs.some((j, i) => {
-        const other = j as Record<string, unknown>
-        return i !== index && other.recurrenceId === prev.recurrenceId && other.toBeScheduled === true
-      })
-      if (!hasPending) {
-        const scheduledStart = new Date(persistable.startTime)
-        mockStorage.jobs.push({
-          ...prev,
-          id: String(Date.now()),
-          startTime: null,
-          endTime: null,
-          toBeScheduled: true,
-          status: 'active',
-          nextDueDate: mockNextDueMonthISO(scheduledStart, true),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        })
-      }
+      updatedJob.isStagedSeries = true
+      updatedJob.seriesStartMonth = mockYearMonth(new Date())
+      updatedJob.jobId = id
     }
 
     // Update contact/service info if changed

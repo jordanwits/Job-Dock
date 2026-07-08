@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { useJobStore } from '../store/jobStore'
 import type { Job, JobAssignment } from '../types/job'
 import { cn, getMapsHref } from '@/lib/utils'
@@ -92,6 +92,8 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
 
   const isArchived = !!job.archivedAt
   const isUnscheduled = job.toBeScheduled || !job.startTime || !job.endTime
+  // Staged monthly series (virtual per-month chip, or legacy staged placeholder).
+  const isStagedSeries = !!job.isStagedSeries || !!(job.toBeScheduled && job.recurrenceId)
   const isIndependent = !!(job as { isIndependent?: boolean }).isIndependent
 
   // Detect if this is a multi-day job
@@ -273,10 +275,14 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               <h3 className={sectionHeaderCls}>Schedule</h3>
               <p className="mt-1.5 flex items-center gap-2 text-base text-warning">
                 <ClockIcon className="h-5 w-5" />
-                {job.recurrenceId ? 'Monthly — to be scheduled' : 'To be scheduled'}
+                {isStagedSeries
+                  ? job.stagedTargetMonth
+                    ? `Monthly — schedule ${format(parseISO(`${job.stagedTargetMonth}-01`), 'MMMM yyyy')}`
+                    : 'Monthly — to be scheduled'
+                  : 'To be scheduled'}
               </p>
               <p className="mt-1 text-sm text-ink-subtle">
-                {job.recurrenceId
+                {isStagedSeries
                   ? 'Pins to the top of the calendar each month until you schedule it.'
                   : 'Drag to calendar to schedule'}
               </p>

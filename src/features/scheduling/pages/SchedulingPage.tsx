@@ -27,20 +27,26 @@ import {
   Tabs,
 } from '../components/schedulingUi'
 import NotifyClientModal from '../components/NotifyClientModal'
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addWeeks,
+  isSameMonth,
+  parseISO,
+} from 'date-fns'
 import { services } from '@/lib/api/services'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
-import type { Job } from '../types/job'
+import type { Job, UpdateJobData } from '../types/job'
 
-// Label for a staged-monthly placeholder chip: "Monthly · Aug" (month formatted in UTC to
-// avoid timezone drift), falling back to just "Monthly" when nextDueDate is absent.
+// Label for a staged-monthly virtual chip: "Monthly · Aug" where the month is the calendar
+// month the chip is currently showing for (carried on the chip as `stagedTargetMonth`).
 const stagedMonthlyLabel = (job: Job): string | null => {
-  if (!(job.toBeScheduled && job.recurrenceId)) return null
-  if (!job.nextDueDate) return 'Monthly'
-  const month = new Date(job.nextDueDate).toLocaleString('en-US', {
-    month: 'short',
-    timeZone: 'UTC',
-  })
+  if (!job.isStagedSeries) return null
+  if (!job.stagedTargetMonth) return 'Monthly'
+  const month = format(parseISO(`${job.stagedTargetMonth}-01`), 'MMM')
   return `Monthly · ${month}`
 }
 
@@ -188,6 +194,7 @@ const SchedulingPage = () => {
   const [serviceConfirmationMessage, setServiceConfirmationMessage] = useState('')
   const [showArchivedJobs, setShowArchivedJobs] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showStopSeriesConfirm, setShowStopSeriesConfirm] = useState(false)
   const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState(false)
   const [showPermanentDeleteRecurringModal, setShowPermanentDeleteRecurringModal] = useState(false)
   const [deletedJobId, setDeletedJobId] = useState<string | null>(null)
@@ -349,9 +356,58 @@ const SchedulingPage = () => {
     return activeJobs.filter(job => !job.toBeScheduled && job.startTime && job.endTime)
   }, [activeJobs])
 
+  // Staged-monthly SERIES descriptors (the anchor rows tagged by jobs.getAll). These are NOT
+  // displayed directly; they're expanded into one virtual chip per viewed month below.
+  const stagedSeriesDescriptors = useMemo(
+    () => activeJobs.filter(job => job.isStagedSeries),
+    [activeJobs]
+  )
+
+  // Virtual per-month chips: for the currently viewed month M, a series shows a chip iff
+  // M >= its start month AND that month has no scheduled (non-placeholder) occurrence yet.
+  const stagedVirtualChips = useMemo<Job[]>(() => {
+    const monthStart = startOfMonth(currentDate)
+    const ym = format(monthStart, 'yyyy-MM')
+    return stagedSeriesDescriptors
+      .filter(desc => {
+        if (!desc.recurrenceId) return false
+        const seriesStart = desc.seriesStartMonth
+          ? startOfMonth(parseISO(`${desc.seriesStartMonth}-01`))
+          : startOfMonth(new Date(desc.createdAt))
+        if (monthStart.getTime() < seriesStart.getTime()) return false
+        // Any real (scheduled) occurrence of this series in month M hides the chip.
+        const hasScheduledThisMonth = activeJobs.some(
+          j =>
+            !j.isStagedSeries &&
+            j.recurrenceId === desc.recurrenceId &&
+            !j.toBeScheduled &&
+            !!j.startTime &&
+            isSameMonth(parseISO(j.startTime), monthStart)
+        )
+        return !hasScheduledThisMonth
+      })
+      .map(desc => ({
+        ...desc,
+        id: `staged:${desc.recurrenceId}:${ym}`,
+        jobId: desc.jobId ?? desc.id,
+        anchorBookingId: desc.anchorBookingId ?? desc.bookingId,
+        stagedTargetMonth: ym,
+        // A virtual chip has NO month-specific bookingId — this keeps the calendar's
+        // update-by-bookingId drop path from ever firing for it.
+        bookingId: undefined,
+        isStagedSeries: true,
+        toBeScheduled: true,
+        startTime: null,
+        endTime: null,
+      }))
+  }, [stagedSeriesDescriptors, activeJobs, currentDate])
+
   const toBeScheduledJobs = useMemo(() => {
-    return activeJobs.filter(job => job.toBeScheduled || !job.startTime || !job.endTime)
-  }, [activeJobs])
+    const regular = activeJobs.filter(
+      job => (job.toBeScheduled || !job.startTime || !job.endTime) && !job.isStagedSeries
+    )
+    return [...regular, ...stagedVirtualChips]
+  }, [activeJobs, stagedVirtualChips])
 
   // Don't render the floating overlay while the Job modal is open.
   // (The overlay is fixed and can interfere with modal interactions on small screens.)
@@ -647,8 +703,19 @@ const SchedulingPage = () => {
         }
         return
       }
-      const updatePayload: any = { ...data, id: editingJob.id, updateAll: editUpdateAll }
-      if (editingJob.bookingId) updatePayload.bookingId = editingJob.bookingId
+      const updatePayload: any = {
+        ...data,
+        // A virtual staged chip's `id` is synthetic; target the real Job id.
+        id: editingJob.jobId ?? editingJob.id,
+        updateAll: editUpdateAll,
+      }
+      if (editingJob.isStagedSeries && editingJob.anchorBookingId) {
+        // Editing a staged series targets the ANCHOR booking so a real scheduled occurrence
+        // is never accidentally converted back to a placeholder.
+        updatePayload.bookingId = editingJob.anchorBookingId
+      } else if (editingJob.bookingId) {
+        updatePayload.bookingId = editingJob.bookingId
+      }
       const timesChanged =
         (data.startTime != null &&
           editingJob.startTime != null &&
@@ -670,8 +737,15 @@ const SchedulingPage = () => {
 
   const handleEditJob = () => {
     if (selectedJob) {
-      // Check if this is a recurring job
-      if (selectedJob.recurrenceId) {
+      // Staged monthly series: edit the series directly (no per-occurrence "one vs all" prompt,
+      // which would target real occurrences). editUpdateAll stays false.
+      if (selectedJob.isStagedSeries) {
+        setEditUpdateAll(false)
+        setEditingJob(selectedJob)
+        setShowJobForm(true)
+        setShowJobDetail(false)
+      } else if (selectedJob.recurrenceId) {
+        // Check if this is a recurring job
         setShowEditRecurringModal(true)
       } else {
         // Non-recurring job - edit directly
@@ -701,13 +775,43 @@ const SchedulingPage = () => {
 
   const handleDeleteJob = () => {
     if (selectedJob) {
-      // Check if this is a recurring job
-      if (selectedJob.recurrenceId) {
+      // Staged monthly series (a virtual chip): stop the whole series, don't open the generic
+      // recurring-delete modal (which targets real occurrences).
+      if (selectedJob.isStagedSeries) {
+        setShowStopSeriesConfirm(true)
+      } else if (selectedJob.recurrenceId) {
+        // Real recurring occurrence
         setShowDeleteRecurringModal(true)
       } else {
         // If job has a booking, delete the booking. If no booking, offer to delete the job itself.
         setShowDeleteConfirm(true)
       }
+    }
+  }
+
+  // Stop a staged monthly series: archives the anchor + recurrence so no future chips appear.
+  // Already-scheduled appointments are preserved on the calendar.
+  const handleStopSeries = async () => {
+    if (!selectedJob) return
+    setShowStopSeriesConfirm(false)
+    const realJobId = selectedJob.jobId ?? selectedJob.id
+    try {
+      const { jobsService } = await import('@/lib/api/services')
+      const payload: UpdateJobData = { id: realJobId, removeRecurrence: true }
+      await jobsService.update(realJobId, payload)
+      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+      await fetchJobs(startDate, endDate)
+      setSelectedJob(null)
+      setShowJobDetail(false)
+      clearJobsError()
+      setJobConfirmationMessage('Monthly series stopped')
+      setShowJobConfirmation(true)
+      setTimeout(() => setShowJobConfirmation(false), 3000)
+    } catch (err: unknown) {
+      clearJobsError()
+      setJobErrorMessage(getErrorMessage(err, 'Could not stop the monthly series.'))
+      setShowJobError(true)
     }
   }
 
@@ -1019,12 +1123,73 @@ const SchedulingPage = () => {
     return true
   }
 
+  // Schedule ONE occurrence of a staged monthly series into the dropped date/time. Creates a
+  // new booking via the dedicated backend path (no rolling, anchor untouched) then refetches.
+  const scheduleStagedOccurrence = async (
+    chip: Job,
+    targetDate: Date,
+    targetHour?: number
+  ) => {
+    if (!canUserEditJob(chip)) {
+      setJobErrorMessage('You can only edit jobs you are assigned to')
+      setShowJobError(true)
+      return
+    }
+    let durationMinutes = 60
+    if (chip.serviceId) {
+      const service = services.find(s => s.id === chip.serviceId)
+      if (service) durationMinutes = service.duration
+    }
+    const startTime = new Date(targetDate)
+    startTime.setHours(targetHour !== undefined ? targetHour : 9, 0, 0, 0)
+    const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
+    const realJobId = chip.jobId ?? chip.id
+    try {
+      const { jobsService } = await import('@/lib/api/services')
+      const payload: UpdateJobData = {
+        id: realJobId,
+        scheduleStagedOccurrence: true,
+        recurrenceId: chip.recurrenceId,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        serviceId: chip.serviceId,
+      }
+      await jobsService.update(realJobId, payload)
+      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+      await fetchJobs(startDate, endDate)
+      clearJobsError()
+      setJobConfirmationMessage('Appointment scheduled')
+      setShowJobConfirmation(true)
+      setTimeout(() => setShowJobConfirmation(false), 3000)
+    } catch (err: unknown) {
+      clearJobsError()
+      setJobErrorMessage(
+        getErrorMessage(
+          err,
+          'Could not schedule this appointment. Ask an admin if you need permission changes.'
+        )
+      )
+      setShowJobError(true)
+    }
+  }
+
   const handleUnscheduledDrop = (
     jobId: string,
     targetDate: Date,
     targetHour?: number,
     bookingId?: string
   ) => {
+    // Virtual staged chip: schedule a new occurrence for the dropped month/time (never the
+    // update-by-bookingId path — the chip has no month-specific booking).
+    const stagedChip = jobId.startsWith('staged:')
+      ? stagedVirtualChips.find(c => c.id === jobId)
+      : undefined
+    if (stagedChip) {
+      void scheduleStagedOccurrence(stagedChip, targetDate, targetHour)
+      return
+    }
+
     const job = bookingId
       ? jobs.find(j => j.id === jobId && j.bookingId === bookingId)
       : jobs.find(j => j.id === jobId)
@@ -1107,11 +1272,13 @@ const SchedulingPage = () => {
 
   // Get the job being dragged for the ghost overlay
   const draggedJob = externalDragState.jobId
-    ? externalDragState.bookingId
-      ? jobs.find(
-          j => j.id === externalDragState.jobId && j.bookingId === externalDragState.bookingId
-        )
-      : jobs.find(j => j.id === externalDragState.jobId)
+    ? externalDragState.jobId.startsWith('staged:')
+      ? stagedVirtualChips.find(c => c.id === externalDragState.jobId)
+      : externalDragState.bookingId
+        ? jobs.find(
+            j => j.id === externalDragState.jobId && j.bookingId === externalDragState.bookingId
+          )
+        : jobs.find(j => j.id === externalDragState.jobId)
     : null
 
   return (
@@ -1954,6 +2121,35 @@ const SchedulingPage = () => {
                 </div>
               </>
             )}
+          </div>
+        </AppModal>
+      )}
+
+      {/* Stop Monthly Series Confirmation (staged series) */}
+      {selectedJob && (
+        <AppModal
+          isOpen={showStopSeriesConfirm}
+          onClose={() => setShowStopSeriesConfirm(false)}
+          title="Stop monthly series?"
+          size="sm"
+          footer={
+            <>
+              <AppButton variant="ghost" onClick={() => setShowStopSeriesConfirm(false)}>
+                Cancel
+              </AppButton>
+              <AppButton variant="danger" onClick={handleStopSeries}>
+                Stop series
+              </AppButton>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-ink">This stops the monthly reminder from appearing.</p>
+            <div className="rounded-lg bg-info-soft p-3">
+              <p className="text-sm text-ink-muted">
+                Appointments you've already scheduled stay on the calendar.
+              </p>
+            </div>
           </div>
         </AppModal>
       )}
