@@ -37,7 +37,7 @@ import {
   isSameMonth,
   parseISO,
 } from 'date-fns'
-import { services } from '@/lib/api/services'
+import { services as apiServices } from '@/lib/api/services'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
 import type { Job, UpdateJobData } from '../types/job'
 
@@ -57,7 +57,7 @@ const SchedulingPage = () => {
   useEffect(() => {
     const checkTeam = async () => {
       try {
-        const status = await services.billing.getStatus()
+        const status = await apiServices.billing.getStatus()
         setIsTeamAccount(status.subscriptionTier === 'team' || status.subscriptionTier === 'team-plus')
       } catch {
         setIsTeamAccount(false)
