@@ -10,10 +10,8 @@ import { refreshAccessToken } from './oauth'
 import {
   GcalHttpError,
   InvalidGrantError,
-  SyncTokenGoneError,
   type ActiveConnection,
   type GoogleEvent,
-  type ListEventsResult,
   type SyncMode,
 } from './types'
 
@@ -33,7 +31,6 @@ export interface StoredConnection {
   scope: string | null
   calendarId: string | null
   syncMode: string
-  syncToken: string | null
   status: string
 }
 
@@ -108,7 +105,6 @@ export async function getActiveConnection(
     accessToken,
     calendarId: record.calendarId,
     syncMode: (record.syncMode === 'mine' ? 'mine' : 'all') as SyncMode,
-    syncToken: record.syncToken,
   }
 }
 
@@ -192,44 +188,6 @@ export async function deleteCalendar(
     await gcalRequest(connection, 'DELETE', `/calendars/${encodeURIComponent(calendarId)}`)
   } catch (err) {
     if (err instanceof GcalHttpError && (err.status === 404 || err.status === 410)) return
-    throw err
-  }
-}
-
-// List events, incremental (syncToken) or full/windowed (timeMin). Surfaces HTTP 410 as
-// SyncTokenGoneError so the caller can clear the token and re-list.
-export async function listEvents(
-  connection: ActiveConnection,
-  calendarId: string,
-  opts: { syncToken?: string; pageToken?: string; timeMin?: string }
-): Promise<ListEventsResult> {
-  const query: Record<string, string | number | boolean | undefined> = {
-    singleEvents: true, // expand recurrences into individual instances
-    maxResults: 250,
-    pageToken: opts.pageToken,
-  }
-  if (opts.syncToken) {
-    // Incremental mode: Google forbids timeMin/orderBy and returns cancelled events automatically.
-    query.syncToken = opts.syncToken
-  } else {
-    query.timeMin = opts.timeMin
-  }
-
-  try {
-    const result = await gcalRequest<{
-      items?: GoogleEvent[]
-      nextPageToken?: string
-      nextSyncToken?: string
-    }>(connection, 'GET', `/calendars/${encodeURIComponent(calendarId)}/events`, undefined, query)
-    return {
-      items: result?.items ?? [],
-      nextPageToken: result?.nextPageToken,
-      nextSyncToken: result?.nextSyncToken,
-    }
-  } catch (err) {
-    if (err instanceof GcalHttpError && err.status === 410) {
-      throw new SyncTokenGoneError()
-    }
     throw err
   }
 }

@@ -1,9 +1,10 @@
-// The reconcile engine. JobDock bookings are the source of truth; one Google event per
-// (connection, eligible booking). syncTenant runs all PULLs first (a pulled change fans out to
-// other connections in the same run), then all PUSHes. Pure/idempotent: a steady-state sweep with
-// no changes makes ZERO Google API calls. Never logs tokens or event bodies — counts only.
+// The push engine. JobDock bookings are the source of truth; one Google event per
+// (connection, eligible booking). Sync is ONE-WAY: syncTenant pushes JobDock appointments to each
+// connection's dedicated Google calendar (create/update/delete). Changes made in Google are never
+// read back into JobDock. Pure/idempotent: a steady-state run with no changes makes ZERO Google API
+// calls. Never logs tokens or event bodies — counts only.
 
-import { createCalendar, deleteEvent, getActiveConnection, insertEvent, listEvents, patchEvent } from './client'
+import { createCalendar, deleteEvent, getActiveConnection, insertEvent, patchEvent } from './client'
 import { CALENDAR_DESCRIPTION, CALENDAR_SUMMARY } from './config'
 import {
   bookingMatchesSyncMode,
@@ -16,7 +17,7 @@ import {
   type PayloadContact,
   type PayloadJob,
 } from './eventPayload'
-import { GcalHttpError, SyncTokenGoneError, type ActiveConnection, type GoogleEvent } from './types'
+import { GcalHttpError, type ActiveConnection, type GoogleEvent } from './types'
 
 const CLAIM_STALE_MS = 5 * 60 * 1000
 
@@ -42,21 +43,8 @@ export async function syncTenant(tenantId: string): Promise<void> {
   })
   if (connections.length === 0) return
 
-  const errored = new Set<string>()
-
-  // PULL every connection first so a pulled change can fan out to the others' PUSH this same run.
+  // PUSH every connection (JobDock → Google). One-way: we never read Google state back.
   for (const { id } of connections) {
-    try {
-      await withClaim(id, () => pullConnection(id))
-    } catch (err) {
-      errored.add(id)
-      await recordConnectionError(id, err)
-    }
-  }
-
-  // PUSH every connection.
-  for (const { id } of connections) {
-    if (errored.has(id)) continue
     try {
       const ran = await withClaim(id, () => pushConnection(id))
       if (ran) await markConnectionSuccess(id)
@@ -117,15 +105,15 @@ async function recordConnectionError(connectionId: string, err: unknown): Promis
     .catch(() => {})
 }
 
-// Recreate the dedicated JobDock calendar (user deleted it), wipe this connection's map rows +
-// syncToken, and return the new calendar id. The subsequent push repopulates from scratch.
+// Recreate the dedicated JobDock calendar (user deleted it), wipe this connection's map rows, and
+// return the new calendar id. The subsequent push repopulates from scratch.
 async function recreateCalendar(active: ActiveConnection): Promise<string> {
   const prisma = await getPrisma()
   const created = await createCalendar(active, CALENDAR_SUMMARY, CALENDAR_DESCRIPTION)
   await prisma.googleCalendarEventMap.deleteMany({ where: { connectionId: active.id } })
   await prisma.googleCalendarConnection.update({
     where: { id: active.id },
-    data: { calendarId: created.id, syncToken: null },
+    data: { calendarId: created.id },
   })
   console.log(`[gcal-sync] recreated JobDock calendar for connection ${active.id}`)
   return created.id
@@ -337,296 +325,5 @@ async function runPush(active: ActiveConnection): Promise<void> {
     console.log(
       `[gcal-sync] push connection ${active.id}: +${inserts} ~${patches} -${deletes}`
     )
-  }
-}
-
-// ─── PULL (Google -> JobDock), syncToken incremental ────────────────────────────────────────────
-
-async function pullConnection(connectionId: string): Promise<void> {
-  const active = await getActiveConnection(connectionId)
-  if (!active.calendarId) return // no calendar yet — nothing to pull; push will create it
-  await runPull(active)
-}
-
-async function runPull(active: ActiveConnection): Promise<void> {
-  const prisma = await getPrisma()
-  const calendarId = active.calendarId!
-  const now = new Date()
-  const timeMin = windowStartDate(now).toISOString()
-
-  let processed = 0
-  const drain = async (opts: {
-    syncToken?: string
-    seenEventIds?: Set<string>
-  }): Promise<string | undefined> => {
-    let pageToken: string | undefined
-    let nextSyncToken: string | undefined
-    do {
-      const page = await listEvents(active, calendarId, {
-        syncToken: pageToken ? undefined : opts.syncToken,
-        timeMin: pageToken || opts.syncToken ? undefined : timeMin,
-        pageToken,
-      })
-      for (const event of page.items) {
-        if (opts.seenEventIds && event.id) opts.seenEventIds.add(event.id)
-        await processPulledEvent(active, calendarId, event, now)
-        processed++
-      }
-      pageToken = page.nextPageToken
-      if (page.nextSyncToken) nextSyncToken = page.nextSyncToken
-    } while (pageToken)
-    return nextSyncToken
-  }
-
-  // A full windowed re-list (no syncToken — initial sync, or the 410 fallback) omits events that
-  // were cancelled in Google, and nothing else reconciles them. So on the full-re-list path only,
-  // collect every returned event id and afterwards reconcile map rows against that set (F5).
-  // Incremental pulls carry cancellations inline (processPulledEvent handles them) and never here.
-  const fullReList = async (): Promise<string | undefined> => {
-    const seenEventIds = new Set<string>()
-    const token = await drain({ seenEventIds })
-    await reconcileDeletedInGoogle(active, seenEventIds, now)
-    return token
-  }
-
-  let nextSyncToken: string | undefined
-  try {
-    const currentToken = active.syncToken || undefined
-    if (!currentToken) {
-      nextSyncToken = await fullReList()
-    } else {
-      try {
-        nextSyncToken = await drain({ syncToken: currentToken })
-      } catch (err) {
-        if (err instanceof SyncTokenGoneError) {
-          // Stale token — clear it and fall back to a full windowed re-list + deletion reconcile.
-          await prisma.googleCalendarConnection.update({
-            where: { id: active.id },
-            data: { syncToken: null },
-          })
-          nextSyncToken = await fullReList()
-        } else {
-          throw err
-        }
-      }
-    }
-  } catch (err) {
-    if (err instanceof GcalHttpError && err.status === 404) {
-      // Calendar deleted in Google (on either list attempt) — recreate (wipes maps + syncToken);
-      // the push pass repopulates.
-      await recreateCalendar(active)
-      return
-    }
-    throw err
-  }
-
-  if (nextSyncToken) {
-    await prisma.googleCalendarConnection.update({
-      where: { id: active.id },
-      data: { syncToken: nextSyncToken },
-    })
-  }
-  if (processed) console.log(`[gcal-sync] pull connection ${active.id}: ${processed} events`)
-}
-
-// F5: after a FULL re-list only, reconcile map rows against the ids Google actually returned. A full
-// re-list (showDeleted defaults false) omits cancelled events, so any map row whose googleEventId was
-// NOT returned is an event deleted in Google while our syncToken was unusable. For each such row
-// whose booking exists, has times, and is in-window, soft-delete the booking (archivedAt, direct
-// update, NO emails/SMS — exactly like the incremental cancelled-event path) and drop the map row.
-// Frozen/out-of-window and untimed bookings are EXEMPT (consistent with the F4 freeze rule); a row
-// whose booking is already gone is left to the push pass to clean up as an orphan.
-async function reconcileDeletedInGoogle(
-  active: ActiveConnection,
-  seenEventIds: Set<string>,
-  now: Date
-): Promise<void> {
-  const prisma = await getPrisma()
-  const windowStart = windowStartDate(now)
-  const maps = await prisma.googleCalendarEventMap.findMany({ where: { connectionId: active.id } })
-  const missing = maps.filter(m => m.bookingId && !seenEventIds.has(m.googleEventId))
-  if (missing.length === 0) return
-
-  const bookingIds = [...new Set(missing.map(m => m.bookingId as string))]
-  const bookings = (await prisma.booking.findMany({
-    where: { id: { in: bookingIds }, tenantId: active.tenantId },
-    select: { id: true, startTime: true, endTime: true },
-  })) as Array<{ id: string; startTime: Date | null; endTime: Date | null }>
-  const byId = new Map(bookings.map(b => [b.id, b]))
-
-  let softDeleted = 0
-  for (const map of missing) {
-    const booking = byId.get(map.bookingId as string)
-    if (!booking || !booking.startTime || !booking.endTime) continue
-    if (new Date(booking.startTime) < windowStart) continue // frozen / out-of-window — exempt
-    await prisma.booking.updateMany({
-      where: { id: booking.id, tenantId: active.tenantId, archivedAt: null },
-      data: { archivedAt: now },
-    })
-    await prisma.googleCalendarEventMap.delete({ where: { id: map.id } })
-    softDeleted++
-  }
-  if (softDeleted) {
-    console.log(`[gcal-sync] pull reconcile connection ${active.id}: ${softDeleted} deleted-in-Google`)
-  }
-}
-
-async function processPulledEvent(
-  active: ActiveConnection,
-  calendarId: string,
-  event: GoogleEvent,
-  now: Date
-): Promise<void> {
-  const prisma = await getPrisma()
-  const eventId = event.id
-  if (!eventId) return
-
-  // Only timed events. If a pulled all-day event maps to one of OUR rows, someone converted our
-  // timed event to all-day in Google — blank the stored fingerprint so this run's push detects a
-  // mismatch and PATCHes it back to the booking's timed form (F6). Unmapped all-day events (created
-  // by the user directly) stay ignored.
-  if (event.start?.date || event.end?.date) {
-    const allDayMap = await prisma.googleCalendarEventMap.findFirst({
-      where: { connectionId: active.id, googleEventId: eventId },
-    })
-    if (allDayMap && allDayMap.fingerprint !== '') {
-      await prisma.googleCalendarEventMap.update({
-        where: { id: allDayMap.id },
-        data: { fingerprint: '' },
-      })
-    }
-    return
-  }
-
-  const map = await prisma.googleCalendarEventMap.findFirst({
-    where: { connectionId: active.id, googleEventId: eventId },
-  })
-
-  // Deletion in Google.
-  if (event.status === 'cancelled') {
-    if (map) {
-      if (map.bookingId) {
-        // Soft-delete exactly like bookings.delete (archivedAt), directly — never the service
-        // method, never any email/SMS.
-        await prisma.booking.updateMany({
-          where: { id: map.bookingId, tenantId: active.tenantId, archivedAt: null },
-          data: { archivedAt: now },
-        })
-      }
-      await prisma.googleCalendarEventMap.delete({ where: { id: map.id } })
-    }
-    return
-  }
-
-  if (!map) {
-    // Not mapped — try to re-link via our extendedProperty, else treat as a user-created event.
-    const jobdockBookingId = event.extendedProperties?.private?.jobdockBookingId
-    if (jobdockBookingId) {
-      const booking = await prisma.booking.findFirst({
-        where: { id: jobdockBookingId, tenantId: active.tenantId },
-      })
-      if (booking) {
-        await linkMap(active.id, booking.id, eventId, fingerprintOfEvent(event))
-      } else {
-        // Booking is gone — remove the stray event; no mapping.
-        await deleteEvent(active, calendarId, eventId)
-      }
-      return
-    }
-
-    // Unknown event created by the user on the JobDock calendar → new independent booking.
-    if (event.start?.dateTime && event.end?.dateTime) {
-      const start = new Date(event.start.dateTime)
-      if (!Number.isNaN(start.getTime()) && start >= windowStartDate(now)) {
-        const created = await prisma.booking.create({
-          data: {
-            tenantId: active.tenantId,
-            isIndependent: true,
-            toBeScheduled: false,
-            status: 'active',
-            title: event.summary || 'Google Calendar event',
-            location: event.location || null,
-            notes: event.description || null,
-            startTime: start,
-            endTime: new Date(event.end.dateTime),
-            createdById: active.userId,
-            // Assign the appointment to the connecting user, in the exact object shape
-            // dataService.normalizeAssignedTo accepts. Crucially this also makes the new booking
-            // pass THIS connection's own syncMode:'mine' filter, so its very first push doesn't
-            // prune and delete the event we just pulled (F1).
-            assignedTo: [{ userId: active.userId, role: 'Assigned' }],
-          },
-        })
-        await linkMap(active.id, created.id, eventId, fingerprintOfEvent(event))
-      }
-    }
-    return
-  }
-
-  // Mapped event.
-  const eventFingerprint = fingerprintOfEvent(event)
-  if (eventFingerprint === map.fingerprint) return // our own echo — no-op
-
-  if (!map.bookingId) {
-    // Mapped to a hard-deleted booking; the push pass deletes the event. Nothing to apply.
-    return
-  }
-
-  const booking = await prisma.booking.findFirst({
-    where: { id: map.bookingId, tenantId: active.tenantId },
-    select: { id: true, jobId: true, title: true },
-  })
-  if (!booking) {
-    await deleteEvent(active, calendarId, eventId)
-    await prisma.googleCalendarEventMap.delete({ where: { id: map.id } })
-    return
-  }
-
-  if (event.start?.dateTime && event.end?.dateTime) {
-    const data: Record<string, unknown> = {
-      startTime: new Date(event.start.dateTime),
-      endTime: new Date(event.end.dateTime),
-    }
-    // Only independent bookings pull summary/location; job-backed pull times only (JobDock wins
-    // title/location — the push pass patches those back). Description is never pulled.
-    if (booking.jobId == null) {
-      data.title = event.summary || booking.title
-      data.location = event.location || null
-    }
-    await prisma.booking.update({ where: { id: booking.id }, data })
-  }
-
-  // Record the event's fingerprint so we don't reprocess it; the push pass re-patches Google for any
-  // fields where JobDock wins.
-  await prisma.googleCalendarEventMap.update({
-    where: { id: map.id },
-    data: { fingerprint: eventFingerprint },
-  })
-}
-
-// Create or repoint the (connection, booking) map row. Tolerant of the rare unique collision.
-async function linkMap(
-  connectionId: string,
-  bookingId: string,
-  googleEventId: string,
-  fingerprint: string
-): Promise<void> {
-  const prisma = await getPrisma()
-  const existing = await prisma.googleCalendarEventMap.findFirst({
-    where: { connectionId, bookingId },
-  })
-  try {
-    if (existing) {
-      await prisma.googleCalendarEventMap.update({
-        where: { id: existing.id },
-        data: { googleEventId, fingerprint },
-      })
-    } else {
-      await prisma.googleCalendarEventMap.create({
-        data: { connectionId, bookingId, googleEventId, fingerprint },
-      })
-    }
-  } catch (err) {
-    console.warn(`[gcal-sync] linkMap skipped for booking ${bookingId}: ${(err as Error)?.name}`)
   }
 }

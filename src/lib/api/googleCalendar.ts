@@ -33,8 +33,8 @@ const MOCK_STATUS: GoogleCalendarStatus = {
 
 /**
  * Thin wrappers over the authenticated apiClient for the per-user Google Calendar
- * two-way sync integration. Imported directly (not routed through services.ts),
- * mirroring src/lib/api/quickbooks.ts.
+ * sync integration (one-way: JobDock → Google). Imported directly (not routed through
+ * services.ts), mirroring src/lib/api/quickbooks.ts.
  *
  * In mock data mode every method is inert: getStatus returns canned "not configured"
  * data and the connect-type methods throw a friendly error, so the demo/mock preview

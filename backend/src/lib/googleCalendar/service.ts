@@ -113,7 +113,6 @@ export async function connect(
     syncMode,
     status: 'connected',
     lastErrorMessage: null,
-    syncToken: null,
     syncInProgressAt: null,
   }
   await prisma.googleCalendarConnection.upsert({
@@ -134,7 +133,7 @@ export async function connect(
   // per-container trigger cache so the next mutation's instant trigger sees it immediately (F9).
   invalidateTenantConnectionCache(tenantId)
 
-  // Kick off the initial sync (full push + establishes the syncToken naturally).
+  // Kick off the initial sync (full push of this user's eligible appointments to Google).
   await invokeSyncTenant(tenantId)
   return getStatus(user)
 }

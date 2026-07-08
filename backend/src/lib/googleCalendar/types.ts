@@ -35,7 +35,6 @@ export interface ActiveConnection {
   accessToken: string
   calendarId: string | null
   syncMode: SyncMode
-  syncToken: string | null
 }
 
 // Minimal shape of a Google Calendar event we read/write.
@@ -56,21 +55,6 @@ export interface GoogleEvent {
   extendedProperties?: {
     private?: Record<string, string>
     shared?: Record<string, string>
-  }
-}
-
-export interface ListEventsResult {
-  items: GoogleEvent[]
-  nextPageToken?: string
-  nextSyncToken?: string
-}
-
-// Thrown by listEvents when Google rejects a stale syncToken (HTTP 410); the caller must clear the
-// token and do a full windowed re-list.
-export class SyncTokenGoneError extends Error {
-  constructor(message = 'Google Calendar syncToken is no longer valid (410)') {
-    super(message)
-    this.name = 'SyncTokenGoneError'
   }
 }
 

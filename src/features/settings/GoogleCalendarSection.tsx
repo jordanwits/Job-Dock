@@ -67,7 +67,8 @@ interface GoogleCalendarSectionProps {
 }
 
 /**
- * Settings tab for the per-user Google Calendar two-way sync. Visible to every role
+ * Settings tab for the per-user Google Calendar sync. One-way: JobDock pushes appointments to a
+ * dedicated Google calendar; changes made in Google are not read back. Visible to every role
  * (each user connects their own Google account); the sync-mode choice is gated on the
  * server-authoritative `canChooseAll` flag. Mirrors QuickBooksSection's structure and the
  * teal settings design language.
@@ -181,7 +182,7 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
   return (
     <SettingsSection
       title="Google Calendar"
-      description="Two-way sync between JobDock and your Google Calendar."
+      description="Show your JobDock appointments on your Google Calendar."
     >
       {sectionError && (
         <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
@@ -239,7 +240,7 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
                 Last synced:{' '}
                 {status?.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString() : 'Not yet'}
               </li>
-              <li>Changes made in Google Calendar appear in JobDock within about 5 minutes.</li>
+              <li>New and updated appointments appear on your Google Calendar within a few minutes.</li>
             </ul>
 
             <div className="max-w-xs">
@@ -269,11 +270,15 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
           <div className="space-y-5">
             <div className="space-y-2 text-sm leading-relaxed text-ink-muted">
               <p>
-                Connect your Google account to keep JobDock and Google Calendar in sync both ways.
-                JobDock creates a dedicated <span className="font-medium text-ink">JobDock</span>{' '}
-                calendar in your Google account and keeps your appointments on it.
+                Connect your Google account to see your JobDock appointments on your Google
+                Calendar. JobDock creates a dedicated{' '}
+                <span className="font-medium text-ink">JobDock</span> calendar in your Google account
+                and keeps your appointments on it.
               </p>
-              <p>Changes you make in Google Calendar show up in JobDock within about 5 minutes.</p>
+              <p>
+                Sync is one-way, from JobDock to Google — changes you make in Google Calendar
+                won&apos;t affect JobDock.
+              </p>
             </div>
 
             {canChooseAll ? (
