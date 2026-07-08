@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { formatPhoneNumber } from '@/lib/utils/phone'
 
@@ -579,6 +580,90 @@ export function Alert({
         </button>
       )}
     </div>
+  )
+}
+
+/* ── Modal ────────────────────────────────────────────────────────────── */
+const modalSizes: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'max-w-md',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+}
+
+/**
+ * Token-driven modal shell (portal + overlay + Escape + body scroll lock). Uses only semantic
+ * tokens so it follows the app's light/dark toggle, matching the settings design language rather
+ * than the navy/gold shared `components/ui` Modal. Clicking the backdrop or pressing Escape calls
+ * onClose (the caller can guard against dismissal while an action is in flight).
+ */
+export function SettingsModal({
+  isOpen,
+  onClose,
+  title,
+  size = 'md',
+  footer,
+  children,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  title?: ReactNode
+  size?: 'sm' | 'md' | 'lg'
+  footer?: ReactNode
+  children: ReactNode
+}) {
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [isOpen, onClose])
+
+  if (!isOpen) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
+      onMouseDown={onClose}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={cn(
+          'my-auto flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-pop ring-1 ring-line',
+          modalSizes[size]
+        )}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        {title && (
+          <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+            <h2 className="text-lg font-semibold tracking-tight text-ink">{title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="-mr-1 shrink-0 rounded-md p-1 text-ink-subtle transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <XIcon className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && (
+          <div className="flex flex-col items-stretch gap-2 border-t border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
   )
 }
 

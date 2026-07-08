@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Modal } from '@/components/ui'
 import { useAuthStore } from '@/features/auth'
 import { useGoogleCalendarStore, type GoogleCalendarSyncMode } from '@/features/googleCalendar'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
@@ -7,6 +6,7 @@ import {
   AppButton,
   Panel,
   SettingsSection,
+  SettingsModal,
   Alert,
   AlertIcon,
   Dot,
@@ -314,7 +314,7 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
         )}
       </Panel>
 
-      <Modal
+      <SettingsModal
         isOpen={showDisconnectModal}
         onClose={() => {
           if (!disconnecting) setShowDisconnectModal(false)
@@ -353,7 +353,7 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
             </Alert>
           )}
         </div>
-      </Modal>
+      </SettingsModal>
     </SettingsSection>
   )
 }
