@@ -31,6 +31,35 @@ import { getErrorMessage } from '@/lib/utils/errorHandler'
 import { ChevronLeftIcon, ChevronRightIcon } from './schedulingUi'
 import { resolveJobStatus, eventToneCls, type Tone } from './schedulingStatus'
 
+/** Stable empty default so the `paidInvoiceIds` prop never churns identity when omitted. */
+const EMPTY_PAID_SET: Set<string> = new Set()
+
+/**
+ * Small solid-green check badge marking a calendar event whose linked invoice is fully paid.
+ * Size and position come from `className`; the check glyph fills the badge.
+ */
+const PaidCheck = ({ className }: { className?: string }) => (
+  <span
+    role="img"
+    aria-label="Paid"
+    title="Paid"
+    className={cn(
+      'inline-flex shrink-0 items-center justify-center rounded-full bg-success text-white',
+      className
+    )}
+  >
+    <svg viewBox="0 0 24 24" fill="none" className="h-[70%] w-[70%]" aria-hidden="true">
+      <path
+        d="M5 13l4 4L19 7"
+        stroke="currentColor"
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </span>
+)
+
 interface CalendarProps {
   jobs: Job[]
   viewMode: 'day' | 'week' | 'month'
@@ -43,6 +72,8 @@ interface CalendarProps {
   onUpdateSuccess?: (message: string) => void
   /** When scheduling updates fail (e.g. permissions), surface a message instead of failing silently */
   onUpdateError?: (message: string) => void
+  /** IDs of invoices whose paymentStatus is 'paid'. A job whose invoiceId is in this set shows a paid check. */
+  paidInvoiceIds?: Set<string>
   user?: User | null
 }
 
@@ -71,6 +102,7 @@ const Calendar = ({
   onUnscheduledDrop,
   onUpdateSuccess,
   onUpdateError,
+  paidInvoiceIds = EMPTY_PAID_SET,
   user,
 }: CalendarProps) => {
   const reportScheduleUpdateError = useCallback(
@@ -117,6 +149,12 @@ const Calendar = ({
       dot: dotToneCls[tone],
     }
   }
+
+  // A job counts as paid when its linked invoice is fully paid (partial does not qualify).
+  const isJobPaid = useCallback(
+    (job: Job): boolean => !!(job.invoiceId && paidInvoiceIds.has(job.invoiceId)),
+    [paidInvoiceIds]
+  )
   // Set initial scale based on screen size
   const getInitialScale = () => {
     if (typeof window !== 'undefined') {
@@ -1077,6 +1115,7 @@ const Calendar = ({
                       }}
                     >
                       <div className="flex min-w-0 flex-nowrap items-baseline gap-x-1 text-sm pointer-events-none">
+                        {isJobPaid(job) && <PaidCheck className="h-3.5 w-3.5 self-center" />}
                         <span className="min-w-0 shrink truncate font-medium">
                           {job.title}
                         </span>
@@ -1220,6 +1259,7 @@ const Calendar = ({
                           }}
                         >
                           <div className="flex min-w-0 flex-nowrap items-baseline gap-x-1 text-sm pointer-events-none">
+                            {isJobPaid(job) && <PaidCheck className="h-3.5 w-3.5 self-center" />}
                             <span className="min-w-0 shrink truncate font-medium">
                               {job.title}
                             </span>
@@ -1568,6 +1608,7 @@ const Calendar = ({
                             >
                               <div className="min-w-0 flex-1 flex flex-col justify-center leading-tight gap-px py-px">
                                 <div className="flex min-w-0 flex-nowrap items-baseline gap-x-1">
+                                  {isJobPaid(job) && <PaidCheck className="h-3 w-3 self-center" />}
                                   <span className="min-w-0 shrink truncate font-medium">
                                     {job.title}
                                   </span>
@@ -1708,6 +1749,7 @@ const Calendar = ({
                                     }}
                                   >
                                     <div className="flex min-w-0 flex-nowrap items-baseline gap-x-1 pointer-events-none">
+                                      {isJobPaid(job) && <PaidCheck className="h-3 w-3 self-center" />}
                                       <span className="min-w-0 shrink truncate text-xs font-medium">
                                         {job.title}
                                       </span>
@@ -2140,6 +2182,9 @@ const Calendar = ({
                         }
                         title={job.title}
                       >
+                        {isJobPaid(job) && (
+                          <PaidCheck className="hidden sm:inline-flex h-3 w-3 mr-0.5" />
+                        )}
                         {isJobStartDay ? (
                           <span className="hidden sm:inline">
                             {format(new Date(job.startTime!), 'h:mm a')} {job.title}
@@ -2214,7 +2259,7 @@ const Calendar = ({
                         <div
                           key={job.id}
                           className={cn(
-                            'text-xs p-1 rounded truncate cursor-grab active:cursor-grabbing touch-none',
+                            'text-xs p-1 rounded flex items-center gap-1 min-w-0 overflow-hidden cursor-grab active:cursor-grabbing touch-none',
                             'border-l-2 border-current/40',
                             !isCurrentMonth && 'opacity-60',
                             'hover:opacity-80',
@@ -2247,7 +2292,10 @@ const Calendar = ({
                           }}
                           title={job.title}
                         >
-                          {format(new Date(job.startTime), 'h:mm a')} {job.title}
+                          {isJobPaid(job) && <PaidCheck className="h-3 w-3" />}
+                          <span className="min-w-0 truncate">
+                            {format(new Date(job.startTime), 'h:mm a')} {job.title}
+                          </span>
                         </div>
                       )
                     })}

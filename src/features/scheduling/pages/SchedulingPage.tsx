@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useJobStore } from '../store/jobStore'
 import { useServiceStore } from '../store/serviceStore'
+import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
 import { useAuthStore } from '@/features/auth'
 import Calendar from '../components/Calendar'
 import JobForm from '../components/JobForm'
@@ -136,6 +137,8 @@ const SchedulingPage = () => {
     fetchServices,
     clearError: clearServicesError,
   } = useServiceStore()
+
+  const { invoices, fetchInvoices } = useInvoiceStore()
 
   const [showJobForm, setShowJobForm] = useState(false)
   const [editingJob, setEditingJob] = useState<typeof selectedJob>(null)
@@ -355,6 +358,19 @@ const SchedulingPage = () => {
   const scheduledJobs = useMemo(() => {
     return activeJobs.filter(job => !job.toBeScheduled && job.startTime && job.endTime)
   }, [activeJobs])
+
+  // Load invoices once so the calendar can flag paid jobs (green check on their event chips).
+  // The invoice store surfaces any error internally; a failure just means no checks show.
+  useEffect(() => {
+    fetchInvoices()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Invoice IDs that are fully paid → any job linked to one gets a paid check on the calendar.
+  const paidInvoiceIds = useMemo(
+    () => new Set(invoices.filter(inv => inv.paymentStatus === 'paid').map(inv => inv.id)),
+    [invoices]
+  )
 
   // Staged-monthly SERIES descriptors (the anchor rows tagged by jobs.getAll). These are NOT
   // displayed directly; they're expanded into one virtual chip per viewed month below.
@@ -1683,6 +1699,7 @@ const SchedulingPage = () => {
                   setJobErrorMessage(message)
                   setShowJobError(true)
                 }}
+                paidInvoiceIds={paidInvoiceIds}
                 user={user}
               />
             </div>
