@@ -143,6 +143,54 @@ const PrivacyPolicyPage = () => {
 
                 <section>
                   <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
+                    3a. Google Calendar Integration
+                  </h2>
+                  <p className="mb-4 text-base md:text-lg leading-relaxed">
+                    If you choose to connect your Google account, JobDock requests permission to
+                    manage a dedicated JobDock calendar in your Google Calendar. We use this access
+                    solely to keep your appointments in sync:
+                  </p>
+                  <ul className="list-disc list-inside space-y-3 ml-4 text-base md:text-lg">
+                    <li>
+                      <strong className="text-primary-dark">What we access:</strong> Permission to
+                      create and manage a separate JobDock calendar, and the events on it, within
+                      your Google Calendar.
+                    </li>
+                    <li>
+                      <strong className="text-primary-dark">How we use it:</strong> Sync is one-way.
+                      JobDock adds, updates, and removes events on the dedicated JobDock calendar to
+                      match the appointments you schedule in JobDock. We do not read, import, or
+                      store events from your other Google calendars.
+                    </li>
+                    <li>
+                      <strong className="text-primary-dark">Storage:</strong> We store your Google
+                      authorization tokens in encrypted form only to maintain the connection, and use
+                      them exclusively to provide the calendar sync feature.
+                    </li>
+                    <li>
+                      <strong className="text-primary-dark">Disconnecting:</strong> You can
+                      disconnect Google Calendar at any time from your JobDock settings, which stops
+                      syncing and can remove the JobDock calendar from your Google account.
+                    </li>
+                  </ul>
+                  <p className="mt-4 text-base md:text-lg leading-relaxed">
+                    JobDock&apos;s use and transfer of information received from Google APIs adheres
+                    to the{' '}
+                    <a
+                      href="https://developers.google.com/terms/api-services-user-data-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary-gold hover:text-primary-gold/80 underline font-semibold"
+                    >
+                      Google API Services User Data Policy
+                    </a>
+                    , including the Limited Use requirements. We do not use Google user data for
+                    advertising, and we do not sell it.
+                  </p>
+                </section>
+
+                <section>
+                  <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
                     4. Data Security
                   </h2>
                   <p className="text-base md:text-lg leading-relaxed">
