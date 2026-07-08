@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import MarketingLayout from '../components/MarketingLayout'
 import Hero from '../landing/sections/Hero'
 import Stage from '../landing/sections/Stage'
+import WhatIs from '../landing/sections/WhatIs'
 import Testimonials from '../landing/sections/Testimonials'
 import PricingTeaser from '../landing/sections/PricingTeaser'
 import FinalCta from '../landing/sections/FinalCta'
@@ -57,6 +58,7 @@ const LandingPage = () => {
         </Suspense>
       )}
 
+      <WhatIs />
       <Testimonials />
       <PricingTeaser />
       <FinalCta />

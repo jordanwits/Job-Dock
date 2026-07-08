@@ -23,6 +23,13 @@ export const landingContent = {
     ],
   },
 
+  // Plain-language description of what the product is and does (kept explicit for clarity).
+  about: {
+    kicker: 'What is JobDock?',
+    title: 'Software that runs your cleaning business, end to end.',
+    body: 'JobDock is scheduling and invoicing software for residential and commercial cleaning businesses. From one web and mobile app, owners and their crews create quotes, schedule and manage recurring jobs, take online bookings, track time and before/after job photos, send invoices, collect payments by card or ACH, and optionally sync their appointments to Google Calendar.',
+  },
+
   // Feature stages the traveling phone moves through (index 0 = hero, handled separately).
   // `side` = which side the phone sits on; text goes on the opposite side.
   stages: [
