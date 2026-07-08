@@ -43,6 +43,7 @@ import {
   shouldSendSms,
 } from './sms'
 import { generateApprovalToken } from './approvalTokens'
+import { computeNextDueMonthISO } from './recurrenceDueDate'
 import { uploadFile, deleteFile, getFileUrl } from './fileUpload'
 import { createPhotoToken } from './photoToken'
 import {
@@ -2550,6 +2551,52 @@ export const dataServices = {
         })
       )
 
+      // Staged monthly placeholders: attach a virtual `nextDueDate` (NOT a DB column) used
+      // only for the calendar chip label ("Monthly · <Mon>"). Computed with two aggregate
+      // queries (no N+1): the latest scheduled occurrence per recurrence, and the recurrence
+      // createdAt as a fallback when nothing has been scheduled yet.
+      const placeholderRecurrenceIds = Array.from(
+        new Set(
+          jobsFromBookings
+            .filter(j => j.toBeScheduled && j.recurrenceId)
+            .map(j => j.recurrenceId as string)
+        )
+      )
+      if (placeholderRecurrenceIds.length > 0) {
+        const [latestScheduledRows, recurrences] = await Promise.all([
+          prisma.booking.groupBy({
+            by: ['recurrenceId'],
+            where: {
+              tenantId,
+              recurrenceId: { in: placeholderRecurrenceIds },
+              toBeScheduled: false,
+              startTime: { not: null },
+              deletedAt: null,
+              archivedAt: null,
+            },
+            _max: { startTime: true },
+          }),
+          prisma.jobRecurrence.findMany({
+            where: { tenantId, id: { in: placeholderRecurrenceIds } },
+            select: { id: true, createdAt: true },
+          }),
+        ])
+        const latestByRecurrence = new Map(
+          latestScheduledRows.map(r => [r.recurrenceId, r._max.startTime])
+        )
+        const createdByRecurrence = new Map(recurrences.map(r => [r.id, r.createdAt]))
+        for (const j of jobsFromBookings) {
+          if (!(j.toBeScheduled && j.recurrenceId)) continue
+          const latest = latestByRecurrence.get(j.recurrenceId)
+          const created = createdByRecurrence.get(j.recurrenceId)
+          ;(j as { nextDueDate?: string | null }).nextDueDate = latest
+            ? computeNextDueMonthISO(latest, true)
+            : created
+              ? computeNextDueMonthISO(created, false)
+              : null
+        }
+      }
+
       const jobIdsWithBookings = new Set(
         bookings.map(b => b.jobId).filter((id): id is string => id != null)
       )
@@ -2730,13 +2777,117 @@ export const dataServices = {
 
       await validateAssignedTo(tenantId, payload.assignedTo)
 
-      // Validate: recurrence requires scheduled times
-      if (payload.recurrence && toBeScheduled) {
+      // Validate: recurrence requires scheduled times — EXCEPT staged monthly, which is a
+      // rolling placeholder with no fixed day (frequency 'monthly' + toBeScheduled).
+      if (payload.recurrence && toBeScheduled && payload.recurrence.frequency !== 'monthly') {
         throw new ApiError('Recurring jobs must have scheduled times', 400)
       }
 
       // Normalize assignedTo to array format
       const normalizedAssignedTo = normalizeAssignedTo(payload.assignedTo)
+
+      // Staged monthly: create Job + JobRecurrence + ONE pending placeholder Booking.
+      // (A real Booking row is required — bookingless jobs don't survive a plain calendar
+      // refetch, but toBeScheduled bookings are always returned by getAll's OR-clause.)
+      if (toBeScheduled && payload.recurrence) {
+        const now = new Date()
+        // JobRecurrence.assignedTo is String? — mirror createRecurringJobs (first string only).
+        const assignedToForRecurrence = normalizedAssignedTo?.[0]?.userId ?? null
+        const staged = await prisma.$transaction(async tx => {
+          const job = await tx.job.create({
+            data: {
+              tenantId,
+              title: payload.title,
+              description: payload.description,
+              contactId: payload.contactId,
+              serviceId: payload.serviceId ?? null,
+              quoteId: payload.quoteId,
+              invoiceId: payload.invoiceId,
+              status: 'active',
+              location: payload.location,
+              price: payload.price !== undefined ? payload.price : null,
+              notes: payload.notes,
+              assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+              createdById: payload.createdById ?? undefined,
+            },
+            include: { contact: true, createdBy: { select: { name: true } }, service: true },
+          })
+          const recurrence = await tx.jobRecurrence.create({
+            data: {
+              tenantId,
+              contactId: payload.contactId,
+              serviceId: payload.serviceId ?? null,
+              title: payload.title,
+              description: payload.description,
+              location: payload.location,
+              notes: payload.notes,
+              assignedTo: assignedToForRecurrence,
+              status: 'active',
+              frequency: 'monthly',
+              interval: payload.recurrence.interval || 1,
+              count: null,
+              untilDate: null,
+              daysOfWeek: [],
+              // startTime/endTime are NOT NULL but unused for staged series — sentinel to createdAt.
+              startTime: now,
+              endTime: now,
+            },
+          })
+          const booking = await tx.booking.create({
+            data: {
+              tenantId,
+              jobId: job.id,
+              serviceId: payload.serviceId ?? null,
+              quoteId: payload.quoteId,
+              invoiceId: payload.invoiceId,
+              recurrenceId: recurrence.id,
+              startTime: null,
+              endTime: null,
+              toBeScheduled: true,
+              status: 'active',
+              location: payload.location,
+              price: payload.price !== undefined ? payload.price : null,
+              notes: payload.notes,
+              assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+              createdById: payload.createdById ?? undefined,
+            },
+            include: { service: true },
+          })
+          return { job, recurrence, booking }
+        })
+        if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
+          const jobWithContact = staged.job as {
+            contact?: { firstName?: string; lastName?: string }
+          }
+          await sendAssignmentNotification({
+            tenantId,
+            assignedTo: normalizedAssignedTo,
+            assignerUserId: payload.createdById,
+            jobTitle: staged.job.title,
+            startTime: null,
+            endTime: null,
+            location: staged.job.location,
+            contactName: jobWithContact.contact
+              ? `${jobWithContact.contact.firstName ?? ''} ${jobWithContact.contact.lastName ?? ''}`.trim() ||
+                undefined
+              : undefined,
+          }).catch(e => console.error('Failed to send assignment notification:', e))
+        }
+        const assignedToName = await getAssignedToName(tenantId, staged.job.assignedTo)
+        return {
+          ...staged.job,
+          bookingId: staged.booking.id,
+          recurrenceId: staged.recurrence.id,
+          startTime: null,
+          endTime: null,
+          toBeScheduled: true,
+          status: staged.job.status,
+          serviceName: staged.job.service?.name ?? null,
+          price: staged.booking.price != null ? Number(staged.booking.price) : null,
+          assignedToName,
+          nextDueDate: computeNextDueMonthISO(staged.recurrence.createdAt, false),
+        }
+      }
 
       // If toBeScheduled, create ONLY the Job (no automatic Booking).
       // Bookings are separate appointment records and can be created/deleted independently.
@@ -3079,6 +3230,153 @@ export const dataServices = {
 
       await validateAssignedTo(tenantId, jobUpdateData.assignedTo ?? payload.assignedTo)
 
+      // Turn staging OFF: the form sends `removeRecurrence` when a staged monthly job is
+      // switched back to "Does not repeat". Soft-archive the pending placeholder booking so
+      // the rolling stops; already-scheduled occurrences and the Job itself are untouched.
+      if (payload.removeRecurrence === true) {
+        const now = new Date()
+        const stagedRecurrenceIds = Array.from(
+          new Set(
+            existingJob.bookings
+              .filter(b => b.toBeScheduled === true && b.recurrenceId)
+              .map(b => b.recurrenceId as string)
+          )
+        )
+        if (stagedRecurrenceIds.length > 0) {
+          await prisma.booking.updateMany({
+            where: {
+              tenantId,
+              recurrenceId: { in: stagedRecurrenceIds },
+              toBeScheduled: true,
+              archivedAt: null,
+            },
+            data: { archivedAt: now },
+          })
+        }
+        if (Object.keys(jobUpdateData).length > 0) {
+          await prisma.job.update({ where: { id }, data: jobUpdateData })
+        }
+        const afterOff = await prisma.job.findFirst({
+          where: { id },
+          include: {
+            contact: true,
+            bookings: { include: { service: true }, orderBy: { startTime: 'asc' } },
+          },
+        })
+        const remaining = afterOff!.bookings.find(x => x.archivedAt == null) ?? null
+        const assignedToName = await getAssignedToName(tenantId, afterOff!.assignedTo)
+        return {
+          ...afterOff,
+          bookingId: remaining?.id ?? null,
+          serviceId: remaining?.serviceId,
+          service: remaining?.service,
+          startTime: remaining?.startTime?.toISOString() ?? null,
+          endTime: remaining?.endTime?.toISOString() ?? null,
+          toBeScheduled: remaining?.toBeScheduled ?? false,
+          status: remaining?.status ?? afterOff!.status,
+          price: remaining?.price != null ? Number(remaining.price) : null,
+          assignedToName,
+        }
+      }
+
+      // Turn staging ON (upgrade): an existing unscheduled job becomes a rolling monthly
+      // placeholder. No fixed times — create the JobRecurrence and attach ONE pending booking.
+      const isStagedMonthlyUpgrade =
+        payload.recurrence &&
+        payload.recurrence.frequency === 'monthly' &&
+        payload.toBeScheduled === true &&
+        !existingJob.bookings.some(b => b.recurrenceId)
+      if (isStagedMonthlyUpgrade) {
+        const now = new Date()
+        const assignedArr = normalizeAssignedTo(jobUpdateData.assignedTo ?? existingJob.assignedTo)
+        const assignedToForRecurrence = assignedArr?.[0]?.userId ?? null
+        const recurrenceServiceId = bookingUpdateData.serviceId ?? existingJob.serviceId ?? null
+        const recurrence = await prisma.jobRecurrence.create({
+          data: {
+            tenantId,
+            contactId: jobUpdateData.contactId ?? existingJob.contactId,
+            serviceId: recurrenceServiceId,
+            title: jobUpdateData.title ?? existingJob.title,
+            description: jobUpdateData.description ?? existingJob.description ?? null,
+            location: jobUpdateData.location ?? existingJob.location ?? null,
+            notes: jobUpdateData.notes ?? existingJob.notes ?? null,
+            assignedTo: assignedToForRecurrence,
+            status: 'active',
+            frequency: 'monthly',
+            interval: payload.recurrence.interval || 1,
+            count: null,
+            untilDate: null,
+            daysOfWeek: [],
+            startTime: now,
+            endTime: now,
+          },
+        })
+        // Reuse an existing unscheduled booking if the job already had one; else create.
+        const existingPlaceholder = existingJob.bookings.find(
+          b => b.toBeScheduled === true && !b.recurrenceId
+        )
+        if (existingPlaceholder) {
+          await prisma.booking.update({
+            where: { id: existingPlaceholder.id },
+            data: {
+              recurrenceId: recurrence.id,
+              toBeScheduled: true,
+              startTime: null,
+              endTime: null,
+            },
+          })
+        } else {
+          await prisma.booking.create({
+            data: {
+              tenantId,
+              jobId: id,
+              serviceId: recurrenceServiceId,
+              recurrenceId: recurrence.id,
+              startTime: null,
+              endTime: null,
+              toBeScheduled: true,
+              status: 'active',
+              location: jobUpdateData.location ?? existingJob.location ?? null,
+              price:
+                bookingUpdateData.price != null
+                  ? bookingUpdateData.price
+                  : existingJob.price ?? null,
+              notes: jobUpdateData.notes ?? existingJob.notes ?? null,
+              assignedTo: (assignedArr ?? undefined) as unknown as Prisma.InputJsonValue,
+              createdById: existingJob.createdById ?? payload.createdById ?? undefined,
+            },
+          })
+        }
+        if (Object.keys(jobUpdateData).length > 0) {
+          await prisma.job.update({ where: { id }, data: jobUpdateData })
+        }
+        const upgraded = await prisma.job.findFirst({
+          where: { id },
+          include: {
+            contact: true,
+            bookings: { include: { service: true }, orderBy: { startTime: 'asc' } },
+          },
+        })
+        const placeholder = upgraded!.bookings.find(
+          b => b.toBeScheduled && b.recurrenceId === recurrence.id
+        )
+        const assignedToName = await getAssignedToName(tenantId, upgraded!.assignedTo)
+        return {
+          ...upgraded,
+          bookingId: placeholder?.id ?? null,
+          recurrenceId: recurrence.id,
+          serviceId: placeholder?.serviceId ?? null,
+          service: placeholder?.service ?? null,
+          startTime: null,
+          endTime: null,
+          toBeScheduled: true,
+          status: upgraded!.status,
+          price: placeholder?.price != null ? Number(placeholder.price) : null,
+          assignedToName,
+          nextDueDate: computeNextDueMonthISO(recurrence.createdAt, false),
+        }
+      }
+
       // Recurrence: if adding recurrence, use createRecurringJobs (simplified - would need primary booking times)
       if (payload.recurrence && !primaryBooking?.recurrenceId) {
         const finalStart = bookingUpdateData.startTime || primaryBooking?.startTime
@@ -3162,6 +3460,48 @@ export const dataServices = {
         const targetBooking = existingJob.bookings.find((b: any) => b.id === payload.bookingId)
         if (targetBooking) {
           await prisma.booking.update({ where: { id: payload.bookingId }, data: bookingUpdateData })
+
+          // Staged monthly ROLL: scheduling the pending placeholder of a staged series
+          // spawns the next month's placeholder in the same transaction-of-thought, but
+          // only if none exists yet (idempotence — always exactly one pending chip).
+          const wasStagedPlaceholder =
+            targetBooking.toBeScheduled === true &&
+            targetBooking.recurrenceId != null &&
+            bookingUpdateData.toBeScheduled === false &&
+            bookingUpdateData.startTime != null
+          if (wasStagedPlaceholder) {
+            const existingPending = await prisma.booking.findFirst({
+              where: {
+                tenantId,
+                recurrenceId: targetBooking.recurrenceId,
+                toBeScheduled: true,
+                deletedAt: null,
+                archivedAt: null,
+              },
+            })
+            if (!existingPending) {
+              await prisma.booking.create({
+                data: {
+                  tenantId,
+                  jobId: targetBooking.jobId,
+                  serviceId: targetBooking.serviceId,
+                  quoteId: targetBooking.quoteId,
+                  invoiceId: targetBooking.invoiceId,
+                  recurrenceId: targetBooking.recurrenceId,
+                  startTime: null,
+                  endTime: null,
+                  toBeScheduled: true,
+                  status: 'active',
+                  location: targetBooking.location,
+                  price: targetBooking.price,
+                  notes: targetBooking.notes,
+                  assignedTo: (targetBooking.assignedTo ??
+                    undefined) as unknown as Prisma.InputJsonValue,
+                  createdById: targetBooking.createdById,
+                },
+              })
+            }
+          }
         }
       } else if (primaryBooking) {
         // Check if we're scheduling a new appointment (has startTime/endTime and toBeScheduled is not explicitly true)

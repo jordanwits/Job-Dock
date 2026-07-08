@@ -48,6 +48,7 @@ const normalizeJob = (apiJob: any): Job => {
     occurrenceCount: apiJob.occurrenceCount,
     bookingId: apiJob.bookingId ?? undefined,
     isIndependent: apiJob.isIndependent ?? false,
+    nextDueDate: apiJob.nextDueDate ?? undefined,
   }
 }
 

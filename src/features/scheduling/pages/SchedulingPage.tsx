@@ -30,6 +30,19 @@ import NotifyClientModal from '../components/NotifyClientModal'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks } from 'date-fns'
 import { services } from '@/lib/api/services'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
+import type { Job } from '../types/job'
+
+// Label for a staged-monthly placeholder chip: "Monthly · Aug" (month formatted in UTC to
+// avoid timezone drift), falling back to just "Monthly" when nextDueDate is absent.
+const stagedMonthlyLabel = (job: Job): string | null => {
+  if (!(job.toBeScheduled && job.recurrenceId)) return null
+  if (!job.nextDueDate) return 'Monthly'
+  const month = new Date(job.nextDueDate).toLocaleString('en-US', {
+    month: 'short',
+    timeZone: 'UTC',
+  })
+  return `Monthly · ${month}`
+}
 
 const SchedulingPage = () => {
   const { user } = useAuthStore()
@@ -1355,6 +1368,11 @@ const SchedulingPage = () => {
                         <ClockIcon className="h-4 w-4 flex-shrink-0" />
                         <span className="font-medium truncate max-w-[200px]">{job.title}</span>
                         <span className="text-xs opacity-70">({job.contactName})</span>
+                        {stagedMonthlyLabel(job) && (
+                          <span className="ml-0.5 inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ring-warning/30">
+                            {stagedMonthlyLabel(job)}
+                          </span>
+                        )}
                       </div>
                     )
                   })}
@@ -1459,6 +1477,11 @@ const SchedulingPage = () => {
                                   {job.title}
                                 </span>
                                 <span className="text-xs opacity-70">({job.contactName})</span>
+                                {stagedMonthlyLabel(job) && (
+                                  <span className="ml-0.5 inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ring-warning/30">
+                                    {stagedMonthlyLabel(job)}
+                                  </span>
+                                )}
                               </div>
                             )
                           })}

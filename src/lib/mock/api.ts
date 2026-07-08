@@ -618,6 +618,11 @@ export const mockInvoicesService = {
   },
 }
 
+// First day (UTC) of a month derived from `base`; `addMonth` advances one month.
+// Mirrors the backend `computeNextDueMonthISO` so staged-monthly chips match live behavior.
+const mockNextDueMonthISO = (base: Date, addMonth: boolean): string =>
+  new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + (addMonth ? 1 : 0), 1)).toISOString()
+
 // Mock Jobs Service
 export const mockJobsService = {
   getAll: async (startDate?: Date, endDate?: Date) => {
@@ -627,8 +632,12 @@ export const mockJobsService = {
     let jobs = mockStorage.jobs
 
     if (startDate || endDate) {
-      jobs = jobs.filter(job => {
-        const jobStart = new Date(job.startTime)
+      jobs = jobs.filter(rawJob => {
+        const job = rawJob as Record<string, unknown>
+        // Always surface to-be-scheduled jobs (incl. staged monthly placeholders); they have
+        // null times and must appear in the tray regardless of the calendar date window.
+        if (job.toBeScheduled || !job.startTime) return true
+        const jobStart = new Date(job.startTime as string)
         if (startDate && jobStart < startDate) return false
         if (endDate && jobStart > endDate) return false
         return true
@@ -660,8 +669,17 @@ export const mockJobsService = {
 
     const service = data.serviceId ? mockStorage.services.find(s => s.id === data.serviceId) : null
 
+    const toBeScheduled = data.toBeScheduled === true
+    // Staged monthly = to-be-scheduled + a monthly recurrence. Persist it as a rolling
+    // placeholder: null times, a generated recurrenceId, and a nextDueDate for the chip label.
+    const isStagedMonthly = toBeScheduled && data.recurrence?.frequency === 'monthly'
+    const jobId = String(Date.now())
+    const stagedFields = isStagedMonthly
+      ? { recurrenceId: `rec-${jobId}`, nextDueDate: mockNextDueMonthISO(new Date(), false) }
+      : {}
+
     const newJob = {
-      id: String(mockStorage.jobs.length + 1),
+      id: jobId,
       title: data.title,
       description: data.description || '',
       contactId: data.contactId,
@@ -670,14 +688,16 @@ export const mockJobsService = {
       contactPhone: contact?.phone || '',
       serviceId: data.serviceId,
       serviceName: service?.name,
-      startTime: data.startTime,
-      endTime: data.endTime,
-      status: data.status || 'scheduled',
+      startTime: toBeScheduled ? null : data.startTime,
+      endTime: toBeScheduled ? null : data.endTime,
+      toBeScheduled,
+      status: data.status || (toBeScheduled ? 'active' : 'scheduled'),
       location: data.location || '',
       notes: data.notes || '',
       assignedTo: data.assignedTo,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      ...stagedFields,
     }
     mockStorage.jobs.push(newJob)
     saveMockStorage()
@@ -689,10 +709,61 @@ export const mockJobsService = {
     const index = mockStorage.jobs.findIndex(j => j.id === id)
     if (index === -1) throw new Error('Job not found')
 
+    const prev = mockStorage.jobs[index] as Record<string, unknown>
+    // `recurrence` / `removeRecurrence` are control signals, not persisted job fields.
+    const { recurrence, removeRecurrence, ...persistable } = data
     const updatedJob = {
-      ...mockStorage.jobs[index],
-      ...data,
+      ...prev,
+      ...persistable,
       updatedAt: new Date().toISOString(),
+    }
+
+    // Staged monthly: turn OFF -> drop the recurrence so rolling stops (job stays unscheduled).
+    if (removeRecurrence === true) {
+      updatedJob.recurrenceId = undefined
+      updatedJob.nextDueDate = undefined
+    }
+    // Staged monthly: turn ON (upgrade an existing unscheduled job).
+    if (
+      data.toBeScheduled === true &&
+      recurrence?.frequency === 'monthly' &&
+      !prev.recurrenceId
+    ) {
+      updatedJob.toBeScheduled = true
+      updatedJob.startTime = null
+      updatedJob.endTime = null
+      updatedJob.recurrenceId = `rec-${id}`
+      updatedJob.nextDueDate = mockNextDueMonthISO(new Date(), false)
+    }
+
+    // Staged monthly ROLL: scheduling this placeholder (times set, toBeScheduled cleared)
+    // spawns next month's placeholder, but only if none exists yet (idempotence).
+    const isScheduling =
+      persistable.startTime != null &&
+      persistable.endTime != null &&
+      persistable.toBeScheduled !== true
+    const wasStagedPlaceholder = prev.toBeScheduled === true && !!prev.recurrenceId
+    if (isScheduling && wasStagedPlaceholder) {
+      updatedJob.toBeScheduled = false
+      updatedJob.nextDueDate = undefined
+      const hasPending = mockStorage.jobs.some((j, i) => {
+        const other = j as Record<string, unknown>
+        return i !== index && other.recurrenceId === prev.recurrenceId && other.toBeScheduled === true
+      })
+      if (!hasPending) {
+        const scheduledStart = new Date(persistable.startTime)
+        mockStorage.jobs.push({
+          ...prev,
+          id: String(Date.now()),
+          startTime: null,
+          endTime: null,
+          toBeScheduled: true,
+          status: 'active',
+          nextDueDate: mockNextDueMonthISO(scheduledStart, true),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      }
     }
 
     // Update contact/service info if changed

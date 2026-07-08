@@ -626,11 +626,17 @@ const JobForm = ({
         setStartTime('09:00')
         setScheduleDateError(null)
       }
-      // If we're scheduling an unscheduled job, automatically uncheck toBeScheduled
-      // But if user can't schedule, force toBeScheduled to true
+      // Staged monthly (to-be-scheduled + recurrence) is a rolling placeholder — keep the
+      // form in placeholder mode so the "Every month" control shows and the series can be
+      // edited/turned off. Otherwise, scheduling an unscheduled job unchecks toBeScheduled.
+      const isStagedMonthlyJob = !!(job.toBeScheduled && job.recurrenceId)
       const shouldBeScheduled =
-        !canSchedule || (schedulingUnscheduledJob ? false : job.toBeScheduled || false)
+        !canSchedule ||
+        (isStagedMonthlyJob ? true : schedulingUnscheduledJob ? false : job.toBeScheduled || false)
       setToBeScheduled(shouldBeScheduled)
+      if (isStagedMonthlyJob) {
+        setRepeatPattern('monthly-1')
+      }
     }
   }, [job, reset, schedulingUnscheduledJob])
 
@@ -752,6 +758,17 @@ const JobForm = ({
         // Convert price string to number, or undefined if empty
         // Don't include job price if user doesn't have permission
         price: shouldIncludeJobPrice ? convertPrice(dataWithoutTimes.price) : undefined,
+      }
+      // Staged monthly: a to-be-scheduled job set to "Every month" becomes a rolling
+      // placeholder. Attach the monthly recurrence; if an existing staged job is switched
+      // back to "Does not repeat", signal the backend to stop the rolling.
+      const wantsStagedMonthly =
+        repeatPattern === 'monthly-1' && jobSelectionMode !== 'independent'
+      const isEditingStagedMonthly = !!(job?.toBeScheduled && job?.recurrenceId)
+      if (wantsStagedMonthly) {
+        formData.recurrence = { frequency: 'monthly', interval: 1 }
+      } else if (isEditingStagedMonthly) {
+        formData.removeRecurrence = true
       }
       const existingJobId = jobSelectionMode === 'existing' ? selectedExistingJobId : undefined
       const isIndependent = jobSelectionMode === 'independent'
@@ -1409,10 +1426,9 @@ const JobForm = ({
             checked={toBeScheduled}
             onChange={checked => {
               setToBeScheduled(checked)
-              if (checked) {
-                // Clear date/time when setting to unscheduled
-                setRepeatPattern('none')
-              }
+              // Reset the staged repeat control in both directions so a stale "Every month"
+              // never leaks into the scheduled path (and vice versa).
+              setRepeatPattern('none')
             }}
             label="To Be Scheduled"
           />
@@ -1424,6 +1440,27 @@ const JobForm = ({
           You do not have permission to schedule appointments. This job will be created without
           scheduled times.
         </Alert>
+      )}
+
+      {/* Staged monthly: repeat control for to-be-scheduled jobs (no fixed day). */}
+      {canSchedule && toBeScheduled && jobSelectionMode !== 'independent' && (
+        <div>
+          <label className={labelCls}>Repeat Schedule</label>
+          <SelectField
+            aria-label="Repeat Schedule"
+            value={repeatPattern === 'monthly-1' ? 'monthly-1' : 'none'}
+            onChange={e => setRepeatPattern(e.target.value)}
+            options={[
+              { value: 'none', label: 'Does not repeat' },
+              { value: 'monthly-1', label: 'Every month' },
+            ]}
+          />
+          {repeatPattern === 'monthly-1' && (
+            <p className="mt-1.5 text-[13px] text-ink-muted">
+              Pins to the top of the calendar each month until you schedule it.
+            </p>
+          )}
+        </div>
       )}
 
       {/* Job Duration */}

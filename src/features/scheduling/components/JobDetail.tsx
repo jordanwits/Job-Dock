@@ -273,9 +273,13 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
               <h3 className={sectionHeaderCls}>Schedule</h3>
               <p className="mt-1.5 flex items-center gap-2 text-base text-warning">
                 <ClockIcon className="h-5 w-5" />
-                To be scheduled
+                {job.recurrenceId ? 'Monthly — to be scheduled' : 'To be scheduled'}
               </p>
-              <p className="mt-1 text-sm text-ink-subtle">Drag to calendar to schedule</p>
+              <p className="mt-1 text-sm text-ink-subtle">
+                {job.recurrenceId
+                  ? 'Pins to the top of the calendar each month until you schedule it.'
+                  : 'Drag to calendar to schedule'}
+              </p>
             </div>
           ) : isMultiDay ? (
             <div className={cn(subPanelCls, 'sm:col-span-2')}>

@@ -62,6 +62,9 @@ export interface Job {
   updatedAt: string
   occurrenceCount?: number
   bookingId?: string // ID of the specific booking (when job has multiple bookings)
+  // Virtual (non-DB) field on staged-monthly placeholder rows: first day of the month the
+  // pending placeholder is due in. Used only for the calendar chip label ("Monthly · Aug").
+  nextDueDate?: string | null
 }
 
 export interface CreateJobData {
@@ -96,6 +99,7 @@ export interface UpdateJobData extends Partial<CreateJobData> {
   bookingId?: string // When updating a specific booking (e.g. drag to-be-scheduled onto calendar)
   notifyClient?: boolean // When true and date/time changed, send reschedule notification to client
   payChangeEffectiveDate?: string // When editing pay and job has time entries, effective date (YYYY-MM-DD)
+  removeRecurrence?: boolean // When true, stop a staged-monthly series (archive its pending placeholder)
 }
 
 /** Data for creating an independent appointment (calendar-only booking, no job in Job Logs) */
