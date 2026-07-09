@@ -18,7 +18,7 @@ export const JOB_STATUS: Record<JobStatusKey, { label: string; tone: Tone }> = {
   'in-progress': { label: 'In progress', tone: 'accent' },
   completed: { label: 'Completed', tone: 'success' },
   cancelled: { label: 'Cancelled', tone: 'neutral' },
-  'pending-confirmation': { label: 'Pending confirmation', tone: 'warning' },
+  'pending-confirmation': { label: 'Unconfirmed', tone: 'warning' },
 }
 
 /** Resolve any (possibly legacy/unknown) status string to a label + tone. */

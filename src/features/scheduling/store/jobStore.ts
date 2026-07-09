@@ -75,12 +75,12 @@ interface JobState {
   updateIndependentBooking: (id: string, data: Partial<CreateIndependentBookingData>) => Promise<void>
   deleteJob: (id: string, deleteAll?: boolean) => Promise<void>
   permanentDeleteJob: (id: string, deleteAll?: boolean) => Promise<void>
-  restoreJob: (id: string) => Promise<void>
+  restoreJob: (id: string, opts?: { bookingId?: string; isIndependent?: boolean }) => Promise<void>
   setSelectedJob: (job: Job | null) => void
   setViewMode: (mode: 'day' | 'week' | 'month') => void
   setCurrentDate: (date: Date) => void
   setJobView: (view: 'active' | 'archived' | 'trash') => void
-  confirmJob: (id: string) => Promise<void>
+  confirmJob: (id: string, notifyClient?: boolean) => Promise<void>
   declineJob: (id: string, reason?: string) => Promise<void>
   clearError: () => void
 }
@@ -411,29 +411,63 @@ export const useJobStore = create<JobState>((set, get) => ({
     }
   },
 
-  restoreJob: async (id: string) => {
+  restoreJob: async (id: string, opts?: { bookingId?: string; isIndependent?: boolean }) => {
     set({ isLoading: true, error: null })
     try {
-      const apiJob = await jobsService.restore(id)
+      if (opts?.isIndependent) {
+        // Independent appointments have no Job row — their flattened id IS the booking id, so
+        // POST /jobs/:id/restore would 404. Restore the booking directly.
+        await bookingsService.restore(opts.bookingId ?? id)
+        set((state) => ({
+          jobs: state.jobs.map((j) => (j.id === id ? { ...j, archivedAt: null } : j)),
+          selectedJob:
+            state.selectedJob && state.selectedJob.id === id
+              ? { ...state.selectedJob, archivedAt: null }
+              : state.selectedJob,
+          isLoading: false,
+        }))
+        return
+      }
+      const apiJob = await jobsService.restore(id, opts?.bookingId)
       const restoredJob = normalizeJob(apiJob)
-      set((state) => ({
-        jobs: state.jobs.map((j) => j.id === id ? restoredJob : j),
-        selectedJob: state.selectedJob?.id === id ? restoredJob : state.selectedJob,
-        isLoading: false,
-      }))
+      if ((restoredJob.occurrenceCount ?? 1) > 1) {
+        // A series restore brings back multiple occurrences — one flattened response row can't
+        // represent them all, so refetch the current window.
+        const { currentDate } = get()
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0)
+        await get().fetchJobs(startDate, endDate)
+        set((state) => ({
+          selectedJob: state.selectedJob?.id === id ? restoredJob : state.selectedJob,
+        }))
+      } else {
+        // The archived row usually isn't in the active-view array at all — append when missing
+        // (the old map-only update silently did nothing and the appointment never reappeared).
+        set((state) => {
+          const present = state.jobs.some((j) => j.id === id)
+          return {
+            jobs: present
+              ? state.jobs.map((j) => (j.id === id ? restoredJob : j))
+              : [...state.jobs, restoredJob],
+            selectedJob: state.selectedJob?.id === id ? restoredJob : state.selectedJob,
+            isLoading: false,
+          }
+        })
+      }
     } catch (error: any) {
+      const apiMessage = error.response?.data?.error?.message || error.response?.data?.message
       set({
-        error: error.message || 'Failed to restore job',
+        error: apiMessage || error.message || 'Failed to restore job',
         isLoading: false,
       })
       throw error
     }
   },
 
-  confirmJob: async (id: string) => {
+  confirmJob: async (id: string, notifyClient?: boolean) => {
     set({ isLoading: true, error: null })
     try {
-      const apiJob = await jobsService.confirm(id)
+      const apiJob = await jobsService.confirm(id, { notifyClient })
       const confirmedJob = normalizeJob(apiJob)
       set((state) => ({
         jobs: state.jobs.map((j) =>

@@ -12,6 +12,7 @@
  */
 import type OpenAI from 'openai'
 import {
+  bookingsService,
   contactsService,
   invoicesService,
   jobsService,
@@ -123,6 +124,11 @@ const slimService = (s: any) => ({
 
 const slimJob = (j: any) => ({
   id: j?.id,
+  // Every occurrence of a recurring appointment shares the job id; bookingId is the only
+  // handle that names ONE occurrence. Mutation tools need it to target precisely.
+  bookingId: j?.bookingId || null,
+  recurrenceId: j?.recurrenceId || null,
+  occurrenceCount: j?.occurrenceCount ?? null,
   title: j?.title,
   contactName: j?.contactName || null,
   serviceName: j?.serviceName || null,
@@ -509,7 +515,7 @@ export const agentTools: AgentTool[] = [
       function: {
         name: 'list_jobs',
         description:
-          "List jobs / appointments on the schedule, optionally within a date range. Use to answer schedule questions or find a job id to edit.",
+          'List jobs / appointments on the schedule, optionally within a date range. Use to answer schedule questions or find an appointment to edit. Recurring appointments appear once per occurrence, all sharing the same job id — bookingId is what identifies one specific occurrence.',
         parameters: {
           type: 'object',
           properties: {
@@ -615,11 +621,16 @@ export const agentTools: AgentTool[] = [
       function: {
         name: 'update_appointment',
         description:
-          'Update / reschedule an existing job or appointment. Only the fields you pass are changed. Find the id with list_jobs/get_job first.',
+          'Update / reschedule an existing job or appointment. Only the fields you pass are changed. Find the id with list_jobs/get_job first. When rescheduling one occurrence of a recurring appointment, you MUST also pass that occurrence\'s bookingId (from list_jobs).',
         parameters: {
           type: 'object',
           properties: {
             id: { type: 'string' },
+            bookingId: {
+              type: 'string',
+              description:
+                'The specific occurrence to change (from list_jobs). Required when rescheduling an occurrence of a recurring appointment.',
+            },
             title: { type: 'string' },
             contactId: { type: 'string' },
             serviceId: { type: 'string' },
@@ -636,7 +647,22 @@ export const agentTools: AgentTool[] = [
     },
     async execute(args: any) {
       const { id, ...rest } = args || {}
-      const updated = await jobsService.update(id, definedOnly(rest))
+      const payload = definedOnly(rest)
+      // Rescheduling must target the existing booking row: without a bookingId the backend
+      // treats new times as an ADDITIONAL appointment for the job (that create-branch serves
+      // the calendar's "link another visit" flow) and the result is a silent duplicate.
+      if ((payload.startTime || payload.endTime) && !payload.bookingId) {
+        const job: any = await jobsService.getById(id)
+        if (job?.recurrenceId && (job?.occurrenceCount ?? 0) > 1) {
+          return {
+            error:
+              'This is a recurring appointment with multiple occurrences sharing this id. Pass the bookingId of the occurrence to reschedule (find it with list_jobs).',
+            occurrenceCount: job.occurrenceCount,
+          }
+        }
+        if (job?.bookingId) payload.bookingId = job.bookingId
+      }
+      const updated = await jobsService.update(id, payload)
       return detailJob(updated)
     },
   },
@@ -1055,19 +1081,60 @@ export const agentTools: AgentTool[] = [
     mutates: true,
     destructive: true,
     affects: 'jobs',
-    summarize: async a => `Delete ${await labelJob(a?.id)} — this can’t be undone`,
+    summarize: async a =>
+      a?.allOccurrences
+        ? `Archive EVERY occurrence of ${await labelJob(a?.id)} (restorable from Archived)`
+        : `Archive ${await labelJob(a?.id)}${a?.bookingId ? ' — this occurrence only' : ''} (restorable from Archived)`,
     schema: {
       type: 'function',
       function: {
         name: 'delete_appointment',
         description:
-          'Delete a job / appointment. Destructive — find it with list_jobs first and confirm which one.',
-        parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+          'Archive (delete) an appointment — a restorable soft-delete (Scheduling > Archived). Recurring appointments: every occurrence shares one job id, so to delete ONE occurrence you MUST pass its bookingId (from list_jobs); pass allOccurrences: true ONLY if the user explicitly asked to delete the entire series. Find the appointment with list_jobs first and confirm which one.',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            bookingId: {
+              type: 'string',
+              description: 'The specific occurrence to archive (from list_jobs).',
+            },
+            allOccurrences: {
+              type: 'boolean',
+              description:
+                'Archive the entire recurring series. Only when the user explicitly asked for the whole series.',
+            },
+          },
+          required: ['id'],
+        },
       },
     },
-    async execute(args: { id: string }) {
+    async execute(args: { id: string; bookingId?: string; allOccurrences?: boolean }) {
+      if (args.allOccurrences) {
+        await jobsService.delete(args.id, true)
+        return { archived: true, id: args.id, scope: 'all-occurrences' }
+      }
+      if (args.bookingId) {
+        await bookingsService.delete(args.bookingId)
+        return { archived: true, id: args.id, bookingId: args.bookingId, scope: 'single-occurrence' }
+      }
+      // No occurrence specified. Safe only for non-recurring appointments: a recurring job's
+      // occurrences all share the job id, and jobsService.delete(id) archives the ENTIRE series.
+      const job: any = await jobsService.getById(args.id)
+      if (job?.recurrenceId && (job?.occurrenceCount ?? 0) > 1) {
+        return {
+          error:
+            'This is a recurring appointment with multiple occurrences. To delete ONE occurrence, pass its bookingId (from list_jobs). To delete the whole series, pass allOccurrences: true.',
+          occurrenceCount: job.occurrenceCount,
+        }
+      }
+      if (job?.bookingId) {
+        // Archive just the appointment (booking); the job survives — same as the calendar UI.
+        await bookingsService.delete(job.bookingId)
+        return { archived: true, id: args.id, bookingId: job.bookingId, scope: 'single-occurrence' }
+      }
       await jobsService.delete(args.id)
-      return { deleted: true, id: args.id }
+      return { archived: true, id: args.id, scope: 'job' }
     },
   },
 

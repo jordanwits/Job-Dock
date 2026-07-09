@@ -1144,7 +1144,7 @@ We look forward to working with you!',
     const isEmployeeJobAccessResource = (r: string) =>
       employeeJobAccessResources.includes(r as any)
 
-    let currentUser: { id: string; role: string; canSeeOtherJobs?: boolean; canEditJobs?: boolean; canEditAssignedJobsOnly?: boolean } | null = null
+    let currentUser: { id: string; role: string; canSeeOtherJobs?: boolean; canSeeJobPrices?: boolean; canEditJobs?: boolean; canEditAssignedJobsOnly?: boolean } | null = null
     const authHeader = event.headers?.Authorization || event.headers?.authorization
     if (
       authHeader &&
@@ -1192,32 +1192,63 @@ We look forward to working with you!',
       }
     }
 
-    // Check edit/delete permissions using canEditJobs / canEditAssignedJobsOnly
+    // Check edit/delete permissions using canEditJobs / canEditAssignedJobsOnly.
+    // Bookings are the calendar's primary mutation surface (appointment edits/deletes route
+    // through /bookings), so they enforce the same rules as the job they belong to.
     if (
       currentUser &&
-      (resource === 'jobs' || resource === 'job-logs') &&
+      (resource === 'jobs' || resource === 'job-logs' || resource === 'bookings') &&
       id &&
       (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH' || event.httpMethod === 'DELETE')
     ) {
       const isAdminOrOwner = currentUser.role === 'admin' || currentUser.role === 'owner'
       if (!isAdminOrOwner) {
+        // Irreversible hard deletes are admin/owner-only, regardless of edit permissions.
+        const isPermanentDelete =
+          event.httpMethod === 'DELETE' && event.queryStringParameters?.permanent === 'true'
+        if (isPermanentDelete && (resource === 'jobs' || resource === 'bookings')) {
+          return errorResponse('Only admins can permanently delete', 403)
+        }
         if (currentUser.canEditJobs === false) {
           return errorResponse('You do not have permission to edit jobs', 403)
         }
         if (currentUser.canEditAssignedJobsOnly !== false) {
           const { default: prisma } = await import('../../lib/db')
-          const job = await prisma.job.findFirst({
-            where: { id, tenantId },
-            select: { createdById: true, assignedTo: true },
-          })
-          if (!job) {
-            return errorResponse('Job not found', 404)
+          const parseAssignedIds = (raw: unknown): string[] => {
+            const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []
+            return Array.isArray(parsed) ? parsed.map((a: any) => a.userId).filter(Boolean) : []
           }
-          const raw = job.assignedTo
-          const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []
-          const assignedIds: string[] = Array.isArray(parsed) ? parsed.map((a: any) => a.userId).filter(Boolean) : []
-          if (!assignedIds.includes(currentUser.id) && job.createdById !== currentUser.id) {
-            return errorResponse('You can only edit jobs you are assigned to', 403)
+          if (resource === 'bookings') {
+            const booking = await prisma.booking.findFirst({
+              where: { id, tenantId },
+              select: {
+                createdById: true,
+                assignedTo: true,
+                job: { select: { createdById: true, assignedTo: true } },
+              },
+            })
+            if (!booking) {
+              return errorResponse('Booking not found', 404)
+            }
+            const assignedIds = parseAssignedIds(booking.assignedTo ?? booking.job?.assignedTo)
+            const isCreator =
+              booking.createdById === currentUser.id ||
+              booking.job?.createdById === currentUser.id
+            if (!assignedIds.includes(currentUser.id) && !isCreator) {
+              return errorResponse('You can only edit appointments for jobs you are assigned to', 403)
+            }
+          } else {
+            const job = await prisma.job.findFirst({
+              where: { id, tenantId },
+              select: { createdById: true, assignedTo: true },
+            })
+            if (!job) {
+              return errorResponse('Job not found', 404)
+            }
+            const assignedIds = parseAssignedIds(job.assignedTo)
+            if (!assignedIds.includes(currentUser.id) && job.createdById !== currentUser.id) {
+              return errorResponse('You can only edit jobs you are assigned to', 403)
+            }
           }
         }
       }
@@ -1260,6 +1291,48 @@ We look forward to working with you!',
             return errorResponse('Team subscription required to assign jobs to team members', 403)
           }
         }
+      }
+    }
+
+    // Pay-visibility enforcement: an editor who cannot see job prices must never be able to
+    // change anyone's stored pay. The job form blanks values it was never shown (privacy
+    // stripping sends coworker assignments without price/hourlyRate), so an unrelated edit —
+    // e.g. changing the notes — would otherwise wipe coworker rates. Restore the stored values
+    // server-side; only genuinely new assignments keep the (null) pay the client sent.
+    if (
+      currentUser &&
+      currentUser.canSeeJobPrices === false &&
+      resource === 'jobs' &&
+      id &&
+      (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH')
+    ) {
+      let payload: any = null
+      try {
+        payload = parseBody(event)
+      } catch {
+        /* body may be missing */
+      }
+      if (payload && Array.isArray(payload.assignedTo)) {
+        const { default: prisma } = await import('../../lib/db')
+        const job = await prisma.job.findFirst({
+          where: { id, tenantId },
+          select: { assignedTo: true },
+        })
+        const raw = job?.assignedTo
+        const stored = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []
+        const storedByUser = new Map(
+          (Array.isArray(stored) ? stored : [])
+            .filter((a: any) => a?.userId)
+            .map((a: any) => [a.userId, a])
+        )
+        payload.assignedTo = payload.assignedTo.map((a: any) => {
+          const existing = a?.userId ? storedByUser.get(a.userId) : undefined
+          if (!existing) return a
+          return { ...a, price: existing.price ?? null, hourlyRate: existing.hourlyRate ?? null }
+        })
+        // The job-level price is equally invisible to this editor — never accept a change.
+        delete payload.price
+        event.body = JSON.stringify(payload)
       }
     }
 
@@ -1340,12 +1413,15 @@ We look forward to working with you!',
         if (resource === 'jobs' && permanent && 'permanentDelete' in service) {
           result = await (service as typeof dataServices.jobs).permanentDelete(tenantId, id, deleteAll)
         } else if (resource === 'bookings' && permanent && 'permanentDelete' in service) {
-          result = await (service as typeof dataServices.bookings).permanentDelete(tenantId, id)
+          // deleteAll = the calendar's "Delete series" — removes every booking in the recurrence
+          // (bookings only, never the job).
+          result = await (service as typeof dataServices.bookings).permanentDelete(tenantId, id, deleteAll)
+        } else if (resource === 'jobs' || resource === 'bookings') {
+          // Soft delete. Both honor deleteAll: jobs archive the series (jobs + bookings),
+          // bookings archive the series' bookings only (never the job).
+          result = await (service as typeof dataServices.jobs).delete(tenantId, id, deleteAll)
         } else {
-          // Default: soft delete (or regular delete for other resources)
-          // For bookings, deleteAll is not used
-          const deleteAllParam = resource === 'bookings' ? undefined : deleteAll
-          result = await service.delete(tenantId, id, deleteAllParam)
+          result = await service.delete(tenantId, id)
         }
         if (shouldTriggerGoogleSync(resource, action)) {
           await googleCalendar.triggerGoogleCalendarSync(tenantId)
@@ -1750,7 +1826,8 @@ async function handlePost(
   }
 
   if (resource === 'jobs' && id && action === 'confirm') {
-    return (service as typeof dataServices.jobs).confirm(tenantId, id)
+    const payload = parseBody(event)
+    return (service as typeof dataServices.jobs).confirm(tenantId, id, payload?.notifyClient)
   }
 
   if (resource === 'jobs' && id && action === 'decline') {
@@ -1759,7 +1836,20 @@ async function handlePost(
   }
 
   if (resource === 'jobs' && id && action === 'restore') {
-    return (service as typeof dataServices.jobs).restore(tenantId, id)
+    // Optional body: { bookingId } pins the restore to the specific archived row the user clicked.
+    let restoreBookingId: string | undefined
+    if (event.body) {
+      try {
+        restoreBookingId = JSON.parse(event.body)?.bookingId ?? undefined
+      } catch {
+        // body is optional — ignore malformed JSON
+      }
+    }
+    return (service as typeof dataServices.jobs).restore(tenantId, id, restoreBookingId)
+  }
+
+  if (resource === 'bookings' && id && action === 'restore') {
+    return (service as typeof dataServices.bookings).restore(tenantId, id)
   }
 
   // Contacts import endpoints

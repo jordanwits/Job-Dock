@@ -20,31 +20,18 @@ interface ArchivedJobsPageProps {
   onJobRestore: (job: Job) => Promise<void>
   onJobSelect?: (job: Job) => void
   onPermanentDelete?: (job: Job) => void
-  deletedJobId?: string | null
-  deletedRecurrenceId?: string | null
+  /** Bump to make the list refetch (e.g. after a permanent delete initiated by the parent). */
+  refreshToken?: number
 }
 
-const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, deletedJobId, deletedRecurrenceId }: ArchivedJobsPageProps) => {
+const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, refreshToken }: ArchivedJobsPageProps) => {
   const [archivedJobs, setArchivedJobs] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchArchivedJobs()
-  }, [])
-
-  // Remove deleted jobs from the list
-  useEffect(() => {
-    if (deletedJobId) {
-      setArchivedJobs(prev => prev.filter(j => j.id !== deletedJobId))
-    }
-  }, [deletedJobId])
-
-  useEffect(() => {
-    if (deletedRecurrenceId) {
-      setArchivedJobs(prev => prev.filter(j => j.recurrenceId !== deletedRecurrenceId))
-    }
-  }, [deletedRecurrenceId])
+  }, [refreshToken])
 
   const fetchArchivedJobs = async () => {
     setIsLoading(true)
@@ -82,9 +69,11 @@ const ArchivedJobsPage = ({ onJobRestore, onJobSelect, onPermanentDelete, delete
   const handleRestore = async (job: Job) => {
     try {
       await onJobRestore(job)
-      // Remove from list after successful restore
-      setArchivedJobs(prev => prev.filter(j => j.id !== job.id))
+      // Refetch rather than filter locally: a series restore removes several rows, a
+      // single-occurrence restore may leave sibling occurrences archived under the same job id.
+      await fetchArchivedJobs()
     } catch (err) {
+      // The parent surfaced the error to the user; keep the row so the restore can be retried.
       console.error('Failed to restore job:', err)
     }
   }

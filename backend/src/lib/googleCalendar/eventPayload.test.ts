@@ -130,6 +130,11 @@ describe('isBookingEligible', () => {
   test('pending-confirmation is eligible', () => {
     expect(isBookingEligible(baseBooking({ status: 'pending-confirmation' }), NOW)).toBe(true)
   })
+  test('every live status stays eligible — only cancelled removes the event', () => {
+    expect(isBookingEligible(baseBooking({ status: 'scheduled' }), NOW)).toBe(true)
+    expect(isBookingEligible(baseBooking({ status: 'in-progress' }), NOW)).toBe(true)
+    expect(isBookingEligible(baseBooking({ status: 'completed' }), NOW)).toBe(true)
+  })
   test('staged-monthly anchor (toBeScheduled + null times) is NOT eligible', () => {
     const anchor = baseBooking({ toBeScheduled: true, startTime: null, endTime: null })
     expect(isBookingEligible(anchor, NOW)).toBe(false)

@@ -91,7 +91,9 @@ export function isBookingEligible(booking: EligibilityBooking, now: Date): boole
   if (!booking.startTime || !booking.endTime) return false
   if (booking.toBeScheduled) return false
   if (booking.archivedAt != null || booking.deletedAt != null) return false
-  if (booking.status !== 'active' && booking.status !== 'pending-confirmation') return false
+  // Every live status stays on the user's calendar — Scheduled / In progress / Completed are all
+  // real appointments occupying time. Only an explicit cancellation removes the event.
+  if (booking.status === 'cancelled') return false
   const start = new Date(booking.startTime)
   if (Number.isNaN(start.getTime())) return false
   if (start < windowStartDate(now)) return false

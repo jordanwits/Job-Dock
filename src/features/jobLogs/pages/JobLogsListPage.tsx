@@ -37,8 +37,8 @@ const JobLogsListPage = () => {
   const [showSchedulingJobDetail, setShowSchedulingJobDetail] = useState(false)
   const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState(false)
   const [showPermanentDeleteRecurringModal, setShowPermanentDeleteRecurringModal] = useState(false)
-  const [deletedJobId, setDeletedJobId] = useState<string | null>(null)
-  const [deletedRecurrenceId, setDeletedRecurrenceId] = useState<string | null>(null)
+  // Bumped after any permanent delete so the Archive tab refetches its list.
+  const [archivedRefreshToken, setArchivedRefreshToken] = useState(0)
   const [showJobError, setShowJobError] = useState(false)
   const [jobErrorMessage, setJobErrorMessage] = useState('')
 
@@ -53,13 +53,6 @@ const JobLogsListPage = () => {
     }
     checkTeam()
   }, [])
-
-  useEffect(() => {
-    if (activeJobsTab !== 'archived') {
-      setDeletedJobId(null)
-      setDeletedRecurrenceId(null)
-    }
-  }, [activeJobsTab])
 
   const navigate = useNavigate()
   const { createJobLog, isLoading } = useJobLogStore()
@@ -94,11 +87,14 @@ const JobLogsListPage = () => {
       } else {
         await permanentDeleteJob(schedulingDetailJob.id)
       }
-      setDeletedJobId(schedulingDetailJob.id)
+      setArchivedRefreshToken(t => t + 1)
       closeSchedulingDetail()
       setShowPermanentDeleteConfirm(false)
     } catch (error) {
       console.error('Error permanently deleting:', error)
+      setShowPermanentDeleteConfirm(false)
+      setJobErrorMessage('Could not permanently delete this job. Please try again.')
+      setShowJobError(true)
     }
   }
 
@@ -112,11 +108,14 @@ const JobLogsListPage = () => {
       } else {
         await permanentDeleteJob(schedulingDetailJob.id)
       }
-      setDeletedJobId(schedulingDetailJob.id)
+      setArchivedRefreshToken(t => t + 1)
       closeSchedulingDetail()
       setShowPermanentDeleteRecurringModal(false)
     } catch (error) {
       console.error('Error permanently deleting:', error)
+      setShowPermanentDeleteRecurringModal(false)
+      setJobErrorMessage('Could not permanently delete this appointment. Please try again.')
+      setShowJobError(true)
     }
   }
 
@@ -127,11 +126,10 @@ const JobLogsListPage = () => {
         const { bookingsService } = await import('@/lib/api/services')
         await bookingsService.permanentDelete(schedulingDetailJob.bookingId)
         await fetchJobs()
-        setDeletedJobId(schedulingDetailJob.id)
       } else {
         await permanentDeleteJob(schedulingDetailJob.id, true)
-        setDeletedRecurrenceId(schedulingDetailJob.recurrenceId ?? null)
       }
+      setArchivedRefreshToken(t => t + 1)
       closeSchedulingDetail()
       setShowPermanentDeleteRecurringModal(false)
     } catch (error) {
@@ -143,13 +141,19 @@ const JobLogsListPage = () => {
     const jobToRestore = job || schedulingDetailJob
     if (!jobToRestore) return
     try {
-      await restoreJob(jobToRestore.id)
-      setDeletedJobId(jobToRestore.id)
+      await restoreJob(jobToRestore.id, {
+        bookingId: jobToRestore.bookingId ?? undefined,
+        isIndependent: jobToRestore.isIndependent,
+      })
       if (schedulingDetailJob?.id === jobToRestore.id) {
         closeSchedulingDetail()
       }
     } catch (error) {
       console.error('Error restoring job:', error)
+      setJobErrorMessage('Could not restore this job. Please try again.')
+      setShowJobError(true)
+      // Rethrow so the archived list keeps the row.
+      throw error
     }
   }
 
@@ -222,8 +226,7 @@ const JobLogsListPage = () => {
             onPermanentDelete={job => {
               handleRequestPermanentDelete(job)
             }}
-            deletedJobId={deletedJobId}
-            deletedRecurrenceId={deletedRecurrenceId}
+            refreshToken={archivedRefreshToken}
           />
         </div>
       )}

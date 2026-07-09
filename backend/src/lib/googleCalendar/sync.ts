@@ -58,30 +58,46 @@ export async function syncTenant(tenantId: string): Promise<void> {
 
 // Claim the connection row for a phase. Claimed iff the atomic updateMany touched exactly one row.
 // The 5-minute staleness makes a crashed run self-healing.
+// A contested claim is RETRIED briefly instead of dropped: instant-sync invocations race (one
+// Lambda per mutation), and the loser must still push after the winner releases — its re-read then
+// picks up the mutation that invoked it. Without the retry, that mutation's push silently waits for
+// the next trigger (e.g. a just-deleted appointment lingering on Google as a ghost event).
+const CLAIM_RETRY_WINDOW_MS = 15 * 1000
+const CLAIM_RETRY_DELAY_MS = 2500
+
 async function withClaim(connectionId: string, fn: () => Promise<void>): Promise<boolean> {
   const prisma = await getPrisma()
-  const now = new Date()
-  const staleBefore = new Date(now.getTime() - CLAIM_STALE_MS)
-  const claim = await prisma.googleCalendarConnection.updateMany({
-    where: {
-      id: connectionId,
-      OR: [{ syncInProgressAt: null }, { syncInProgressAt: { lt: staleBefore } }],
-    },
-    data: { syncInProgressAt: now },
-  })
-  if (claim.count !== 1) return false
-  try {
-    await fn()
-    return true
-  } finally {
-    // Only release the claim WE wrote: match syncInProgressAt to our exact timestamp so a run that
-    // stole a stale claim from us (a future longer-running phase) is never clobbered. If another
-    // run already re-claimed, this updateMany touches zero rows.
-    await prisma.googleCalendarConnection
-      .updateMany({ where: { id: connectionId, syncInProgressAt: now }, data: { syncInProgressAt: null } })
-      .catch(() => {
-        /* best-effort release; staleness will reclaim if this fails */
-      })
+  const deadline = Date.now() + CLAIM_RETRY_WINDOW_MS
+  for (;;) {
+    const now = new Date()
+    const staleBefore = new Date(now.getTime() - CLAIM_STALE_MS)
+    const claim = await prisma.googleCalendarConnection.updateMany({
+      where: {
+        id: connectionId,
+        OR: [{ syncInProgressAt: null }, { syncInProgressAt: { lt: staleBefore } }],
+      },
+      data: { syncInProgressAt: now },
+    })
+    if (claim.count === 1) {
+      try {
+        await fn()
+        return true
+      } finally {
+        // Only release the claim WE wrote: match syncInProgressAt to our exact timestamp so a run
+        // that stole a stale claim from us (a future longer-running phase) is never clobbered. If
+        // another run already re-claimed, this updateMany touches zero rows.
+        await prisma.googleCalendarConnection
+          .updateMany({
+            where: { id: connectionId, syncInProgressAt: now },
+            data: { syncInProgressAt: null },
+          })
+          .catch(() => {
+            /* best-effort release; staleness will reclaim if this fails */
+          })
+      }
+    }
+    if (Date.now() >= deadline) return false
+    await new Promise(resolve => setTimeout(resolve, CLAIM_RETRY_DELAY_MS))
   }
 }
 
@@ -233,7 +249,7 @@ async function runPush(active: ActiveConnection): Promise<void> {
       toBeScheduled: false,
       archivedAt: null,
       deletedAt: null,
-      status: { in: ['active', 'pending-confirmation'] },
+      status: { not: 'cancelled' },
       startTime: { gte: windowStart, not: null },
       endTime: { not: null },
     },

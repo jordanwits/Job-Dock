@@ -1,6 +1,6 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { jobSchema, type JobFormData } from '../schemas/jobSchemas'
 import { Job, RecurrenceFrequency, JobBreak, JobAssignment } from '../types/job'
 import { PayChangeEffectiveDateModal } from '@/features/jobLogs/components/PayChangeEffectiveDateModal'
@@ -30,7 +30,6 @@ function hasPayChangeWithTimeEntries(
   }
   return false
 }
-import { TimePicker } from '@/components/ui'
 import {
   Alert,
   AlertIcon,
@@ -42,6 +41,7 @@ import {
   SelectField,
   TextAreaField,
   TextField,
+  TimePickerField,
   TrashIcon,
   labelCls,
 } from './schedulingUi'
@@ -85,6 +85,7 @@ interface JobFormProps {
   allowLinkExistingJob?: boolean // When true, show option to link to existing job
   existingJobId?: string // Pre-selected existing job ID
   timeEntries?: Array<{ userId?: string }> // When provided and pay changes, show effective-date modal
+  defaultStatus?: Job['status'] // Pre-select the status on a NEW job (e.g. 'pending-confirmation' for unconfirmed scheduling)
 }
 
 interface TeamMemberOption {
@@ -113,6 +114,7 @@ const JobForm = ({
   allowLinkExistingJob = false,
   existingJobId: propExistingJobId,
   timeEntries: propTimeEntries,
+  defaultStatus,
 }: JobFormProps) => {
   const { contacts, fetchContacts } = useContactStore()
   const { services, fetchServices } = useServiceStore()
@@ -198,6 +200,15 @@ const JobForm = ({
     initialDuration.unit
   )
   const [durationValue, setDurationValue] = useState<number>(initialDuration.value)
+
+  // Remembers the duration/start-time from before "All Day" was toggled on. All-day forces the
+  // unit to 'days' (which hides the Start Time field), so unchecking must restore the prior
+  // settings — otherwise the unit stays 'days' and Start Time never comes back.
+  const preAllDayDurationRef = useRef<{
+    unit: 'minutes' | 'hours' | 'days' | 'weeks'
+    value: number
+    startTime: string
+  }>({ unit: initialDuration.unit, value: initialDuration.value, startTime: startTime })
 
   // Handle duration unit changes - keeps the entered value
   const handleDurationUnitChange = (newUnit: 'minutes' | 'hours' | 'days' | 'weeks') => {
@@ -341,7 +352,7 @@ const JobForm = ({
       invoiceId: job?.invoiceId || initialInvoiceId || '',
       startTime: job?.startTime || '',
       endTime: job?.endTime || '',
-      status: job?.status || 'active',
+      status: job?.status || defaultStatus || 'active',
       location: job?.location || defaultLocation || '',
       price: job?.price != null ? job.price.toString() : (defaultPrice != null ? defaultPrice.toString() : ''),
       notes: job?.notes || defaultNotes || '',
@@ -397,14 +408,14 @@ const JobForm = ({
         invoiceId: initialInvoiceId || '',
         startTime: '',
         endTime: '',
-        status: 'active',
+        status: defaultStatus || 'active',
         location: defaultLocation || '',
         price: defaultPrice != null ? defaultPrice.toString() : '',
         notes: defaultNotes || '',
         assignedTo: defaultAssignedTo || [],
       })
     }
-  }, [defaultTitle, defaultContactId, defaultPrice, defaultServiceId, defaultDescription, defaultLocation, defaultNotes, defaultAssignedTo, initialQuoteId, initialInvoiceId, job, reset])
+  }, [defaultTitle, defaultContactId, defaultPrice, defaultServiceId, defaultDescription, defaultLocation, defaultNotes, defaultAssignedTo, initialQuoteId, initialInvoiceId, job, reset, defaultStatus])
 
   // Set price from quote/invoice when initialQuoteId/initialInvoiceId is provided and quote/invoice loads
   // Only set if price is empty or matches defaultPrice (user hasn't manually changed it)
@@ -731,11 +742,17 @@ const JobForm = ({
                     hourlyRate: existingAssignment?.hourlyRate ?? normalizedA.hourlyRate,
                   }
                 } else {
-                  // Remove other people's prices if user doesn't have permission
+                  // No permission to see coworkers' pay — never overwrite it either. Preserve
+                  // whatever the job already stores (the form never displayed it); the backend
+                  // additionally restores stored pay server-side for editors without
+                  // canSeeJobPrices, so a notes-only edit can't wipe a coworker's rate.
+                  const existingAssignment = job?.assignedTo && Array.isArray(job.assignedTo)
+                    ? (job.assignedTo as JobAssignment[]).find(existing => existing.userId === normalizedA.userId)
+                    : null
                   return {
                     ...normalizedA,
-                    price: null,
-                    hourlyRate: null,
+                    price: existingAssignment?.price ?? null,
+                    hourlyRate: existingAssignment?.hourlyRate ?? null,
                   }
                 }
               }
@@ -818,6 +835,20 @@ const JobForm = ({
         // Use specific time for hour-based jobs
         startDateTime = new Date(`${startDate}T${effectiveStartTime}`)
         endDateTime = new Date(startDateTime.getTime() + durationValue * 60 * 60000)
+      } else if (
+        // Editing round-trip: when the date and the inferred duration are untouched, keep the
+        // job's real times verbatim. A job spanning 24h+ with specific clock times (e.g. Mon
+        // 8am → Tue 10am) is shown in the form as "2 days", and normalizing it to 9:00–23:59
+        // below would silently rewrite its schedule on an unrelated resave.
+        job &&
+        job.startTime &&
+        job.endTime &&
+        startDate === format(new Date(job.startTime), 'yyyy-MM-dd') &&
+        durationUnit === initialDuration.unit &&
+        durationValue === initialDuration.value
+      ) {
+        startDateTime = new Date(job.startTime)
+        endDateTime = new Date(job.endTime)
       } else {
         // For day/week jobs, use a fixed time (9 AM) and compute end date
         // N days = start of day 1 through end of day N (inclusive)
@@ -1021,17 +1052,6 @@ const JobForm = ({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} className="space-y-5 sm:space-y-4">
-      {/* Error Display */}
-      {error && (
-        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
-          <p className="font-medium">Failed to create job</p>
-          <p className="mt-0.5">{error}</p>
-          <p className="mt-2 text-[13px] opacity-80">
-            Please check for scheduling conflicts or adjust the job details and try again.
-          </p>
-        </Alert>
-      )}
-
       {/* Job Selection Mode - Show when allowLinkExistingJob is true and not editing */}
       {allowLinkExistingJob && !job && !schedulingUnscheduledJob && canSeeOtherJobs && (
         <div className="space-y-4">
@@ -1467,15 +1487,17 @@ const JobForm = ({
       {!isAllDay && !toBeScheduled && (
         <div>
           <label className={labelCls}>Job Duration *</label>
-          <div className="flex gap-2">
-            <TextField
-              type="number"
-              value={durationValue}
-              onChange={e => setDurationValue(Number(e.target.value))}
-              min={0.1}
-              step={0.1}
-              className="w-24 font-mono tabular-nums"
-            />
+          <div className="flex items-start gap-2">
+            <div className="w-24 shrink-0">
+              <TextField
+                type="number"
+                value={durationValue}
+                onChange={e => setDurationValue(Number(e.target.value))}
+                min={0.1}
+                step={0.1}
+                className="font-mono tabular-nums"
+              />
+            </div>
             <SelectField
               aria-label="Duration unit"
               value={durationUnit}
@@ -1488,7 +1510,7 @@ const JobForm = ({
                 { value: 'days', label: 'Days' },
                 { value: 'weeks', label: 'Weeks' },
               ]}
-              className="w-32"
+              className="w-32 shrink-0"
             />
           </div>
         </div>
@@ -1503,9 +1525,21 @@ const JobForm = ({
             onChange={checked => {
               setIsAllDay(checked)
               if (checked) {
+                // Remember timed settings so unchecking can restore them.
+                preAllDayDurationRef.current = {
+                  unit: durationUnit,
+                  value: durationValue,
+                  startTime,
+                }
                 setStartTime('00:00')
                 setDurationUnit('days')
                 setDurationValue(1)
+              } else {
+                // Restore the pre-all-day settings so the Start Time field returns.
+                const prev = preAllDayDurationRef.current
+                setDurationUnit(prev.unit)
+                setDurationValue(prev.value)
+                setStartTime(prev.startTime)
               }
             }}
             label="All Day Event"
@@ -1533,18 +1567,19 @@ const JobForm = ({
               }}
               disabled={!canSchedule || toBeScheduled}
             />
-            {scheduleDateError && (
-              <p className="-mt-2 text-[13px] text-danger sm:col-span-2 sm:mt-0">{scheduleDateError}</p>
-            )}
 
             {!isAllDay && (durationUnit === 'minutes' || durationUnit === 'hours') && (
-              <TimePicker
+              <TimePickerField
                 label="Start Time"
                 value={startTime}
                 onChange={setStartTime}
                 placeholder="9:00 AM (default)"
                 disabled={!canSchedule || toBeScheduled}
               />
+            )}
+
+            {scheduleDateError && (
+              <p className="-mt-2 text-[13px] text-danger sm:col-span-2 sm:mt-0">{scheduleDateError}</p>
             )}
           </div>
 
@@ -1951,7 +1986,7 @@ const JobForm = ({
             onChange={field.onChange}
             options={[
               { value: 'scheduled', label: 'Scheduled' },
-              { value: 'pending-confirmation', label: 'Pending Confirmation' },
+              { value: 'pending-confirmation', label: 'Unconfirmed' },
               { value: 'in-progress', label: 'In Progress' },
               { value: 'completed', label: 'Completed' },
               { value: 'cancelled', label: 'Cancelled' },
@@ -1970,12 +2005,13 @@ const JobForm = ({
         </>
       )}
 
-      {/* Save / Cancel - always shown */}
+      {/* Save / Cancel - always shown. Errors render HERE, next to the buttons, so a failed
+          submit is visible without scrolling back up the (long) form. */}
       <div className="flex flex-col justify-start gap-3 pt-4 sm:flex-row">
-        {submitError && (
+        {(submitError || error) && (
           <div className="w-full sm:mr-auto sm:flex-1">
             <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
-              {submitError}
+              {submitError || error}
             </Alert>
           </div>
         )}

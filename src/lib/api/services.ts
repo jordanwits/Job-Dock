@@ -305,13 +305,15 @@ const realJobsService = {
     return response.data
   },
 
-  restore: async (id: string) => {
-    const response = await apiClient.post(`/jobs/${id}/restore`)
+  restore: async (id: string, bookingId?: string) => {
+    // bookingId pins the restore to the specific archived occurrence the user clicked; the
+    // backend then undoes exactly the delete operation that archived it (never the whole job).
+    const response = await apiClient.post(`/jobs/${id}/restore`, bookingId ? { bookingId } : {})
     return response.data
   },
 
-  confirm: async (id: string) => {
-    const response = await apiClient.post(`/jobs/${id}/confirm`)
+  confirm: async (id: string, payload?: { notifyClient?: boolean }) => {
+    const response = await apiClient.post(`/jobs/${id}/confirm`, payload || {})
     return response.data
   },
 
@@ -330,13 +332,20 @@ const realBookingsService = {
     const response = await apiClient.put(`/bookings/${id}`, data)
     return response.data
   },
-  delete: async (id: string) => {
-    const response = await apiClient.delete(`/bookings/${id}`)
+  delete: async (id: string, deleteAll?: boolean) => {
+    // deleteAll = "Delete series": archive every booking in the recurrence (bookings only).
+    const params = deleteAll ? { deleteAll: 'true' } : {}
+    const response = await apiClient.delete(`/bookings/${id}`, { params })
     return response.data
   },
-  permanentDelete: async (id: string) => {
+  permanentDelete: async (id: string, deleteAll?: boolean) => {
     const params: any = { permanent: 'true' }
+    if (deleteAll) params.deleteAll = 'true'
     const response = await apiClient.delete(`/bookings/${id}`, { params })
+    return response.data
+  },
+  restore: async (id: string) => {
+    const response = await apiClient.post(`/bookings/${id}/restore`)
     return response.data
   },
 }
@@ -523,7 +532,10 @@ export const quotesService = useMockData ? mockServices.quotes : realQuotesServi
 export const invoicesService = useMockData ? mockServices.invoices : realInvoicesService
 export const jobsService = useMockData ? mockServices.jobs : realJobsService
 export const servicesService = useMockData ? mockServices.services : realServicesService
-export const bookingsService = realBookingsService
+// Bookings follow the same mock/live switch as everything else: the calendar's primary
+// delete/restore path goes through this service, so mock mode must exercise it too (it used
+// to silently hit the live API and fail).
+export const bookingsService = useMockData ? mockServices.bookings : realBookingsService
 export const jobLogsService = realJobLogsService
 export const timeEntriesService = realTimeEntriesService
 

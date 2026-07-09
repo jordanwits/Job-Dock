@@ -60,6 +60,35 @@ const PaidCheck = ({ className }: { className?: string }) => (
   </span>
 )
 
+/**
+ * Hover-revealed "confirm" affordance on an unconfirmed (pending-confirmation) event chip.
+ * Clicking it flips the appointment to confirmed. `onPointerDown` stops propagation so pressing
+ * the button never starts a drag; keyboard focus reveals it too.
+ */
+const ConfirmChipButton = ({ onConfirm }: { onConfirm: () => void }) => (
+  <button
+    type="button"
+    title="Confirm appointment"
+    aria-label="Confirm appointment"
+    onPointerDown={e => e.stopPropagation()}
+    onClick={e => {
+      e.stopPropagation()
+      onConfirm()
+    }}
+    className="absolute right-1 top-1 z-20 inline-flex h-6 w-6 items-center justify-center rounded-full bg-surface/90 text-warning opacity-0 shadow-sm ring-1 ring-inset ring-warning/40 backdrop-blur-sm transition-opacity hover:bg-success hover:text-white hover:ring-success focus-visible:opacity-100 group-hover:opacity-100"
+  >
+    <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+      <path
+        d="M5 13l4 4L19 7"
+        stroke="currentColor"
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </button>
+)
+
 interface CalendarProps {
   jobs: Job[]
   viewMode: 'day' | 'week' | 'month'
@@ -69,6 +98,8 @@ interface CalendarProps {
   onJobClick: (job: Job) => void
   onDateClick: (date: Date) => void
   onUnscheduledDrop?: (jobId: string, targetDate: Date, targetHour?: number, bookingId?: string) => void
+  /** Confirm an unconfirmed (pending-confirmation) appointment straight from its calendar chip. */
+  onConfirmJob?: (job: Job) => void
   onUpdateSuccess?: (message: string) => void
   /** When scheduling updates fail (e.g. permissions), surface a message instead of failing silently */
   onUpdateError?: (message: string) => void
@@ -100,6 +131,7 @@ const Calendar = ({
   onJobClick,
   onDateClick,
   onUnscheduledDrop,
+  onConfirmJob,
   onUpdateSuccess,
   onUpdateError,
   paidInvoiceIds = EMPTY_PAID_SET,
@@ -238,13 +270,22 @@ const Calendar = ({
 
   // Update scale and viewport height when window is resized
   useEffect(() => {
+    let wasMobile = window.innerWidth < 768
+    // Initial values
+    setCalendarScale(wasMobile ? 100 : 125)
+    setViewportHeight(window.innerHeight)
+
     const handleResize = () => {
       const isMobile = window.innerWidth < 768
-      setCalendarScale(isMobile ? 100 : 125)
+      // Only reset the zoom when crossing the mobile/desktop breakpoint — an ordinary window
+      // resize must not discard the zoom level the user picked.
+      if (isMobile !== wasMobile) {
+        setCalendarScale(isMobile ? 100 : 125)
+        wasMobile = isMobile
+      }
       setViewportHeight(window.innerHeight)
     }
 
-    handleResize() // Initial call
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
@@ -316,6 +357,13 @@ const Calendar = ({
     onDateChange(today)
   }
 
+  // Last calendar day an appointment actually OCCUPIES. An end time exactly at midnight
+  // (00:00) is a boundary, not occupancy: a 10pm–midnight appointment belongs to one day
+  // only. Without the -1ms it would be classified multi-day, rendered as an all-day bar, and
+  // shown on a day it never touches.
+  const lastOccupiedDay = (endTime: string): Date =>
+    startOfDay(new Date(new Date(endTime).getTime() - 1))
+
   // Get jobs for a specific date (includes multi-day jobs that span this date)
   const getJobsForDate = (date: Date) => {
     return jobs.filter(job => {
@@ -323,7 +371,7 @@ const Calendar = ({
       if (!job.startTime || !job.endTime) return false
 
       const jobStartDate = startOfDay(new Date(job.startTime))
-      const jobEndDate = startOfDay(new Date(job.endTime))
+      const jobEndDate = lastOccupiedDay(job.endTime)
       const targetDate = startOfDay(date)
 
       // Check if the target date falls within the job's date range
@@ -335,7 +383,7 @@ const Calendar = ({
   const isMultiDayJob = (job: Job): boolean => {
     if (!job.startTime || !job.endTime) return false
     const start = startOfDay(new Date(job.startTime))
-    const end = startOfDay(new Date(job.endTime))
+    const end = lastOccupiedDay(job.endTime)
     return start.getTime() !== end.getTime()
   }
 
@@ -343,7 +391,7 @@ const Calendar = ({
   const getJobDateRange = (job: Job, calendarStart: Date, calendarEnd: Date): Date[] => {
     if (!job.startTime || !job.endTime) return []
     const jobStart = startOfDay(new Date(job.startTime))
-    const jobEnd = startOfDay(new Date(job.endTime))
+    const jobEnd = lastOccupiedDay(job.endTime)
     const rangeStart = jobStart > calendarStart ? jobStart : calendarStart
     const rangeEnd = jobEnd < calendarEnd ? jobEnd : calendarEnd
     if (rangeStart > rangeEnd) return []
@@ -1107,6 +1155,7 @@ const Calendar = ({
                       key={job.id}
                       className={cn(
                         'rounded-lg border-l-4 border-current/40 p-2 cursor-pointer hover:opacity-90 transition-all',
+                        job.status === 'pending-confirmation' && 'border-dashed',
                         jobColors.chip
                       )}
                       onClick={e => {
@@ -1222,6 +1271,7 @@ const Calendar = ({
                         key={job.id}
                         className={cn(
                           'absolute rounded-lg border-l-4 border-current/40 select-none group',
+                          job.status === 'pending-confirmation' && 'border-dashed',
                           isDragging ? 'z-0' : 'z-10',
                           dragState.job && !isDragging && 'pointer-events-none',
                           jobColors.chip
@@ -1240,6 +1290,9 @@ const Calendar = ({
                           pointerEvents: isMoving && dragState.isDragging ? 'none' : undefined,
                         }}
                       >
+                        {onConfirmJob && job.status === 'pending-confirmation' && (
+                          <ConfirmChipButton onConfirm={() => onConfirmJob(job)} />
+                        )}
                         {/* Main content area - draggable */}
                         <div
                           className="absolute top-0 left-0 right-0 p-2 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto"
@@ -1568,6 +1621,7 @@ const Calendar = ({
                               className={cn(
                                 'absolute multi-day-job-bar text-[10px] md:text-xs border-l-2 border-current/40 cursor-grab active:cursor-grabbing hover:opacity-90 z-20 flex items-center min-w-0',
                                 jobColors.chip,
+                                job.status === 'pending-confirmation' && 'border-dashed',
                                 isJobStart && 'rounded-l',
                                 isJobEnd && 'rounded-r'
                               )}
@@ -1710,6 +1764,7 @@ const Calendar = ({
                                   key={job.id}
                                   className={cn(
                                     'absolute rounded text-xs border-l-2 border-current/40 select-none group',
+                                    job.status === 'pending-confirmation' && 'border-dashed',
                                     isDragging ? 'z-0' : 'z-10',
                                     dragState.job && !isDragging && 'pointer-events-none',
                                     jobColors.chip
@@ -1730,6 +1785,9 @@ const Calendar = ({
                                       isMoving && dragState.isDragging ? 'none' : undefined,
                                   }}
                                 >
+                                  {onConfirmJob && job.status === 'pending-confirmation' && (
+                                    <ConfirmChipButton onConfirm={() => onConfirmJob(job)} />
+                                  )}
                                   {/* Main content area - draggable */}
                                   <div
                                     className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto"

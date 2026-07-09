@@ -7,6 +7,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -20,6 +21,8 @@ import {
   isSameDay,
   isSameMonth,
   isToday,
+  setHours,
+  setMinutes,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -553,6 +556,142 @@ export function DateField({
                 Today
               </button>
             </div>
+          </div>
+        )}
+      </div>
+      {error && <p className={errorTextCls}>{error}</p>}
+      {helperText && !error && <p className={helperCls}>{helperText}</p>}
+    </div>
+  )
+}
+
+/* ── Time field (token dropdown) ──────────────────────────────────────── */
+export interface TimePickerFieldProps {
+  value?: string // HH:mm format
+  onChange?: (time: string) => void
+  label?: string
+  'aria-label'?: string
+  error?: string
+  helperText?: string
+  placeholder?: string
+  disabled?: boolean
+  className?: string
+  step?: number // minutes step (default 15)
+}
+
+export function TimePickerField({
+  value,
+  onChange,
+  label,
+  'aria-label': ariaLabel,
+  error,
+  helperText,
+  placeholder = 'Select time',
+  disabled = false,
+  className,
+  step = 15,
+}: TimePickerFieldProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false)
+    }
+    if (isOpen) document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !dropdownRef.current) return
+    const t = setTimeout(() => {
+      // Scroll to ~5am so a reasonable start of the workday is in view.
+      if (!dropdownRef.current) return
+      const slotsPerHour = 60 / step
+      const pixelsPerSlot = 36
+      dropdownRef.current.scrollTop = 5 * slotsPerHour * pixelsPerSlot
+    }, 0)
+    return () => clearTimeout(t)
+  }, [isOpen, step])
+
+  const parseTime = (timeString?: string): { hour: number; minute: number } | null => {
+    if (!timeString) return null
+    const [hour, minute] = timeString.split(':').map(Number)
+    return { hour, minute }
+  }
+
+  const formatDisplayTime = (timeString?: string) => {
+    const parsed = parseTime(timeString)
+    if (!parsed) return ''
+    return format(setHours(setMinutes(new Date(), parsed.minute), parsed.hour), 'h:mm a')
+  }
+
+  const timeSlots = useMemo(() => {
+    const slots: string[] = []
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += step) {
+        slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`)
+      }
+    }
+    return slots
+  }, [step])
+
+  const handleSelect = (time: string) => {
+    onChange?.(time)
+    setIsOpen(false)
+  }
+
+  return (
+    <div className={cn('w-full', className)} ref={containerRef}>
+      {label && <label className={labelCls}>{label}</label>}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => !disabled && setIsOpen(o => !o)}
+          disabled={disabled}
+          aria-label={label ? undefined : (ariaLabel ?? placeholder)}
+          className={cn(
+            'flex h-10 w-full items-center gap-2 rounded-lg border border-line bg-surface px-3 text-left text-sm outline-none transition-[border-color,box-shadow]',
+            'focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_var(--accent-soft)]',
+            'disabled:cursor-not-allowed disabled:opacity-60',
+            isOpen && 'border-accent shadow-[0_0_0_3px_var(--accent-soft)]',
+            error && fieldErrorCls
+          )}
+        >
+          <span className={cn('flex-1 truncate', value ? 'text-ink' : 'text-ink-subtle')}>
+            {value ? formatDisplayTime(value) : placeholder}
+          </span>
+          <ClockIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
+        </button>
+
+        {isOpen && (
+          <div
+            ref={dropdownRef}
+            role="listbox"
+            className="absolute z-50 mt-2 max-h-64 w-full min-w-[9rem] overflow-y-auto rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line"
+          >
+            {timeSlots.map(time => {
+              const parsed = parseTime(time)
+              if (!parsed) return null
+              const date = setHours(setMinutes(new Date(), parsed.minute), parsed.hour)
+              const isSelected = value === time
+              return (
+                <button
+                  key={time}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => handleSelect(time)}
+                  className={cn(
+                    'block w-full rounded-lg px-3 py-2 text-left text-sm font-mono tabular-nums transition-colors',
+                    isSelected ? 'bg-accent-soft font-medium text-accent-strong' : 'text-ink hover:bg-surface-2'
+                  )}
+                >
+                  {format(date, 'h:mm a')}
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

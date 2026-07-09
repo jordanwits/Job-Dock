@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useJobStore } from '../store/jobStore'
 import type { Job } from '../types/job'
 import JobCard from './JobCard'
 import { getUpcomingBookingListInstant } from '../utils/upcomingBookingDisplay'
-import { startOfMonth, endOfMonth, addMonths, addDays } from 'date-fns'
+import { addDays } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Spinner } from './schedulingUi'
 
@@ -24,18 +24,13 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
   const {
     jobs,
     isLoading,
-    currentDate,
-    fetchJobs,
   } = useJobStore()
 
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('week')
 
-  // Fetch active jobs only
-  useEffect(() => {
-    const startDate = startOfMonth(currentDate)
-    const endDate = endOfMonth(addMonths(currentDate, 1))
-    fetchJobs(startDate, endDate, false, false) // active only, no archived
-  }, [currentDate, fetchJobs])
+  // No fetch here: SchedulingPage (the only consumer) already fetches a WIDER window
+  // (-2..+5 months) into the same shared store on every date change. Refetching a narrower
+  // range from this tab used to truncate the calendar's data when switching tabs.
 
   // Upcoming active jobs: multi-day jobs use the next in-range calendar day (one row per job).
   const filteredJobs = useMemo(() => {

@@ -625,11 +625,21 @@ const mockYearMonth = (d: Date): string =>
 
 // Mock Jobs Service
 export const mockJobsService = {
-  getAll: async (startDate?: Date, endDate?: Date) => {
+  getAll: async (
+    startDate?: Date,
+    endDate?: Date,
+    includeArchived?: boolean,
+    _showDeleted?: boolean,
+    _includeUnlinkedJobs?: boolean
+  ) => {
     await delay(300)
     console.log('Fetching jobs from mockStorage, total jobs:', mockStorage.jobs.length)
-    console.log('Jobs:', mockStorage.jobs)
-    let jobs = mockStorage.jobs
+    let jobs = mockStorage.jobs as any[]
+
+    // Parity with the live backend: archived rows only surface when asked for.
+    if (!includeArchived) {
+      jobs = jobs.filter(j => !(j as any).archivedAt)
+    }
 
     if (startDate || endDate) {
       jobs = jobs.filter(rawJob => {
@@ -644,14 +654,38 @@ export const mockJobsService = {
       })
     }
 
-    return jobs
+    // Parity with the live backend's flattened rows: each scheduled entry is one
+    // booking/occurrence — bookingId identifies it, occurrenceCount sizes its series.
+    const seriesCounts = new Map<string, number>()
+    for (const j of mockStorage.jobs as any[]) {
+      if (j.recurrenceId) {
+        seriesCounts.set(j.recurrenceId, (seriesCounts.get(j.recurrenceId) ?? 0) + 1)
+      }
+    }
+    // Every flattened row carries a bookingId = its own id (parity with live, where each
+    // Booking row — incl. to-be-scheduled anchors — has an id). Staged anchors need it so the
+    // frontend can resolve the chip's anchorBookingId for delete.
+    return jobs.map(j => ({
+      ...j,
+      bookingId: (j as any).bookingId ?? j.id,
+      occurrenceCount: (j as any).recurrenceId
+        ? (seriesCounts.get((j as any).recurrenceId) ?? 1)
+        : 1,
+    }))
   },
 
   getById: async (id: string) => {
     await delay(200)
-    const job = mockStorage.jobs.find(j => j.id === id)
+    const job = mockStorage.jobs.find(j => j.id === id) as any
     if (!job) throw new Error('Job not found')
-    return job
+    const occurrenceCount = job.recurrenceId
+      ? (mockStorage.jobs as any[]).filter(j => (j as any).recurrenceId === job.recurrenceId).length
+      : 1
+    return {
+      ...job,
+      bookingId: job.bookingId ?? job.id,
+      occurrenceCount,
+    }
   },
 
   create: async (data: any) => {
@@ -809,29 +843,63 @@ export const mockJobsService = {
     const jobIndex = mockStorage.jobs.findIndex(j => j.id === id)
     if (jobIndex === -1) throw new Error('Job not found')
 
-    const job = mockStorage.jobs[jobIndex]
-    console.log('Mock API: Found job:', job.title, 'recurrenceId:', job.recurrenceId)
-    console.log('Mock API: Total jobs before delete:', mockStorage.jobs.length)
+    const job = mockStorage.jobs[jobIndex] as any
 
+    // Parity with the live backend: delete ARCHIVES (restorable) — it never hard-deletes.
+    // Rows archived by one operation share one timestamp so restore can undo exactly it.
+    const now = new Date().toISOString()
     if (deleteAll && job.recurrenceId) {
-      // Delete all jobs with the same recurrenceId
-      const jobsWithSameRecurrence = mockStorage.jobs.filter(
-        j => j.recurrenceId === job.recurrenceId
-      )
-      console.log('Mock API: Found', jobsWithSameRecurrence.length, 'jobs with same recurrenceId')
-      mockStorage.jobs = mockStorage.jobs.filter(j => j.recurrenceId !== job.recurrenceId)
+      for (const j of mockStorage.jobs as any[]) {
+        if (j.recurrenceId === job.recurrenceId) j.archivedAt = now
+      }
     } else {
-      console.log('Mock API: Deleting single job only')
-      // Delete only this job
-      mockStorage.jobs.splice(jobIndex, 1)
+      job.archivedAt = now
     }
 
-    console.log('Mock API: Total jobs after delete:', mockStorage.jobs.length)
     saveMockStorage()
     return { success: true }
   },
 
-  confirm: async (id: string) => {
+  permanentDelete: async (id: string, deleteAll?: boolean) => {
+    await delay(300)
+    const job = mockStorage.jobs.find((j: any) => j.id === id) as any
+    if (!job) throw new Error('Job not found')
+    if (deleteAll && job.recurrenceId) {
+      mockStorage.jobs = mockStorage.jobs.filter(
+        (j: any) => j.recurrenceId !== job.recurrenceId
+      )
+    } else {
+      mockStorage.jobs = mockStorage.jobs.filter((j: any) => j.id !== id)
+    }
+    saveMockStorage()
+    return { success: true, permanent: true }
+  },
+
+  restore: async (id: string, bookingId?: string) => {
+    await delay(300)
+    const target = mockStorage.jobs.find((j: any) => j.id === (bookingId ?? id)) as any
+    if (!target) throw new Error('Job not found')
+    // Operation-undo parity: un-archive the rows that share this row's archive timestamp.
+    const stamp = target.archivedAt
+    if (stamp && target.recurrenceId) {
+      for (const j of mockStorage.jobs as any[]) {
+        if (j.recurrenceId === target.recurrenceId && j.archivedAt === stamp) j.archivedAt = null
+      }
+    }
+    target.archivedAt = null
+    saveMockStorage()
+    const occurrenceCount = target.recurrenceId
+      ? (mockStorage.jobs as any[]).filter(j => (j as any).recurrenceId === target.recurrenceId)
+          .length
+      : 1
+    return {
+      ...target,
+      bookingId: target.bookingId ?? target.id,
+      occurrenceCount,
+    }
+  },
+
+  confirm: async (id: string, payload?: { notifyClient?: boolean }) => {
     await delay(300)
     const job = mockStorage.jobs.find(j => j.id === id)
     if (!job) throw new Error('Job not found')
@@ -842,23 +910,25 @@ export const mockJobsService = {
     job.updatedAt = new Date().toISOString()
     saveMockStorage()
 
-    // Log confirmation email
-    console.log('\n📧 =============== EMAIL (Mock Mode) ===============')
-    console.log(`To: ${job.contactEmail}`)
-    console.log(`From: noreply@jobdock.dev`)
-    console.log(`Subject: Your booking has been confirmed - ${job.serviceName}`)
-    console.log('---')
-    console.log(`Hi ${job.contactName},\n`)
-    console.log(`Great news! Your booking request has been confirmed.\n`)
-    console.log(`Service: ${job.serviceName}`)
-    console.log(
-      `Date: ${new Date(job.startTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
-    )
-    console.log(
-      `Time: ${new Date(job.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-    )
-    console.log('\nWe look forward to seeing you!')
-    console.log('================================================\n')
+    // Log confirmation email only when the caller opted to notify the client
+    if (payload?.notifyClient) {
+      console.log('\n📧 =============== EMAIL (Mock Mode) ===============')
+      console.log(`To: ${job.contactEmail}`)
+      console.log(`From: noreply@jobdock.dev`)
+      console.log(`Subject: Your booking has been confirmed - ${job.serviceName}`)
+      console.log('---')
+      console.log(`Hi ${job.contactName},\n`)
+      console.log(`Great news! Your booking request has been confirmed.\n`)
+      console.log(`Service: ${job.serviceName}`)
+      console.log(
+        `Date: ${new Date(job.startTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
+      )
+      console.log(
+        `Time: ${new Date(job.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+      )
+      console.log('\nWe look forward to seeing you!')
+      console.log('================================================\n')
+    }
 
     return job
   },
@@ -1345,6 +1415,98 @@ export const mockSavedLineItemsService = {
   },
 }
 
+// Mock Bookings Service — in mock storage each scheduled row IS its own booking
+// (row id === bookingId), so booking operations act on single rows. This mirrors the live
+// backend where the calendar deletes/restores Bookings, not Jobs.
+export const mockBookingsService = {
+  create: async (data: any) => {
+    await delay(300)
+    const id = String(Date.now())
+    const contact: any = data.contactId
+      ? mockStorage.contacts.find((c: any) => c.id === data.contactId)
+      : undefined
+    const service: any = data.serviceId
+      ? mockStorage.services.find((s: any) => s.id === data.serviceId)
+      : undefined
+    const row: any = {
+      id,
+      bookingId: id,
+      isIndependent: true,
+      title: data.title || 'Appointment',
+      contactId: data.contactId,
+      contactName: contact ? `${contact.firstName} ${contact.lastName}` : '',
+      serviceId: data.serviceId,
+      serviceName: service?.name,
+      startTime: data.startTime ?? null,
+      endTime: data.endTime ?? null,
+      toBeScheduled: data.toBeScheduled ?? false,
+      status: data.status || 'active',
+      location: data.location || '',
+      notes: data.notes || '',
+      price: data.price ?? null,
+      assignedTo: data.assignedTo,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    mockStorage.jobs.push(row)
+    saveMockStorage()
+    return row
+  },
+
+  update: async (id: string, data: any) => {
+    await delay(300)
+    const index = mockStorage.jobs.findIndex((j: any) => j.id === id)
+    if (index === -1) throw new Error('Booking not found')
+    const updated: any = {
+      ...(mockStorage.jobs[index] as any),
+      ...data,
+      updatedAt: new Date().toISOString(),
+    }
+    mockStorage.jobs[index] = updated
+    saveMockStorage()
+    return updated
+  },
+
+  delete: async (id: string, deleteAll?: boolean) => {
+    await delay(300)
+    const row = mockStorage.jobs.find((j: any) => j.id === id) as any
+    if (!row) throw new Error('Booking not found')
+    const now = new Date().toISOString()
+    // Series archive: every booking sharing the recurrence (incl. the staged anchor), never the job.
+    if (deleteAll && row.recurrenceId) {
+      for (const j of mockStorage.jobs as any[]) {
+        if (j.recurrenceId === row.recurrenceId) j.archivedAt = now
+      }
+    } else {
+      row.archivedAt = now
+    }
+    saveMockStorage()
+    return { success: true }
+  },
+
+  permanentDelete: async (id: string, deleteAll?: boolean) => {
+    await delay(300)
+    const row = mockStorage.jobs.find((j: any) => j.id === id) as any
+    if (!row) throw new Error('Booking not found')
+    if (deleteAll && row.recurrenceId) {
+      mockStorage.jobs = mockStorage.jobs.filter((j: any) => j.recurrenceId !== row.recurrenceId)
+    } else {
+      mockStorage.jobs = mockStorage.jobs.filter((j: any) => j.id !== id)
+    }
+    saveMockStorage()
+    return { success: true, permanent: true }
+  },
+
+  restore: async (id: string) => {
+    await delay(300)
+    const row = mockStorage.jobs.find((j: any) => j.id === id) as any
+    if (!row) throw new Error('Booking not found')
+    row.archivedAt = null
+    saveMockStorage()
+    return { success: true, bookingId: id, jobId: row.jobId ?? null }
+  },
+}
+
 // Export all mock services
 export const mockServices = {
   auth: mockAuthService,
@@ -1352,6 +1514,7 @@ export const mockServices = {
   quotes: mockQuotesService,
   invoices: mockInvoicesService,
   jobs: mockJobsService,
+  bookings: mockBookingsService,
   services: mockServicesService,
   savedLineItems: mockSavedLineItemsService,
 }

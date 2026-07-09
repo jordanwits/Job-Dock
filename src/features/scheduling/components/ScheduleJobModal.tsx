@@ -23,6 +23,7 @@ interface ScheduleJobModalProps {
   onSuccess?: (createdJob?: Job, options?: { notifySent?: boolean; action?: 'new' | 'linked' | 'independent' }) => void
   allowLinkExistingJob?: boolean // When true, show option to link to existing job
   existingJobId?: string // Pre-selected existing job ID
+  defaultStatus?: Job['status'] // Pre-select the status on a NEW job (e.g. 'pending-confirmation' for unconfirmed scheduling)
 }
 
 const ScheduleJobModal = ({
@@ -43,6 +44,7 @@ const ScheduleJobModal = ({
   onSuccess,
   allowLinkExistingJob,
   existingJobId,
+  defaultStatus,
 }: ScheduleJobModalProps) => {
   // Default to true when scheduling from contact context to match calendar page (Create New / Link / Independent options)
   const effectiveAllowLinkExistingJob = allowLinkExistingJob ?? (sourceContext === 'contact')
@@ -84,9 +86,10 @@ const ScheduleJobModal = ({
           onSuccess(updatedJob, { action: 'linked' })
         }
       } else {
-        // Create new job - ask about notifying client if it's a scheduled appointment
+        // Create new job - ask about notifying client if it's a scheduled appointment.
+        // Unconfirmed appointments are tentative, so they skip the notify prompt entirely.
         const isScheduledCreate = data.startTime && data.endTime && !data.toBeScheduled
-        if (isScheduledCreate) {
+        if (isScheduledCreate && data.status !== 'pending-confirmation') {
           setPendingCreatePayload({ data, existingJobIdParam })
           setShowNotifyClientModal(true)
           return
@@ -176,6 +179,7 @@ const ScheduleJobModal = ({
           initialInvoiceId={initialInvoiceId}
           allowLinkExistingJob={effectiveAllowLinkExistingJob}
           existingJobId={existingJobId}
+          defaultStatus={defaultStatus}
           isSimpleCreate={false}
         />
       </AppModal>

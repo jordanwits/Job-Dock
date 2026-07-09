@@ -101,8 +101,6 @@ const SchedulingPage = () => {
     createIndependentBooking,
     updateJob,
     updateIndependentBooking,
-    deleteJob,
-    permanentDeleteJob,
     restoreJob,
     confirmJob,
     declineJob,
@@ -149,6 +147,8 @@ const SchedulingPage = () => {
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
+  const [declineError, setDeclineError] = useState<string | null>(null)
+  const [isDeclining, setIsDeclining] = useState(false)
 
   // Initialize activeTab from URL query parameter or default to 'calendar'
   const tabParam = searchParams.get('tab')
@@ -182,6 +182,9 @@ const SchedulingPage = () => {
   const notifyHandledRef = useRef(false)
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<any>(null)
   const [pendingCreatePayload, setPendingCreatePayload] = useState<any>(null)
+  // Confirm flow: flipping an unconfirmed appointment to confirmed asks whether to notify the client.
+  const [pendingConfirmJob, setPendingConfirmJob] = useState<typeof selectedJob>(null)
+  const [showConfirmNotifyModal, setShowConfirmNotifyModal] = useState(false)
 
   useEffect(() => {
     if (showNotifyClientModal) notifyHandledRef.current = false
@@ -200,8 +203,8 @@ const SchedulingPage = () => {
   const [showStopSeriesConfirm, setShowStopSeriesConfirm] = useState(false)
   const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState(false)
   const [showPermanentDeleteRecurringModal, setShowPermanentDeleteRecurringModal] = useState(false)
-  const [deletedJobId, setDeletedJobId] = useState<string | null>(null)
-  const [deletedRecurrenceId, setDeletedRecurrenceId] = useState<string | null>(null)
+  // Bumped after any permanent delete so the Archived tab refetches its list.
+  const [archivedRefreshToken, setArchivedRefreshToken] = useState(0)
   const [showJobDetail, setShowJobDetail] = useState(false)
   const [showNoServicesModal, setShowNoServicesModal] = useState(false)
 
@@ -577,14 +580,6 @@ const SchedulingPage = () => {
     }
   }, [openCreateJob, searchParams, setSearchParams, linkJobId])
 
-  // Clear deleted job IDs when switching away from archived tab
-  useEffect(() => {
-    if (activeTab !== 'archived') {
-      setDeletedJobId(null)
-      setDeletedRecurrenceId(null)
-    }
-  }, [activeTab])
-
   useEffect(() => {
     // Fetch jobs for a wider range to support multi-week/multi-month jobs
     // Fetch 2 months back and 4 months forward from current view
@@ -618,13 +613,15 @@ const SchedulingPage = () => {
 
   const handleCreateJob = async (data: any) => {
     const isScheduledCreate = data.startTime && data.endTime && !data.toBeScheduled
-    if (isScheduledCreate) {
+    // Unconfirmed appointments are tentative — never prompt to notify the client on create.
+    const isUnconfirmed = data.status === 'pending-confirmation'
+    if (isScheduledCreate && !isUnconfirmed) {
       setPendingCreatePayload(data)
       setShowNotifyClientModal(true)
       return
     }
     try {
-      await createJob(data)
+      await createJob(isUnconfirmed ? { ...data, notifyClient: false } : data)
       setShowJobForm(false)
       clearJobsError()
       if (returnTo && returnTo.startsWith('/app')) {
@@ -831,6 +828,13 @@ const SchedulingPage = () => {
     }
   }
 
+  // Refetch the calendar's current window (same span the other mutation paths use).
+  const refetchCalendarWindow = async () => {
+    const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+    await fetchJobs(startDate, endDate)
+  }
+
   const handleDeleteSingleJob = async () => {
     if (selectedJob) {
       try {
@@ -838,19 +842,22 @@ const SchedulingPage = () => {
           // Job has a booking - delete the booking only (not the job itself)
           const { bookingsService } = await import('@/lib/api/services')
           await bookingsService.delete(selectedJob.bookingId)
-          await fetchJobs()
+          await refetchCalendarWindow()
         } else {
           // Job has no booking (rare path) - soft-archive the job itself
           const { jobsService } = await import('@/lib/api/services')
           await jobsService.delete(selectedJob.id)
-          await fetchJobs()
+          await refetchCalendarWindow()
         }
         setSelectedJob(null)
         setShowJobDetail(false)
         setShowDeleteRecurringModal(false)
       } catch (error) {
         console.error('Error deleting:', error)
-        throw error
+        setShowDeleteRecurringModal(false)
+        clearJobsError()
+        setJobErrorMessage(getErrorMessage(error, 'Could not delete the appointment.'))
+        setShowJobError(true)
       }
     }
   }
@@ -867,15 +874,21 @@ const SchedulingPage = () => {
           setShowDeleteRecurringModal(false)
           return
         }
-        console.log('Archiving all recurring bookings with recurrenceId:', selectedJob.recurrenceId)
-        await deleteJob(selectedJob.id, true)
+        // Archive the whole series' BOOKINGS only (incl. the staged monthly anchor) — the job
+        // stays on the Jobs page. Calendar deletes never touch the job itself.
+        const { bookingsService } = await import('@/lib/api/services')
+        await bookingsService.delete(selectedJob.bookingId, true)
         setSelectedJob(null)
         setShowJobDetail(false)
         setShowDeleteRecurringModal(false)
         // Refetch to update the calendar
-        await fetchJobs()
+        await refetchCalendarWindow()
       } catch (error) {
         console.error('Error archiving all recurring bookings:', error)
+        setShowDeleteRecurringModal(false)
+        clearJobsError()
+        setJobErrorMessage(getErrorMessage(error, 'Could not delete the recurring series.'))
+        setShowJobError(true)
       }
     }
   }
@@ -886,7 +899,13 @@ const SchedulingPage = () => {
       if (jobToDelete !== selectedJob) {
         setSelectedJob(jobToDelete)
       }
-      if (jobToDelete.recurrenceId && (jobToDelete.occurrenceCount ?? 0) > 1) {
+      // A staged monthly chip is a projection of the series anchor — there is no per-month
+      // booking, so the "this one vs the whole series" split is meaningless. Permanent-delete =
+      // permanently stop the series (remove its anchor booking); scheduled appointments and the
+      // job are preserved. Route it to the single confirm.
+      if (jobToDelete.isStagedSeries) {
+        setShowPermanentDeleteConfirm(true)
+      } else if (jobToDelete.recurrenceId && (jobToDelete.occurrenceCount ?? 0) > 1) {
         setShowPermanentDeleteRecurringModal(true)
       } else {
         setShowPermanentDeleteConfirm(true)
@@ -894,46 +913,20 @@ const SchedulingPage = () => {
     }
   }
 
-  const handlePermanentDeleteJob = async (job?: typeof selectedJob) => {
-    const jobToDelete = job || selectedJob
-    if (jobToDelete) {
-      if (jobToDelete.bookingId) {
-        // Job has a booking - permanently delete the booking only (not the job itself)
-        try {
-          console.log('Permanently deleting single booking:', jobToDelete.bookingId)
-          const { bookingsService } = await import('@/lib/api/services')
-          await bookingsService.permanentDelete(jobToDelete.bookingId)
-          await fetchJobs()
-          if (jobToDelete === selectedJob) {
-            setSelectedJob(null)
-            setShowJobDetail(false)
-          }
-          return
-        } catch (error) {
-          console.error('Error permanently deleting booking:', error)
-          throw error
-        }
-      } else {
-        // Job has no booking - cannot delete from scheduling page
-        setJobErrorMessage(
-          'This job has no booking to delete. To delete the job itself, go to the Jobs page.'
-        )
-        setShowJobError(true)
-        return
-      }
-    }
-  }
-
   const handleConfirmPermanentDelete = async () => {
     if (selectedJob) {
+      // A staged virtual chip has no per-month bookingId — it carries the series anchor's id in
+      // anchorBookingId. Deleting the anchor permanently stops the series (bookings only); the
+      // job and any already-scheduled occurrences are untouched.
+      const targetBookingId = selectedJob.bookingId ?? selectedJob.anchorBookingId
       try {
-        if (selectedJob.bookingId) {
-          // Job has a booking - permanently delete the booking only (not the job itself)
+        if (targetBookingId) {
           const { bookingsService } = await import('@/lib/api/services')
-          await bookingsService.permanentDelete(selectedJob.bookingId)
-          await fetchJobs()
+          await bookingsService.permanentDelete(targetBookingId)
+          await refetchCalendarWindow()
+          setArchivedRefreshToken(t => t + 1)
         } else {
-          // Job has no booking - cannot delete from scheduling page
+          // No booking at all - cannot delete from scheduling page
           setJobErrorMessage(
             'This job has no booking to delete. To delete the job itself, go to the Jobs page.'
           )
@@ -946,6 +939,10 @@ const SchedulingPage = () => {
         setShowPermanentDeleteConfirm(false)
       } catch (error) {
         console.error('Error permanently deleting:', error)
+        setShowPermanentDeleteConfirm(false)
+        clearJobsError()
+        setJobErrorMessage(getErrorMessage(error, 'Could not permanently delete the appointment.'))
+        setShowJobError(true)
       }
     }
   }
@@ -957,7 +954,8 @@ const SchedulingPage = () => {
           // Job has a booking - permanently delete the booking only (not the job itself)
           const { bookingsService } = await import('@/lib/api/services')
           await bookingsService.permanentDelete(selectedJob.bookingId)
-          await fetchJobs()
+          await refetchCalendarWindow()
+          setArchivedRefreshToken(t => t + 1)
         } else {
           // Job has no booking - cannot delete from scheduling page
           setJobErrorMessage(
@@ -972,6 +970,10 @@ const SchedulingPage = () => {
         setShowPermanentDeleteRecurringModal(false)
       } catch (error) {
         console.error('Error permanently deleting booking:', error)
+        setShowPermanentDeleteRecurringModal(false)
+        clearJobsError()
+        setJobErrorMessage(getErrorMessage(error, 'Could not permanently delete the appointment.'))
+        setShowJobError(true)
       }
     }
   }
@@ -979,15 +981,30 @@ const SchedulingPage = () => {
   const handlePermanentDeleteAllJobs = async () => {
     if (selectedJob) {
       try {
-        // Not supported: permanently deleting Jobs from Scheduling.
-        // Scheduling can only delete bookings.
-        setJobErrorMessage(
-          'To permanently delete jobs, use the Jobs page. Scheduling can only delete bookings.'
-        )
-        setShowJobError(true)
+        if (!selectedJob.bookingId) {
+          setJobErrorMessage(
+            'This appointment has no booking to delete. To delete jobs, go to the Jobs page.'
+          )
+          setShowJobError(true)
+          setShowPermanentDeleteRecurringModal(false)
+          return
+        }
+        // Permanently delete the whole series' BOOKINGS only (incl. the staged monthly anchor,
+        // so no to-be-scheduled chip lingers). The job stays on the Jobs page — the calendar
+        // never deletes jobs.
+        const { bookingsService } = await import('@/lib/api/services')
+        await bookingsService.permanentDelete(selectedJob.bookingId, true)
+        await refetchCalendarWindow()
+        setArchivedRefreshToken(t => t + 1)
+        setSelectedJob(null)
+        setShowJobDetail(false)
         setShowPermanentDeleteRecurringModal(false)
       } catch (error) {
-        console.error('Error permanently deleting all jobs:', error)
+        console.error('Error permanently deleting all bookings in series:', error)
+        setShowPermanentDeleteRecurringModal(false)
+        clearJobsError()
+        setJobErrorMessage(getErrorMessage(error, 'Could not permanently delete the series.'))
+        setShowJobError(true)
       }
     }
   }
@@ -996,12 +1013,22 @@ const SchedulingPage = () => {
     const jobToRestore = job || selectedJob
     if (jobToRestore) {
       try {
-        await restoreJob(jobToRestore.id)
+        // bookingId pins the restore to the archived occurrence the user clicked; independent
+        // appointments restore through the bookings endpoint (they have no Job row).
+        await restoreJob(jobToRestore.id, {
+          bookingId: jobToRestore.bookingId ?? undefined,
+          isIndependent: jobToRestore.isIndependent,
+        })
         setSelectedJob(null)
         setShowJobDetail(false)
         // No need to refetch - store already updated the job (cleared archivedAt)
       } catch (error) {
         console.error('Error restoring job:', error)
+        clearJobsError()
+        setJobErrorMessage(getErrorMessage(error, 'Could not restore this appointment.'))
+        setShowJobError(true)
+        // Rethrow so the archived list knows the restore failed and keeps the row.
+        throw error
       }
     }
   }
@@ -1074,20 +1101,64 @@ const SchedulingPage = () => {
     setShowLinkModal(true)
   }
 
-  const handleConfirmJob = async () => {
-    if (selectedJob) {
-      try {
-        await confirmJob(selectedJob.id)
-        setSelectedJob(null)
-        setShowJobDetail(false)
-      } catch (error) {
-        // Error handled by store
-      }
+  // Refetch the surrounding months so a confirmed/updated appointment repaints correctly
+  // (status tone, and any sibling bookings the in-store map may have touched).
+  const refetchAroundCurrent = () => {
+    const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+    return fetchJobs(startDate, endDate)
+  }
+
+  // Flip an unconfirmed appointment to confirmed. Job-backed appointments ask whether to notify
+  // the client; independent (calendar-only) bookings have no confirmation-email flow, so they
+  // confirm silently.
+  const beginConfirm = (target: typeof selectedJob) => {
+    if (!target) return
+    if (target.isIndependent) {
+      updateIndependentBooking(target.id, { status: 'active' })
+        .then(refetchAroundCurrent)
+        .then(() => {
+          setSelectedJob(null)
+          setShowJobDetail(false)
+          setJobConfirmationMessage('Appointment confirmed')
+          setShowJobConfirmation(true)
+          setTimeout(() => setShowJobConfirmation(false), 3000)
+        })
+        .catch(() => {
+          // Error surfaced via store state
+        })
+      return
+    }
+    setPendingConfirmJob(target)
+    setShowConfirmNotifyModal(true)
+  }
+
+  const performConfirm = async (notify: boolean) => {
+    const target = pendingConfirmJob
+    setShowConfirmNotifyModal(false)
+    setPendingConfirmJob(null)
+    if (!target) return
+    try {
+      await confirmJob(target.id, notify)
+      await refetchAroundCurrent()
+      setSelectedJob(null)
+      setShowJobDetail(false)
+      setJobConfirmationMessage(notify ? 'Confirmed — sent via email and SMS' : 'Appointment confirmed')
+      setShowJobConfirmation(true)
+      setTimeout(() => setShowJobConfirmation(false), 3000)
+    } catch (error) {
+      // Error handled by store
     }
   }
 
+  const handleConfirmJob = () => {
+    beginConfirm(selectedJob)
+  }
+
   const handleDeclineJob = async () => {
-    if (selectedJob) {
+    if (selectedJob && !isDeclining) {
+      setIsDeclining(true)
+      setDeclineError(null)
       try {
         await declineJob(selectedJob.id, declineReason)
         setShowDeclineModal(false)
@@ -1095,7 +1166,10 @@ const SchedulingPage = () => {
         setSelectedJob(null)
         setShowJobDetail(false)
       } catch (error) {
-        // Error handled by store
+        // Keep the modal open and show the failure inside it, above the buttons.
+        setDeclineError(getErrorMessage(error, 'Could not decline this booking.'))
+      } finally {
+        setIsDeclining(false)
       }
     }
   }
@@ -1241,6 +1315,11 @@ const SchedulingPage = () => {
     // Compute endTime
     const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000)
 
+    // Scheduling preserves the job's own status: an Unconfirmed (pending-confirmation) job stays
+    // tentative when placed on the calendar and is confirmed later via its chip. Because it's
+    // tentative, we schedule it straight away without the "notify client?" prompt.
+    const isUnconfirmed = job.status === 'pending-confirmation'
+
     // Independent without contact: update immediately, no need to ask about notification
     const hasContact = !!(job.contactId && String(job.contactId).trim())
     if (job.isIndependent && !hasContact) {
@@ -1264,7 +1343,7 @@ const SchedulingPage = () => {
       return
     }
 
-    // Build payload and show notification prompt before scheduling
+    // No `status` in the payload — the backend preserves the booking's existing status.
     const updatePayload: {
       id: string
       toBeScheduled: boolean
@@ -1280,6 +1359,35 @@ const SchedulingPage = () => {
     }
     if (bookingId) updatePayload.bookingId = bookingId
     if (job.isIndependent) updatePayload.isIndependent = true
+
+    // Unconfirmed appointments are tentative — schedule them straight away without asking to
+    // notify the client. Confirmed appointments keep the existing "notify client?" prompt.
+    if (isUnconfirmed) {
+      if (job.isIndependent) {
+        updateIndependentBooking(jobId, {
+          toBeScheduled: false,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          notifyClient: false,
+        })
+          .then(() => {
+            const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+            const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+            return fetchJobs(startDate, endDate)
+          })
+          .catch((err: unknown) => {
+            clearJobsError()
+            setJobErrorMessage(
+              getErrorMessage(err, 'Could not schedule this appointment. Ask an admin if you need permission changes.')
+            )
+            setShowJobError(true)
+          })
+      } else {
+        void performJobUpdate({ ...updatePayload, notifyClient: false })
+      }
+      return
+    }
+
     setPendingUpdatePayload(updatePayload)
     setShowNotifyClientModal(true)
   }
@@ -1690,6 +1798,7 @@ const SchedulingPage = () => {
                   setViewMode('day')
                 }}
                 onUnscheduledDrop={handleUnscheduledDrop}
+                onConfirmJob={beginConfirm}
                 onUpdateSuccess={(message) => {
                   setJobConfirmationMessage(message)
                   setShowJobConfirmation(true)
@@ -1717,8 +1826,7 @@ const SchedulingPage = () => {
               onPermanentDelete={job => {
                 handleRequestPermanentDelete(job)
               }}
-              deletedJobId={deletedJobId}
-              deletedRecurrenceId={deletedRecurrenceId}
+              refreshToken={archivedRefreshToken}
             />
           </div>
         )}
@@ -1838,7 +1946,7 @@ const SchedulingPage = () => {
           } else if (pendingUpdatePayload) {
             const { isIndependent, ...rest } = pendingUpdatePayload
             if (isIndependent) {
-              updateIndependentBooking(rest.id, { startTime: rest.startTime, endTime: rest.endTime, notifyClient: false }).then(() => {
+              updateIndependentBooking(rest.id, { toBeScheduled: rest.toBeScheduled, startTime: rest.startTime, endTime: rest.endTime, notifyClient: false }).then(() => {
                 const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
                 const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
                 fetchJobs(startDate, endDate)
@@ -1858,7 +1966,7 @@ const SchedulingPage = () => {
           } else if (pendingUpdatePayload) {
             const { isIndependent, ...rest } = pendingUpdatePayload
             if (isIndependent) {
-              updateIndependentBooking(rest.id, { startTime: rest.startTime, endTime: rest.endTime, notifyClient: true }).then(() => {
+              updateIndependentBooking(rest.id, { toBeScheduled: rest.toBeScheduled, startTime: rest.startTime, endTime: rest.endTime, notifyClient: true }).then(() => {
                 const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
                 const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
                 fetchJobs(startDate, endDate)
@@ -1888,7 +1996,7 @@ const SchedulingPage = () => {
           } else if (pendingUpdatePayload) {
             const { isIndependent, ...rest } = pendingUpdatePayload
             if (isIndependent) {
-              updateIndependentBooking(rest.id, { startTime: rest.startTime, endTime: rest.endTime, notifyClient: notify }).then(() => {
+              updateIndependentBooking(rest.id, { toBeScheduled: rest.toBeScheduled, startTime: rest.startTime, endTime: rest.endTime, notifyClient: notify }).then(() => {
                 const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
                 const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
                 fetchJobs(startDate, endDate)
@@ -1912,6 +2020,21 @@ const SchedulingPage = () => {
         }}
       />
 
+      {/* Confirm-an-unconfirmed-appointment: ask whether to notify the client. Esc/backdrop cancels
+          the confirm entirely; Yes/No both confirm (with/without a client notification). */}
+      <NotifyClientModal
+        isOpen={showConfirmNotifyModal}
+        isLoading={jobsLoading}
+        message="Notify the client that this appointment is now confirmed?"
+        onClose={() => {
+          setShowConfirmNotifyModal(false)
+          setPendingConfirmJob(null)
+        }}
+        onNotify={notify => {
+          void performConfirm(notify)
+        }}
+      />
+
       {/* Job Detail Modal */}
       {selectedJob && (
         <JobDetail
@@ -1925,7 +2048,16 @@ const SchedulingPage = () => {
           onEdit={canUserEditJob(selectedJob) ? handleEditJob : undefined}
           onDelete={canUserEditJob(selectedJob) ? handleDeleteJob : undefined}
           onPermanentDelete={canUserEditJob(selectedJob) ? () => handleRequestPermanentDelete() : undefined}
-          onRestore={!selectedJob.isIndependent && canUserEditJob(selectedJob) ? handleRestoreJob : undefined}
+          onRestore={
+            // Independent appointments restore too (via the bookings endpoint). Failures are
+            // surfaced by handleRestoreJob's error modal; swallow the rethrow it uses to signal
+            // the archived list.
+            canUserEditJob(selectedJob)
+              ? () => {
+                  handleRestoreJob().catch(() => {})
+                }
+              : undefined
+          }
           onConfirm={handleConfirmJob}
           onDecline={() => setShowDeclineModal(true)}
           onScheduleFollowup={handleScheduleFollowup}
@@ -1977,6 +2109,7 @@ const SchedulingPage = () => {
         onClose={() => {
           setShowDeclineModal(false)
           setDeclineReason('')
+          setDeclineError(null)
         }}
         title="Decline Booking"
         size="md"
@@ -1984,15 +2117,17 @@ const SchedulingPage = () => {
           <>
             <AppButton
               variant="ghost"
+              disabled={isDeclining}
               onClick={() => {
                 setShowDeclineModal(false)
                 setDeclineReason('')
+                setDeclineError(null)
               }}
             >
               Cancel
             </AppButton>
-            <AppButton variant="danger" onClick={handleDeclineJob}>
-              Decline Booking
+            <AppButton variant="danger" disabled={isDeclining} onClick={handleDeclineJob}>
+              {isDeclining ? 'Declining…' : 'Decline Booking'}
             </AppButton>
           </>
         }
@@ -2008,6 +2143,7 @@ const SchedulingPage = () => {
             rows={3}
             placeholder="Let the client know why you can't accommodate this booking..."
           />
+          {declineError && <Alert tone="danger">{declineError}</Alert>}
         </div>
       </AppModal>
 
@@ -2176,7 +2312,7 @@ const SchedulingPage = () => {
         <AppModal
           isOpen={showPermanentDeleteConfirm}
           onClose={() => setShowPermanentDeleteConfirm(false)}
-          title="Permanently delete appointment?"
+          title={selectedJob.isStagedSeries ? 'Permanently stop this monthly series?' : 'Permanently delete appointment?'}
           size="sm"
           footer={
             <>
@@ -2184,22 +2320,26 @@ const SchedulingPage = () => {
                 Cancel
               </AppButton>
               <AppButton variant="danger" onClick={handleConfirmPermanentDelete}>
-                Delete Permanently
+                {selectedJob.isStagedSeries ? 'Stop series permanently' : 'Delete Permanently'}
               </AppButton>
             </>
           }
         >
           <div className="space-y-3">
             <p className="text-ink">
-              Are you sure you want to <strong className="text-danger">PERMANENTLY</strong> delete
-              this appointment?
+              Are you sure you want to <strong className="text-danger">PERMANENTLY</strong>{' '}
+              {selectedJob.isStagedSeries
+                ? 'stop this monthly series?'
+                : 'delete this appointment?'}
             </p>
             <div className="rounded-lg bg-danger-soft p-3">
               <p className="text-sm font-semibold mb-1 text-danger">
                 This action cannot be undone!
               </p>
               <p className="text-sm text-ink-muted">
-                The appointment will be removed from the calendar and database.
+                {selectedJob.isStagedSeries
+                  ? 'The monthly reminder will be removed from the calendar and database. Appointments you have already scheduled from it are kept.'
+                  : 'The appointment will be removed from the calendar and database.'}
               </p>
             </div>
             <div className="rounded-lg bg-info-soft p-3">

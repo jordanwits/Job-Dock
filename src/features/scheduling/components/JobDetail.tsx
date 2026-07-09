@@ -188,7 +188,7 @@ const JobDetail = ({ job, isOpen, onClose, onEdit, onDelete, onPermanentDelete, 
                       <>
                         {/* Backdrop to close menu */}
                         <div className="fixed inset-0 z-40" onClick={() => setShowDeleteMenu(false)} />
-                        <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line">
+                        <div className="absolute bottom-full right-0 z-50 mb-2 w-64 overflow-hidden rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line">
                           {onDelete && (
                             <button
                               onClick={() => {

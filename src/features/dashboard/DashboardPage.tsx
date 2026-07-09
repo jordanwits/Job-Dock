@@ -56,7 +56,7 @@ const apptTone = (status: string): Tone => {
   }
 }
 const apptLabel = (status: string): string =>
-  status === 'pending-confirmation' ? 'pending' : status.replace('-', ' ')
+  status === 'pending-confirmation' ? 'unconfirmed' : status.replace('-', ' ')
 
 const jobLogTone = (label: string): Tone =>
   label === 'active' ? 'success' : label === 'completed' ? 'info' : 'neutral'

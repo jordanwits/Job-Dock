@@ -620,7 +620,6 @@ function generateRecurrenceInstances(params: {
       })
     )
     // #endregion
-    let currentDate = new Date(startTime)
     let instanceCount = 0
 
     // Generate instances for up to MAX_MONTHS
@@ -628,19 +627,41 @@ function generateRecurrenceInstances(params: {
       Math.min(maxDate.getTime(), startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
     )
 
-    while (instanceCount < maxCount && currentDate <= endSearchDate) {
-      const dayOfWeek = currentDate.getDay()
-
-      if (recurrence.daysOfWeek.includes(dayOfWeek)) {
-        instances.push({
-          startTime: new Date(currentDate),
-          endTime: new Date(currentDate.getTime() + duration),
-        })
-        instanceCount++
+    const customTz = recurrence.timezone || undefined
+    if (customTz) {
+      // Walk days in the BUSINESS timezone so (a) the day-of-week test uses the user's local
+      // weekday, not the server's (a Mon 9pm PT start is already Tue in UTC), and (b) the
+      // wall-clock time survives DST transitions instead of drifting an hour.
+      let zonedCurrent = toZonedTime(startTime, customTz)
+      while (instanceCount < maxCount) {
+        const instanceStart = fromZonedTime(zonedCurrent, customTz)
+        if (instanceStart > endSearchDate) break
+        if (recurrence.daysOfWeek.includes(zonedCurrent.getDay())) {
+          instances.push({
+            startTime: instanceStart,
+            endTime: new Date(instanceStart.getTime() + duration),
+          })
+          instanceCount++
+        }
+        zonedCurrent = addDays(zonedCurrent, 1)
       }
+    } else {
+      // Legacy fallback (no timezone provided): native date arithmetic, server-local weekdays.
+      let currentDate = new Date(startTime)
+      while (instanceCount < maxCount && currentDate <= endSearchDate) {
+        const dayOfWeek = currentDate.getDay()
 
-      // Move to next day
-      currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000)
+        if (recurrence.daysOfWeek.includes(dayOfWeek)) {
+          instances.push({
+            startTime: new Date(currentDate),
+            endTime: new Date(currentDate.getTime() + duration),
+          })
+          instanceCount++
+        }
+
+        // Move to next day
+        currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000)
+      }
     }
     // #region agent log
     console.log(
@@ -2497,6 +2518,24 @@ export const dataServices = {
         })
       }
 
+      // Series sizes for every recurrence visible in this page. occurrenceCount counts bookings
+      // not hard-deleted (archived siblings included) so the recurring-aware delete/edit modals
+      // fire on calendar rows AND on archived rows; the frontend keys off occurrenceCount > 1.
+      const visibleRecurrenceIds = Array.from(
+        new Set(filteredBookings.map(b => b.recurrenceId).filter((v): v is string => !!v))
+      )
+      const occurrenceCountByRecurrence = new Map<string, number>()
+      if (visibleRecurrenceIds.length > 0) {
+        const occurrenceCounts = await prisma.booking.groupBy({
+          by: ['recurrenceId'],
+          where: { tenantId, recurrenceId: { in: visibleRecurrenceIds }, deletedAt: null },
+          _count: { _all: true },
+        })
+        for (const c of occurrenceCounts) {
+          if (c.recurrenceId) occurrenceCountByRecurrence.set(c.recurrenceId, c._count._all)
+        }
+      }
+
       // Flatten Bookings to Job-like shape (handles both job-backed and independent appointments)
       const jobsFromBookings = await Promise.all(
         filteredBookings.map(async b => {
@@ -2528,6 +2567,9 @@ export const dataServices = {
             quoteId: b.quoteId ?? (job as any)?.quoteId ?? undefined,
             invoiceId: b.invoiceId ?? (job as any)?.invoiceId ?? undefined,
             recurrenceId: b.recurrenceId,
+            occurrenceCount: b.recurrenceId
+              ? (occurrenceCountByRecurrence.get(b.recurrenceId) ?? 1)
+              : 1,
             startTime: b.startTime?.toISOString() ?? null,
             endTime: b.endTime?.toISOString() ?? null,
             toBeScheduled: b.toBeScheduled,
@@ -2629,6 +2671,25 @@ export const dataServices = {
           return userIds.includes(currentUserId)
         })
       }
+      // Series sizes for the bookingless/archived rows too (their recurrenceIds were not in the
+      // booking-window sweep above).
+      const extraRecurrenceIds = Array.from(
+        new Set(
+          filteredJobsWithoutBookings
+            .map(j => j.bookings[0]?.recurrenceId)
+            .filter((v): v is string => !!v && !occurrenceCountByRecurrence.has(v))
+        )
+      )
+      if (extraRecurrenceIds.length > 0) {
+        const extraCounts = await prisma.booking.groupBy({
+          by: ['recurrenceId'],
+          where: { tenantId, recurrenceId: { in: extraRecurrenceIds }, deletedAt: null },
+          _count: { _all: true },
+        })
+        for (const c of extraCounts) {
+          if (c.recurrenceId) occurrenceCountByRecurrence.set(c.recurrenceId, c._count._all)
+        }
+      }
       const jobsWithoutBookingsFormatted = await Promise.all(
         filteredJobsWithoutBookings.map(async job => {
           const firstBooking = job.bookings[0]
@@ -2652,6 +2713,9 @@ export const dataServices = {
             quoteId: job.quoteId,
             invoiceId: job.invoiceId,
             recurrenceId: firstBooking?.recurrenceId ?? null,
+            occurrenceCount: firstBooking?.recurrenceId
+              ? (occurrenceCountByRecurrence.get(firstBooking.recurrenceId) ?? 1)
+              : 1,
             startTime: firstBooking?.startTime?.toISOString() ?? null,
             endTime: firstBooking?.endTime?.toISOString() ?? null,
             toBeScheduled: firstBooking?.toBeScheduled ?? true,
@@ -2725,10 +2789,18 @@ export const dataServices = {
         currentUserRole
       )
       const primaryBooking = job.bookings[0]
+      const occurrenceCount = primaryBooking?.recurrenceId
+        ? await prisma.booking.count({
+            where: { tenantId, recurrenceId: primaryBooking.recurrenceId, deletedAt: null },
+          })
+        : 1
       return {
         ...job,
         assignedToName,
         assignedTo: assignedToWithPrivacy || job.assignedTo,
+        bookingId: primaryBooking?.id ?? null,
+        recurrenceId: primaryBooking?.recurrenceId ?? null,
+        occurrenceCount,
         archivedAt:
           (job as any).archivedAt?.toISOString() ??
           primaryBooking?.archivedAt?.toISOString() ??
@@ -2878,26 +2950,52 @@ export const dataServices = {
         }
       }
 
-      // If toBeScheduled, create ONLY the Job (no automatic Booking).
-      // Bookings are separate appointment records and can be created/deleted independently.
+      // If toBeScheduled, create the Job AND a to-be-scheduled placeholder Booking. The Booking
+      // (null times, toBeScheduled: true) is required so the job survives a plain calendar
+      // refetch — getAll is booking-centric and its OR-clause always returns toBeScheduled
+      // bookings, whereas a bookingless job would only show once from the optimistic client add
+      // and then vanish on the next fetch.
       if (toBeScheduled) {
-        const job = await prisma.job.create({
-          data: {
-            tenantId,
-            title: payload.title,
-            description: payload.description,
-            contactId: payload.contactId,
-            serviceId: payload.serviceId ?? null,
-            quoteId: payload.quoteId,
-            invoiceId: payload.invoiceId,
-            status: 'active',
-            location: payload.location,
-            price: payload.price !== undefined ? payload.price : null,
-            notes: payload.notes,
-            assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
-            createdById: payload.createdById ?? undefined,
-          },
-          include: { contact: true, createdBy: { select: { name: true } }, service: true },
+        const initialStatus = payload.status || 'active'
+        const { job, booking } = await prisma.$transaction(async tx => {
+          const job = await tx.job.create({
+            data: {
+              tenantId,
+              title: payload.title,
+              description: payload.description,
+              contactId: payload.contactId,
+              serviceId: payload.serviceId ?? null,
+              quoteId: payload.quoteId,
+              invoiceId: payload.invoiceId,
+              status: initialStatus,
+              location: payload.location,
+              price: payload.price !== undefined ? payload.price : null,
+              notes: payload.notes,
+              assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+              createdById: payload.createdById ?? undefined,
+            },
+            include: { contact: true, createdBy: { select: { name: true } }, service: true },
+          })
+          const booking = await tx.booking.create({
+            data: {
+              tenantId,
+              jobId: job.id,
+              serviceId: payload.serviceId ?? null,
+              quoteId: payload.quoteId,
+              invoiceId: payload.invoiceId,
+              startTime: null,
+              endTime: null,
+              toBeScheduled: true,
+              status: initialStatus,
+              location: payload.location,
+              price: payload.price !== undefined ? payload.price : null,
+              notes: payload.notes,
+              assignedTo: (normalizedAssignedTo ?? undefined) as unknown as Prisma.InputJsonValue,
+              createdById: payload.createdById ?? undefined,
+            },
+            include: { service: true },
+          })
+          return { job, booking }
         })
         if (normalizedAssignedTo && normalizedAssignedTo.length > 0) {
           const jobWithContact = job as { contact?: { firstName?: string; lastName?: string } }
@@ -2919,13 +3017,13 @@ export const dataServices = {
         return {
           ...job,
           // Booking-like fields (backward compat for UI)
-          bookingId: null,
+          bookingId: booking.id,
           startTime: null,
           endTime: null,
           toBeScheduled: true,
-          status: job.status,
-          serviceName: (job as any).service?.name ?? null,
-          price: (job as any).price != null ? Number((job as any).price) : null,
+          status: booking.status,
+          serviceName: (booking as any).service?.name ?? (job as any).service?.name ?? null,
+          price: booking.price != null ? Number(booking.price) : null,
           assignedToName,
         }
       }
@@ -3296,7 +3394,7 @@ export const dataServices = {
             startTime: start,
             endTime: end,
             toBeScheduled: false,
-            status: 'active',
+            status: payload.status ?? 'active',
             location: payload.location ?? anchor?.location ?? existingJob.location ?? null,
             price:
               payload.price != null
@@ -3479,6 +3577,10 @@ export const dataServices = {
           where: {
             recurrenceId: primaryBooking.recurrenceId,
             tenantId,
+            // Deleted/archived occurrences are history — never rewrite them (a later restore
+            // must bring back the appointment as it was when it was deleted).
+            archivedAt: null,
+            deletedAt: null,
             ...(baseBooking?.startTime ? { startTime: { gte: baseBooking.startTime } } : {}),
           },
           orderBy: { startTime: 'asc' },
@@ -3758,7 +3860,7 @@ export const dataServices = {
         }
       } else {
         await prisma.booking.updateMany({
-          where: { jobId: id },
+          where: { jobId: id, tenantId },
           data: { archivedAt: now },
         })
         await prisma.job.update({
@@ -3819,7 +3921,7 @@ export const dataServices = {
 
       return { success: true, permanent: true }
     },
-    restore: async (tenantId: string, id: string) => {
+    restore: async (tenantId: string, id: string, bookingId?: string) => {
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
         include: { bookings: true, contact: true },
@@ -3828,26 +3930,93 @@ export const dataServices = {
       const hasArchived = !!job.archivedAt || job.bookings.some((b: any) => b.archivedAt)
       if (!hasArchived) throw new ApiError('Job is not archived', 400)
 
-      await prisma.booking.updateMany({
-        where: { jobId: id },
-        data: { archivedAt: null },
+      // Restore = undo the delete operation that archived what the caller clicked, never
+      // "un-archive everything": jobs.delete stamps the job and every booking it archives with
+      // one shared timestamp, so matching archivedAt (±2s for legacy rows with split clocks)
+      // identifies exactly that operation's rows. Bookings the user archived individually
+      // (their own timestamps) stay archived instead of being silently resurrected.
+      const recurrenceIds = Array.from(
+        new Set(job.bookings.map((b: any) => b.recurrenceId).filter((v: any): v is string => !!v))
+      )
+      if (job.archivedAt) {
+        const t = job.archivedAt.getTime()
+        const stamp = { gte: new Date(t - 2000), lte: new Date(t + 2000) }
+        const seriesScope: Prisma.BookingWhereInput[] = [
+          { jobId: id },
+          ...(recurrenceIds.length > 0 ? [{ recurrenceId: { in: recurrenceIds } }] : []),
+        ]
+        await prisma.booking.updateMany({
+          where: {
+            tenantId,
+            OR: [
+              { archivedAt: stamp, OR: seriesScope },
+              // The specific row the caller clicked is restored regardless of when it was archived.
+              ...(bookingId ? [{ id: bookingId, OR: seriesScope }] : []),
+            ],
+          },
+          data: { archivedAt: null },
+        })
+        // deleteAll archives sibling jobs of a legacy multi-job series with the same stamp — undo those too.
+        if (recurrenceIds.length > 0) {
+          const seriesBookings = await prisma.booking.findMany({
+            where: { tenantId, recurrenceId: { in: recurrenceIds } },
+            select: { jobId: true },
+          })
+          const siblingJobIds = Array.from(
+            new Set(seriesBookings.map(b => b.jobId).filter((v): v is string => !!v))
+          )
+          if (siblingJobIds.length > 0) {
+            await prisma.job.updateMany({
+              where: { id: { in: siblingJobIds }, tenantId, archivedAt: stamp },
+              data: { archivedAt: null },
+            })
+          }
+        }
+        await prisma.job.update({ where: { id }, data: { archivedAt: null } })
+      } else {
+        // Job itself is live; only individual bookings are archived. Restore exactly the booking
+        // the caller pointed at (or the most recently archived one when unspecified) — never all.
+        const target = bookingId
+          ? job.bookings.find((b: any) => b.id === bookingId && b.archivedAt)
+          : [...job.bookings]
+              .filter((b: any) => b.archivedAt)
+              .sort((a: any, b: any) => b.archivedAt.getTime() - a.archivedAt.getTime())[0]
+        if (!target) throw new ApiError('Booking is not archived', 400)
+        await prisma.booking.update({ where: { id: target.id }, data: { archivedAt: null } })
+      }
+
+      const restored = await prisma.job.findFirst({
+        where: { id, tenantId },
+        include: {
+          bookings: {
+            where: { archivedAt: null, deletedAt: null },
+            orderBy: { startTime: 'asc' },
+          },
+          contact: true,
+        },
       })
-      const restored = await prisma.job.update({
-        where: { id },
-        data: { archivedAt: null },
-        include: { bookings: { orderBy: { startTime: 'asc' } }, contact: true },
-      })
-      const b = restored.bookings[0]
+      const b = restored!.bookings[0]
+      const occurrenceCount = b?.recurrenceId
+        ? await prisma.booking.count({
+            where: { tenantId, recurrenceId: b.recurrenceId, deletedAt: null },
+          })
+        : 1
       return {
         ...restored,
+        bookingId: b?.id ?? null,
+        recurrenceId: b?.recurrenceId ?? null,
+        occurrenceCount,
         serviceId: b?.serviceId,
         service: null,
         startTime: b?.startTime?.toISOString() ?? null,
         endTime: b?.endTime?.toISOString() ?? null,
+        toBeScheduled: b?.toBeScheduled ?? false,
+        status: b?.status ?? restored!.status,
+        price: b?.price != null ? Number(b.price) : null,
         archivedAt: null,
       }
     },
-    confirm: async (tenantId: string, id: string) => {
+    confirm: async (tenantId: string, id: string, notifyClient?: boolean) => {
       const job = await prisma.job.findFirst({
         where: { id, tenantId },
         include: {
@@ -3876,85 +4045,88 @@ export const dataServices = {
         },
       })
 
-      // Send confirmation to client (email and/or SMS per preference)
-      try {
-        const b = primaryBooking ?? updatedJob!.bookings[0]
-        const pref = (job.contact as any)?.notificationPreference ?? 'both'
-        const wantsEmail = shouldSendEmail(pref) && job.contact.email
-        const wantsSms = shouldSendSms(pref) && job.contact?.phone?.trim()
+      // Send confirmation to client (email and/or SMS per preference), only when the caller opts in.
+      // Owner-scheduled "unconfirmed" appointments are confirmed silently unless notifyClient is set.
+      if (notifyClient) {
+        try {
+          const b = primaryBooking ?? updatedJob!.bookings[0]
+          const pref = (job.contact as any)?.notificationPreference ?? 'both'
+          const wantsEmail = shouldSendEmail(pref) && job.contact.email
+          const wantsSms = shouldSendSms(pref) && job.contact?.phone?.trim()
 
-        const settings = await prisma.tenantSettings.findUnique({
-          where: { tenantId },
-        })
-        const serviceAvailability = ((b as any)?.service?.availability as any) || {}
-        const timezoneOffset = serviceAvailability?.timezoneOffset ?? -8
-        const companyName = settings?.companyDisplayName || 'JobDock'
+          const settings = await prisma.tenantSettings.findUnique({
+            where: { tenantId },
+          })
+          const serviceAvailability = ((b as any)?.service?.availability as any) || {}
+          const timezoneOffset = serviceAvailability?.timezoneOffset ?? -8
+          const companyName = settings?.companyDisplayName || 'JobDock'
 
-        let logoUrl: string | null = null
-        if (settings?.logoUrl) {
-          try {
-            const { getFileUrl } = await import('./fileUpload')
-            logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
-          } catch (error) {
-            console.error('Error fetching logo URL for email:', error)
+          let logoUrl: string | null = null
+          if (settings?.logoUrl) {
+            try {
+              const { getFileUrl } = await import('./fileUpload')
+              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+            } catch (error) {
+              console.error('Error fetching logo URL for email:', error)
+            }
           }
-        }
 
-        // Generate reschedule token and short link for client emails/SMS
-        const rescheduleToken = generateApprovalToken('job', id, tenantId)
-        let smsRescheduleUrl: string | undefined
-        if (wantsSms) {
-          try {
-            const { createShortLink } = await import('./shortLinks')
-            const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(
-              /\/$/,
-              ''
-            )
-            const rescheduleFullUrl = `${publicAppUrl}/public/booking/${id}/reschedule?token=${rescheduleToken}`
-            smsRescheduleUrl = await createShortLink(rescheduleFullUrl)
-          } catch (e) {
-            console.warn('Could not create short link for reschedule SMS:', e)
+          // Generate reschedule token and short link for client emails/SMS
+          const rescheduleToken = generateApprovalToken('job', id, tenantId)
+          let smsRescheduleUrl: string | undefined
+          if (wantsSms) {
+            try {
+              const { createShortLink } = await import('./shortLinks')
+              const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(
+                /\/$/,
+                ''
+              )
+              const rescheduleFullUrl = `${publicAppUrl}/public/booking/${id}/reschedule?token=${rescheduleToken}`
+              smsRescheduleUrl = await createShortLink(rescheduleFullUrl)
+            } catch (e) {
+              console.warn('Could not create short link for reschedule SMS:', e)
+            }
           }
-        }
 
-        if (wantsEmail) {
-          console.log(`📧 Sending confirmation email to ${job.contact.email}`)
-          const emailPayload = buildClientBookingConfirmedEmail({
-            clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
-            serviceName: (b as any)?.service?.name || 'Service',
-            startTime: b?.startTime ? new Date(b.startTime) : new Date(),
-            endTime: b?.endTime ? new Date(b.endTime) : new Date(),
-            location: (b?.location ?? job.location) || undefined,
-            timezoneOffset,
-            companyName,
-            logoUrl,
-            settings: {
-              companySupportEmail: settings?.companySupportEmail || null,
-              companyPhone: settings?.companyPhone || null,
-            },
-            jobId: id,
-            rescheduleToken,
-          })
-          await sendEmail({
-            ...emailPayload,
-            to: job.contact!.email!,
-            fromName: companyName,
-            replyTo: settings?.companySupportEmail || undefined,
-          })
-          console.log('✅ Confirmation email sent successfully')
+          if (wantsEmail) {
+            console.log(`📧 Sending confirmation email to ${job.contact.email}`)
+            const emailPayload = buildClientBookingConfirmedEmail({
+              clientName: `${job.contact.firstName} ${job.contact.lastName}`.trim(),
+              serviceName: (b as any)?.service?.name || 'Service',
+              startTime: b?.startTime ? new Date(b.startTime) : new Date(),
+              endTime: b?.endTime ? new Date(b.endTime) : new Date(),
+              location: (b?.location ?? job.location) || undefined,
+              timezoneOffset,
+              companyName,
+              logoUrl,
+              settings: {
+                companySupportEmail: settings?.companySupportEmail || null,
+                companyPhone: settings?.companyPhone || null,
+              },
+              jobId: id,
+              rescheduleToken,
+            })
+            await sendEmail({
+              ...emailPayload,
+              to: job.contact!.email!,
+              fromName: companyName,
+              replyTo: settings?.companySupportEmail || undefined,
+            })
+            console.log('✅ Confirmation email sent successfully')
+          }
+          if (wantsSms) {
+            const smsBody = buildBookingConfirmationSms({
+              serviceName: (b as any)?.service?.name || 'Service',
+              startTime: b?.startTime ? new Date(b.startTime) : new Date(),
+              companyName,
+              timezoneOffset,
+              rescheduleUrl: smsRescheduleUrl,
+            })
+            await sendSms(job.contact!.phone!, smsBody)
+          }
+        } catch (emailError) {
+          console.error('❌ Failed to send confirmation email:', emailError)
         }
-        if (wantsSms) {
-          const smsBody = buildBookingConfirmationSms({
-            serviceName: (b as any)?.service?.name || 'Service',
-            startTime: b?.startTime ? new Date(b.startTime) : new Date(),
-            companyName,
-            timezoneOffset,
-            rescheduleUrl: smsRescheduleUrl,
-          })
-          await sendSms(job.contact!.phone!, smsBody)
-        }
-      } catch (emailError) {
-        console.error('❌ Failed to send confirmation email:', emailError)
       }
 
       // Return flattened job format (same as getById) so frontend receives startTime, endTime, toBeScheduled
@@ -4692,29 +4864,28 @@ export const dataServices = {
           (updated as { createdBy?: { name: string } | null }).createdBy?.name ?? undefined,
       }
     },
-    delete: async (tenantId: string, id: string) => {
+    delete: async (tenantId: string, id: string, deleteAll?: boolean) => {
       await ensureTenantExists(tenantId)
 
       const booking = await prisma.booking.findFirst({
         where: { id, tenantId },
-        include: { job: { include: { bookings: true } } },
       })
 
       if (!booking) throw new ApiError('Booking not found', 404)
 
-      // Independent bookings have no job
-      if (booking.isIndependent || !booking.job) {
-        await prisma.booking.update({
-          where: { id },
+      // Series archive ("Delete series" on the calendar): archive EVERY booking in the
+      // recurrence — including the staged monthly anchor — but never the Job. Calendar deletes
+      // only ever affect bookings; the job stays on the Jobs page. One shared timestamp lets
+      // restore undo exactly this operation.
+      if (deleteAll && booking.recurrenceId) {
+        await prisma.booking.updateMany({
+          where: { recurrenceId: booking.recurrenceId, tenantId, archivedAt: null },
           data: { archivedAt: new Date() },
         })
         return { success: true }
       }
 
-      const job = booking.job
-      const otherBookings = job.bookings.filter((b: any) => b.id !== id)
-
-      // Archive the booking
+      // Single booking archive (independent or job-backed): booking only, job untouched.
       await prisma.booking.update({
         where: { id },
         data: { archivedAt: new Date() },
@@ -4722,15 +4893,24 @@ export const dataServices = {
 
       return { success: true }
     },
-    permanentDelete: async (tenantId: string, id: string) => {
+    permanentDelete: async (tenantId: string, id: string, deleteAll?: boolean) => {
       await ensureTenantExists(tenantId)
 
       const booking = await prisma.booking.findFirst({
         where: { id, tenantId },
-        include: { job: { include: { bookings: true } } },
       })
 
       if (!booking) throw new ApiError('Booking not found', 404)
+
+      // Series permanent delete: hard-delete EVERY booking in the recurrence (incl. the staged
+      // anchor, so no monthly chip lingers). Never deletes the Job — deleting jobs is a
+      // Jobs-page-only action.
+      if (deleteAll && booking.recurrenceId) {
+        await prisma.booking.deleteMany({
+          where: { recurrenceId: booking.recurrenceId, tenantId },
+        })
+        return { success: true, permanent: true }
+      }
 
       // Independent and job-backed both get permanently deleted the same way
       await prisma.booking.delete({
@@ -4738,6 +4918,29 @@ export const dataServices = {
       })
 
       return { success: true, permanent: true }
+    },
+    restore: async (tenantId: string, id: string) => {
+      await ensureTenantExists(tenantId)
+
+      const booking = await prisma.booking.findFirst({
+        where: { id, tenantId },
+        include: { job: true },
+      })
+      if (!booking) throw new ApiError('Booking not found', 404)
+      if (!booking.archivedAt) throw new ApiError('Booking is not archived', 400)
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: { archivedAt: null },
+      })
+      // An appointment can't surface while its parent job is archived — bring the job back too.
+      if (booking.job?.archivedAt) {
+        await prisma.job.update({
+          where: { id: booking.job.id },
+          data: { archivedAt: null },
+        })
+      }
+      return { success: true, bookingId: updated.id, jobId: booking.job?.id ?? null }
     },
   },
   services: {
@@ -5040,7 +5243,23 @@ export const dataServices = {
           throw new Error('Booking is too far in advance')
         }
 
-        // Double booking check removed - allowing overlapping bookings
+        // Public bookings enforce the service's slot capacity (tenant-wide, like the recurring
+        // branch below and the availability endpoint that advertises the slots). Internal
+        // calendar double-booking remains allowed — this guard is public-flow only.
+        const overlappingAtSlot = await tx.booking.count({
+          where: {
+            tenantId: actualTenantId,
+            status: { in: ['active', 'scheduled', 'in-progress', 'pending-confirmation'] },
+            deletedAt: null,
+            archivedAt: null,
+            toBeScheduled: false,
+            startTime: { lt: endTime },
+            endTime: { gt: startTime },
+          },
+        })
+        if (overlappingAtSlot >= maxBookingsPerSlot) {
+          throw new Error('This time slot is no longer available. Please choose another time.')
+        }
 
         // 4. Upsert contact
         let contact
