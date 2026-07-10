@@ -3620,10 +3620,28 @@ export const dataServices = {
           orderBy: { startTime: 'asc' },
         })
 
+        // Preserve local wall-clock time across DST when shifting the series. A raw ms delta moves
+        // the UTC instant uniformly, so a change spanning a DST boundary (editing across spring-
+        // forward, or a +1 day shift landing on a fall-back day) drifts every later occurrence by
+        // an hour. Computing the delta in the recurrence timezone's wall-clock frame keeps "9am" at
+        // 9am. Recurrences without a stored timezone keep the legacy ms behavior.
+        const recurrence = await prisma.jobRecurrence.findUnique({
+          where: { id: primaryBooking.recurrenceId },
+          select: { timezone: true },
+        })
+        const recurrenceTz = recurrence?.timezone || undefined
+
         const timeDelta =
           payload.startTime !== undefined && baseBooking?.startTime
             ? new Date(payload.startTime).getTime() - new Date(baseBooking.startTime).getTime()
             : 0
+        // Wall-clock delta: the edited occurrence's new vs old LOCAL time (each day treated as its
+        // nominal length), used when a timezone is known.
+        const localDelta =
+          recurrenceTz && payload.startTime !== undefined && baseBooking?.startTime
+            ? toZonedTime(new Date(payload.startTime), recurrenceTz).getTime() -
+              toZonedTime(new Date(baseBooking.startTime), recurrenceTz).getTime()
+            : null
         const newDurationMs =
           payload.startTime !== undefined && payload.endTime !== undefined
             ? new Date(payload.endTime).getTime() - new Date(payload.startTime).getTime()
@@ -3632,12 +3650,21 @@ export const dataServices = {
         for (const b of futureBookings) {
           const data: any = { ...bookingUpdateData }
           if (b.startTime && b.endTime) {
-            const newStart = new Date(new Date(b.startTime).getTime() + timeDelta)
+            const newStart =
+              localDelta != null && recurrenceTz
+                ? fromZonedTime(
+                    new Date(
+                      toZonedTime(new Date(b.startTime), recurrenceTz).getTime() + localDelta
+                    ),
+                    recurrenceTz
+                  )
+                : new Date(new Date(b.startTime).getTime() + timeDelta)
             data.startTime = newStart
-            data.endTime =
+            const durationMs =
               newDurationMs != null
-                ? new Date(newStart.getTime() + newDurationMs)
-                : new Date(new Date(b.endTime).getTime() + timeDelta)
+                ? newDurationMs
+                : new Date(b.endTime).getTime() - new Date(b.startTime).getTime()
+            data.endTime = new Date(newStart.getTime() + durationMs)
           }
           if (Object.keys(data).length > 0) {
             await prisma.booking.update({ where: { id: b.id }, data })
@@ -5256,7 +5283,7 @@ export const dataServices = {
       }
     },
     bookSlot: async (tenantId: string, id: string, payload: any, contractorEmail?: string) => {
-      return await prisma.$transaction(async tx => {
+      const bookResult = await prisma.$transaction(async tx => {
         // 1. Load and validate service
         // For public booking, look up service by ID only (ignore tenantId parameter)
         const service = await tx.service.findUnique({
@@ -5579,174 +5606,200 @@ export const dataServices = {
           }
         }
 
-        // 6. Send notification emails (after transaction commits)
-        // Send emails synchronously to ensure they're sent before Lambda exits
-        try {
-          const clientEmail = contact.email
-          const clientName = `${contact.firstName} ${contact.lastName}`.trim()
+        return {
+          job,
+          contact,
+          service,
+          startTime,
+          endTime,
+          requireConfirmation,
+          contactData,
+          bookingTzSettings,
+          actualTenantId,
+        }
+      })
 
-          // Get tenant settings for company name and reply-to email
-          const settings = await tx.tenantSettings.findUnique({
-            where: { tenantId: actualTenantId },
-          })
+      const {
+        job,
+        contact,
+        service,
+        startTime,
+        endTime,
+        requireConfirmation,
+        contactData,
+        bookingTzSettings,
+        actualTenantId,
+      } = bookResult
 
-          const companyName = settings?.companyDisplayName || 'JobDock'
-          const replyToEmail = settings?.companySupportEmail || undefined
+      // 6. Send notification emails AFTER the transaction commits. Awaiting Resend/Twilio inside the
+      // transaction held a DB connection across those HTTP calls and, worse, could trip Prisma's
+      // interactive-transaction timeout and roll back a booking whose confirmation was already sent.
+      // Emails are best-effort; a failure here never undoes the committed booking.
+      try {
+        const clientEmail = contact.email
+        const clientName = `${contact.firstName} ${contact.lastName}`.trim()
 
-          // Get timezone offset from service availability settings, falling back to the tenant
-          // timezone loaded above (DST-correct at the booked slot's start), then legacy -8.
-          const availability = service.availability as any
-          const timezoneOffset =
-            availability?.timezoneOffset ??
-            offsetHoursForZone(bookingTzSettings?.timezone, startTime)
+        // Get tenant settings for company name and reply-to email
+        const settings = await prisma.tenantSettings.findUnique({
+          where: { tenantId: actualTenantId },
+        })
 
-          // Fetch logo URL if available (7 days expiration for email)
-          let logoUrl: string | null = null
-          if (settings?.logoUrl) {
-            try {
-              const { getFileUrl } = await import('./fileUpload')
-              logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
-            } catch (error) {
-              console.error('Error fetching logo URL for email:', error)
-            }
+        const companyName = settings?.companyDisplayName || 'JobDock'
+        const replyToEmail = settings?.companySupportEmail || undefined
+
+        // Get timezone offset from service availability settings, falling back to the tenant
+        // timezone loaded above (DST-correct at the booked slot's start), then legacy -8.
+        const availability = service.availability as any
+        const timezoneOffset =
+          availability?.timezoneOffset ??
+          offsetHoursForZone(bookingTzSettings?.timezone, startTime)
+
+        // Fetch logo URL if available (7 days expiration for email)
+        let logoUrl: string | null = null
+        if (settings?.logoUrl) {
+          try {
+            const { getFileUrl } = await import('./fileUpload')
+            logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60) // 7 days
+          } catch (error) {
+            console.error('Error fetching logo URL for email:', error)
           }
-
-          const phoneForSms = contactData.phone?.trim() || contact.phone
-          const pref = (contact as any)?.notificationPreference ?? 'both'
-          const wantsEmail = shouldSendEmail(pref) && clientEmail
-          const wantsSms = shouldSendSms(pref) && phoneForSms
-
-          // Generate reschedule token and short link for client emails/SMS
-          const rescheduleToken = generateApprovalToken('job', job.id, actualTenantId)
-          const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(
-            /\/$/,
-            ''
-          )
-          const rescheduleFullUrl = `${publicAppUrl}/public/booking/${job.id}/reschedule?token=${rescheduleToken}`
-          let smsRescheduleUrl: string | undefined
-          if (wantsSms) {
-            try {
-              const { createShortLink } = await import('./shortLinks')
-              smsRescheduleUrl = await createShortLink(rescheduleFullUrl)
-            } catch (e) {
-              console.warn('Could not create short link for reschedule SMS:', e)
-            }
-          }
-
-          if (wantsEmail || wantsSms) {
-            if (requireConfirmation) {
-              if (wantsEmail) {
-                console.log(`📧 Sending booking request email to ${clientEmail}`)
-                const emailPayload = buildClientPendingEmail({
-                  clientName,
-                  serviceName: service.name,
-                  startTime,
-                  endTime,
-                  timezoneOffset,
-                  companyName,
-                  logoUrl,
-                  settings: {
-                    companySupportEmail: settings?.companySupportEmail || null,
-                    companyPhone: settings?.companyPhone || null,
-                  },
-                  jobId: job.id,
-                  rescheduleToken,
-                })
-                await sendEmail({
-                  ...emailPayload,
-                  to: clientEmail!,
-                  fromName: companyName,
-                  replyTo: replyToEmail,
-                })
-                console.log('✅ Booking request email sent successfully')
-              }
-              if (wantsSms) {
-                console.log(`📱 Sending pending SMS to ${phoneForSms}`)
-                const smsBody = buildBookingPendingSms({
-                  serviceName: service.name,
-                  startTime,
-                  companyName,
-                  timezoneOffset,
-                  rescheduleUrl: smsRescheduleUrl,
-                })
-                await sendSms(phoneForSms, smsBody)
-              }
-            } else {
-              if (wantsEmail) {
-                console.log(`📧 Sending instant confirmation email to ${clientEmail}`)
-                const emailPayload = buildClientConfirmationEmail({
-                  clientName,
-                  serviceName: service.name,
-                  startTime,
-                  endTime,
-                  location: payload.location,
-                  timezoneOffset,
-                  companyName,
-                  logoUrl,
-                  settings: {
-                    companySupportEmail: settings?.companySupportEmail || null,
-                    companyPhone: settings?.companyPhone || null,
-                  },
-                  jobId: job.id,
-                  rescheduleToken,
-                })
-                await sendEmail({
-                  ...emailPayload,
-                  to: clientEmail!,
-                  fromName: companyName,
-                  replyTo: replyToEmail,
-                })
-                console.log('✅ Instant confirmation email sent successfully')
-              }
-              if (wantsSms) {
-                console.log(`📱 Sending SMS to ${phoneForSms}`)
-                const smsBody = buildBookingConfirmationSms({
-                  serviceName: service.name,
-                  startTime,
-                  companyName,
-                  timezoneOffset,
-                  rescheduleUrl: smsRescheduleUrl,
-                })
-                await sendSms(phoneForSms, smsBody)
-              }
-            }
-          }
-
-          // Send email to contractor if email is provided
-          if (contractorEmail) {
-            console.log(`📧 Sending contractor notification email to ${contractorEmail}`)
-            const emailPayload = buildContractorNotificationEmail({
-              contractorName: 'Contractor',
-              serviceName: service.name,
-              clientName,
-              clientEmail: contact.email ?? undefined,
-              clientPhone: contact.phone ?? undefined,
-              startTime,
-              endTime,
-              location: payload.location,
-              isPending: requireConfirmation,
-              companyName,
-              logoUrl,
-              settings: {
-                companySupportEmail: settings?.companySupportEmail || null,
-                companyPhone: settings?.companyPhone || null,
-              },
-            })
-            await sendEmail({
-              ...emailPayload,
-              to: contractorEmail,
-              fromName: companyName,
-              replyTo: replyToEmail,
-            })
-            console.log('✅ Contractor notification email sent successfully')
-          }
-        } catch (emailError) {
-          // Log email errors but don't fail the booking
-          console.error('❌ Failed to send booking emails:', emailError)
         }
 
-        return job
-      })
+        const phoneForSms = contactData.phone?.trim() || contact.phone
+        const pref = (contact as any)?.notificationPreference ?? 'both'
+        const wantsEmail = shouldSendEmail(pref) && clientEmail
+        const wantsSms = shouldSendSms(pref) && phoneForSms
+
+        // Generate reschedule token and short link for client emails/SMS
+        const rescheduleToken = generateApprovalToken('job', job.id, actualTenantId)
+        const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(
+          /\/$/,
+          ''
+        )
+        const rescheduleFullUrl = `${publicAppUrl}/public/booking/${job.id}/reschedule?token=${rescheduleToken}`
+        let smsRescheduleUrl: string | undefined
+        if (wantsSms) {
+          try {
+            const { createShortLink } = await import('./shortLinks')
+            smsRescheduleUrl = await createShortLink(rescheduleFullUrl)
+          } catch (e) {
+            console.warn('Could not create short link for reschedule SMS:', e)
+          }
+        }
+
+        if (wantsEmail || wantsSms) {
+          if (requireConfirmation) {
+            if (wantsEmail) {
+              console.log(`📧 Sending booking request email to ${clientEmail}`)
+              const emailPayload = buildClientPendingEmail({
+                clientName,
+                serviceName: service.name,
+                startTime,
+                endTime,
+                timezoneOffset,
+                companyName,
+                logoUrl,
+                settings: {
+                  companySupportEmail: settings?.companySupportEmail || null,
+                  companyPhone: settings?.companyPhone || null,
+                },
+                jobId: job.id,
+                rescheduleToken,
+              })
+              await sendEmail({
+                ...emailPayload,
+                to: clientEmail!,
+                fromName: companyName,
+                replyTo: replyToEmail,
+              })
+              console.log('✅ Booking request email sent successfully')
+            }
+            if (wantsSms) {
+              console.log(`📱 Sending pending SMS to ${phoneForSms}`)
+              const smsBody = buildBookingPendingSms({
+                serviceName: service.name,
+                startTime,
+                companyName,
+                timezoneOffset,
+                rescheduleUrl: smsRescheduleUrl,
+              })
+              await sendSms(phoneForSms, smsBody)
+            }
+          } else {
+            if (wantsEmail) {
+              console.log(`📧 Sending instant confirmation email to ${clientEmail}`)
+              const emailPayload = buildClientConfirmationEmail({
+                clientName,
+                serviceName: service.name,
+                startTime,
+                endTime,
+                location: payload.location,
+                timezoneOffset,
+                companyName,
+                logoUrl,
+                settings: {
+                  companySupportEmail: settings?.companySupportEmail || null,
+                  companyPhone: settings?.companyPhone || null,
+                },
+                jobId: job.id,
+                rescheduleToken,
+              })
+              await sendEmail({
+                ...emailPayload,
+                to: clientEmail!,
+                fromName: companyName,
+                replyTo: replyToEmail,
+              })
+              console.log('✅ Instant confirmation email sent successfully')
+            }
+            if (wantsSms) {
+              console.log(`📱 Sending SMS to ${phoneForSms}`)
+              const smsBody = buildBookingConfirmationSms({
+                serviceName: service.name,
+                startTime,
+                companyName,
+                timezoneOffset,
+                rescheduleUrl: smsRescheduleUrl,
+              })
+              await sendSms(phoneForSms, smsBody)
+            }
+          }
+        }
+
+        // Send email to contractor if email is provided
+        if (contractorEmail) {
+          console.log(`📧 Sending contractor notification email to ${contractorEmail}`)
+          const emailPayload = buildContractorNotificationEmail({
+            contractorName: 'Contractor',
+            serviceName: service.name,
+            clientName,
+            clientEmail: contact.email ?? undefined,
+            clientPhone: contact.phone ?? undefined,
+            startTime,
+            endTime,
+            location: payload.location,
+            isPending: requireConfirmation,
+            companyName,
+            logoUrl,
+            settings: {
+              companySupportEmail: settings?.companySupportEmail || null,
+              companyPhone: settings?.companyPhone || null,
+            },
+          })
+          await sendEmail({
+            ...emailPayload,
+            to: contractorEmail,
+            fromName: companyName,
+            replyTo: replyToEmail,
+          })
+          console.log('✅ Contractor notification email sent successfully')
+        }
+      } catch (emailError) {
+        // Log email errors but don't fail the booking
+        console.error('❌ Failed to send booking emails:', emailError)
+      }
+
+      return job
     },
   },
   billing: {
