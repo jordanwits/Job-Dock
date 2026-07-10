@@ -15,6 +15,9 @@ import type { Job } from '@/features/scheduling/types/job'
 
 const JobLogsListPage = () => {
   const { user } = useAuthStore()
+  // Permanent delete is admin/owner-only on the backend — mirror that gate here so employees
+  // aren't shown "Delete forever" buttons that would just 403.
+  const canPermanentDelete = user?.role === 'admin' || user?.role === 'owner'
   const [isTeamAccount, setIsTeamAccount] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -134,6 +137,9 @@ const JobLogsListPage = () => {
       setShowPermanentDeleteRecurringModal(false)
     } catch (error) {
       console.error('Error permanently deleting all jobs:', error)
+      setShowPermanentDeleteRecurringModal(false)
+      setJobErrorMessage('Could not permanently delete the series. Please try again.')
+      setShowJobError(true)
     }
   }
 
@@ -223,9 +229,9 @@ const JobLogsListPage = () => {
               setSchedulingDetailJob(job)
               setShowSchedulingJobDetail(true)
             }}
-            onPermanentDelete={job => {
-              handleRequestPermanentDelete(job)
-            }}
+            onPermanentDelete={
+              canPermanentDelete ? job => handleRequestPermanentDelete(job) : undefined
+            }
             refreshToken={archivedRefreshToken}
           />
         </div>
@@ -252,9 +258,7 @@ const JobLogsListPage = () => {
           showCreatedBy={isTeamAccount}
           onClose={closeSchedulingDetail}
           onPermanentDelete={
-            user?.role !== 'employee' || schedulingDetailJob.createdById === user?.id
-              ? () => handleRequestPermanentDelete()
-              : undefined
+            canPermanentDelete ? () => handleRequestPermanentDelete() : undefined
           }
           onRestore={
             !schedulingDetailJob.isIndependent &&

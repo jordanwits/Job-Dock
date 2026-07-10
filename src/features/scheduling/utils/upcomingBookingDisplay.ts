@@ -1,11 +1,17 @@
 import { addDays, isAfter, isBefore, isSameDay, startOfDay, set } from 'date-fns'
 import type { Job } from '../types/job'
 
+// Last calendar day an appointment actually occupies. An end of exactly midnight (00:00) is a
+// boundary, not occupancy (a 10pm–midnight appointment belongs to one day), so back up 1ms.
+// Must match the calendar's `lastOccupiedDay` rule or the upcoming list dates a booking on a day
+// the calendar never shows it.
+const lastOccupiedDay = (endTime: string): Date => startOfDay(new Date(new Date(endTime).getTime() - 1))
+
 /** Same rule as the calendar: different calendar days for start/end (local). */
 export function isMultiDayScheduledJob(job: Job): boolean {
   if (!job.startTime || !job.endTime) return false
   const start = startOfDay(new Date(job.startTime))
-  const end = startOfDay(new Date(job.endTime))
+  const end = lastOccupiedDay(job.endTime)
   return start.getTime() !== end.getTime()
 }
 
@@ -30,7 +36,7 @@ export function getUpcomingBookingListInstant(job: Job, now: Date): Date | null 
 
   if (isMultiDayScheduledJob(job)) {
     const jobStartDay = startOfDay(start)
-    const jobEndDay = startOfDay(new Date(job.endTime))
+    const jobEndDay = lastOccupiedDay(job.endTime)
     const startToday = startOfDay(now)
     const dayAfterToday = addDays(startToday, 1)
     if (dayAfterToday > jobEndDay) return null
@@ -44,7 +50,7 @@ export function getUpcomingBookingListInstant(job: Job, now: Date): Date | null 
     })
   }
 
-  const endDay = startOfDay(new Date(job.endTime))
+  const endDay = lastOccupiedDay(job.endTime)
   if (isAfter(nowDay, endDay)) return null
   return start
 }

@@ -102,7 +102,7 @@ const JobList = ({ showCreatedBy, onJobClick }: JobListProps) => {
           <div className="space-y-3">
             {filteredJobs.map(({ job, displayAt }) => (
               <JobCard
-                key={job.id}
+                key={job.bookingId ?? job.id}
                 job={job}
                 scheduledDisplayAt={displayAt}
                 showCreatedBy={showCreatedBy}

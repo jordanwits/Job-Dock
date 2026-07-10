@@ -17,6 +17,7 @@ export interface TenantSettings {
   quotePdfTemplateKey?: string
   invoicePdfSignedUrl?: string
   quotePdfSignedUrl?: string
+  timezone?: string // IANA zone e.g. 'America/New_York'; drives booking-slot + email/SMS local times
   updatedAt: string
   updatedByUserId?: string
 }
@@ -29,6 +30,7 @@ export interface UpdateSettingsPayload {
   invoiceEmailBody?: string
   quoteEmailSubject?: string
   quoteEmailBody?: string
+  timezone?: string
 }
 
 export const settingsApi = {

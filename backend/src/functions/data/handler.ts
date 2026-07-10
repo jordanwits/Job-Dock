@@ -1195,11 +1195,16 @@ We look forward to working with you!',
     // Check edit/delete permissions using canEditJobs / canEditAssignedJobsOnly.
     // Bookings are the calendar's primary mutation surface (appointment edits/deletes route
     // through /bookings), so they enforce the same rules as the job they belong to.
+    // Restore (POST /:id/restore) is the inverse of a delete — a real mutation — so it must clear
+    // the same gate; otherwise an employee whose DELETE is 403'd could still un-archive by restoring.
     if (
       currentUser &&
       (resource === 'jobs' || resource === 'job-logs' || resource === 'bookings') &&
       id &&
-      (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH' || event.httpMethod === 'DELETE')
+      (event.httpMethod === 'PUT' ||
+        event.httpMethod === 'PATCH' ||
+        event.httpMethod === 'DELETE' ||
+        (event.httpMethod === 'POST' && action === 'restore'))
     ) {
       const isAdminOrOwner = currentUser.role === 'admin' || currentUser.role === 'owner'
       if (!isAdminOrOwner) {

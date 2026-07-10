@@ -437,6 +437,13 @@ const Calendar = ({
   }
 
   // Calculate layout positions for overlapping jobs
+  // A single job can surface as multiple rows: a recurring series shares one job id across all
+  // its bookings, and a job can hold several bookings. `job.id` alone is therefore not unique
+  // per row — collisions duplicate React keys and make the overlap-layout map put two bookings
+  // in the same column. Disambiguate with the booking id (staged virtual chips have no bookingId
+  // but already carry a unique synthetic id).
+  const getRowKey = (job: Job) => (job.bookingId ? `${job.id}:${job.bookingId}` : job.id)
+
   const calculateJobLayout = (dayJobs: Job[]) => {
     const layout: { [key: string]: { column: number; totalColumns: number } } = {}
 
@@ -481,20 +488,20 @@ const Calendar = ({
           const hasOverlap = column.some(colJob => jobsOverlap(job, colJob))
           if (!hasOverlap) {
             column.push(job)
-            layout[job.id] = { column: i, totalColumns: 0 }
+            layout[getRowKey(job)] = { column: i, totalColumns: 0 }
             placed = true
             break
           }
         }
         if (!placed) {
           columns.push([job])
-          layout[job.id] = { column: columns.length - 1, totalColumns: 0 }
+          layout[getRowKey(job)] = { column: columns.length - 1, totalColumns: 0 }
         }
       })
 
       // Update totalColumns for all jobs in the group
       group.forEach(job => {
-        layout[job.id].totalColumns = columns.length
+        layout[getRowKey(job)].totalColumns = columns.length
       })
     })
 
@@ -1032,7 +1039,11 @@ const Calendar = ({
         const newEndTime = new Date(newStartTime.getTime() + duration)
 
         const job = dragState.job
-        if (!canUserEditJob(job)) {
+        if (isSameDay(newStartTime, originalStart)) {
+          // Dropped back on the same day — a month drag only changes the day, so nothing changed.
+          // Skip the update and the "notify client?" prompt (which would otherwise send a
+          // reschedule notice for a non-move).
+        } else if (!canUserEditJob(job)) {
           reportScheduleUpdateError(null, 'You can only edit jobs you are assigned to')
         } else {
           const hasContact = !!(job.contactId && job.contactId.trim())
@@ -1078,6 +1089,35 @@ const Calendar = ({
         setDragOverDate(null)
 
         // Re-enable transitions after a brief delay
+        setTimeout(() => {
+          setJustFinishedDrag(false)
+        }, 50)
+      } else {
+        // We were dragging but released with no valid drop target — e.g. a month-move dropped
+        // over the header/toolbar/overlay (dragOverDate === null) or a week-all-day-move released
+        // off every column (dragTargetDay unset). None of the branches above ran, so without this
+        // the drag state would never reset: the pill would stick to the cursor and the next click
+        // on a day cell would silently reschedule it. Snap back and suppress the trailing click.
+        isDraggingRef.current = false
+        justDraggedRef.current = true
+        dragOriginRef.current = null
+        setDragOffset({ x: 0, y: 0 })
+        setJustFinishedDrag(true)
+        setDragGhost(null)
+        setDragState({
+          job: null,
+          type: null,
+          startY: 0,
+          startX: 0,
+          grabOffsetY: 0,
+          slotHeight: 60,
+          isDragging: false,
+          hasMoved: false,
+          originalStartTime: null,
+          originalEndTime: null,
+        })
+        setDragOverDate(null)
+        setDragTargetDay(null)
         setTimeout(() => {
           setJustFinishedDrag(false)
         }, 50)
@@ -1152,7 +1192,7 @@ const Calendar = ({
                   const jobColors = getJobColors(job)
                   return (
                     <div
-                      key={job.id}
+                      key={getRowKey(job)}
                       className={cn(
                         'rounded-lg border-l-4 border-current/40 p-2 cursor-pointer hover:opacity-90 transition-all',
                         job.status === 'pending-confirmation' && 'border-dashed',
@@ -1223,7 +1263,7 @@ const Calendar = ({
                     // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
                     if (!job.startTime || !job.endTime) return null
 
-                    const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
+                    const layout = jobLayout[getRowKey(job)] || { column: 0, totalColumns: 1 }
                     const isDragging =
                       dragState.job?.id === job.id &&
                       (dragState.job?.bookingId == null
@@ -1248,10 +1288,14 @@ const Calendar = ({
                     // Height based on duration (use preview end for resize)
                     const startMinutes =
                       getHours(originalStartTime) * 60 + getMinutes(originalStartTime)
-                    const endMinutes =
+                    let endMinutes =
                       isResizing && previewEndTime
                         ? getHours(previewEndTime) * 60 + getMinutes(previewEndTime)
                         : getHours(originalEndTime) * 60 + getMinutes(originalEndTime)
+                    // An end of exactly 00:00 is midnight-as-end-of-day (a 10pm–midnight appointment
+                    // is single-day); getHours gives 0, which would make the height negative. Treat
+                    // it as the end of the day so the block fills to the bottom.
+                    if (endMinutes <= startMinutes) endMinutes = 24 * 60
                     const duration = endMinutes - startMinutes
                     // Use responsive pixels per hour: 60px on mobile, 80px on desktop
                     const pixelsPerHour = window.innerWidth < 768 ? 60 : 80
@@ -1268,7 +1312,7 @@ const Calendar = ({
                     const jobColors = getJobColors(job)
                     return (
                       <div
-                        key={job.id}
+                        key={getRowKey(job)}
                         className={cn(
                           'absolute rounded-lg border-l-4 border-current/40 select-none group',
                           job.status === 'pending-confirmation' && 'border-dashed',
@@ -1389,7 +1433,7 @@ const Calendar = ({
 
     sortedAllDayJobs.forEach(job => {
       const jobStartDay = startOfDay(new Date(job.startTime!))
-      const jobEndDay = startOfDay(new Date(job.endTime!))
+      const jobEndDay = lastOccupiedDay(job.endTime!)
 
       // Find visible start/end in the week
       const visibleStart = jobStartDay < weekStart ? weekStart : jobStartDay
@@ -1570,7 +1614,7 @@ const Calendar = ({
                           if (!job.startTime || !job.endTime) return null
 
                           const jobStartDay = startOfDay(new Date(job.startTime))
-                          const jobEndDay = startOfDay(new Date(job.endTime))
+                          const jobEndDay = lastOccupiedDay(job.endTime)
 
                           // Find which days in the week this job spans
                           const visibleStart = jobStartDay < weekStart ? weekStart : jobStartDay
@@ -1617,7 +1661,7 @@ const Calendar = ({
                             : `${format(jobStartDay, 'MMM d')} - ${format(jobEndDay, 'MMM d')}`
                           return (
                             <div
-                              key={job.id}
+                              key={getRowKey(job)}
                               className={cn(
                                 'absolute multi-day-job-bar text-[10px] md:text-xs border-l-2 border-current/40 cursor-grab active:cursor-grabbing hover:opacity-90 z-20 flex items-center min-w-0',
                                 jobColors.chip,
@@ -1713,7 +1757,7 @@ const Calendar = ({
                               // Skip jobs without scheduled times (already filtered, but TypeScript needs this)
                               if (!job.startTime || !job.endTime) return null
 
-                              const layout = jobLayout[job.id] || { column: 0, totalColumns: 1 }
+                              const layout = jobLayout[getRowKey(job)] || { column: 0, totalColumns: 1 }
                               const isDragging =
                                 dragState.job?.id === job.id &&
                                 (dragState.job?.bookingId == null
@@ -1738,10 +1782,14 @@ const Calendar = ({
                               // Height based on duration (use preview end for resize)
                               const originalStartMinutes =
                                 getHours(originalStartTime) * 60 + getMinutes(originalStartTime)
-                              const endMinutes =
+                              let endMinutes =
                                 isResizing && previewEndTime
                                   ? getHours(previewEndTime) * 60 + getMinutes(previewEndTime)
                                   : getHours(originalEndTime) * 60 + getMinutes(originalEndTime)
+                              // An end of exactly 00:00 is midnight-as-end-of-day (a 10pm–midnight
+                              // appointment is single-day); getHours gives 0, which would make the
+                              // height negative. Treat it as the end of the day.
+                              if (endMinutes <= originalStartMinutes) endMinutes = 24 * 60
                               const duration = endMinutes - originalStartMinutes
 
                               // Use CSS custom property for responsive height
@@ -1761,7 +1809,7 @@ const Calendar = ({
                               const jobColors = getJobColors(job)
                               return (
                                 <div
-                                  key={job.id}
+                                  key={getRowKey(job)}
                                   className={cn(
                                     'absolute rounded text-xs border-l-2 border-current/40 select-none group',
                                     job.status === 'pending-confirmation' && 'border-dashed',
@@ -1950,7 +1998,7 @@ const Calendar = ({
       const jobsInRow = multiDayJobs
         .filter(job => {
           const jobStartDay = startOfDay(new Date(job.startTime!))
-          const jobEndDay = startOfDay(new Date(job.endTime!))
+          const jobEndDay = lastOccupiedDay(job.endTime!)
           return (
             jobStartDay.getTime() <= rowEndDay.getTime() &&
             jobEndDay.getTime() >= rowStartDay.getTime()
@@ -2024,7 +2072,7 @@ const Calendar = ({
                 const jobDates = getJobDateRange(job, calendarStart, calendarEnd)
                 if (jobDates.length === 0) return null
                 const jobStartDay = startOfDay(new Date(job.startTime!))
-                const jobEndDay = startOfDay(new Date(job.endTime!))
+                const jobEndDay = lastOccupiedDay(job.endTime!)
                 const isJobStartDay = isSameDay(day, jobStartDay)
                 const isWeekStart = dayColumn === 0
                 const thisWeekStart = startOfWeek(day, { weekStartsOn: 0 })
@@ -2275,7 +2323,7 @@ const Calendar = ({
                       const jobColors = getJobColors(job)
                       return (
                         <div
-                          key={job.id}
+                          key={getRowKey(job)}
                           className={cn(
                             'w-2 h-2 rounded-full flex-shrink-0',
                             jobColors.dot,
@@ -2315,7 +2363,7 @@ const Calendar = ({
                       const jobColors = getJobColors(job)
                       return (
                         <div
-                          key={job.id}
+                          key={getRowKey(job)}
                           className={cn(
                             'text-xs p-1 rounded flex items-center gap-1 min-w-0 overflow-hidden cursor-grab active:cursor-grabbing touch-none',
                             'border-l-2 border-current/40',

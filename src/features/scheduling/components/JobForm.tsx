@@ -820,7 +820,11 @@ const JobForm = ({
       // All-day event: starts at 00:00 and ends at 23:59
       startDateTime = new Date(`${startDate}T00:00:00`)
       const totalDays = durationUnit === 'days' ? durationValue : durationValue * 7
-      endDateTime = new Date(startDateTime.getTime() + (totalDays - 1) * 24 * 60 * 60 * 1000)
+      // Advance by CALENDAR days, not (totalDays-1)*24h. Across the November fall-back a local day
+      // is 25h, so ms arithmetic lands an hour before local midnight — i.e. the previous calendar
+      // day — and the event silently loses its last day. setDate handles variable-length days.
+      endDateTime = new Date(startDateTime)
+      endDateTime.setDate(endDateTime.getDate() + (totalDays - 1))
       // Set to end of last day (23:59:59)
       endDateTime.setHours(23, 59, 59, 999)
     } else {
@@ -854,7 +858,10 @@ const JobForm = ({
         // N days = start of day 1 through end of day N (inclusive)
         startDateTime = new Date(`${startDate}T09:00:00`)
         const totalDays = durationUnit === 'days' ? durationValue : durationValue * 7
-        endDateTime = new Date(startDateTime.getTime() + (totalDays - 1) * 24 * 60 * 60 * 1000)
+        // Advance by CALENDAR days (see the all-day branch): ms arithmetic loses the last day
+        // across the November DST fall-back.
+        endDateTime = new Date(startDateTime)
+        endDateTime.setDate(endDateTime.getDate() + (totalDays - 1))
         endDateTime.setHours(23, 59, 59, 999)
       }
     }
@@ -907,7 +914,10 @@ const JobForm = ({
       } else if (endRepeatMode === 'on-date' && endRepeatDate) {
         // Calculate count based on end date
         const start = new Date(`${startDate}T${startTime || '09:00'}`)
-        const end = new Date(endRepeatDate)
+        // Parse the end date as LOCAL end-of-day. `new Date('YYYY-MM-DD')` is UTC midnight, which
+        // for negative-offset (US) users is earlier than the intended local end-of-day, so an
+        // occurrence landing ON the end date fails `<= end` and the count comes up one short.
+        const end = new Date(`${endRepeatDate}T23:59:59`)
         let count = 1
         let currentDate = new Date(start)
 

@@ -1214,6 +1214,13 @@ END $$`,
     ],
     description: 'Google Calendar two-way sync: per-user OAuth connection + booking<->event mapping tables',
   },
+  {
+    name: '20260709000000_add_tenant_settings_timezone',
+    statements: [
+      `ALTER TABLE "tenant_settings" ADD COLUMN IF NOT EXISTS "timezone" TEXT`,
+    ],
+    description: 'Per-tenant IANA timezone for booking slots and email/SMS local times (null = legacy PST)',
+  },
 ]
 
 export const handler = async (

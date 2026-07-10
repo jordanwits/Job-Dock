@@ -63,7 +63,28 @@ import {
 } from './savedLineItemCsvImport'
 import { normalizeSavedLineItemName } from './savedLineItemCsvHelpers'
 import { addDays, addWeeks, addMonths } from 'date-fns'
-import { toZonedTime, fromZonedTime } from 'date-fns-tz'
+import { toZonedTime, fromZonedTime, getTimezoneOffset } from 'date-fns-tz'
+
+// Legacy hardcoded offset (America/Los_Angeles) used before per-tenant timezones existed. Kept as
+// the fallback for tenants that haven't set TenantSettings.timezone yet, so their behavior doesn't
+// change until they configure it.
+const LEGACY_DEFAULT_OFFSET_HOURS = -8
+
+/**
+ * A tenant's UTC offset in HOURS at a specific instant, derived DST-correctly from its IANA
+ * timezone (e.g. 'America/New_York'). Used to render local times for booking slots and
+ * email/SMS. The offset is instant-specific because of DST, so pass the appointment/slot time.
+ * Falls back to the legacy -8 when the tenant has no timezone set (or an invalid one).
+ */
+function offsetHoursForZone(timezone: string | null | undefined, at: Date): number {
+  if (!timezone) return LEGACY_DEFAULT_OFFSET_HOURS
+  try {
+    const ms = getTimezoneOffset(timezone, at)
+    return Number.isNaN(ms) ? LEGACY_DEFAULT_OFFSET_HOURS : ms / 3_600_000
+  } catch {
+    return LEGACY_DEFAULT_OFFSET_HOURS
+  }
+}
 
 // Recurrence types
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -720,7 +741,11 @@ function generateRecurrenceInstances(params: {
       } else if (freq === 'weekly') {
         nextZoned = addWeeks(zonedStart, interval)
       } else if (freq === 'monthly') {
-        nextZoned = addMonths(zonedStart, interval)
+        // Anchor monthly occurrences to the ORIGINAL start's day-of-month, not the previous
+        // occurrence: addMonths on the previous result compounds date-fns' end-of-month clamp
+        // (Jan 31 → Feb 28 → Mar 28 …), permanently collapsing a 31st/last-day series to the 28th
+        // after February. From the original it re-expands each month (Jan 31, Feb 28, Mar 31 …).
+        nextZoned = addMonths(toZonedTime(new Date(startTime), tz), (i + 1) * interval)
       } else {
         nextZoned = addDays(zonedStart, interval)
       }
@@ -733,9 +758,10 @@ function generateRecurrenceInstances(params: {
         currentStart = new Date(currentStart)
         currentStart.setDate(currentStart.getDate() + interval * 7)
       } else if (freq === 'monthly') {
-        const newStart = new Date(currentStart)
-        newStart.setMonth(newStart.getMonth() + interval)
-        currentStart = newStart
+        // Anchor to the ORIGINAL start (see the tz branch): setMonth on the previous occurrence
+        // overflows (Jan 31 + 1mo → "Feb 31" → Mar 2/3, skipping February). addMonths from the
+        // original clamps to each target month's length instead.
+        currentStart = addMonths(new Date(startTime), (i + 1) * interval)
       } else {
         currentStart = new Date(currentStart)
         currentStart.setDate(currentStart.getDate() + interval)
@@ -2788,7 +2814,13 @@ export const dataServices = {
         currentUserId,
         currentUserRole
       )
-      const primaryBooking = job.bookings[0]
+      // Prefer the first LIVE booking as the representative. bookings[0] is merely the earliest by
+      // start time and can be an archived/deleted occurrence — returning its id as bookingId would
+      // let the assistant (or the detail view) act on an archived appointment instead of the live
+      // one, and would surface the archived row's time/status. Fall back to bookings[0] only when
+      // nothing is live (e.g. a fully series-deleted job), where there's no live appointment anyway.
+      const primaryBooking =
+        job.bookings.find(b => !b.archivedAt && !b.deletedAt) ?? job.bookings[0]
       const occurrenceCount = primaryBooking?.recurrenceId
         ? await prisma.booking.count({
             where: { tenantId, recurrenceId: primaryBooking.recurrenceId, deletedAt: null },
@@ -3167,7 +3199,9 @@ export const dataServices = {
               }
             }
             const companyName = settings?.companyDisplayName || 'JobDock'
-            const timezoneOffset = (settings?.timezoneOffset as number) ?? -8
+            // Render times in the tenant's timezone, DST-correct at the APPOINTMENT instant (not
+            // "now" — a booking made in PST for a PDT appointment must show the PDT time).
+            const timezoneOffset = offsetHoursForZone(settings?.timezone, new Date(startTime!))
             const serviceName = (booking as any)?.service?.name || job.title || 'Appointment'
             const clientName = contact
               ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || 'there'
@@ -3770,7 +3804,10 @@ export const dataServices = {
             }
           }
           const companyName = settings?.companyDisplayName || 'JobDock'
-          const timezoneOffset = (settings?.timezoneOffset as number) ?? -8
+          const timezoneOffset = offsetHoursForZone(
+            settings?.timezone,
+            b.startTime ? new Date(b.startTime) : new Date()
+          )
           const serviceName = (b as any)?.service?.name || updated!.title || 'Appointment'
 
           if (wantsEmail && clientEmail) {
@@ -3848,19 +3885,24 @@ export const dataServices = {
         const jobIds = Array.from(
           new Set(seriesBookings.map(b => b.jobId).filter((v): v is string => !!v))
         )
+        // Only stamp rows that are still live. Bookings/jobs the user archived individually keep
+        // their own timestamp so a later restore (matched by archivedAt) can't resurrect them —
+        // the same guard bookings.delete's "Delete series" already uses.
         await prisma.booking.updateMany({
-          where: { recurrenceId: primaryBooking.recurrenceId, tenantId },
+          where: { recurrenceId: primaryBooking.recurrenceId, tenantId, archivedAt: null },
           data: { archivedAt: now },
         })
         if (jobIds.length > 0) {
           await prisma.job.updateMany({
-            where: { id: { in: jobIds }, tenantId },
+            where: { id: { in: jobIds }, tenantId, archivedAt: null },
             data: { archivedAt: now },
           })
         }
       } else {
+        // Only stamp still-live bookings — see the series branch above; a booking archived
+        // individually earlier keeps its own timestamp and stays archived through a job restore.
         await prisma.booking.updateMany({
-          where: { jobId: id, tenantId },
+          where: { jobId: id, tenantId, archivedAt: null },
           data: { archivedAt: now },
         })
         await prisma.job.update({
@@ -3974,15 +4016,33 @@ export const dataServices = {
         }
         await prisma.job.update({ where: { id }, data: { archivedAt: null } })
       } else {
-        // Job itself is live; only individual bookings are archived. Restore exactly the booking
-        // the caller pointed at (or the most recently archived one when unspecified) — never all.
+        // Job itself is live; only individual bookings are archived. Find the booking the caller
+        // pointed at (or the most recently archived one when unspecified).
         const target = bookingId
           ? job.bookings.find((b: any) => b.id === bookingId && b.archivedAt)
           : [...job.bookings]
               .filter((b: any) => b.archivedAt)
               .sort((a: any, b: any) => b.archivedAt.getTime() - a.archivedAt.getTime())[0]
         if (!target) throw new ApiError('Booking is not archived', 400)
-        await prisma.booking.update({ where: { id: target.id }, data: { archivedAt: null } })
+        if (target.recurrenceId && target.archivedAt) {
+          // A calendar "Delete series" archives every booking in the recurrence with one shared
+          // timestamp and leaves the job live, and the archive UI collapses them into a single
+          // row — so restoring one undoes the whole operation. Bring back every sibling in the
+          // same recurrence archived within ±2s of the target. An individually-deleted occurrence
+          // has a unique timestamp (and live siblings have null archivedAt), so only it matches —
+          // single-occurrence restores stay single.
+          const t = target.archivedAt.getTime()
+          await prisma.booking.updateMany({
+            where: {
+              tenantId,
+              recurrenceId: target.recurrenceId,
+              archivedAt: { gte: new Date(t - 2000), lte: new Date(t + 2000) },
+            },
+            data: { archivedAt: null },
+          })
+        } else {
+          await prisma.booking.update({ where: { id: target.id }, data: { archivedAt: null } })
+        }
       }
 
       const restored = await prisma.job.findFirst({
@@ -4058,7 +4118,9 @@ export const dataServices = {
             where: { tenantId },
           })
           const serviceAvailability = ((b as any)?.service?.availability as any) || {}
-          const timezoneOffset = serviceAvailability?.timezoneOffset ?? -8
+          const timezoneOffset =
+            serviceAvailability?.timezoneOffset ??
+            offsetHoursForZone(settings?.timezone, b.startTime ? new Date(b.startTime) : new Date())
           const companyName = settings?.companyDisplayName || 'JobDock'
 
           let logoUrl: string | null = null
@@ -4336,7 +4398,12 @@ export const dataServices = {
       const requireConfirmation = bookingSettings?.requireConfirmation ?? false
 
       const availability = (service.availability as any) || {}
-      const timezoneOffset = availability?.timezoneOffset ?? -8
+      const rescheduleTzSettings = await prisma.tenantSettings.findUnique({
+        where: { tenantId: service.tenantId },
+      })
+      const timezoneOffset =
+        availability?.timezoneOffset ??
+        offsetHoursForZone(rescheduleTzSettings?.timezone, newStartTime)
 
       const dayOfWeek = newStartTime.getDay()
       const workingHours = availability?.workingHours?.find((wh: any) => wh.dayOfWeek === dayOfWeek)
@@ -4801,7 +4868,10 @@ export const dataServices = {
             }
           }
           const companyName = settings?.companyDisplayName || 'JobDock'
-          const timezoneOffset = (settings?.timezoneOffset as number) ?? -8
+          const timezoneOffset = offsetHoursForZone(
+            settings?.timezone,
+            updated.startTime ? new Date(updated.startTime) : new Date()
+          )
           const serviceName = (updated as any).service?.name || updated.title || 'Appointment'
 
           if (wantsEmail && clientEmail) {
@@ -5044,10 +5114,16 @@ export const dataServices = {
         throw new Error('Service has no availability configured')
       }
 
-      // Get timezone offset from availability settings (in hours, e.g., -8 for PST, -5 for EST)
-      // Default to -8 (Pacific Time) if not specified
-      // TODO: Make this configurable per service in the UI
-      const timezoneOffset = availability.timezoneOffset ?? -8
+      // Local time for advertised slots comes from the tenant's timezone (DST-correct), with any
+      // explicit per-service availability.timezoneOffset still taking precedence; null tenant tz
+      // falls back to the legacy -8. One offset is used for the whole window, so a DST transition
+      // mid-window could shift later slots by an hour — acceptable for a booking range.
+      const availabilityTzSettings = await prisma.tenantSettings.findUnique({
+        where: { tenantId: actualTenantId },
+      })
+      const timezoneOffset =
+        availability.timezoneOffset ??
+        offsetHoursForZone(availabilityTzSettings?.timezone, new Date())
 
       const now = new Date()
       const advanceBookingDays = availability.advanceBookingDays || 30
@@ -5195,7 +5271,14 @@ export const dataServices = {
         const availability = service.availability as any
         const bookingSettings = service.bookingSettings as any
         const maxBookingsPerSlot = (bookingSettings as any)?.maxBookingsPerSlot || 1
-        const timezoneOffset = availability.timezoneOffset ?? -8 // Default to PST
+        // Tenant timezone drives local slot times (DST-correct at the slot instant); an explicit
+        // per-service availability.timezoneOffset still wins; null tenant tz falls back to -8.
+        const bookingTzSettings = await tx.tenantSettings.findUnique({
+          where: { tenantId: actualTenantId },
+        })
+        const timezoneOffset =
+          availability.timezoneOffset ??
+          offsetHoursForZone(bookingTzSettings?.timezone, new Date(payload.startTime)) // legacy -8 fallback
         const startTime = new Date(payload.startTime)
         const endTime = new Date(startTime.getTime() + service.duration * 60 * 1000)
         const now = new Date()
@@ -5249,6 +5332,10 @@ export const dataServices = {
         const overlappingAtSlot = await tx.booking.count({
           where: {
             tenantId: actualTenantId,
+            // Count per-service, matching the availability endpoint that advertised this slot
+            // (it filters serviceId). Without this, an internal job or another service's booking
+            // in the same slot would reject a slot the customer was just shown as open.
+            serviceId: id,
             status: { in: ['active', 'scheduled', 'in-progress', 'pending-confirmation'] },
             deletedAt: null,
             archivedAt: null,
@@ -5357,6 +5444,8 @@ export const dataServices = {
             const overlappingBookings = await tx.booking.count({
               where: {
                 tenantId: actualTenantId,
+                // Per-service, matching the availability endpoint (see the single-slot check above).
+                serviceId: id,
                 status: { in: ['active', 'scheduled', 'in-progress', 'pending-confirmation'] },
                 deletedAt: null,
                 archivedAt: null,
@@ -5504,9 +5593,12 @@ export const dataServices = {
           const companyName = settings?.companyDisplayName || 'JobDock'
           const replyToEmail = settings?.companySupportEmail || undefined
 
-          // Get timezone offset from service availability settings
+          // Get timezone offset from service availability settings, falling back to the tenant
+          // timezone loaded above (DST-correct at the booked slot's start), then legacy -8.
           const availability = service.availability as any
-          const timezoneOffset = availability?.timezoneOffset ?? -8
+          const timezoneOffset =
+            availability?.timezoneOffset ??
+            offsetHoursForZone(bookingTzSettings?.timezone, startTime)
 
           // Fetch logo URL if available (7 days expiration for email)
           let logoUrl: string | null = null

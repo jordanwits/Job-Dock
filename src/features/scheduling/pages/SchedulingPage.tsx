@@ -53,6 +53,9 @@ const stagedMonthlyLabel = (job: Job): string | null => {
 
 const SchedulingPage = () => {
   const { user } = useAuthStore()
+  // Permanent delete is admin/owner-only on the backend — mirror that gate here so employees
+  // (who can edit jobs but not hard-delete) aren't shown buttons that would just 403.
+  const canPermanentDelete = user?.role === 'admin' || user?.role === 'owner'
   const [isTeamAccount, setIsTeamAccount] = useState(false)
 
   useEffect(() => {
@@ -1191,6 +1194,9 @@ const SchedulingPage = () => {
 
   const handleScheduleJob = () => {
     if (selectedJob) {
+      // Scheduling a single to-be-scheduled occurrence must never inherit a prior "all future"
+      // choice left over from an earlier recurring edit (which would rewrite the whole series).
+      setEditUpdateAll(false)
       setEditingJob(selectedJob)
       setShowJobDetail(false)
       setShowJobForm(true)
@@ -1823,9 +1829,9 @@ const SchedulingPage = () => {
                 setSelectedJob(job)
                 setShowJobDetail(true)
               }}
-              onPermanentDelete={job => {
-                handleRequestPermanentDelete(job)
-              }}
+              onPermanentDelete={
+                canPermanentDelete ? job => handleRequestPermanentDelete(job) : undefined
+              }
               refreshToken={archivedRefreshToken}
             />
           </div>
@@ -1855,6 +1861,7 @@ const SchedulingPage = () => {
           setEditingJob(null)
           setCreateJobDefaults({}) // Clear defaults when closing
           setLinkExistingJobId(undefined)
+          setEditUpdateAll(false) // Don't let a chosen "all future" scope leak into the next edit
           clearJobsError()
         }}
         title={
@@ -1893,6 +1900,16 @@ const SchedulingPage = () => {
                     // Update existing job instead of creating new one
                     try {
                       await updateJob({ id: existingJobId, ...data })
+                      // The backend creates a NEW booking on the linked job; the store's single-row
+                      // patch keys on the earliest booking and can neither match nor append it, so
+                      // refetch the window to surface the new appointment on the calendar.
+                      const startDate = new Date(
+                        currentDate.getFullYear(),
+                        currentDate.getMonth() - 2,
+                        1
+                      )
+                      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+                      await fetchJobs(startDate, endDate)
                       setShowJobForm(false)
                       clearJobsError()
                       setJobConfirmationMessage('Appointment scheduled for linked job')
@@ -1912,6 +1929,7 @@ const SchedulingPage = () => {
             setEditingJob(null)
             setCreateJobDefaults({}) // Clear defaults when canceling
             setLinkExistingJobId(undefined)
+            setEditUpdateAll(false) // Don't let a chosen "all future" scope leak into the next edit
             clearJobsError()
           }}
           isLoading={jobsLoading}
@@ -2047,7 +2065,7 @@ const SchedulingPage = () => {
           }}
           onEdit={canUserEditJob(selectedJob) ? handleEditJob : undefined}
           onDelete={canUserEditJob(selectedJob) ? handleDeleteJob : undefined}
-          onPermanentDelete={canUserEditJob(selectedJob) ? () => handleRequestPermanentDelete() : undefined}
+          onPermanentDelete={canPermanentDelete ? () => handleRequestPermanentDelete() : undefined}
           onRestore={
             // Independent appointments restore too (via the bookings endpoint). Failures are
             // surfaced by handleRestoreJob's error modal; swallow the rethrow it uses to signal

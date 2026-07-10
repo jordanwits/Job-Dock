@@ -4,15 +4,30 @@ import {
   AppButton,
   TextField,
   PhoneField,
+  SelectField,
   SettingsSection,
   UploadIcon,
 } from './settingsUi'
+
+// Common US business timezones. IANA ids so local times stay DST-correct. Empty value = "not set",
+// which the backend treats as the legacy Pacific default.
+const TIMEZONE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'Not set — defaults to Pacific (PT)' },
+  { value: 'America/New_York', label: 'Eastern (New York)' },
+  { value: 'America/Chicago', label: 'Central (Chicago)' },
+  { value: 'America/Denver', label: 'Mountain (Denver)' },
+  { value: 'America/Phoenix', label: 'Arizona — no DST (Phoenix)' },
+  { value: 'America/Los_Angeles', label: 'Pacific (Los Angeles)' },
+  { value: 'America/Anchorage', label: 'Alaska (Anchorage)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii (Honolulu)' },
+]
 
 interface CompanyBrandingSectionProps {
   formData: {
     companyDisplayName: string
     companySupportEmail: string
     companyPhone: string
+    timezone: string
   }
   settings: TenantSettings | null
   onFieldChange: (field: string, value: string) => void
@@ -81,6 +96,15 @@ export const CompanyBrandingSection = ({
           onChange={e => onFieldChange('companyPhone', e.target.value)}
           placeholder="123-456-7890"
           helperText="Displayed on invoices and quotes for customer contact"
+        />
+
+        <SelectField
+          label="Timezone"
+          value={formData.timezone}
+          onChange={e => onFieldChange('timezone', e.target.value)}
+          options={TIMEZONE_OPTIONS}
+          placeholder="Not set — defaults to Pacific (PT)"
+          helperText="Used for the times shown on your online booking page and in appointment confirmation emails and texts"
         />
 
         <div>

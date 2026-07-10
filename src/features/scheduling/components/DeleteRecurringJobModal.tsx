@@ -42,7 +42,8 @@ const DeleteRecurringJobModal = ({
           This appointment is part of a recurring series
           {occurrenceCount ? ` with ${occurrenceCount} appointment${occurrenceCount !== 1 ? 's' : ''}` : ''}.
           Deleting only this appointment keeps the job and the rest of the series on the calendar.
-          Deleting the series removes every appointment and archives the job on your Jobs page.
+          Deleting the series removes every appointment in it from the calendar. The job itself stays
+          on your Jobs page.
         </p>
 
         <div className="rounded-xl border border-line bg-surface-2 p-3">

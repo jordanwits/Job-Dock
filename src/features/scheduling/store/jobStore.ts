@@ -418,8 +418,14 @@ export const useJobStore = create<JobState>((set, get) => ({
         // Independent appointments have no Job row — their flattened id IS the booking id, so
         // POST /jobs/:id/restore would 404. Restore the booking directly.
         await bookingsService.restore(opts.bookingId ?? id)
+        // bookings.restore returns only { success, bookingId, jobId } — there's no row to merge,
+        // and the archived appointment isn't in the active-view array, so a map patch does nothing
+        // (the appointment stayed invisible until a manual reload). Refetch the window to surface it.
+        const { currentDate } = get()
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0)
+        await get().fetchJobs(startDate, endDate)
         set((state) => ({
-          jobs: state.jobs.map((j) => (j.id === id ? { ...j, archivedAt: null } : j)),
           selectedJob:
             state.selectedJob && state.selectedJob.id === id
               ? { ...state.selectedJob, archivedAt: null }

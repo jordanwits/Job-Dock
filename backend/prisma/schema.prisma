@@ -477,6 +477,8 @@ model TenantSettings {
   quoteEmailBody         String   @default("Hi {{customer_name}}, please find your quote attached.")
   invoicePdfTemplateKey  String?
   quotePdfTemplateKey    String?
+  timezone               String?  // IANA zone e.g. 'America/New_York'. Drives local time in public
+                                  // booking slots and confirmation emails/SMS. Null = legacy -8 (PST).
   updatedAt              DateTime @updatedAt
   updatedByUserId        String?
   tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
