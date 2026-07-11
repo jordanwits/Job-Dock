@@ -615,6 +615,7 @@ const InvoiceDetail = ({
         onClose={() => setShowDeleteConfirm(false)}
         title="Delete invoice"
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>

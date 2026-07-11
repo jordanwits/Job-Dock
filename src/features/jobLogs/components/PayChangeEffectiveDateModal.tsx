@@ -31,6 +31,7 @@ export function PayChangeEffectiveDateModal({
       onClose={onClose}
       title="Effective date for pay change"
       size="sm"
+      fullScreenOnMobile={false}
       footer={
         <>
           <AppButton variant="ghost" onClick={onClose} disabled={isLoading}>

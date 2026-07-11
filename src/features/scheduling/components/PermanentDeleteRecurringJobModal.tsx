@@ -32,6 +32,7 @@ const PermanentDeleteRecurringJobModal = ({
       onClose={onClose}
       title={isCalendar ? 'Permanently delete appointment?' : 'Permanently delete recurring job?'}
       size="md"
+      fullScreenOnMobile={false}
       footer={
         <>
           <AppButton variant="ghost" onClick={onClose} fullWidth className="sm:w-auto">

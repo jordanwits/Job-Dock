@@ -20,6 +20,8 @@ export interface ModalProps {
   compactOnMobile?: boolean
   /** On mobile, use max-height instead of fixed height so modal hugs its content */
   fitContentOnMobile?: boolean
+  /** Below the sm breakpoint, render as an edge-to-edge full-screen sheet with a slide-up entrance. */
+  fullScreenOnMobile?: boolean
 }
 
 const Modal = ({
@@ -36,6 +38,7 @@ const Modal = ({
   mobilePosition = 'center',
   compactOnMobile = false,
   fitContentOnMobile = false,
+  fullScreenOnMobile = false,
 }: ModalProps) => {
   const { theme } = useTheme()
   const scrollYRef = useRef(0)
@@ -154,6 +157,7 @@ const Modal = ({
         'py-[max(0.75rem,env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px))]',
         'px-[max(0.75rem,env(safe-area-inset-right,0px),env(safe-area-inset-left,0px))]',
         'sm:p-4',
+        fullScreenOnMobile && 'max-sm:p-0',
         mobilePosition === 'bottom'
           ? 'items-end sm:items-center justify-center'
           : 'items-center justify-center overflow-y-auto'
@@ -173,7 +177,9 @@ const Modal = ({
             ? 'bg-primary-dark-secondary border border-primary-blue'
             : 'bg-white border border-gray-200',
           // Slightly under viewport for margin; lg/xl use same shorter height on mobile
-          mobilePosition === 'bottom'
+          fullScreenOnMobile
+            ? 'max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:pt-[env(safe-area-inset-top,0px)] max-sm:animate-modal-slide-up sm:my-auto sm:h-auto sm:max-h-[85vh]'
+            : mobilePosition === 'bottom'
             ? size === 'xs' || size === 'sm'
               ? 'max-h-viewport-mobile sm:h-auto sm:max-h-[85vh] sm:my-auto'
               : size === 'lg' || size === 'xl' || size === '2xl'
@@ -264,7 +270,8 @@ const Modal = ({
           className={cn(
             'overflow-y-auto overflow-x-hidden custom-scrollbar touch-pan-y',
             compactMobileBody ? 'max-lg:flex-none lg:flex-1 lg:min-h-0' : 'flex-1 min-h-0',
-            compactOnMobile ? 'p-3 pb-6 sm:p-6 sm:pb-6' : 'p-4 sm:p-6 pb-8 sm:pb-6'
+            compactOnMobile ? 'p-3 pb-6 sm:p-6 sm:pb-6' : 'p-4 sm:p-6 pb-8 sm:pb-6',
+            fullScreenOnMobile && 'max-sm:pb-[max(2rem,env(safe-area-inset-bottom,0px))]'
           )}
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
@@ -277,6 +284,7 @@ const Modal = ({
             className={cn(
               'flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 border-t flex-shrink-0 overflow-visible',
               compactOnMobile ? 'px-3 py-3 sm:px-6 sm:py-5' : 'px-4 sm:px-6 py-4 sm:py-5',
+              fullScreenOnMobile && 'max-sm:pb-[max(1rem,env(safe-area-inset-bottom,0px))]',
               theme === 'dark' ? 'border-primary-blue' : 'border-gray-200/20'
             )}
           >

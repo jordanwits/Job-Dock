@@ -23,6 +23,7 @@ const EditRecurringJobModal = ({
       onClose={onClose}
       title="Edit recurring appointment?"
       size="md"
+      fullScreenOnMobile={false}
       footer={
         <>
           <AppButton variant="ghost" onClick={onClose} fullWidth className="sm:w-auto">

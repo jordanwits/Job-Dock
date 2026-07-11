@@ -603,6 +603,7 @@ export function SettingsModal({
   size = 'md',
   footer,
   children,
+  fullScreenOnMobile = true,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -610,6 +611,8 @@ export function SettingsModal({
   size?: 'sm' | 'md' | 'lg'
   footer?: ReactNode
   children: ReactNode
+  /** Full-screen sheet below the sm breakpoint (default). Confirm-style modals opt out to stay centered. */
+  fullScreenOnMobile?: boolean
 }) {
   useEffect(() => {
     if (!isOpen) return
@@ -629,7 +632,10 @@ export function SettingsModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
+      className={cn(
+        'fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm',
+        fullScreenOnMobile && 'max-sm:p-0'
+      )}
       onMouseDown={onClose}
       role="presentation"
     >
@@ -638,6 +644,8 @@ export function SettingsModal({
         aria-modal="true"
         className={cn(
           'my-auto flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-pop ring-1 ring-line',
+          fullScreenOnMobile &&
+            'max-sm:my-0 max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:pt-[env(safe-area-inset-top,0px)] max-sm:animate-modal-slide-up',
           modalSizes[size]
         )}
         onMouseDown={e => e.stopPropagation()}
@@ -655,9 +663,21 @@ export function SettingsModal({
             </button>
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto px-5 py-4',
+            fullScreenOnMobile && 'max-sm:pb-[max(2rem,env(safe-area-inset-bottom,0px))]'
+          )}
+        >
+          {children}
+        </div>
         {footer && (
-          <div className="flex flex-col items-stretch gap-2 border-t border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <div
+            className={cn(
+              'flex flex-col items-stretch gap-2 border-t border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3',
+              fullScreenOnMobile && 'max-sm:pb-[max(1rem,env(safe-area-inset-bottom,0px))]'
+            )}
+          >
             {footer}
           </div>
         )}

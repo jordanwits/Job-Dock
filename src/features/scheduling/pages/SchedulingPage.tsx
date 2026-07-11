@@ -2131,6 +2131,7 @@ const SchedulingPage = () => {
         }}
         title="Decline Booking"
         size="md"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton
@@ -2242,6 +2243,7 @@ const SchedulingPage = () => {
           onClose={() => setShowDeleteConfirm(false)}
           title={selectedJob?.bookingId ? 'Delete appointment?' : 'Archive job?'}
           size="sm"
+          fullScreenOnMobile={false}
           footer={
             <>
               <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
@@ -2303,6 +2305,7 @@ const SchedulingPage = () => {
           onClose={() => setShowStopSeriesConfirm(false)}
           title="Stop monthly series?"
           size="sm"
+          fullScreenOnMobile={false}
           footer={
             <>
               <AppButton variant="ghost" onClick={() => setShowStopSeriesConfirm(false)}>
@@ -2332,6 +2335,7 @@ const SchedulingPage = () => {
           onClose={() => setShowPermanentDeleteConfirm(false)}
           title={selectedJob.isStagedSeries ? 'Permanently stop this monthly series?' : 'Permanently delete appointment?'}
           size="sm"
+          fullScreenOnMobile={false}
           footer={
             <>
               <AppButton variant="ghost" onClick={() => setShowPermanentDeleteConfirm(false)}>
@@ -2392,6 +2396,7 @@ const SchedulingPage = () => {
         }}
         title="Booking Link"
         size="md"
+        fullScreenOnMobile={false}
       >
         <div className="space-y-4">
           <p className="text-sm text-ink-muted">
@@ -2430,6 +2435,7 @@ const SchedulingPage = () => {
         onClose={() => setShowNoServicesModal(false)}
         title=""
         size="md"
+        fullScreenOnMobile={false}
       >
         <div className="space-y-6 py-2">
           {/* Icon and Title */}

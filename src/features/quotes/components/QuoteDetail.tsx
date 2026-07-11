@@ -407,6 +407,7 @@ const QuoteDetail = ({
         onClose={() => setShowDeleteConfirm(false)}
         title="Delete quote"
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>

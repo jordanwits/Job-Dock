@@ -273,6 +273,7 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
         onClose={() => !isDeleting && setShowDeleteConfirm(false)}
         title={`Delete ${selectedIds.size} quote${selectedIds.size !== 1 ? 's' : ''}?`}
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>

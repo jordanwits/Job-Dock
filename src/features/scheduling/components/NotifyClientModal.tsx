@@ -32,6 +32,7 @@ const NotifyClientModal = ({
       onClose={onClose}
       title="Notify the client?"
       size="sm"
+      fullScreenOnMobile={false}
       footer={
         <>
           <AppButton variant="subtle" onClick={handleNo} disabled={isLoading} fullWidth className="sm:w-auto">

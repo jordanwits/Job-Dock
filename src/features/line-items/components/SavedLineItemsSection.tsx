@@ -347,6 +347,7 @@ export function SavedLineItemsSection() {
         onClose={() => !isBulkDeleting && setShowBulkDeleteConfirm(false)}
         title={`Delete ${selectedIds.size} saved line item${selectedIds.size !== 1 ? 's' : ''}?`}
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={() => setShowBulkDeleteConfirm(false)} disabled={isBulkDeleting}>

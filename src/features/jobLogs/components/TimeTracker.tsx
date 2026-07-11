@@ -1483,6 +1483,7 @@ const TimeTracker = ({
         onClose={() => setDeleteId(null)}
         title="Delete time entry"
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={() => setDeleteId(null)}>
@@ -1509,6 +1510,7 @@ const TimeTracker = ({
         onClose={handleCancelConflict}
         title="Switch to a new job?"
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={handleCancelConflict}>

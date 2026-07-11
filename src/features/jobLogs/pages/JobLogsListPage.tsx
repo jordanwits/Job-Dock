@@ -275,6 +275,7 @@ const JobLogsListPage = () => {
           onClose={() => setShowPermanentDeleteConfirm(false)}
           title="Permanently delete job?"
           size="md"
+          fullScreenOnMobile={false}
           footer={
             <>
               <AppButton variant="ghost" onClick={() => setShowPermanentDeleteConfirm(false)}>

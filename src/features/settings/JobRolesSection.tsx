@@ -224,6 +224,7 @@ export const JobRolesSection = () => {
         isOpen={editModalOpen}
         onClose={handleCloseModal}
         title={editingRole ? 'Edit Job Role' : 'Create Job Role'}
+        fullScreenOnMobile
       >
         <div className="space-y-4">
           {error && (

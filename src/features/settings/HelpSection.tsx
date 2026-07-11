@@ -129,6 +129,7 @@ export const HelpSection = () => {
         isOpen={showIOSInstructions}
         onClose={() => setShowIOSInstructions(false)}
         title="Install CleanDock on iOS"
+        fullScreenOnMobile
       >
         <div className="space-y-4">
           <p className="text-sm text-ink-muted">To add CleanDock to your home screen:</p>

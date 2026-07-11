@@ -699,7 +699,7 @@ export const TeamMembersSection = () => {
 
         {inviteModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <Panel className="w-full max-w-md p-6 space-y-4">
+            <Panel className="w-full max-w-md p-6 space-y-4 max-sm:h-full max-sm:max-w-none max-sm:overflow-y-auto max-sm:rounded-none max-sm:pt-[max(1.5rem,env(safe-area-inset-top,0px))] max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] max-sm:animate-modal-slide-up">
               <h3 className="text-lg font-semibold tracking-tight text-ink">Invite team member</h3>
               <TextField
                 label="Email"

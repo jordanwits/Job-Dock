@@ -794,6 +794,7 @@ const ContactDetail = ({
         onClose={() => setShowDeleteConfirm(false)}
         title="Delete contact"
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>

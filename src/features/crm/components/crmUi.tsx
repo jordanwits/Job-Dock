@@ -651,6 +651,8 @@ export interface AppModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl'
   closeOnOverlayClick?: boolean
   showCloseButton?: boolean
+  /** Full-screen sheet below the sm breakpoint (default). Confirm-style modals opt out to stay centered. */
+  fullScreenOnMobile?: boolean
 }
 
 const modalSizes: Record<NonNullable<AppModalProps['size']>, string> = {
@@ -670,6 +672,7 @@ export function AppModal({
   size = 'md',
   closeOnOverlayClick = false,
   showCloseButton = true,
+  fullScreenOnMobile = true,
 }: AppModalProps) {
   const scrollYRef = useRef(0)
   const onCloseRef = useRef(onClose)
@@ -716,12 +719,17 @@ export function AppModal({
 
   const content = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/40 p-[max(0.75rem,env(safe-area-inset-top,0px))] sm:bg-black/30 sm:p-4 sm:backdrop-blur-sm"
+      className={cn(
+        'fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/40 p-[max(0.75rem,env(safe-area-inset-top,0px))] sm:bg-black/30 sm:p-4 sm:backdrop-blur-sm',
+        fullScreenOnMobile && 'max-sm:p-0'
+      )}
       onMouseDown={closeOnOverlayClick ? e => { if (e.target === e.currentTarget) onClose() } : undefined}
     >
       <div
         className={cn(
           'relative my-auto flex max-h-[92dvh] w-full min-h-0 flex-col overflow-hidden rounded-2xl bg-surface shadow-pop sm:max-h-[85vh]',
+          fullScreenOnMobile &&
+            'max-sm:my-0 max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:pt-[env(safe-area-inset-top,0px)] max-sm:animate-modal-slide-up',
           modalSizes[size]
         )}
         onMouseDown={e => e.stopPropagation()}
@@ -746,14 +754,22 @@ export function AppModal({
         )}
 
         <div
-          className="custom-scrollbar min-h-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden px-5 py-5 pb-8 sm:px-6 sm:pb-6"
+          className={cn(
+            'custom-scrollbar min-h-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden px-5 py-5 pb-8 sm:px-6 sm:pb-6',
+            fullScreenOnMobile && 'max-sm:pb-[max(2rem,env(safe-area-inset-bottom,0px))]'
+          )}
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {children}
         </div>
 
         {footer && (
-          <div className="flex flex-shrink-0 flex-col items-stretch justify-end gap-2 overflow-visible border-t border-line px-5 py-4 sm:flex-row sm:items-center sm:gap-3 sm:px-6">
+          <div
+            className={cn(
+              'flex flex-shrink-0 flex-col items-stretch justify-end gap-2 overflow-visible border-t border-line px-5 py-4 sm:flex-row sm:items-center sm:gap-3 sm:px-6',
+              fullScreenOnMobile && 'max-sm:pb-[max(1rem,env(safe-area-inset-bottom,0px))]'
+            )}
+          >
             {footer}
           </div>
         )}

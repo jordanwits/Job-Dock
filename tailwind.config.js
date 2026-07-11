@@ -64,6 +64,16 @@ export default {
         card: 'var(--shadow-card)',
         pop: 'var(--shadow-pop)',
       },
+      keyframes: {
+        'modal-slide-up': {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        // Mobile full-screen modal entrance (iOS-sheet style)
+        'modal-slide-up': 'modal-slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
+      },
     },
   },
   plugins: [],

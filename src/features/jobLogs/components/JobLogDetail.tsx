@@ -1683,6 +1683,7 @@ const JobLogDetail = ({
         onClose={handleCancelConflict}
         title="Switch to a new job?"
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={handleCancelConflict}>

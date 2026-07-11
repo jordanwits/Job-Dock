@@ -610,6 +610,7 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
         }}
         title="Delete photo"
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton

@@ -343,6 +343,7 @@ const JobLogDetailPage = () => {
           onClose={() => setShowArchiveConfirm(false)}
           title={archiveTitle}
           size="sm"
+          fullScreenOnMobile={false}
           footer={
             <>
               <AppButton variant="ghost" onClick={() => setShowArchiveConfirm(false)}>
@@ -416,6 +417,7 @@ const JobLogDetailPage = () => {
           onClose={() => setShowPermanentConfirm(false)}
           title="Permanently delete job?"
           size="sm"
+          fullScreenOnMobile={false}
           footer={
             <>
               <AppButton variant="ghost" onClick={() => setShowPermanentConfirm(false)}>

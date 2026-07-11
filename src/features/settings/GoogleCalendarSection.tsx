@@ -321,6 +321,7 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
         }}
         title="Disconnect Google Calendar"
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton

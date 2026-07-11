@@ -407,6 +407,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
         onClose={() => setShowBulkArchiveConfirm(false)}
         title={`Archive ${selectedIds.size} job${selectedIds.size !== 1 ? 's' : ''}?`}
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={() => setShowBulkArchiveConfirm(false)}>
@@ -436,6 +437,7 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
         onClose={() => setShowBulkPermanentConfirm(false)}
         title={`Permanently remove ${selectedIds.size} job${selectedIds.size !== 1 ? 's' : ''}?`}
         size="sm"
+        fullScreenOnMobile={false}
         footer={
           <>
             <AppButton variant="ghost" onClick={() => setShowBulkPermanentConfirm(false)}>
