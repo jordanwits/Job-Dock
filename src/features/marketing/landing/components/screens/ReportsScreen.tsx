@@ -9,7 +9,7 @@ const bars = [
   { d: 'Sat', h: 38 },
 ]
 
-/** Mock JobDock reports screen — used on the reports/get-paid stage. */
+/** Mock CleanDock reports screen — used on the reports/get-paid stage. */
 const ReportsScreen = () => {
   return (
     <ScreenShell>

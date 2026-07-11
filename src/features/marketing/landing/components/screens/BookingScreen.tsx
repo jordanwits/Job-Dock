@@ -1,6 +1,6 @@
 import ScreenShell from './ScreenShell'
 
-/** Mock JobDock online-booking request — used on the booking stage. */
+/** Mock CleanDock online-booking request — used on the booking stage. */
 const BookingScreen = () => {
   return (
     <ScreenShell>

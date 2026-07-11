@@ -32,7 +32,7 @@ const MarketingFooter = () => {
           <div>
             <div className="mb-4 flex items-center gap-2">
               <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-100">
-                <img src="/TJD Icon transparent.png" alt="JobDock logo" className="h-6 w-auto" />
+                <img src="/CleanDock.png" alt="CleanDock logo" className="h-6 w-auto" />
               </div>
               <span className="text-xl font-extrabold tracking-tight text-slate-900">
                 {publicSiteConfig.companyName}
@@ -147,7 +147,7 @@ const MarketingFooter = () => {
         {/* Bottom Bar */}
         <div className="mt-10 space-y-1.5 border-t border-slate-200 pt-6 text-center md:mt-12 md:pt-8">
           <p className="text-sm text-slate-500">
-            JobDock is a product of West Wave Creative, a DBA of Amicus Group, Inc. &copy;{' '}
+            CleanDock is a product of West Wave Creative, a DBA of Amicus Group, Inc. &copy;{' '}
             {new Date().getFullYear()} Amicus Group, Inc. All rights reserved.
           </p>
           <p className="text-sm text-slate-500">

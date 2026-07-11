@@ -87,7 +87,7 @@ export async function connect(
     else throw new ApiError('Google did not return a refresh token; please try connecting again.', 400)
   }
 
-  // Use the fresh access token to (best-effort) remove the old JobDock calendar on re-connect, then
+  // Use the fresh access token to (best-effort) remove the old CleanDock calendar on re-connect, then
   // create a new one. Do NOT revoke the old grant here — it belongs to the same Google account and
   // revoking could invalidate the tokens we just obtained.
   const accessCtx = { accessToken: tokens.access_token }
@@ -121,7 +121,7 @@ export async function connect(
     update: data,
   })
 
-  // Reconnect replaces the JobDock calendar (old one deleted above, fresh one created) but keeps the
+  // Reconnect replaces the CleanDock calendar (old one deleted above, fresh one created) but keeps the
   // same connection row/id. Its old event-map rows point at events on the now-deleted calendar, so
   // they must be dropped BEFORE the initial sync — otherwise push would match each unchanged booking
   // on its stale fingerprint and skip it, leaving the new calendar empty (F3).

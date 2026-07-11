@@ -6,7 +6,7 @@ const checklist = [
   { label: 'Bedrooms + linens', done: false },
 ]
 
-/** Mock JobDock job-log screen — before/after photos, time tracking, checklist. */
+/** Mock CleanDock job-log screen — before/after photos, time tracking, checklist. */
 const JobLogScreen = () => {
   return (
     <ScreenShell>

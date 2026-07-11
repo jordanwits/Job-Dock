@@ -5,9 +5,9 @@ import MarketingSection from '../components/MarketingSection'
 
 const SmsConsentPage = () => {
   useEffect(() => {
-    document.title = 'SMS Notifications Consent | JobDock'
+    document.title = 'SMS Notifications Consent | CleanDock'
     return () => {
-      document.title = 'The Job Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
+      document.title = 'The Clean Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
     }
   }, [])
 
@@ -39,12 +39,12 @@ const SmsConsentPage = () => {
                   <dl className="space-y-3 text-base md:text-lg">
                     <div>
                       <dt className="font-semibold text-primary-dark">Company:</dt>
-                      <dd>Amicus Group, Inc. (DBA West Wave Creative / JobDock)</dd>
+                      <dd>Amicus Group, Inc. (DBA West Wave Creative / CleanDock)</dd>
                     </div>
                     <div>
                       <dt className="font-semibold text-primary-dark">Program description:</dt>
                       <dd>
-                        JobDock sends SMS notifications to opted-in users for account alerts, appointment
+                        CleanDock sends SMS notifications to opted-in users for account alerts, appointment
                         reminders, service updates, and billing notifications (transactional/operational only,
                         no marketing).
                       </dd>

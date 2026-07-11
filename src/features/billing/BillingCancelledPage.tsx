@@ -12,7 +12,7 @@ export function BillingCancelledPage() {
       <Card className="max-w-md p-8 text-center shadow-lg">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Checkout cancelled</h1>
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-          No charges were made. You can return to JobDock and try again when you are ready.
+          No charges were made. You can return to CleanDock and try again when you are ready.
         </p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link to="/" className={linkPrimary}>

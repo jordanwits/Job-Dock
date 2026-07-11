@@ -696,7 +696,7 @@ We look forward to working with you!',
           },
         })
 
-        const appUrl = process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com'
+        const appUrl = process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
         
         // Get tenant settings for branding
         const settings = await prisma.tenantSettings.findUnique({
@@ -714,7 +714,7 @@ We look forward to working with you!',
           }
         }
         
-        const companyName = settings?.companyDisplayName || 'JobDock'
+        const companyName = settings?.companyDisplayName || 'CleanDock'
         
         const invitePayload = buildTeamInviteEmail({
           inviteeEmail: email.toLowerCase(),
@@ -1583,7 +1583,7 @@ async function handleGet(
       where: { tenantId },
     })
     const tenantName = tenant?.name
-    const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
+    const companyName = settings?.companyDisplayName || tenantName || 'CleanDock'
 
     if (resource === 'quotes') {
       const quote = await (service as typeof dataServices.quotes).getById(tenantId, id)

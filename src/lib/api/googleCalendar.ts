@@ -33,7 +33,7 @@ const MOCK_STATUS: GoogleCalendarStatus = {
 
 /**
  * Thin wrappers over the authenticated apiClient for the per-user Google Calendar
- * sync integration (one-way: JobDock → Google). Imported directly (not routed through
+ * sync integration (one-way: CleanDock → Google). Imported directly (not routed through
  * services.ts), mirroring src/lib/api/quickbooks.ts.
  *
  * In mock data mode every method is inert: getStatus returns canned "not configured"
@@ -62,7 +62,7 @@ export const googleCalendarApi = {
     return response.data
   },
 
-  /** Disconnect Google Calendar for the current user (optionally deletes the JobDock calendar). */
+  /** Disconnect Google Calendar for the current user (optionally deletes the CleanDock calendar). */
   disconnect: async (removeCalendar: boolean): Promise<{ disconnected: boolean }> => {
     if (appEnv.isMock) throw new Error(MOCK_UNAVAILABLE_MESSAGE)
     const response = await apiClient.post('/google-calendar/disconnect', { removeCalendar })

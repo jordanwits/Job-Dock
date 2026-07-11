@@ -14,4 +14,4 @@ Disallow: /app/*
 Disallow: /book/
 Disallow: /public/
 
-Sitemap: https://www.thejobdock.com/sitemap.xml
+Sitemap: https://www.thecleandock.com/sitemap.xml

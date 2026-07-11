@@ -550,7 +550,7 @@ async function sendAssignmentNotification(params: {
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId },
   })
-  const fromName = settings?.companyDisplayName || 'JobDock'
+  const fromName = settings?.companyDisplayName || 'CleanDock'
   const replyTo = settings?.companySupportEmail || undefined
 
   // Fetch logo URL if available (7 days expiration for email)
@@ -1388,7 +1388,7 @@ export const dataServices = {
         throw new ApiError('Category and message are required', 400)
       }
       const categoryLabel = category === 'problem' ? 'Report a Problem' : 'Suggest a Change/Feature'
-      const subject = `[JobDock Feedback] ${categoryLabel} - ${userName || userEmail || 'Anonymous'}`
+      const subject = `[CleanDock Feedback] ${categoryLabel} - ${userName || userEmail || 'Anonymous'}`
       const textBody = `Category: ${categoryLabel}\n\nFrom: ${userName || 'Unknown'} (${userEmail || 'Unknown'})\n\nMessage:\n${message}`
       const escapeHtml = (s: string) =>
         s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -1803,7 +1803,7 @@ export const dataServices = {
         where: { id: tenantId },
         select: { name: true },
       })
-      const companyName = settings?.companyDisplayName || tenant?.name || 'JobDock'
+      const companyName = settings?.companyDisplayName || tenant?.name || 'CleanDock'
 
       // Generate token for email and/or SMS link
       const approvalToken = generateApprovalToken('quote', quote.id, tenantId)
@@ -1901,7 +1901,7 @@ export const dataServices = {
 
       console.log(`✅ Quote ${quote.quoteNumber} approved by client`)
 
-      // Notify JobDock users via email
+      // Notify CleanDock users via email
       try {
         const contact = updatedQuote.contact
         const clientName = contact
@@ -2275,7 +2275,7 @@ export const dataServices = {
         where: { id: tenantId },
         select: { name: true },
       })
-      const companyName = settings?.companyDisplayName || tenant?.name || 'JobDock'
+      const companyName = settings?.companyDisplayName || tenant?.name || 'CleanDock'
 
       // Invoices always get a branded public view link — the client's path to the QuickBooks "Pay
       // Now" button. The approval token secures the public page (accept/decline is no longer offered
@@ -3198,7 +3198,7 @@ export const dataServices = {
                 console.error('Error fetching logo URL for confirmation email:', e)
               }
             }
-            const companyName = settings?.companyDisplayName || 'JobDock'
+            const companyName = settings?.companyDisplayName || 'CleanDock'
             // Render times in the tenant's timezone, DST-correct at the APPOINTMENT instant (not
             // "now" — a booking made in PST for a PDT appointment must show the PDT time).
             const timezoneOffset = offsetHoursForZone(settings?.timezone, new Date(startTime!))
@@ -3830,7 +3830,7 @@ export const dataServices = {
               console.error('Error fetching logo URL for reschedule email:', error)
             }
           }
-          const companyName = settings?.companyDisplayName || 'JobDock'
+          const companyName = settings?.companyDisplayName || 'CleanDock'
           const timezoneOffset = offsetHoursForZone(
             settings?.timezone,
             b.startTime ? new Date(b.startTime) : new Date()
@@ -4148,7 +4148,7 @@ export const dataServices = {
           const timezoneOffset =
             serviceAvailability?.timezoneOffset ??
             offsetHoursForZone(settings?.timezone, b.startTime ? new Date(b.startTime) : new Date())
-          const companyName = settings?.companyDisplayName || 'JobDock'
+          const companyName = settings?.companyDisplayName || 'CleanDock'
 
           let logoUrl: string | null = null
           if (settings?.logoUrl) {
@@ -4302,7 +4302,7 @@ export const dataServices = {
             console.error('Error fetching logo URL for email:', error)
           }
         }
-        const companyName = settings?.companyDisplayName || 'JobDock'
+        const companyName = settings?.companyDisplayName || 'CleanDock'
 
         if (wantsEmail) {
           console.log(`📧 Sending decline email to ${job.contact!.email}`)
@@ -4458,7 +4458,7 @@ export const dataServices = {
           const settings = await prisma.tenantSettings.findUnique({
             where: { tenantId },
           })
-          const companyName = settings?.companyDisplayName || 'JobDock'
+          const companyName = settings?.companyDisplayName || 'CleanDock'
           const pref = (job.contact as any)?.notificationPreference ?? 'both'
           const wantsEmail = shouldSendEmail(pref) && job.contact?.email
           const wantsSms = shouldSendSms(pref) && job.contact?.phone?.trim()
@@ -4547,7 +4547,7 @@ export const dataServices = {
           const settings = await prisma.tenantSettings.findUnique({
             where: { tenantId },
           })
-          const companyName = settings?.companyDisplayName || 'JobDock'
+          const companyName = settings?.companyDisplayName || 'CleanDock'
           let logoUrl: string | null = null
           if (settings?.logoUrl) {
             try {
@@ -4894,7 +4894,7 @@ export const dataServices = {
               console.error('Error fetching logo URL for reschedule email:', error)
             }
           }
-          const companyName = settings?.companyDisplayName || 'JobDock'
+          const companyName = settings?.companyDisplayName || 'CleanDock'
           const timezoneOffset = offsetHoursForZone(
             settings?.timezone,
             updated.startTime ? new Date(updated.startTime) : new Date()
@@ -5644,7 +5644,7 @@ export const dataServices = {
           where: { tenantId: actualTenantId },
         })
 
-        const companyName = settings?.companyDisplayName || 'JobDock'
+        const companyName = settings?.companyDisplayName || 'CleanDock'
         const replyToEmail = settings?.companySupportEmail || undefined
 
         // Get timezone offset from service availability settings, falling back to the tenant
@@ -6319,7 +6319,7 @@ export const dataServices = {
               `Updated tenant ${tenantId} with subscription ${session.subscription}, tier ${subscriptionTier}`
             )
           } else if (plan && session.customer_details?.email) {
-            const baseUrl = (process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(
+            const baseUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(
               /\/$/,
               ''
             )

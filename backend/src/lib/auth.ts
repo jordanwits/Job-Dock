@@ -252,7 +252,7 @@ export async function getTenantIdFromToken(token: string): Promise<string> {
   
   if (!user) {
     const { ApiError } = await import('./errors')
-    throw new ApiError('User not found in JobDock database', 401)
+    throw new ApiError('User not found in CleanDock database', 401)
   }
   
   return user.tenantId

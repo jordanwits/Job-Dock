@@ -184,7 +184,7 @@ export async function generateQuotePDF(
   let logoHeight = 0
 
   // Header - Company name
-  const companyName = companyInfo?.name || tenantName || 'JobDock'
+  const companyName = companyInfo?.name || tenantName || 'CleanDock'
   
   // Embed and draw logo if available
   if (companyInfo?.logoKey) {
@@ -546,7 +546,7 @@ export async function generateInvoicePDF(
   let logoHeight = 0
 
   // Header - Company name
-  const companyName = companyInfo?.name || tenantName || 'JobDock'
+  const companyName = companyInfo?.name || tenantName || 'CleanDock'
   
   // Embed and draw logo if available
   if (companyInfo?.logoKey) {

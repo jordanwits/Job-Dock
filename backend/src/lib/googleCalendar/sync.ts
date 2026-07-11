@@ -1,7 +1,7 @@
-// The push engine. JobDock bookings are the source of truth; one Google event per
-// (connection, eligible booking). Sync is ONE-WAY: syncTenant pushes JobDock appointments to each
+// The push engine. CleanDock bookings are the source of truth; one Google event per
+// (connection, eligible booking). Sync is ONE-WAY: syncTenant pushes CleanDock appointments to each
 // connection's dedicated Google calendar (create/update/delete). Changes made in Google are never
-// read back into JobDock. Pure/idempotent: a steady-state run with no changes makes ZERO Google API
+// read back into CleanDock. Pure/idempotent: a steady-state run with no changes makes ZERO Google API
 // calls. Never logs tokens or event bodies — counts only.
 
 import { createCalendar, deleteEvent, getActiveConnection, insertEvent, patchEvent } from './client'
@@ -43,7 +43,7 @@ export async function syncTenant(tenantId: string): Promise<void> {
   })
   if (connections.length === 0) return
 
-  // PUSH every connection (JobDock → Google). One-way: we never read Google state back.
+  // PUSH every connection (CleanDock → Google). One-way: we never read Google state back.
   for (const { id } of connections) {
     try {
       const ran = await withClaim(id, () => pushConnection(id))
@@ -121,7 +121,7 @@ async function recordConnectionError(connectionId: string, err: unknown): Promis
     .catch(() => {})
 }
 
-// Recreate the dedicated JobDock calendar (user deleted it), wipe this connection's map rows, and
+// Recreate the dedicated CleanDock calendar (user deleted it), wipe this connection's map rows, and
 // return the new calendar id. The subsequent push repopulates from scratch.
 async function recreateCalendar(active: ActiveConnection): Promise<string> {
   const prisma = await getPrisma()
@@ -131,11 +131,11 @@ async function recreateCalendar(active: ActiveConnection): Promise<string> {
     where: { id: active.id },
     data: { calendarId: created.id },
   })
-  console.log(`[gcal-sync] recreated JobDock calendar for connection ${active.id}`)
+  console.log(`[gcal-sync] recreated CleanDock calendar for connection ${active.id}`)
   return created.id
 }
 
-// ─── PUSH (JobDock -> Google), diff-based ────────────────────────────────────────────────────────
+// ─── PUSH (CleanDock -> Google), diff-based ────────────────────────────────────────────────────────
 
 async function pushConnection(connectionId: string): Promise<void> {
   const active = await getActiveConnection(connectionId)
@@ -147,7 +147,7 @@ async function pushConnection(connectionId: string): Promise<void> {
     await runPush(active)
   } catch (err) {
     if (err instanceof GcalHttpError && err.status === 404) {
-      // The JobDock calendar was deleted out from under us — recreate and push fresh.
+      // The CleanDock calendar was deleted out from under us — recreate and push fresh.
       const newId = await recreateCalendar(active)
       active.calendarId = newId
       await runPush(active)

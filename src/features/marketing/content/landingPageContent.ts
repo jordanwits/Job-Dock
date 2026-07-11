@@ -6,10 +6,10 @@ export const landingPageContent = {
     },
     subtitle: 'Everything a small contractor needs to run their business starting at $29/month.',
     description:
-      'The Job Dock helps trades and service professionals stay focused on the work — not the admin.',
+      'The Clean Dock helps trades and service professionals stay focused on the work — not the admin.',
     primaryCta: 'Get Started',
     secondaryCta: 'See How It Works',
-    imageAlt: 'Contractor managing business with JobDock on tablet',
+    imageAlt: 'Contractor managing business with CleanDock on tablet',
   },
 
   trustBar: [
@@ -148,9 +148,9 @@ export const landingPageContent = {
   },
 
   solution: {
-    title: 'The Job Dock brings it all together',
+    title: 'The Clean Dock brings it all together',
     subtitle: 'A simple, focused tool designed around how service businesses actually operate.',
-    heading: 'With The Job Dock, you can:',
+    heading: 'With The Clean Dock, you can:',
     benefits: [
       'Create and send professional quotes',
       'Convert quotes into invoices',
@@ -195,7 +195,7 @@ export const landingPageContent = {
   whyDifferent: {
     eyebrow: "Why We're Different",
     title: 'Built for real people, not enterprise checklists',
-    subtitle: 'Many tools try to be everything for everyone. The Job Dock is different.',
+    subtitle: 'Many tools try to be everything for everyone. The Clean Dock is different.',
     intro: "We're intentionally focused on:",
     principles: [
       {
@@ -217,17 +217,17 @@ export const landingPageContent = {
   faq: {
     eyebrow: 'FAQ',
     title: 'Common questions',
-    subtitle: 'Everything you need to know about The Job Dock',
+    subtitle: 'Everything you need to know about The Clean Dock',
     items: [
       {
-        question: 'Do I need any technical skills to use JobDock?',
+        question: 'Do I need any technical skills to use CleanDock?',
         answer:
-          'Not at all. JobDock is designed to be intuitive from day one. If you can send a text, you can use JobDock. Most users are creating quotes within minutes of signing up.',
+          'Not at all. CleanDock is designed to be intuitive from day one. If you can send a text, you can use CleanDock. Most users are creating quotes within minutes of signing up.',
       },
       {
-        question: 'Can I access JobDock from my phone?',
+        question: 'Can I access CleanDock from my phone?',
         answer:
-          'Yes! JobDock works on any device with a browser — phone, tablet, or computer. Create quotes on-site, check your schedule between jobs, or update client info from anywhere.',
+          'Yes! CleanDock works on any device with a browser — phone, tablet, or computer. Create quotes on-site, check your schedule between jobs, or update client info from anywhere.',
       },
       {
         question: 'What if I need to move my existing client data?',
@@ -247,7 +247,7 @@ export const landingPageContent = {
       {
         question: 'What kind of support do you offer?',
         answer:
-          "Email support is included with all accounts. We're here to help you get the most out of JobDock.",
+          "Email support is included with all accounts. We're here to help you get the most out of CleanDock.",
       },
     ],
   },
@@ -255,7 +255,7 @@ export const landingPageContent = {
   closingCta: {
     title: 'Your work deserves better tools',
     messages: ['You do great work.', 'Your systems should support that — not slow you down.'],
-    description: 'Simplify how you run jobs, quotes, and schedules with The Job Dock.',
+    description: 'Simplify how you run jobs, quotes, and schedules with The Clean Dock.',
     cta: 'Get Started',
   },
 }

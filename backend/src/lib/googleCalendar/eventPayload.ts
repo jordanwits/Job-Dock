@@ -165,7 +165,7 @@ export function buildEventPayload(
   const appUrl = (publicAppUrl || '').replace(/\/$/, '')
   const name = contactName(contact)
 
-  const baseSummary = booking.title || job?.title || 'JobDock appointment'
+  const baseSummary = booking.title || job?.title || 'CleanDock appointment'
   // normalizeText keeps CRLF-authored titles/notes/locations hashing identically to Google's echo.
   const summary = normalizeText(name ? `${baseSummary} — ${name}` : baseSummary)
 
@@ -178,7 +178,7 @@ export function buildEventPayload(
   if (name) descLines.push(name)
   if (contact?.phone) descLines.push(contact.phone)
   if (notes) descLines.push(notes)
-  descLines.push(`Managed by JobDock: ${appUrl}/app/scheduling`)
+  descLines.push(`Managed by CleanDock: ${appUrl}/app/scheduling`)
   const description = normalizeText(descLines.join('\n'))
 
   const startISO = new Date(booking.startTime).toISOString()

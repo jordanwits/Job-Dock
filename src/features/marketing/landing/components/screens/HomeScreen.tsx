@@ -1,6 +1,6 @@
 import ScreenShell from './ScreenShell'
 
-/** Mock JobDock home/today dashboard — used on the hero stage. */
+/** Mock CleanDock home/today dashboard — used on the hero stage. */
 const HomeScreen = () => {
   return (
     <ScreenShell>

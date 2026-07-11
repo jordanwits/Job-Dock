@@ -42,7 +42,7 @@ export function loadQuickBooksConfig(): QuickBooksConfig {
     webhookVerifierToken: process.env.QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN || '',
     tokenEncKey: process.env.QUICKBOOKS_TOKEN_ENC_KEY || '',
     // The Intuit Redirect URI must EXACTLY match what is registered in the Intuit app.
-    // Prefer an explicit QUICKBOOKS_REDIRECT_URI: the prod app is served at www.thejobdock.com
+    // Prefer an explicit QUICKBOOKS_REDIRECT_URI: the prod app is served at www.thecleandock.com
     // while the apex 307-redirects, so deriving from PUBLIC_APP_URL (apex) would not match.
     // Fall back to deriving from PUBLIC_APP_URL for local dev.
     redirectUri: process.env.QUICKBOOKS_REDIRECT_URI || `${publicAppUrl}/quickbooks/callback`,

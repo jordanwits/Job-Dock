@@ -67,7 +67,7 @@ interface GoogleCalendarSectionProps {
 }
 
 /**
- * Settings tab for the per-user Google Calendar sync. One-way: JobDock pushes appointments to a
+ * Settings tab for the per-user Google Calendar sync. One-way: CleanDock pushes appointments to a
  * dedicated Google calendar; changes made in Google are not read back. Visible to every role
  * (each user connects their own Google account); the sync-mode choice is gated on the
  * server-authoritative `canChooseAll` flag. Mirrors QuickBooksSection's structure and the
@@ -182,7 +182,7 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
   return (
     <SettingsSection
       title="Google Calendar"
-      description="Show your JobDock appointments on your Google Calendar."
+      description="Show your CleanDock appointments on your Google Calendar."
     >
       {sectionError && (
         <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
@@ -270,14 +270,14 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
           <div className="space-y-5">
             <div className="space-y-2 text-sm leading-relaxed text-ink-muted">
               <p>
-                Connect your Google account to see your JobDock appointments on your Google
-                Calendar. JobDock creates a dedicated{' '}
-                <span className="font-medium text-ink">JobDock</span> calendar in your Google account
+                Connect your Google account to see your CleanDock appointments on your Google
+                Calendar. CleanDock creates a dedicated{' '}
+                <span className="font-medium text-ink">CleanDock</span> calendar in your Google account
                 and keeps your appointments on it.
               </p>
               <p>
-                Sync is one-way, from JobDock to Google — changes you make in Google Calendar
-                won&apos;t affect JobDock.
+                Sync is one-way, from CleanDock to Google — changes you make in Google Calendar
+                won&apos;t affect CleanDock.
               </p>
             </div>
 
@@ -338,14 +338,14 @@ export const GoogleCalendarSection = ({ connectError }: GoogleCalendarSectionPro
       >
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-ink-muted">
-            JobDock will stop syncing your appointments to Google Calendar.
+            CleanDock will stop syncing your appointments to Google Calendar.
           </p>
           <CheckboxField
             id="gcal-remove-calendar"
             checked={removeCalendar}
             onChange={setRemoveCalendar}
-            label="Also remove the JobDock calendar from my Google account"
-            description="Deletes the dedicated JobDock calendar and its synced events from Google."
+            label="Also remove the CleanDock calendar from my Google account"
+            description="Deletes the dedicated CleanDock calendar and its synced events from Google."
           />
           {disconnectError && (
             <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>

@@ -35,7 +35,7 @@ const RegisterForm = () => {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-ink">Create account</h2>
-        <p className="mt-1.5 text-[15px] text-ink-muted">Get started with JobDock today</p>
+        <p className="mt-1.5 text-[15px] text-ink-muted">Get started with CleanDock today</p>
       </div>
 
       {error && <AuthAlert>{error}</AuthAlert>}

@@ -44,7 +44,7 @@ export const quickbooksApi = {
     return response.data
   },
 
-  /** Push a JobDock invoice to QuickBooks (create/update + enable online payment). */
+  /** Push a CleanDock invoice to QuickBooks (create/update + enable online payment). */
   syncInvoice: async (invoiceId: string): Promise<SyncInvoiceResult> => {
     const response = await apiClient.post('/quickbooks/sync-invoice', { invoiceId })
     return response.data

@@ -68,7 +68,7 @@ const MarketingHeader = () => {
         {/* Logo */}
         <Link to="/" className="z-50 flex min-w-0 max-w-[160px] items-center gap-2 sm:max-w-[220px]">
           <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-100">
-            <img src="/TJD Icon transparent.png" alt="JobDock logo" className="h-6 w-auto" />
+            <img src="/CleanDock.png" alt="CleanDock logo" className="h-6 w-auto" />
           </div>
           <span className={`truncate text-xl font-extrabold tracking-tight ${isFilled ? 'text-slate-900' : 'text-white'}`}>
             {publicSiteConfig.companyName}

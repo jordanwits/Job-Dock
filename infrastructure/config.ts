@@ -43,7 +43,7 @@ export const configs: Record<string, Config> = {
     env: 'dev',
     region: 'us-east-1',
     defaultTenantId: 'demo-tenant',
-    emailFromAddress: 'noreply@thejobdock.com',
+    emailFromAddress: 'noreply@thecleandock.com',
     network: {
       natStrategy: 'instance', // Cost-optimized: ~$3/mo vs ~$32/mo for gateway
     },
@@ -69,7 +69,7 @@ export const configs: Record<string, Config> = {
   staging: {
     env: 'staging',
     region: 'us-east-1',
-    emailFromAddress: 'noreply@thejobdock.com',
+    emailFromAddress: 'noreply@thecleandock.com',
     network: {
       natStrategy: 'gateway', // Use gateway for staging to test production-like setup
     },
@@ -96,8 +96,8 @@ export const configs: Record<string, Config> = {
     env: 'prod',
     region: 'us-east-1',
     // Custom domain for Vercel deployment
-    domain: 'thejobdock.com',
-    emailFromAddress: 'noreply@thejobdock.com',
+    domain: 'thecleandock.com',
+    emailFromAddress: 'noreply@thecleandock.com',
     network: {
       natStrategy: 'gateway', // Switched to NAT Gateway for reliability - Lambda needs internet access for Cognito
     },

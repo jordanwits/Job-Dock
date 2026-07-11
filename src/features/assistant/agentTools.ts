@@ -1,5 +1,5 @@
 /**
- * Agent tool registry for the JobDock AI assistant.
+ * Agent tool registry for the CleanDock AI assistant.
  *
  * Each tool wraps an existing API service (contactsService, jobsService, …).
  * Because those services auto-switch between mock and live data
@@ -308,14 +308,14 @@ export const agentTools: AgentTool[] = [
       function: {
         name: 'search_help',
         description:
-          "Answer a question about HOW TO USE JobDock — features, where to find something, what a screen/field/status means, settings, billing, role permissions, or troubleshooting something that isn't working. Searches JobDock's official help knowledge base and returns a grounded answer. Use this for any 'how do I…', 'where is…', 'why can't I…', or 'is it possible to…' product question instead of answering from memory, so you never invent JobDock UI details, screen names, or steps.",
+          "Answer a question about HOW TO USE CleanDock — features, where to find something, what a screen/field/status means, settings, billing, role permissions, or troubleshooting something that isn't working. Searches CleanDock's official help knowledge base and returns a grounded answer. Use this for any 'how do I…', 'where is…', 'why can't I…', or 'is it possible to…' product question instead of answering from memory, so you never invent CleanDock UI details, screen names, or steps.",
         parameters: {
           type: 'object',
           properties: {
             question: {
               type: 'string',
               description:
-                "A clear, self-contained question about using JobDock, e.g. 'How do I send a quote to a customer?'. Include any relevant detail the user gave.",
+                "A clear, self-contained question about using CleanDock, e.g. 'How do I send a quote to a customer?'. Include any relevant detail the user gave.",
             },
           },
           required: ['question'],

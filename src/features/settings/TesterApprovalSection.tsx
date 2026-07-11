@@ -84,7 +84,7 @@ export const TesterApprovalSection = () => {
       <Panel className="p-5 ring-1 ring-inset ring-warning/30">
         <div className="space-y-4">
           <TextField
-            label="Owner (JobDock id, Cognito sub, or email)"
+            label="Owner (CleanDock id, Cognito sub, or email)"
             value={userId}
             onChange={e => setUserId(e.target.value)}
             placeholder="e.g. Cognito sub, or their login email"

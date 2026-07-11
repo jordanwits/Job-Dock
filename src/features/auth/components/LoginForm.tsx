@@ -102,7 +102,7 @@ const LoginForm = () => {
     <form onSubmit={loginForm.handleSubmit(onSubmitLogin)} className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-ink">Welcome back</h2>
-        <p className="mt-1.5 text-[15px] text-ink-muted">Sign in to your JobDock account</p>
+        <p className="mt-1.5 text-[15px] text-ink-muted">Sign in to your CleanDock account</p>
       </div>
 
       {error && <AuthAlert>{error}</AuthAlert>}

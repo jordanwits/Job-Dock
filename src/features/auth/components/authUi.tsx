@@ -210,12 +210,12 @@ export function AuthShell({
         <Link
           to="/"
           className="mb-8 flex flex-col items-center text-center focus-visible:outline-none"
-          aria-label="JobDock home"
+          aria-label="CleanDock home"
         >
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface shadow-card ring-1 ring-line">
-            <img src="/TJD Icon transparent.png" alt="" className="h-8 w-auto" />
+            <img src="/CleanDock.png" alt="" className="h-8 w-auto" />
           </span>
-          <span className="mt-4 text-2xl font-bold tracking-tight text-ink">JobDock</span>
+          <span className="mt-4 text-2xl font-bold tracking-tight text-ink">CleanDock</span>
           <span className="mt-1 text-sm text-ink-muted">{tagline}</span>
         </Link>
         {children}

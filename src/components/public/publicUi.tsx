@@ -3,7 +3,7 @@
  * quote approval, invoice view, reschedule, short links). Token-based (teal
  * light-default design system) — the counterpart of the per-feature *Ui.tsx
  * kits used inside the authed app. The tenant's own branding (logo / company
- * name) leads every page; JobDock stays in the footer.
+ * name) leads every page; CleanDock stays in the footer.
  */
 import { forwardRef, type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes, type SelectHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
@@ -16,7 +16,7 @@ export interface PublicBranding {
   name?: string | null
 }
 
-/** Tenant logo and/or company name; falls back to a plain JobDock wordmark. */
+/** Tenant logo and/or company name; falls back to a plain CleanDock wordmark. */
 export function BrandingMark({ branding, size = 'md', className }: { branding?: PublicBranding | null; size?: 'md' | 'lg'; className?: string }) {
   const logo = branding?.logoSignedUrl
   const name = branding?.name
@@ -30,7 +30,7 @@ export function BrandingMark({ branding, size = 'md', className }: { branding?: 
       {name ? (
         <span className={cn('truncate font-semibold tracking-tight text-ink', nameCls)}>{name}</span>
       ) : (
-        !logo && <span className={cn('font-semibold tracking-tight text-ink', nameCls)}>JobDock</span>
+        !logo && <span className={cn('font-semibold tracking-tight text-ink', nameCls)}>CleanDock</span>
       )}
     </div>
   )
@@ -38,7 +38,7 @@ export function BrandingMark({ branding, size = 'md', className }: { branding?: 
 
 /* ── Page shells ──────────────────────────────────────────────────────── */
 
-/** Full-page shell: branded header bar, canvas body, quiet JobDock footer. */
+/** Full-page shell: branded header bar, canvas body, quiet CleanDock footer. */
 export function PublicShell({ branding, title, subtitle, children, width = 'max-w-6xl' }: {
   branding?: PublicBranding | null
   title: string
@@ -86,12 +86,12 @@ function PublicFooter() {
   return (
     <footer className="shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 text-center">
       <a
-        href="https://thejobdock.com"
+        href="https://thecleandock.com"
         target="_blank"
         rel="noopener noreferrer"
         className="text-xs text-ink-subtle transition-colors hover:text-ink-muted"
       >
-        Powered by JobDock
+        Powered by CleanDock
       </a>
     </footer>
   )

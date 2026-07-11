@@ -5,12 +5,12 @@
 
 export const publicSiteConfig = {
   // Company information
-  companyName: 'JobDock',
-  companyLegalName: 'JobDock LLC',
+  companyName: 'CleanDock',
+  companyLegalName: 'CleanDock LLC',
   
   // Contact information - UPDATE THESE WITH YOUR EXACT DETAILS
   supportEmail: 'jordan@westwavecreative.com',
-  fromEmail: 'noreply@thejobdock.com',
+  fromEmail: 'noreply@thecleandock.com',
   
   // Physical mailing address - REQUIRED FOR CAN-SPAM COMPLIANCE
   mailingAddress: {
@@ -22,15 +22,15 @@ export const publicSiteConfig = {
   },
   
   // Website URLs
-  websiteUrl: 'https://www.thejobdock.com',
-  appUrl: 'https://www.thejobdock.com/app',
+  websiteUrl: 'https://www.thecleandock.com',
+  appUrl: 'https://www.thecleandock.com/app',
   
   // Phone number
   phoneNumber: '530-338-7829',
   
   // Copyright
   copyrightYear: new Date().getFullYear(),
-  copyrightHolder: 'JobDock LLC',
+  copyrightHolder: 'CleanDock LLC',
   
   // Social media (optional)
   social: {

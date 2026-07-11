@@ -1,6 +1,6 @@
 import ScreenShell from './ScreenShell'
 
-/** Mock JobDock invoice screen showing a paid invoice — reinforces "get paid fast". */
+/** Mock CleanDock invoice screen showing a paid invoice — reinforces "get paid fast". */
 const InvoicePaidScreen = () => {
   return (
     <ScreenShell>

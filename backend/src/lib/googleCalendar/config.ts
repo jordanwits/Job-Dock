@@ -22,10 +22,10 @@ export const GOOGLE_SCOPE_CALENDAR = 'https://www.googleapis.com/auth/calendar'
 export const GOOGLE_SCOPE_OPENID = 'openid'
 export const GOOGLE_SCOPE_EMAIL = 'email'
 
-// The dedicated calendar JobDock creates in each connected Google account. Defined once here and
+// The dedicated calendar CleanDock creates in each connected Google account. Defined once here and
 // imported by both service.ts (create/recreate on connect) and sync.ts (recreate on 404).
-export const CALENDAR_SUMMARY = 'JobDock'
-export const CALENDAR_DESCRIPTION = 'Appointments synced from JobDock'
+export const CALENDAR_SUMMARY = 'CleanDock'
+export const CALENDAR_DESCRIPTION = 'Appointments synced from CleanDock'
 
 export function loadGoogleCalendarConfig(): GoogleCalendarConfig {
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')

@@ -102,8 +102,8 @@ export const HelpSection = () => {
               <SubHeading className="mb-2">Install app</SubHeading>
               <p className="text-sm leading-relaxed text-ink-muted">
                 {isIOS
-                  ? 'Add JobDock to your home screen for quick access and a better mobile experience.'
-                  : 'Install JobDock on your device for quick access and offline capabilities.'}
+                  ? 'Add CleanDock to your home screen for quick access and a better mobile experience.'
+                  : 'Install CleanDock on your device for quick access and offline capabilities.'}
               </p>
             </div>
             <AppButton variant="subtle" onClick={handleInstallClick}>
@@ -117,7 +117,7 @@ export const HelpSection = () => {
           <div>
             <SubHeading className="mb-2">Tutorial videos</SubHeading>
             <p className="text-sm leading-relaxed text-ink-muted">
-              Watch video tutorials to learn how to use JobDock effectively.
+              Watch video tutorials to learn how to use CleanDock effectively.
             </p>
           </div>
           <p className="text-sm italic text-ink-subtle">Tutorial videos will be added here soon.</p>
@@ -128,10 +128,10 @@ export const HelpSection = () => {
       <Modal
         isOpen={showIOSInstructions}
         onClose={() => setShowIOSInstructions(false)}
-        title="Install JobDock on iOS"
+        title="Install CleanDock on iOS"
       >
         <div className="space-y-4">
-          <p className="text-sm text-ink-muted">To add JobDock to your home screen:</p>
+          <p className="text-sm text-ink-muted">To add CleanDock to your home screen:</p>
           <ol className="list-inside list-decimal space-y-3 text-sm text-ink-muted">
             <li>
               Tap the <strong className="text-ink">Share</strong> button{' '}

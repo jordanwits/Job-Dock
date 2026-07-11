@@ -39,7 +39,7 @@ export const QuickBooksSection = () => {
   return (
     <SettingsSection
       title="QuickBooks"
-      description="Link your QuickBooks Online company to send payable invoices and accept payments through QuickBooks Payments. Payment status flows back into JobDock automatically."
+      description="Link your QuickBooks Online company to send payable invoices and accept payments through QuickBooks Payments. Payment status flows back into CleanDock automatically."
     >
       {error && (
         <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>

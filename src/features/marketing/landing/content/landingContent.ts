@@ -1,5 +1,5 @@
 /**
- * Landing page copy: JobDock for cleaning businesses.
+ * Landing page copy: CleanDock for cleaning businesses.
  * The page is built around a single 3D phone that travels through the hero + feature stages,
  * swapping its screen per stage. All feature claims map to real product capabilities.
  * Testimonials are illustrative and labelled as such in the UI.

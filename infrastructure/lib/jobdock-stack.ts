@@ -466,7 +466,7 @@ export class JobDockStack extends cdk.Stack {
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // Email configuration (Resend)
         EMAIL_PROVIDER: 'resend',
-        EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thejobdock.com',
+        EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thecleandock.com',
         RESEND_API_KEY: process.env.RESEND_API_KEY || '',
         // Twilio SMS configuration
         TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || '',
@@ -548,7 +548,7 @@ export class JobDockStack extends cdk.Stack {
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // Email configuration (Resend)
         EMAIL_PROVIDER: 'resend',
-        EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thejobdock.com',
+        EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thecleandock.com',
         RESEND_API_KEY: process.env.RESEND_API_KEY || '',
         // Twilio SMS configuration
         TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || '',

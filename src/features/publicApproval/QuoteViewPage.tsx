@@ -185,7 +185,7 @@ const QuoteViewPage = () => {
               value={declineReason}
               onChange={e => setDeclineReason(e.target.value.slice(0, DECLINE_REASON_MAX_LEN))}
               rows={3}
-              placeholder="The contractor will see this in JobDock."
+              placeholder="The contractor will see this in CleanDock."
             />
             <p className="mt-1 text-right font-mono text-xs tabular-nums text-ink-subtle">
               {declineReason.length}/{DECLINE_REASON_MAX_LEN}

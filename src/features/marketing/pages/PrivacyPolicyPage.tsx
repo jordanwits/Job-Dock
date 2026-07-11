@@ -6,9 +6,9 @@ import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConf
 
 const PrivacyPolicyPage = () => {
   useEffect(() => {
-    document.title = 'Privacy Policy | JobDock'
+    document.title = 'Privacy Policy | CleanDock'
     return () => {
-      document.title = 'The Job Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
+      document.title = 'The Clean Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
     }
   }, [])
 
@@ -37,7 +37,7 @@ const PrivacyPolicyPage = () => {
                     Who We Are
                   </h2>
                   <p className="text-base md:text-lg leading-relaxed">
-                    JobDock is operated by West Wave Creative, a DBA of Amicus Group, Inc., a California S-Corporation.
+                    CleanDock is operated by West Wave Creative, a DBA of Amicus Group, Inc., a California S-Corporation.
                   </p>
                 </section>
 
@@ -46,7 +46,7 @@ const PrivacyPolicyPage = () => {
                     1. Information We Collect
                   </h2>
                   <p className="mb-4 text-base md:text-lg leading-relaxed">
-                    When you use JobDock, we collect information that you provide directly to us:
+                    When you use CleanDock, we collect information that you provide directly to us:
                   </p>
                   <ul className="list-disc list-inside space-y-3 ml-4 text-base md:text-lg">
                     <li>
@@ -104,10 +104,10 @@ const PrivacyPolicyPage = () => {
                     number with third parties for marketing. To opt out of SMS at any time, reply STOP to any
                     message. For help, reply HELP or contact us at{' '}
                     <a
-                      href="mailto:noreply@thejobdock.com"
+                      href="mailto:noreply@thecleandock.com"
                       className="text-primary-gold hover:text-primary-gold/80 transition-colors font-semibold"
                     >
-                      noreply@thejobdock.com
+                      noreply@thecleandock.com
                     </a>
                     . For full program details, see our{' '}
                     <Link to="/sms-consent" className="text-primary-gold hover:text-primary-gold/80 underline font-semibold">
@@ -146,20 +146,20 @@ const PrivacyPolicyPage = () => {
                     3a. Google Calendar Integration
                   </h2>
                   <p className="mb-4 text-base md:text-lg leading-relaxed">
-                    If you choose to connect your Google account, JobDock requests permission to
-                    manage a dedicated JobDock calendar in your Google Calendar. We use this access
+                    If you choose to connect your Google account, CleanDock requests permission to
+                    manage a dedicated CleanDock calendar in your Google Calendar. We use this access
                     solely to keep your appointments in sync:
                   </p>
                   <ul className="list-disc list-inside space-y-3 ml-4 text-base md:text-lg">
                     <li>
                       <strong className="text-primary-dark">What we access:</strong> Permission to
-                      create and manage a separate JobDock calendar, and the events on it, within
+                      create and manage a separate CleanDock calendar, and the events on it, within
                       your Google Calendar.
                     </li>
                     <li>
                       <strong className="text-primary-dark">How we use it:</strong> Sync is one-way.
-                      JobDock adds, updates, and removes events on the dedicated JobDock calendar to
-                      match the appointments you schedule in JobDock. We do not read, import, or
+                      CleanDock adds, updates, and removes events on the dedicated CleanDock calendar to
+                      match the appointments you schedule in CleanDock. We do not read, import, or
                       store events from your other Google calendars.
                     </li>
                     <li>
@@ -169,12 +169,12 @@ const PrivacyPolicyPage = () => {
                     </li>
                     <li>
                       <strong className="text-primary-dark">Disconnecting:</strong> You can
-                      disconnect Google Calendar at any time from your JobDock settings, which stops
-                      syncing and can remove the JobDock calendar from your Google account.
+                      disconnect Google Calendar at any time from your CleanDock settings, which stops
+                      syncing and can remove the CleanDock calendar from your Google account.
                     </li>
                   </ul>
                   <p className="mt-4 text-base md:text-lg leading-relaxed">
-                    JobDock&apos;s use and transfer of information received from Google APIs adheres
+                    CleanDock&apos;s use and transfer of information received from Google APIs adheres
                     to the{' '}
                     <a
                       href="https://developers.google.com/terms/api-services-user-data-policy"
@@ -258,10 +258,10 @@ const PrivacyPolicyPage = () => {
                     <p className="mb-3 text-base md:text-lg">
                       <strong className="text-primary-dark">Email:</strong>{' '}
                       <a
-                        href="mailto:noreply@thejobdock.com"
+                        href="mailto:noreply@thecleandock.com"
                         className="text-primary-gold hover:text-primary-gold/80 transition-colors font-semibold"
                       >
-                        noreply@thejobdock.com
+                        noreply@thecleandock.com
                       </a>
                     </p>
                     <p className="text-base md:text-lg">

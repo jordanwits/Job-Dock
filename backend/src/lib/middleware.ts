@@ -18,6 +18,10 @@ export interface LambdaContext {
 // Origin against an allowlist per-invocation instead of returning a blanket '*'. Add extra
 // origins via the CORS_ALLOWED_ORIGINS env var (comma-separated).
 const DEFAULT_ALLOWED_ORIGINS = [
+  'https://thecleandock.com',
+  'https://www.thecleandock.com',
+  'https://app.thecleandock.com',
+  // Legacy JobDock origins — kept during the domain transition. Remove once thejobdock.com is fully retired.
   'https://thejobdock.com',
   'https://www.thejobdock.com',
   'https://app.thejobdock.com',

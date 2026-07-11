@@ -156,7 +156,7 @@ const QuoteApprovalPage = () => {
             Decline this quote?
           </h2>
           <p className="text-center text-sm text-ink-muted">
-            Optionally let the contractor know why (they will see this in JobDock).
+            Optionally let the contractor know why (they will see this in CleanDock).
           </p>
           <PublicTextArea
             id="decline-reason"

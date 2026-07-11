@@ -34,7 +34,7 @@ export const FeedbackSection = () => {
   return (
     <SettingsSection
       title="Feedback"
-      description="Found a bug or have an idea? Your feedback helps us improve JobDock. Submissions are sent directly to the development team."
+      description="Found a bug or have an idea? Your feedback helps us improve CleanDock. Submissions are sent directly to the development team."
     >
       <Panel className="p-5 sm:p-6">
         {submitted ? (

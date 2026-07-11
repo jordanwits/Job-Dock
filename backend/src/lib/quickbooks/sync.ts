@@ -1,5 +1,5 @@
-// One-way push of JobDock data into QuickBooks Online: Contact -> Customer, Invoice -> Invoice,
-// plus reading back payment status for reconciliation. JobDock remains the source of truth.
+// One-way push of CleanDock data into QuickBooks Online: Contact -> Customer, Invoice -> Invoice,
+// plus reading back payment status for reconciliation. CleanDock remains the source of truth.
 
 import { qboRequest } from './client'
 import type { SyncInvoiceResult } from './types'
@@ -66,7 +66,7 @@ async function findOrCreateServicesItem(tenantId: string): Promise<string> {
 
 // ─── Exported sync functions ───────────────────────────────────────────────────
 
-// Ensure the JobDock contact exists as a QuickBooks Customer; returns the QB Customer Id and
+// Ensure the CleanDock contact exists as a QuickBooks Customer; returns the QB Customer Id and
 // caches it on the contact for future pushes.
 export async function ensureCustomer(tenantId: string, contactId: string): Promise<string> {
   const prisma = await getPrisma()
@@ -147,7 +147,7 @@ async function clearStaleQbRefs(tenantId: string, invoiceId: string): Promise<vo
   servicesItemCache.delete(tenantId)
 }
 
-// Push a JobDock invoice to QuickBooks (create or update), enabling online card/ACH payment so
+// Push a CleanDock invoice to QuickBooks (create or update), enabling online card/ACH payment so
 // the client receives a payable invoice with an Intuit "Pay now" link. Self-heals stale references
 // (ids saved against a previously-connected company) by clearing them and retrying the push once.
 export async function pushInvoice(
@@ -179,7 +179,7 @@ async function pushInvoiceInternal(
   const customerId = await ensureCustomer(tenantId, invoice.contactId)
   const servicesItemId = await findOrCreateServicesItem(tenantId)
 
-  // Map JobDock line items; every line needs an ItemRef (QBO rejects lines without one).
+  // Map CleanDock line items; every line needs an ItemRef (QBO rejects lines without one).
   const lines: any[] = (invoice.lineItems ?? []).map((li: any) => ({
     DetailType: 'SalesItemLineDetail',
     Amount: Number(li.total),
@@ -294,7 +294,7 @@ async function pushInvoiceInternal(
   return { quickbooksInvoiceId, quickbooksInvoiceUrl }
 }
 
-// ─── Reconciliation (QuickBooks payment state -> JobDock) ────────────────────────
+// ─── Reconciliation (QuickBooks payment state -> CleanDock) ────────────────────────
 
 // Sum the portion of a QB Payment that is applied to a specific QB invoice. A single QB
 // payment can be split across multiple invoices, each as its own Payment.Line with a LinkedTxn.
@@ -310,7 +310,7 @@ function appliedAmountForInvoice(qbPayment: any, quickbooksInvoiceId: string): n
   return amount
 }
 
-// Insert (or keep in sync) a JobDock Payment row mirroring a QB payment applied to an invoice.
+// Insert (or keep in sync) a CleanDock Payment row mirroring a QB payment applied to an invoice.
 // Deduped by (invoiceId, quickbooksPaymentId): a QB payment split across invoices yields one
 // row per invoice. Returns true when a new row was created.
 async function upsertPaymentRow(
@@ -349,8 +349,8 @@ async function upsertPaymentRow(
   return true
 }
 
-// Reconcile a QuickBooks invoice's payment state back into JobDock (called from webhook/poll):
-// refresh paymentStatus/paidAmount and mirror its linked QB payments into JobDock Payment rows.
+// Reconcile a QuickBooks invoice's payment state back into CleanDock (called from webhook/poll):
+// refresh paymentStatus/paidAmount and mirror its linked QB payments into CleanDock Payment rows.
 export async function reconcileInvoice(tenantId: string, quickbooksInvoiceId: string): Promise<void> {
   const prisma = await getPrisma()
   const invoice = await prisma.invoice.findFirst({ where: { tenantId, quickbooksInvoiceId } })
@@ -368,7 +368,7 @@ export async function reconcileInvoice(tenantId: string, quickbooksInvoiceId: st
     data: { paymentStatus, paidAmount },
   })
 
-  // Mirror linked QB payments into JobDock Payment rows so the invoice's payment history matches.
+  // Mirror linked QB payments into CleanDock Payment rows so the invoice's payment history matches.
   const paymentTxns = (inv?.LinkedTxn ?? []).filter((t: any) => t?.TxnType === 'Payment')
   for (const t of paymentTxns) {
     try {
@@ -391,7 +391,7 @@ export async function reconcileInvoice(tenantId: string, quickbooksInvoiceId: st
   }
 }
 
-// Reconcile a QuickBooks Payment back into JobDock (called from the Payment webhook). Finds the
+// Reconcile a QuickBooks Payment back into CleanDock (called from the Payment webhook). Finds the
 // invoice(s) the payment is applied to and reconciles each; reconcileInvoice both refreshes the
 // invoice status and upserts the Payment row, so this stays DRY.
 export async function reconcilePayment(tenantId: string, quickbooksPaymentId: string): Promise<void> {

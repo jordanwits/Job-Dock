@@ -227,7 +227,7 @@ type AppUserRow = {
 }
 
 /**
- * Look up JobDock user by Cognito sub, or create tenant + owner (Cognito-only users).
+ * Look up CleanDock user by Cognito sub, or create tenant + owner (Cognito-only users).
  * Used after normal login and after NEW_PASSWORD_REQUIRED challenge.
  */
 async function findOrProvisionUserFromCognito(cognitoUser: CognitoUser): Promise<AppUserRow | null> {
@@ -455,7 +455,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     const cognitoUser = await verifyToken(tokens.IdToken!)
     console.log(`[Login] Step 2 complete: Token verification took ${Date.now() - verifyStart}ms`)
 
-    // 3. Look up or auto-provision JobDock user (same as after NEW_PASSWORD_REQUIRED)
+    // 3. Look up or auto-provision CleanDock user (same as after NEW_PASSWORD_REQUIRED)
     const dbStart = Date.now()
     console.log(`[Login] Step 3: Looking up / provisioning user...`)
     const user = await findOrProvisionUserFromCognito(cognitoUser)
@@ -463,7 +463,7 @@ async function handleLogin(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
 
     if (!user) {
       return errorResponse(
-        'User is not provisioned in JobDock. Please contact support or try registering again.',
+        'User is not provisioned in CleanDock. Please contact support or try registering again.',
         404
       )
     }
@@ -542,7 +542,7 @@ async function handleRespondToChallenge(event: APIGatewayProxyEvent): Promise<AP
     const user = await findOrProvisionUserFromCognito(cognitoUser)
     if (!user) {
       return errorResponse(
-        'User is not provisioned in JobDock. Please contact support or try registering again.',
+        'User is not provisioned in CleanDock. Please contact support or try registering again.',
         404
       )
     }
@@ -613,7 +613,7 @@ async function handleRefresh(event: APIGatewayProxyEvent): Promise<APIGatewayPro
     })
 
     if (!user) {
-      return errorResponse('User not found in JobDock database', 404)
+      return errorResponse('User not found in CleanDock database', 404)
     }
 
     // 4. Return new tokens and user info

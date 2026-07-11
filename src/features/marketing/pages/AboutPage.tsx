@@ -4,9 +4,9 @@ import MarketingSection from '../components/MarketingSection'
 
 const AboutPage = () => {
   useEffect(() => {
-    document.title = 'About | JobDock'
+    document.title = 'About | CleanDock'
     return () => {
-      document.title = 'The Job Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
+      document.title = 'The Clean Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
     }
   }, [])
 
@@ -16,7 +16,7 @@ const AboutPage = () => {
       <MarketingSection variant="gradient-dark" className="pt-32 pb-16 md:pt-40 md:pb-20">
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">About JobDock</h1>
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">About CleanDock</h1>
             <p className="text-lg text-white/70">
               Contractor management software built for service businesses
             </p>
@@ -35,7 +35,7 @@ const AboutPage = () => {
                     Company
                   </h2>
                   <p className="text-base md:text-lg leading-relaxed">
-                    JobDock is operated by West Wave Creative (DBA of Amicus Group, Inc.).
+                    CleanDock is operated by West Wave Creative (DBA of Amicus Group, Inc.).
                   </p>
                 </section>
 
@@ -53,7 +53,7 @@ const AboutPage = () => {
                     Our Product
                   </h2>
                   <p className="text-base md:text-lg leading-relaxed">
-                    JobDock helps service businesses manage quotes, invoices, scheduling, and client information in one simple system. We built it for contractors who want to stop juggling tools and run their jobs in one place.
+                    CleanDock helps service businesses manage quotes, invoices, scheduling, and client information in one simple system. We built it for contractors who want to stop juggling tools and run their jobs in one place.
                   </p>
                 </section>
               </div>

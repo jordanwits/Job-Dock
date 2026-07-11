@@ -33,12 +33,12 @@ const Sidebar = ({ items, isOpen = true, onClose }: SidebarProps) => {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-16 items-center gap-2.5 border-b border-line px-6">
-            <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg bg-accent text-accent-contrast">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </span>
-            <span className="text-lg font-bold tracking-tight text-ink">JobDock</span>
+            <img
+              src="/CleanDock.png"
+              alt="CleanDock"
+              className="h-7 w-7 flex-shrink-0 object-contain"
+            />
+            <span className="text-lg font-bold tracking-tight text-ink">CleanDock</span>
           </div>
 
           {/* Navigation */}

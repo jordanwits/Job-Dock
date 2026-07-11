@@ -15,7 +15,7 @@ export function BillingSuccessPage() {
       <Card className="max-w-md p-8 text-center shadow-lg">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Checkout complete</h1>
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-          Your subscription is being activated. You can close this tab and return to JobDock.
+          Your subscription is being activated. You can close this tab and return to CleanDock.
         </p>
         {sessionId ? (
           <p className="mt-2 font-mono text-xs text-slate-500">Session: {sessionId.slice(0, 20)}…</p>

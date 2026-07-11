@@ -6,9 +6,9 @@ import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConf
 
 const TermsOfServicePage = () => {
   useEffect(() => {
-    document.title = 'Terms of Service | JobDock'
+    document.title = 'Terms of Service | CleanDock'
     return () => {
-      document.title = 'The Job Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
+      document.title = 'The Clean Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
     }
   }, [])
 
@@ -37,7 +37,7 @@ const TermsOfServicePage = () => {
                     Company
                   </h2>
                   <p className="text-base md:text-lg leading-relaxed">
-                    JobDock is operated by West Wave Creative, a DBA of Amicus Group, Inc.
+                    CleanDock is operated by West Wave Creative, a DBA of Amicus Group, Inc.
                   </p>
                 </section>
 
@@ -46,7 +46,7 @@ const TermsOfServicePage = () => {
                     1. Acceptance of Terms
                   </h2>
                   <p className="text-base md:text-lg leading-relaxed">
-                    By accessing and using JobDock ("the Service"), you accept and agree to be bound by
+                    By accessing and using CleanDock ("the Service"), you accept and agree to be bound by
                     these Terms of Service. If you do not agree to these terms, please do not use the
                     Service.
                   </p>
@@ -57,7 +57,7 @@ const TermsOfServicePage = () => {
                     2. Description of Service
                   </h2>
                   <p className="text-base md:text-lg leading-relaxed">
-                    JobDock provides a contractor management platform that enables service providers to
+                    CleanDock provides a contractor management platform that enables service providers to
                     manage customer relationships, create quotes and invoices, schedule bookings, and send
                     automated transactional email notifications.
                   </p>
@@ -107,7 +107,7 @@ const TermsOfServicePage = () => {
                     5. Email Sending Policy
                   </h2>
                   <p className="mb-4 text-base md:text-lg leading-relaxed">
-                    JobDock is designed for transactional email communications only. You agree to:
+                    CleanDock is designed for transactional email communications only. You agree to:
                   </p>
                   <ul className="list-disc list-inside space-y-3 ml-4 text-base md:text-lg">
                     <li>
@@ -222,10 +222,10 @@ const TermsOfServicePage = () => {
                     <p className="mb-3 text-base md:text-lg">
                       <strong className="text-primary-dark">Email:</strong>{' '}
                       <a
-                        href="mailto:noreply@thejobdock.com"
+                        href="mailto:noreply@thecleandock.com"
                         className="text-primary-gold hover:text-primary-gold/80 transition-colors font-semibold"
                       >
-                        noreply@thejobdock.com
+                        noreply@thecleandock.com
                       </a>
                     </p>
                     <p className="text-base md:text-lg">

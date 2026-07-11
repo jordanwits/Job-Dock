@@ -345,7 +345,7 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
             <p className="text-sm font-semibold leading-tight text-ink">Assistant</p>
             <p className="flex items-center gap-1.5 text-[12px] leading-tight text-ink-subtle">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
-              JobDock AI · online
+              CleanDock AI · online
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -398,7 +398,7 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
               <AssistantMark size="lg" className="mb-3" />
               <p className="text-[15px] font-semibold text-ink">How can I help?</p>
               <p className="mx-auto mt-1.5 max-w-[34ch] text-[13px] leading-relaxed text-ink-muted">
-                Ask how something works, or tell me what to do — I can answer JobDock questions and
+                Ask how something works, or tell me what to do — I can answer CleanDock questions and
                 take actions for you. I’ll always confirm before changing anything.
               </p>
               <div className="mt-5 flex w-full flex-col gap-2">

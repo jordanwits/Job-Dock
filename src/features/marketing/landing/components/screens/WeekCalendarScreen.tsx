@@ -15,7 +15,7 @@ const jobs = [
   { time: '1:00', title: 'Office turnover · Lumen Co', tag: 'Crew', accent: 'bg-indigo-500', soft: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
 ]
 
-/** Mock JobDock week calendar — reinforces scheduling + recurring cleans. */
+/** Mock CleanDock week calendar — reinforces scheduling + recurring cleans. */
 const WeekCalendarScreen = () => {
   return (
     <ScreenShell>

@@ -14,7 +14,7 @@ import { scrollToId } from '../landing/utils'
 const PhoneScene = lazy(() => import('../landing/phone3d/PhoneScene'))
 
 /**
- * Customer-facing sales landing page for JobDock (cleaning businesses).
+ * Customer-facing sales landing page for CleanDock (cleaning businesses).
  * A single 3D phone travels down the page, spinning a full turn between feature stages and
  * swapping its screen to match each one. On mobile / reduced-motion, each stage shows a static
  * phone instead and the WebGL layer is never loaded.

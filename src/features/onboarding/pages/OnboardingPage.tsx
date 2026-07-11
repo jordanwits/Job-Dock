@@ -174,12 +174,12 @@ export const OnboardingPage = () => {
         {step === 'welcome' && (
           <Card className="p-8 space-y-6">
             <div className="text-center space-y-4">
-              <h1 className="text-4xl font-bold text-primary-gold">Welcome to JobDock!</h1>
+              <h1 className="text-4xl font-bold text-primary-gold">Welcome to CleanDock!</h1>
               <p className={cn(
                 "text-lg",
                 theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
               )}>
-                Let's get you started with a quick tour and setup to make JobDock your own.
+                Let's get you started with a quick tour and setup to make CleanDock your own.
               </p>
             </div>
 

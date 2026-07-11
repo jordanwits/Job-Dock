@@ -29,7 +29,7 @@ const EmailPolicyPage = () => {
                     Overview
                   </h2>
                   <p className="text-base md:text-lg leading-relaxed">
-                    JobDock is committed to responsible email communication. This policy explains what emails we send, who receives them, and how we maintain compliance with email regulations.
+                    CleanDock is committed to responsible email communication. This policy explains what emails we send, who receives them, and how we maintain compliance with email regulations.
                   </p>
                 </section>
 
@@ -38,7 +38,7 @@ const EmailPolicyPage = () => {
                     1. Types of Emails We Send
                   </h2>
                   <p className="mb-6 text-base md:text-lg leading-relaxed">
-                    JobDock sends only transactional emails related to business operations. We do not send marketing emails, newsletters, or promotional content.
+                    CleanDock sends only transactional emails related to business operations. We do not send marketing emails, newsletters, or promotional content.
                   </p>
 
                   <div className="grid md:grid-cols-2 gap-4">
@@ -87,10 +87,10 @@ const EmailPolicyPage = () => {
                   <p className="mb-4 text-base md:text-lg leading-relaxed">Emails are sent only to:</p>
                   <ul className="list-disc list-inside space-y-3 ml-4 text-base md:text-lg mb-4">
                     <li>
-                      <strong className="text-primary-dark">Business Users:</strong> Contractors who create JobDock accounts to manage their business
+                      <strong className="text-primary-dark">Business Users:</strong> Contractors who create CleanDock accounts to manage their business
                     </li>
                     <li>
-                      <strong className="text-primary-dark">Their Clients:</strong> Customers who book services, request quotes, or receive invoices from JobDock users
+                      <strong className="text-primary-dark">Their Clients:</strong> Customers who book services, request quotes, or receive invoices from CleanDock users
                     </li>
                   </ul>
                   <p className="mt-6 mb-3 text-lg font-bold text-primary-dark">
@@ -109,7 +109,7 @@ const EmailPolicyPage = () => {
                   </h2>
                   <p className="mb-4 text-base md:text-lg leading-relaxed">All emails comply with the CAN-SPAM Act and include:</p>
                   <ul className="list-disc list-inside space-y-3 ml-4 text-base md:text-lg">
-                    <li>Clear identification of the sender (the contractor or JobDock)</li>
+                    <li>Clear identification of the sender (the contractor or CleanDock)</li>
                     <li>Accurate subject lines that reflect the email content</li>
                     <li>Physical business address in the email footer</li>
                     <li>Clear indication of the business nature of the communication</li>
@@ -129,7 +129,7 @@ const EmailPolicyPage = () => {
                   <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
                     5. Your Responsibilities as a User
                   </h2>
-                  <p className="mb-4 text-base md:text-lg leading-relaxed">When using JobDock, you agree to:</p>
+                  <p className="mb-4 text-base md:text-lg leading-relaxed">When using CleanDock, you agree to:</p>
                   <ul className="list-disc list-inside space-y-3 ml-4 text-base md:text-lg">
                     <li>Only send emails to clients with whom you have a legitimate business relationship</li>
                     <li>Never use purchased or third-party email lists</li>
@@ -151,7 +151,7 @@ const EmailPolicyPage = () => {
                     6. Reporting Issues
                   </h2>
                   <p className="mb-4 text-base md:text-lg leading-relaxed">
-                    If you receive an email from JobDock that you believe is inappropriate or violates our policies, please contact us immediately. We take all reports seriously and investigate promptly.
+                    If you receive an email from CleanDock that you believe is inappropriate or violates our policies, please contact us immediately. We take all reports seriously and investigate promptly.
                   </p>
                   <div className="bg-primary-light border-2 border-primary-gold/20 rounded-xl p-6">
                     <p className="mb-3 text-base md:text-lg">

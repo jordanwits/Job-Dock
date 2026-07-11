@@ -6,7 +6,7 @@ import { getFileUrl } from './fileUpload'
 // Email configuration from environment variables
 const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'console'
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
-const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'noreply@thejobdock.com'
+const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'noreply@thecleandock.com'
 const ENVIRONMENT = process.env.ENVIRONMENT || process.env.NODE_ENV || 'dev'
 
 // Initialize Resend client if enabled
@@ -272,7 +272,7 @@ export async function sendPasswordResetEmail(args: {
   const safeUrl = escapeHtmlForEmail(resetUrl)
   const htmlBody = `
     <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
-      <h1 style="font-size:20px;margin:0 0 16px">Reset your JobDock password</h1>
+      <h1 style="font-size:20px;margin:0 0 16px">Reset your CleanDock password</h1>
       <p style="margin:0 0 16px;line-height:1.5">
         We received a request to reset your password. Click the button below to choose a new one.
         This link expires in ${expiresInMinutes} minutes.
@@ -293,17 +293,17 @@ export async function sendPasswordResetEmail(args: {
     </div>
   `
   const textBody =
-    `Reset your JobDock password\n\n` +
+    `Reset your CleanDock password\n\n` +
     `We received a request to reset your password. Use this link to choose a new one ` +
     `(expires in ${expiresInMinutes} minutes):\n\n${resetUrl}\n\n` +
     `If you didn't request this, you can safely ignore this email.`
 
   await sendEmail({
     to,
-    subject: 'Reset your JobDock password',
+    subject: 'Reset your CleanDock password',
     htmlBody,
     textBody,
-    fromName: 'JobDock',
+    fromName: 'CleanDock',
   })
 }
 
@@ -411,7 +411,7 @@ function buildModernEmailTemplate(data: {
     companyPhone?: string | null
   }
 }): string {
-  const { title, content, companyName = 'JobDock', logoUrl, footerContent, settings } = data
+  const { title, content, companyName = 'CleanDock', logoUrl, footerContent, settings } = data
 
   return `
 <!DOCTYPE html>
@@ -569,7 +569,7 @@ export function buildClientConfirmationEmail(data: {
     `
   }
 
-  const displayCompanyName = companyName || tenantName || 'JobDock'
+  const displayCompanyName = companyName || tenantName || 'CleanDock'
   
   // Build booking details card
   const bookingDetailsCard = `
@@ -772,7 +772,7 @@ export function buildClientRescheduleEmail(data: {
     `
   }
 
-  const displayCompanyName = companyName || tenantName || 'JobDock'
+  const displayCompanyName = companyName || tenantName || 'CleanDock'
 
   const bookingDetailsCard = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
@@ -925,7 +925,7 @@ export function buildClientPendingEmail(data: {
   const bookingId = `#${Date.now().toString().slice(-6)}`
   const subject = `Booking request received ${bookingId} - ${rawServiceName}`
 
-  const displayCompanyName = companyName || 'JobDock'
+  const displayCompanyName = companyName || 'CleanDock'
   
   const bookingDetailsCard = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
@@ -1066,7 +1066,7 @@ export function buildContractorNotificationEmail(data: {
     ? `New booking request for ${rawServiceName}`
     : `New booking for ${rawServiceName}`
 
-  const displayCompanyName = companyName || 'JobDock'
+  const displayCompanyName = companyName || 'CleanDock'
   const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
   
   const bookingDetailsCard = `
@@ -1238,8 +1238,8 @@ export function buildJobAssignmentNotificationEmail(data: {
 
   const subject = `You've been assigned: ${rawJobTitle}`
 
-  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
-  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   
   const jobDetailsCard = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
@@ -1330,7 +1330,7 @@ Job: ${jobTitle}
 ${contactName ? `Contact: ${contactName}\n` : ''}Date: ${dateStr}
 ${timeStr ? `Time: ${timeStr}\n` : ''}${location ? `Location: ${location}\n` : ''}
 
-View in Dashboard: ${(process.env.PUBLIC_APP_URL || 'https://app.thejobdock.com').replace(/\/$/, '')}${viewPath}
+View in Dashboard: ${(process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')}${viewPath}
   `.trim()
 
   return {
@@ -1417,7 +1417,7 @@ export function buildClientBookingConfirmedEmail(data: {
     `
   }
 
-  const displayCompanyName = companyName || 'JobDock'
+  const displayCompanyName = companyName || 'CleanDock'
   
   const bookingDetailsCard = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
@@ -1578,7 +1578,7 @@ export function buildClientBookingDeclinedEmail(data: {
 
   const subject = `Booking request declined - ${rawServiceName}`
 
-  const displayCompanyName = companyName || 'JobDock'
+  const displayCompanyName = companyName || 'CleanDock'
   
   const bookingDetailsCard = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
@@ -1650,7 +1650,7 @@ We apologize for any inconvenience. Please feel free to contact us if you'd like
 }
 
 /**
- * Email template: Notify JobDock user when client accepts a quote
+ * Email template: Notify CleanDock user when client accepts a quote
  */
 export function buildQuoteAcceptedNotificationEmail(data: {
   userName: string
@@ -1682,7 +1682,7 @@ export function buildQuoteAcceptedNotificationEmail(data: {
 
   const subject = `Quote ${quoteNumber} accepted by ${rawClientName}`
 
-  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/quotes`
 
@@ -1767,7 +1767,7 @@ View quotes: ${viewUrl}
 }
 
 /**
- * Email template: Notify JobDock user when client accepts an invoice
+ * Email template: Notify CleanDock user when client accepts an invoice
  */
 export function buildInvoiceAcceptedNotificationEmail(data: {
   userName: string
@@ -1799,7 +1799,7 @@ export function buildInvoiceAcceptedNotificationEmail(data: {
 
   const subject = `Invoice ${invoiceNumber} accepted by ${rawClientName}`
 
-  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/invoices`
 
@@ -1884,7 +1884,7 @@ View invoices: ${viewUrl}
 }
 
 /**
- * Email template: Notify JobDock admin/owner when client declines a quote
+ * Email template: Notify CleanDock admin/owner when client declines a quote
  */
 export function buildQuoteDeclinedNotificationEmail(data: {
   userName: string
@@ -1929,7 +1929,7 @@ export function buildQuoteDeclinedNotificationEmail(data: {
 
   const subject = `Quote ${quoteNumber} declined by ${rawClientName}`
 
-  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/quotes`
 
@@ -2024,7 +2024,7 @@ View quotes: ${viewUrl}
 }
 
 /**
- * Email template: Notify JobDock admin/owner when client declines an invoice
+ * Email template: Notify CleanDock admin/owner when client declines an invoice
  */
 export function buildInvoiceDeclinedNotificationEmail(data: {
   userName: string
@@ -2069,7 +2069,7 @@ export function buildInvoiceDeclinedNotificationEmail(data: {
 
   const subject = `Invoice ${invoiceNumber} declined by ${rawClientName}`
 
-  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'JobDock'
+  const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
   const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/invoices`
 
@@ -2188,7 +2188,7 @@ export async function sendQuoteAcceptedNotificationToUsers(data: {
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId: data.tenantId },
   })
-  const fromName = settings?.companyDisplayName || 'JobDock'
+  const fromName = settings?.companyDisplayName || 'CleanDock'
   const replyTo = settings?.companySupportEmail || undefined
 
   let logoUrl: string | null = null
@@ -2245,7 +2245,7 @@ export async function sendInvoiceAcceptedNotificationToUsers(data: {
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId: data.tenantId },
   })
-  const fromName = settings?.companyDisplayName || 'JobDock'
+  const fromName = settings?.companyDisplayName || 'CleanDock'
   const replyTo = settings?.companySupportEmail || undefined
 
   let logoUrl: string | null = null
@@ -2303,7 +2303,7 @@ export async function sendQuoteDeclinedNotificationToAdmins(data: {
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId: data.tenantId },
   })
-  const fromName = settings?.companyDisplayName || 'JobDock'
+  const fromName = settings?.companyDisplayName || 'CleanDock'
   const replyTo = settings?.companySupportEmail || undefined
 
   let logoUrl: string | null = null
@@ -2362,7 +2362,7 @@ export async function sendInvoiceDeclinedNotificationToAdmins(data: {
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId: data.tenantId },
   })
-  const fromName = settings?.companyDisplayName || 'JobDock'
+  const fromName = settings?.companyDisplayName || 'CleanDock'
   const replyTo = settings?.companySupportEmail || undefined
 
   let logoUrl: string | null = null
@@ -2427,7 +2427,7 @@ export async function sendQuoteEmail(data: {
 
   // Replace template variables. Function replacements so `$` in real names
   // ("Bob $& Sons") isn't expanded as a String.replace special pattern.
-  const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
+  const companyName = settings?.companyDisplayName || tenantName || 'CleanDock'
   subject = subject
     .replace(/\{\{company_name\}\}/g, () => companyName)
     .replace(/\{\{quote_number\}\}/g, () => quoteData.quoteNumber)
@@ -2649,7 +2649,7 @@ export function buildTeamInviteEmail(data: {
   }
 }) {
   const { inviteeEmail, inviteeName: rawInviteeName, inviterName: rawInviterName, role, tempPassword: rawTempPassword, appUrl, companyName: rawCompanyName, logoUrl, settings } = data
-  const loginUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/auth/login` : 'https://app.thejobdock.com/auth/login'
+  const loginUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/auth/login` : 'https://thecleandock.com/auth/login'
 
   // HTML-escape dynamic values before templating (names are user-typed; the
   // temp password can contain HTML-special symbols).
@@ -2658,13 +2658,13 @@ export function buildTeamInviteEmail(data: {
   const tempPassword = escapeHtmlForEmail(rawTempPassword)
   const companyName = escapeHtmlForEmail(rawCompanyName)
 
-  const subject = `You've been invited to join JobDock`
+  const subject = `You've been invited to join CleanDock`
   const roleDesc =
     role === 'admin'
       ? 'admin (full access to jobs, contacts, quotes, invoices)'
       : 'employee (track hours, add photos and notes on jobs)'
 
-  const displayCompanyName = companyName || 'JobDock'
+  const displayCompanyName = companyName || 'CleanDock'
   
   const passwordCard = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
@@ -2691,7 +2691,7 @@ export function buildTeamInviteEmail(data: {
           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td style="background-color: #D4AF37; border-radius: 6px;">
-                <a href="${loginUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Log in to JobDock</a>
+                <a href="${loginUrl}" style="display: inline-block; padding: 14px 32px; color: #0B132B; text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.5; border-radius: 6px;">Log in to CleanDock</a>
               </td>
             </tr>
           </table>
@@ -2702,7 +2702,7 @@ export function buildTeamInviteEmail(data: {
   
   const content = `
     <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Hi ${inviteeName},</p>
-    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">${inviterName} has invited you to join their team on JobDock as a <strong>${role}</strong>.</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">${inviterName} has invited you to join their team on CleanDock as a <strong>${role}</strong>.</p>
     <p style="margin: 0 0 20px 0; color: #666666; font-size: 14px; line-height: 1.6;">You'll have ${roleDesc}.</p>
     ${passwordCard}
     ${actionButton}
@@ -2710,7 +2710,7 @@ export function buildTeamInviteEmail(data: {
   `
   
   const htmlBody = buildModernEmailTemplate({
-    title: "You've been invited to JobDock",
+    title: "You've been invited to CleanDock",
     content,
     companyName: displayCompanyName,
     logoUrl,
@@ -2723,7 +2723,7 @@ export function buildTeamInviteEmail(data: {
     htmlBody,
     // Text body stays raw — an escaped temp password ("&amp;") would be typed
     // literally by the recipient and fail to log in.
-    textBody: `Hi ${rawInviteeName}, ${rawInviterName} has invited you to JobDock as ${role} (${roleDesc}). Temporary password: ${rawTempPassword}. Log in at ${loginUrl} and change your password.`,
+    textBody: `Hi ${rawInviteeName}, ${rawInviterName} has invited you to CleanDock as ${role} (${roleDesc}). Temporary password: ${rawTempPassword}. Log in at ${loginUrl} and change your password.`,
   }
 }
 
@@ -2738,7 +2738,7 @@ export function buildSignupCompleteEmail(data: {
 }) {
   const { to, signupUrl } = data
 
-  const subject = 'Complete your JobDock account setup'
+  const subject = 'Complete your CleanDock account setup'
 
   const actionButton = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
@@ -2757,14 +2757,14 @@ export function buildSignupCompleteEmail(data: {
   `
 
   const content = `
-    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Thanks for subscribing to JobDock!</p>
+    <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">Thanks for subscribing to CleanDock!</p>
     <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">You've completed payment. Click below to finish setting up your account:</p>
     ${actionButton}
     <p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">Or copy this link: <a href="${signupUrl}" style="color: #D4AF37; text-decoration: none;">${signupUrl}</a></p>
   `
 
   const htmlBody = buildModernEmailTemplate({
-    title: 'Complete your JobDock account',
+    title: 'Complete your CleanDock account',
     content,
   })
 
@@ -2772,7 +2772,7 @@ export function buildSignupCompleteEmail(data: {
     to,
     subject,
     htmlBody,
-    textBody: `Thanks for subscribing to JobDock! You've completed payment. Finish setting up your account: ${signupUrl}`,
+    textBody: `Thanks for subscribing to CleanDock! You've completed payment. Finish setting up your account: ${signupUrl}`,
   }
 }
 
@@ -2808,7 +2808,7 @@ export async function sendInvoiceEmail(data: {
 
   // Replace template variables. Function replacements so `$` in real names
   // ("Bob $& Sons") isn't expanded as a String.replace special pattern.
-  const companyName = settings?.companyDisplayName || tenantName || 'JobDock'
+  const companyName = settings?.companyDisplayName || tenantName || 'CleanDock'
   subject = subject
     .replace(/\{\{company_name\}\}/g, () => companyName)
     .replace(/\{\{invoice_number\}\}/g, () => invoiceData.invoiceNumber)

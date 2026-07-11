@@ -168,14 +168,14 @@ describe('fingerprint', () => {
   const contact = { firstName: 'Jane', lastName: 'Doe', phone: '555-1000' }
 
   test('same inputs produce an identical payload and fingerprint (deterministic)', () => {
-    const a = buildEventPayload(payloadBooking, null, contact, 'https://thejobdock.com')
-    const b = buildEventPayload(payloadBooking, null, contact, 'https://thejobdock.com')
+    const a = buildEventPayload(payloadBooking, null, contact, 'https://thecleandock.com')
+    const b = buildEventPayload(payloadBooking, null, contact, 'https://thecleandock.com')
     expect(a).toEqual(b)
     expect(fingerprintOfEvent(a)).toBe(fingerprintOfEvent(b))
   })
 
   test('a Google echo in a different UTC offset yields the SAME fingerprint (echo suppression)', () => {
-    const pushed = buildEventPayload(payloadBooking, null, contact, 'https://thejobdock.com')
+    const pushed = buildEventPayload(payloadBooking, null, contact, 'https://thecleandock.com')
     // Google echoes the same instant but rendered in a -07:00 offset.
     const echo = {
       ...pushed,
@@ -186,23 +186,23 @@ describe('fingerprint', () => {
   })
 
   test('a real content change yields a DIFFERENT fingerprint', () => {
-    const pushed = buildEventPayload(payloadBooking, null, contact, 'https://thejobdock.com')
+    const pushed = buildEventPayload(payloadBooking, null, contact, 'https://thecleandock.com')
     const changed = buildEventPayload(
       { ...payloadBooking, location: '999 Elsewhere Ave' },
       null,
       contact,
-      'https://thejobdock.com'
+      'https://thecleandock.com'
     )
     expect(fingerprintOfEvent(changed)).not.toBe(fingerprintOfEvent(pushed))
   })
 
   test('pending-confirmation maps to tentative status in the fingerprint', () => {
-    const confirmed = buildEventPayload(payloadBooking, null, contact, 'https://thejobdock.com')
+    const confirmed = buildEventPayload(payloadBooking, null, contact, 'https://thecleandock.com')
     const tentative = buildEventPayload(
       { ...payloadBooking, status: 'pending-confirmation' },
       null,
       contact,
-      'https://thejobdock.com'
+      'https://thecleandock.com'
     )
     expect(confirmed.status).toBe('confirmed')
     expect(tentative.status).toBe('tentative')
@@ -229,13 +229,13 @@ describe('fingerprint', () => {
       { ...payloadBooking, notes: 'line one\r\nline two' },
       null,
       contact,
-      'https://thejobdock.com'
+      'https://thecleandock.com'
     )
     const lf = buildEventPayload(
       { ...payloadBooking, notes: 'line one\nline two' },
       null,
       contact,
-      'https://thejobdock.com'
+      'https://thecleandock.com'
     )
     expect(fingerprintOfEvent(crlf)).toBe(fingerprintOfEvent(lf))
   })
@@ -245,7 +245,7 @@ describe('fingerprint', () => {
       { ...payloadBooking, notes: 'note body' },
       null,
       contact,
-      'https://thejobdock.com'
+      'https://thecleandock.com'
     )
     // Google echoes the same description with CR line endings + trailing spaces.
     const echo = { ...pushed, description: (pushed.description || '').replace(/\n/g, '\r') + '   ' }
@@ -300,11 +300,11 @@ describe('buildEventPayload content', () => {
       booking,
       { title: 'Weekly clean', location: 'Job site', notes: null },
       { firstName: 'Jane', lastName: 'Doe', phone: null },
-      'https://thejobdock.com'
+      'https://thecleandock.com'
     )
     expect(event.summary).toBe('Weekly clean — Jane Doe')
     expect(event.location).toBe('Job site')
-    expect(event.description).toContain('Managed by JobDock: https://thejobdock.com/app/scheduling')
+    expect(event.description).toContain('Managed by CleanDock: https://thecleandock.com/app/scheduling')
     expect(event.extendedProperties?.private?.jobdockBookingId).toBe('bk2')
     expect(event.extendedProperties?.private?.jobdockTenantId).toBe('tn1')
   })

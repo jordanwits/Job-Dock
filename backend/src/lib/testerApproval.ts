@@ -35,7 +35,7 @@ function metadataPlanLabel(plan: string): string {
 }
 
 /**
- * Resolve owner row by JobDock `users.id`, Cognito `sub` (`users.cognitoId`), or login email.
+ * Resolve owner row by CleanDock `users.id`, Cognito `sub` (`users.cognitoId`), or login email.
  * (Cognito console "User ID" / sub is not the same UUID as Postgres `users.id`.)
  */
 async function findUserForTesterApproval(raw: string) {
@@ -63,7 +63,7 @@ async function findUserForTesterApproval(raw: string) {
     })
     if (matches.length > 1) {
       throw new ApiError(
-        'Multiple users share that email. Use JobDock user id or Cognito sub from the database.',
+        'Multiple users share that email. Use CleanDock user id or Cognito sub from the database.',
         400
       )
     }
@@ -72,7 +72,7 @@ async function findUserForTesterApproval(raw: string) {
 
   if (!target) {
     throw new ApiError(
-      'User not found. Paste JobDock user id (from database), or Cognito sub (same as users.cognitoId), or their sign-in email.',
+      'User not found. Paste CleanDock user id (from database), or Cognito sub (same as users.cognitoId), or their sign-in email.',
       404
     )
   }
