@@ -32,7 +32,7 @@ const MarketingFooter = () => {
           <div>
             <div className="mb-4 flex items-center gap-2">
               <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-100">
-                <img src="/CleanDock.png" alt="CleanDock logo" className="h-6 w-auto" />
+                <img src="/icon-192.png" alt="CleanDock logo" className="h-6 w-auto" />
               </div>
               <span className="text-xl font-extrabold tracking-tight text-slate-900">
                 {publicSiteConfig.companyName}

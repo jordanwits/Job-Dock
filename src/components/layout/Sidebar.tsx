@@ -34,7 +34,7 @@ const Sidebar = ({ items, isOpen = true, onClose }: SidebarProps) => {
           {/* Logo */}
           <div className="flex h-16 items-center gap-2.5 border-b border-line px-6">
             <img
-              src="/CleanDock.png"
+              src="/icon-192.png"
               alt="CleanDock"
               className="h-7 w-7 flex-shrink-0 object-contain"
             />

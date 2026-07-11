@@ -213,7 +213,7 @@ export function AuthShell({
           aria-label="CleanDock home"
         >
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface shadow-card ring-1 ring-line">
-            <img src="/CleanDock.png" alt="" className="h-8 w-auto" />
+            <img src="/icon-192.png" alt="" className="h-8 w-auto" />
           </span>
           <span className="mt-4 text-2xl font-bold tracking-tight text-ink">CleanDock</span>
           <span className="mt-1 text-sm text-ink-muted">{tagline}</span>
