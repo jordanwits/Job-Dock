@@ -2,7 +2,7 @@
 
 ## Client booking URL
 
-Visitors book without signing into JobDock:
+Visitors book without signing into CleanDock:
 
 - **`/book`** — general booking page  
 - **`/book/:serviceId`** — landing pre-scoped to a specific service UUID/slug  

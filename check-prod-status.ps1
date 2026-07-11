@@ -53,7 +53,7 @@ if ($bucketName) {
     $objectCount = aws s3 ls "s3://$bucketName/" --recursive | Measure-Object -Line | Select-Object -ExpandProperty Lines
     
     # NOTE: the live site is served by Vercel (git push), NOT this S3/CloudFront bucket.
-    # This bucket is legacy/vestigial; its contents do not affect thejobdock.com.
+    # This bucket is legacy/vestigial; its contents do not affect thecleandock.com.
     if ($objectCount -gt 0) {
         Write-Host "  ℹ️  $objectCount files in legacy S3 bucket (NOT the live site — Vercel serves prod)" -ForegroundColor DarkGray
     } else {

@@ -286,7 +286,7 @@ if (-not $SkipMigrations) {
 }
 
 # Frontend deploy: nothing to do here.
-# The live site (https://thejobdock.com) is served by Vercel, which auto-deploys on git
+# The live site (https://thecleandock.com) is served by Vercel, which auto-deploys on git
 # push (see vercel.json / .vercel). The AWS stack still provisions an S3 bucket and a
 # CloudFront distribution, but no users are served from them, so there is intentionally
 # NO "aws s3 sync dist/" upload step here. Do not re-add one - it would deploy nothing
@@ -303,13 +303,13 @@ $userPoolId = aws cloudformation describe-stacks --stack-name $stackName --query
 
 Write-Host "Your JobDock production environment is ready!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Frontend (Vercel): https://thejobdock.com  (deploys automatically on git push)" -ForegroundColor Cyan
+Write-Host "Frontend (Vercel): https://thecleandock.com  (deploys automatically on git push)" -ForegroundColor Cyan
 Write-Host "API URL: $apiUrl" -ForegroundColor Cyan
 Write-Host "Cognito User Pool: $userPoolId" -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host 'Next steps:' -ForegroundColor Yellow
-Write-Host '  1. Visit https://thejobdock.com to test your deployment' -ForegroundColor White
+Write-Host '  1. Visit https://thecleandock.com to test your deployment' -ForegroundColor White
 Write-Host '  2. Create your first user account' -ForegroundColor White
 Write-Host '  3. Set up billing alerts in AWS Console' -ForegroundColor White
 Write-Host '  4. Configure your DNS if using a custom domain' -ForegroundColor White

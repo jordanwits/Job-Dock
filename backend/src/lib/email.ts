@@ -626,7 +626,7 @@ export function buildClientConfirmationEmail(data: {
     </table>
   `
   
-  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   const rescheduleUrl = jobId && rescheduleToken ? `${publicAppUrl}/public/booking/${jobId}/reschedule?token=${rescheduleToken}` : null
 
   const content = `
@@ -956,7 +956,7 @@ export function buildClientPendingEmail(data: {
     </table>
   `
   
-  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   const rescheduleUrl = jobId && rescheduleToken ? `${publicAppUrl}/public/booking/${jobId}/reschedule?token=${rescheduleToken}` : null
 
   const content = `
@@ -1067,7 +1067,7 @@ export function buildContractorNotificationEmail(data: {
     : `New booking for ${rawServiceName}`
 
   const displayCompanyName = companyName || 'CleanDock'
-  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
   
   const bookingDetailsCard = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
@@ -1177,7 +1177,7 @@ ${location ? `Location: ${location}` : ''}
 
 ${isPending ? '⚠️ This booking requires your confirmation. Please log in to your dashboard to confirm or decline.' : 'This booking has been automatically confirmed.'}
 
-View in Dashboard: ${process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'}/scheduling
+View in Dashboard: ${process.env.PUBLIC_APP_URL || 'https://thecleandock.com'}/scheduling
   `.trim()
 
   return {
@@ -1465,7 +1465,7 @@ export function buildClientBookingConfirmedEmail(data: {
     </table>
   `
   
-  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   const rescheduleUrl = jobId && rescheduleToken ? `${publicAppUrl}/public/booking/${jobId}/reschedule?token=${rescheduleToken}` : null
 
   const content = `
@@ -1683,7 +1683,7 @@ export function buildQuoteAcceptedNotificationEmail(data: {
   const subject = `Quote ${quoteNumber} accepted by ${rawClientName}`
 
   const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
-  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/quotes`
 
   const detailsCard = `
@@ -1800,7 +1800,7 @@ export function buildInvoiceAcceptedNotificationEmail(data: {
   const subject = `Invoice ${invoiceNumber} accepted by ${rawClientName}`
 
   const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
-  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/invoices`
 
   const detailsCard = `
@@ -1930,7 +1930,7 @@ export function buildQuoteDeclinedNotificationEmail(data: {
   const subject = `Quote ${quoteNumber} declined by ${rawClientName}`
 
   const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
-  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/quotes`
 
   const detailsCard = `
@@ -2070,7 +2070,7 @@ export function buildInvoiceDeclinedNotificationEmail(data: {
   const subject = `Invoice ${invoiceNumber} declined by ${rawClientName}`
 
   const displayCompanyName = companyName || escapeHtmlForEmail(fromName) || 'CleanDock'
-  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   const viewUrl = `${publicAppUrl}/app/invoices`
 
   const detailsCard = `
@@ -2461,7 +2461,7 @@ export async function sendQuoteEmail(data: {
 
   // Use provided token or generate (allows reuse for SMS)
   const approvalToken = providedToken ?? generateApprovalToken('quote', quoteData.id, tenantId)
-  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
   const viewUrl = `${publicAppUrl}/public/quote/${quoteData.id}?token=${approvalToken}`
   const acceptUrl = `${publicAppUrl}/public/quote/${quoteData.id}/accept?token=${approvalToken}`
   const declineUrl = `${publicAppUrl}/public/quote/${quoteData.id}/decline?token=${approvalToken}`
@@ -2843,7 +2843,7 @@ export async function sendInvoiceEmail(data: {
   // Invoices always link to the branded public invoice page (where the client taps "Pay Now").
   // Accept/Decline is no longer offered for invoices; the approval token simply authorizes the view.
   const approvalToken = providedToken ?? generateApprovalToken('invoice', invoiceData.id, tenantId)
-  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+  const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
   const viewUrl = `${publicAppUrl}/public/invoice/${invoiceData.id}?token=${approvalToken}`
 
   // QuickBooks hosted "Pay now" link, shown only when the invoice is still owed and the link is a

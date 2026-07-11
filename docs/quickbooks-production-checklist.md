@@ -20,7 +20,7 @@ QuickBooks companies. To submit you need:
 - [ ] **EULA / Terms of Service URL** — public, linked from JobDock.
 - [ ] **Privacy Policy URL** — public; must describe what QuickBooks data is accessed and how it's stored.
 - [ ] **App name, logo, description, launch/landing URL** for the app cards.
-- [ ] **Production redirect URI** registered exactly: `https://www.thejobdock.com/quickbooks/callback`
+- [ ] **Production redirect URI** registered exactly: `https://www.thecleandock.com/quickbooks/callback`
       (apex 307-redirects to www; register the www form — see `docs/quickbooks-integration.md`).
 - [ ] **Scopes minimized** — we request only `com.intuit.quickbooks.accounting` and
       `com.intuit.quickbooks.payment`. Do not add scopes we don't use.
@@ -49,7 +49,7 @@ QuickBooks companies. To submit you need:
 
 ## 3. Webhooks (real-time reconciliation)
 
-- [ ] In the Intuit app, set the **webhook endpoint** to `https://www.thejobdock.com/quickbooks/webhook`
+- [ ] In the Intuit app, set the **webhook endpoint** to `https://www.thecleandock.com/quickbooks/webhook`
       (routes to the data Lambda via the `{proxy+}` catch-all — no new API Gateway resource).
 - [ ] Subscribe to **Invoice** and **Payment** events.
 - [ ] Copy the **Webhook Verifier Token** into `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN` (deploy env, not code).
@@ -61,7 +61,7 @@ Update the deploy environment (`.env.local`, injected by `deploy-with-env.js`) a
 
 - [ ] `QUICKBOOKS_ENV=production`
 - [ ] `QUICKBOOKS_CLIENT_ID` / `QUICKBOOKS_CLIENT_SECRET` → **production** values
-- [ ] `QUICKBOOKS_REDIRECT_URI=https://www.thejobdock.com/quickbooks/callback`
+- [ ] `QUICKBOOKS_REDIRECT_URI=https://www.thecleandock.com/quickbooks/callback`
 - [ ] `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN` set
 - [ ] `QUICKBOOKS_TOKEN_ENC_KEY` set (keep stable — rotating it invalidates all stored tokens)
 - [ ] `npm run deploy:prod --prefix infrastructure` (show the CDK diff + confirm first).

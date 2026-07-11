@@ -1,6 +1,6 @@
-# JobDock overview
+# CleanDock overview
 
-JobDock is web software for contractors and small service businesses. You manage customers, jobs, scheduling, quotes, invoices, and time tracking in one place.
+CleanDock is web software for contractors and small service businesses. You manage customers, jobs, scheduling, quotes, invoices, and time tracking in one place.
 
 ## Quick map (see also `navigation-and-roles.md`)
 

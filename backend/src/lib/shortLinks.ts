@@ -17,7 +17,7 @@ function generateCode(): string {
  * Create a short link for a URL. Used for SMS to keep messages in 1 segment.
  * @param url - Full destination URL
  * @param expiresInHours - Hours until link expires (default 7 days)
- * @returns Short URL (e.g. https://app.jobdock.dev/s/Abc12X)
+ * @returns Short URL (e.g. https://thecleandock.com/s/Abc12X)
  */
 export async function createShortLink(
   url: string,
@@ -50,7 +50,7 @@ export async function createShortLink(
     },
   })
 
-  const baseUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(/\/$/, '')
+  const baseUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(/\/$/, '')
   return `${baseUrl}/s/${code}`
 }
 

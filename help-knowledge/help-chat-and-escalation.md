@@ -2,11 +2,11 @@
 
 ## Opening help
 
-Use the **Help** button (lower-right). This opens the in-app help assistant backed by the JobDock knowledge base.
+Use the **Help** button (lower-right). This opens the in-app help assistant backed by the CleanDock knowledge base.
 
-## Scope (JobDock only)
+## Scope (CleanDock only)
 
-This assistant answers **only** questions about **using JobDock** (screens, workflows, troubleshooting in the product, subscriptions within JobDock, bug reports via Send report). It is **not** a general-purpose AI: homework, unrelated coding projects, trivia, drafting unrelated content, and other topics are intentionally out of scope; use an external assistant for those.
+This assistant answers **only** questions about **using CleanDock** (screens, workflows, troubleshooting in the product, subscriptions within CleanDock, bug reports via Send report). It is **not** a general-purpose AI: homework, unrelated coding projects, trivia, drafting unrelated content, and other topics are intentionally out of scope; use an external assistant for those.
 
 ## What it can do
 

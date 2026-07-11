@@ -1807,7 +1807,7 @@ export const dataServices = {
 
       // Generate token for email and/or SMS link
       const approvalToken = generateApprovalToken('quote', quote.id, tenantId)
-      const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+      const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
       const viewUrl = `${publicAppUrl}/public/quote/${quote.id}?token=${approvalToken}`
 
       const sentVia: string[] = []
@@ -2281,7 +2281,7 @@ export const dataServices = {
       // Now" button. The approval token secures the public page (accept/decline is no longer offered
       // for invoices, but the same token mechanism authorizes the public view).
       const approvalToken = generateApprovalToken('invoice', invoice.id, tenantId)
-      const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+      const publicAppUrl = process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
       const viewUrl = `${publicAppUrl}/public/invoice/${invoice.id}?token=${approvalToken}`
 
       const sentVia: string[] = []
@@ -3212,7 +3212,7 @@ export const dataServices = {
               try {
                 const { createShortLink } = await import('./shortLinks')
                 const publicAppUrl = (
-                  process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+                  process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
                 ).replace(/\/$/, '')
                 const rescheduleFullUrl = `${publicAppUrl}/public/booking/${job.id}/reschedule?token=${rescheduleToken}`
                 smsRescheduleUrl = await createShortLink(rescheduleFullUrl)
@@ -4166,7 +4166,7 @@ export const dataServices = {
           if (wantsSms) {
             try {
               const { createShortLink } = await import('./shortLinks')
-              const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(
+              const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(
                 /\/$/,
                 ''
               )
@@ -4491,7 +4491,7 @@ export const dataServices = {
             try {
               const { createShortLink } = await import('./shortLinks')
               const publicAppUrl = (
-                process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+                process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
               ).replace(/\/$/, '')
               smsRescheduleUrl = await createShortLink(
                 `${publicAppUrl}/public/booking/${job.id}/reschedule?token=${token}`
@@ -4566,7 +4566,7 @@ export const dataServices = {
             try {
               const { createShortLink } = await import('./shortLinks')
               const publicAppUrl = (
-                process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+                process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
               ).replace(/\/$/, '')
               smsRescheduleUrl = await createShortLink(
                 `${publicAppUrl}/public/booking/${job.id}/reschedule?token=${rescheduleToken}`
@@ -5116,7 +5116,7 @@ export const dataServices = {
       if (!service) {
         throw new ApiError('Service not found', 404)
       }
-      const baseUrl = process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev'
+      const baseUrl = process.env.PUBLIC_APP_URL || 'https://thecleandock.com'
       return {
         serviceId: id,
         serviceName: service.name,
@@ -5672,7 +5672,7 @@ export const dataServices = {
 
         // Generate reschedule token and short link for client emails/SMS
         const rescheduleToken = generateApprovalToken('job', job.id, actualTenantId)
-        const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://app.jobdock.dev').replace(
+        const publicAppUrl = (process.env.PUBLIC_APP_URL || 'https://thecleandock.com').replace(
           /\/$/,
           ''
         )

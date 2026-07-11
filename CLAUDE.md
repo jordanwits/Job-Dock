@@ -2,7 +2,7 @@
 
 Multi-tenant SaaS for cleaning-business owner-operators: CRM, quotes, invoices, recurring scheduling,
 online booking, job logs (photos + time tracking), reports, and Stripe/QuickBooks payments. **Prod is
-LIVE with real tenants at https://thejobdock.com** (Stripe + QuickBooks in production mode) — treat it
+LIVE with real tenants at https://thecleandock.com** (Stripe + QuickBooks in production mode) — treat it
 accordingly. Stack: React 18 + TypeScript + Vite SPA hosted on Vercel; serverless AWS backend (Lambda +
 API Gateway, RDS Postgres via Prisma, Cognito, S3) in us-east-1, defined with CDK. GitHub: jordanwits/Job-Dock.
 
@@ -45,7 +45,7 @@ models, everything hanging off `Tenant`).
   service monolith the data handler dispatches into; `middleware.ts` = auth context + CORS allowlist;
   `email.ts` = Resend; `helpChat.ts` = help-bot RAG; `quickbooks/` = QB sync. Schema: `prisma/schema.prisma`.
 - `infrastructure/` — CDK v2, single stack `lib/jobdock-stack.ts`, per-env config in `config.ts`
-  (stacks `JobDockStack-dev|staging|prod`; prod: RDS Postgres t3.micro, NAT gateway, domain thejobdock.com).
+  (stacks `JobDockStack-dev|staging|prod`; prod: RDS Postgres t3.micro, NAT gateway, domain thecleandock.com).
 - `help-knowledge/` — markdown KB; `backend npm run ingest-help` chunks/embeds it into Postgres
   (`HelpKnowledgeChunk`, pgvector) powering the help bot and the assistant's `search_help` tool.
 - `scripts/` — repo utilities (`sync-aws-env.ts`, help ingestion). `tools/aws-mcp/` — read-only AWS MCP
@@ -57,7 +57,7 @@ models, everything hanging off `Tenant`).
 ## Deployment
 
 - **Frontend:** Vercel project `job-dock` (`.vercel/project.json`), configured by `vercel.json`
-  (`npm run build` → `dist/`, SPA rewrite, security headers). thejobdock.com / www DNS point at Vercel
+  (`npm run build` → `dist/`, SPA rewrite, security headers). thecleandock.com / www DNS point at Vercel
   (verified 2026-07-05). Set up as a Vercel Git integration, so pushing to GitHub deploys — the dashboard
   setting itself isn't verifiable from the repo.
 - **Backend:** `npm run deploy:prod --prefix infrastructure`. That wraps `deploy-with-env.js`, which loads
@@ -89,11 +89,12 @@ models, everything hanging off `Tenant`).
   array in `backend/src/functions/migrate/handler.ts` (tracked by name in `_prisma_migrations`);
   `backend/prisma/migrations/*.sql` is used only by local `prisma migrate dev`. A migration missing from
   the array is silently skipped in prod, and array edits require a backend redeploy before running it.
-- **Email is Resend-only** (`sendEmail()` in `backend/src/lib/email.ts`, from noreply@thejobdock.com).
+- **Email is Resend-only** (`sendEmail()` in `backend/src/lib/email.ts`, from noreply@thecleandock.com).
   There is no AWS SES prod access, and Cognito-native emails (ForgotPassword, signup verification) land in
   spam — user-facing email flows use custom tokens stored in Postgres, with password changes committed to
   Cognito via `AdminSetUserPasswordCommand`.
 - Auth = Cognito user pool per env; the backend verifies JWTs via `aws-jwt-verify` in `middleware.ts`,
-  which also holds the prod CORS allowlist (thejobdock.com origins).
-- `app.thejobdock.com` fallback URLs in backend code do not resolve; the real public base URL comes from
-  the `PUBLIC_APP_URL` Lambda env var (https://thejobdock.com).
+  which also holds the prod CORS allowlist (thecleandock.com origins, plus legacy thejobdock.com kept
+  through the domain transition).
+- The real public base URL comes from the `PUBLIC_APP_URL` Lambda env var (https://thecleandock.com);
+  backend code URL fallbacks default to the same domain.

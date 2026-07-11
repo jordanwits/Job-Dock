@@ -34,8 +34,8 @@ code scaffold does **not** depend on them, but nothing can actually move money u
    - Later, the **production** `Client ID` / `Client Secret` (issued after app review — see #4).
 2. **Redirect URI registration** — in the Intuit app, register these exact Redirect URIs (must be
    HTTPS and exact‑match). We use a **frontend** callback route:
-   - Prod: `https://www.thejobdock.com/quickbooks/callback` (the app serves at **www**; the apex
-     `thejobdock.com` 307-redirects to www, so register the www form)
+   - Prod: `https://www.thecleandock.com/quickbooks/callback` (the app serves at **www**; the apex
+     `thecleandock.com` 307-redirects to www, so register the www form)
    - Local dev: `http://localhost:3000/quickbooks/callback` (Intuit allows http only for localhost)
 3. **QuickBooks Payments** — QuickBooks Payments is **US‑only**. Each tenant who wants to *take*
    payments must enroll their QuickBooks company in QuickBooks Payments (we request the
@@ -61,7 +61,7 @@ QUICKBOOKS_CLIENT_ID=...
 QUICKBOOKS_CLIENT_SECRET=...
 QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN=...
 QUICKBOOKS_TOKEN_ENC_KEY=...           # 32-byte key, base64 (generate: openssl rand -base64 32)
-QUICKBOOKS_REDIRECT_URI=https://www.thejobdock.com/quickbooks/callback  # must exactly match Intuit app
+QUICKBOOKS_REDIRECT_URI=https://www.thecleandock.com/quickbooks/callback  # must exactly match Intuit app
 ```
 
 ---
