@@ -70,7 +70,7 @@ const PhoneFrame = ({
           />
         </div>
 
-        {/* Dynamic island — only when showing a flat image; DOM screens (ScreenShell) draw their own. */}
+        {/* Dynamic island — only when showing a flat image; DOM screens draw their own. */}
         {screenSrc && (
           <div
             className="absolute left-1/2 top-[18px] h-[26px] w-[88px] -translate-x-1/2 rounded-full bg-black"
