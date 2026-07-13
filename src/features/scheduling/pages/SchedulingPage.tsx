@@ -185,6 +185,10 @@ const SchedulingPage = () => {
   const notifyHandledRef = useRef(false)
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<any>(null)
   const [pendingCreatePayload, setPendingCreatePayload] = useState<any>(null)
+  // Independent-appointment and linked-job creates run their own booking logic, so the notify
+  // modal just holds their finisher: a `(notify) => void` invoked with the Yes/No choice. Kept
+  // separate from the create/update payloads above, which route through performCreateJob/Update.
+  const [pendingBookingNotify, setPendingBookingNotify] = useState<((notify: boolean) => void) | null>(null)
   // Confirm flow: flipping an unconfirmed appointment to confirmed asks whether to notify the client.
   const [pendingConfirmJob, setPendingConfirmJob] = useState<typeof selectedJob>(null)
   const [showConfirmNotifyModal, setShowConfirmNotifyModal] = useState(false)
@@ -657,6 +661,43 @@ const SchedulingPage = () => {
     } catch (error: any) {
       // Error will be displayed in the modal via jobsError
       // Keep the modal open so user can fix the issue
+    }
+  }
+
+  // Create a standalone (independent) appointment, optionally notifying the client. The backend
+  // sends the booking confirmation email/SMS when notifyClient is true (see dataService bookings.create).
+  const performCreateIndependentBooking = async (data: any, notifyClient: boolean) => {
+    try {
+      await createIndependentBooking({ ...data, notifyClient })
+      setShowJobForm(false)
+      clearJobsError()
+      setJobConfirmationMessage(notifyClient ? 'Sent via email and SMS' : 'Appointment scheduled')
+      setShowJobConfirmation(true)
+      setTimeout(() => setShowJobConfirmation(false), 3000)
+    } catch (error: any) {
+      // Error will be displayed in the modal via jobsError
+    }
+  }
+
+  // Schedule an existing (linked) job to a time — books a new appointment on it, optionally
+  // notifying the client.
+  const performScheduleLinkedJob = async (existingJobId: string, data: any, notifyClient: boolean) => {
+    try {
+      await updateJob({ id: existingJobId, ...data, notifyClient })
+      // The backend creates a NEW booking on the linked job; the store's single-row patch keys on
+      // the earliest booking and can neither match nor append it, so refetch to surface it.
+      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
+      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
+      await fetchJobs(startDate, endDate)
+      setShowJobForm(false)
+      clearJobsError()
+      setJobConfirmationMessage(
+        notifyClient ? 'Sent via email and SMS' : 'Appointment scheduled for linked job'
+      )
+      setShowJobConfirmation(true)
+      setTimeout(() => setShowJobConfirmation(false), 3000)
+    } catch (error: any) {
+      // Error will be displayed in the modal via jobsError
     }
   }
 
@@ -1885,39 +1926,31 @@ const SchedulingPage = () => {
             editingJob
               ? handleUpdateJob
               : async (data, existingJobId, isIndependent) => {
+                  // A scheduled, confirmed appointment is the only kind worth a notification:
+                  // tentative (pending-confirmation) and to-be-scheduled bookings have no firm time
+                  // to tell the client about.
+                  const isScheduledCreate = !!(data.startTime && data.endTime && !data.toBeScheduled)
+                  const isConfirmed = data.status !== 'pending-confirmation'
                   if (isIndependent) {
-                    try {
-                      await createIndependentBooking(data)
-                      setShowJobForm(false)
-                      clearJobsError()
-                      setJobConfirmationMessage('Appointment scheduled')
-                      setShowJobConfirmation(true)
-                      setTimeout(() => setShowJobConfirmation(false), 3000)
-                    } catch (error: any) {
-                      // Error will be displayed in the modal via jobsError
+                    // Only prompt when there's a contact to notify.
+                    const hasContact = !!(data.contactId && String(data.contactId).trim())
+                    if (isScheduledCreate && isConfirmed && hasContact) {
+                      setPendingBookingNotify(() => (notify: boolean) =>
+                        performCreateIndependentBooking(data, notify)
+                      )
+                      setShowNotifyClientModal(true)
+                    } else {
+                      await performCreateIndependentBooking(data, false)
                     }
                   } else if (existingJobId) {
-                    // Update existing job instead of creating new one
-                    try {
-                      await updateJob({ id: existingJobId, ...data })
-                      // The backend creates a NEW booking on the linked job; the store's single-row
-                      // patch keys on the earliest booking and can neither match nor append it, so
-                      // refetch the window to surface the new appointment on the calendar.
-                      const startDate = new Date(
-                        currentDate.getFullYear(),
-                        currentDate.getMonth() - 2,
-                        1
+                    // Scheduling an existing job books a new appointment — ask before notifying.
+                    if (isScheduledCreate && isConfirmed) {
+                      setPendingBookingNotify(() => (notify: boolean) =>
+                        performScheduleLinkedJob(existingJobId, data, notify)
                       )
-                      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
-                      await fetchJobs(startDate, endDate)
-                      setShowJobForm(false)
-                      clearJobsError()
-                      setJobConfirmationMessage('Appointment scheduled for linked job')
-                      setShowJobConfirmation(true)
-                      setTimeout(() => setShowJobConfirmation(false), 3000)
-                    } catch (error: any) {
-                      // Error will be displayed in the modal via jobsError
-                      // Keep the modal open so user can fix the issue
+                      setShowNotifyClientModal(true)
+                    } else {
+                      await performScheduleLinkedJob(existingJobId, data, false)
                     }
                   } else {
                     await handleCreateJob(data)
@@ -1952,13 +1985,19 @@ const SchedulingPage = () => {
       <NotifyClientModal
         isOpen={showNotifyClientModal}
         message={
-          pendingCreatePayload
+          pendingCreatePayload || pendingBookingNotify
             ? 'Would you like to notify the client about this appointment?'
             : 'Would you like to notify the client about this schedule update?'
         }
         onClose={() => {
           if (notifyHandledRef.current) return
           notifyHandledRef.current = true
+          if (pendingBookingNotify) {
+            pendingBookingNotify(false)
+            setPendingBookingNotify(null)
+            setShowNotifyClientModal(false)
+            return
+          }
           if (pendingCreatePayload) {
             performCreateJob(pendingCreatePayload, false)
           } else if (pendingUpdatePayload) {
@@ -1981,26 +2020,6 @@ const SchedulingPage = () => {
             } else {
               performJobUpdate({ ...rest, notifyClient: false })
             }
-          } else if (pendingUpdatePayload) {
-            const { isIndependent, ...rest } = pendingUpdatePayload
-            if (isIndependent) {
-              updateIndependentBooking(rest.id, { toBeScheduled: rest.toBeScheduled, startTime: rest.startTime, endTime: rest.endTime, notifyClient: true }).then(() => {
-                const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2, 1)
-                const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 5, 0)
-                fetchJobs(startDate, endDate)
-                setJobConfirmationMessage('Sent via email and SMS')
-                setShowJobConfirmation(true)
-                setTimeout(() => setShowJobConfirmation(false), 3000)
-              }).catch((err: unknown) => {
-                clearJobsError()
-                setJobErrorMessage(
-                  getErrorMessage(err, 'Could not update this appointment. Ask an admin if you need permission changes.')
-                )
-                setShowJobError(true)
-              })
-            } else {
-              performJobUpdate({ ...rest, notifyClient: false })
-            }
           }
           setShowNotifyClientModal(false)
           setPendingCreatePayload(null)
@@ -2009,6 +2028,12 @@ const SchedulingPage = () => {
         onNotify={notify => {
           if (notifyHandledRef.current) return
           notifyHandledRef.current = true
+          if (pendingBookingNotify) {
+            pendingBookingNotify(notify)
+            setPendingBookingNotify(null)
+            setShowNotifyClientModal(false)
+            return
+          }
           if (pendingCreatePayload) {
             performCreateJob(pendingCreatePayload, notify)
           } else if (pendingUpdatePayload) {

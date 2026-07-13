@@ -195,6 +195,9 @@ export const useJobStore = create<JobState>((set, get) => ({
         notes: data.notes || undefined,
         assignedTo: data.assignedTo ?? undefined,
         breaks: data.breaks ?? undefined,
+        // Forward the "notify the client?" choice so the backend can send the booking
+        // confirmation email/SMS on create (matches job-backed manual bookings).
+        notifyClient: data.notifyClient ?? undefined,
       }
       const apiBooking = await bookingsService.create(payload)
       const newJob = normalizeJob({

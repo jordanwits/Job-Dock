@@ -51,46 +51,68 @@ const ScheduleJobModal = ({
   const { createJob, createIndependentBooking, updateJob, isLoading, error, clearError } = useJobStore()
   const [showNotifyClientModal, setShowNotifyClientModal] = useState(false)
   const [notifySubmitting, setNotifySubmitting] = useState(false)
-  const [pendingCreatePayload, setPendingCreatePayload] = useState<{ data: CreateJobData; existingJobIdParam?: string } | null>(null)
+  // The booking the notify prompt is deciding on. `new` = create job, `independent` = create
+  // standalone appointment, `linked` = schedule an existing job. All three ask before booking.
+  const [pendingAction, setPendingAction] = useState<
+    { kind: 'new' | 'independent' | 'linked'; data: CreateJobData; jobId?: string } | null
+  >(null)
+
+  // Schedule an existing (linked) job, optionally notifying the client of the new appointment.
+  const performLinkedUpdate = async (jobId: string, data: CreateJobData, notifyClient: boolean) => {
+    await updateJob({
+      id: jobId,
+      ...data,
+      notifyClient,
+      ...(quoteId && { quoteId }),
+      ...(invoiceId && { invoiceId }),
+    })
+    clearError()
+    onClose()
+    // Fetch the updated job to pass to onSuccess
+    await useJobStore.getState().getJobById(jobId)
+    const updatedJob = useJobStore.getState().selectedJob
+    if (onSuccess && updatedJob) {
+      onSuccess(updatedJob, { action: 'linked', notifySent: notifyClient })
+    }
+  }
 
   const handleSubmit = async (data: CreateJobData, existingJobIdParam?: string, isIndependent?: boolean) => {
     const jobIdToUpdate = existingJobIdParam || existingJobId
+    // A scheduled, confirmed appointment is the only kind worth a notification: tentative
+    // (pending-confirmation) and to-be-scheduled bookings have no firm time to tell the client about.
+    const isScheduledCreate = !!(data.startTime && data.endTime && !data.toBeScheduled)
+    const isConfirmed = data.status !== 'pending-confirmation'
 
     try {
       if (isIndependent) {
-        await createIndependentBooking(data)
+        // Only prompt when there's a contact to notify.
+        const hasContact = !!(data.contactId && String(data.contactId).trim())
+        if (isScheduledCreate && isConfirmed && hasContact) {
+          setPendingAction({ kind: 'independent', data })
+          setShowNotifyClientModal(true)
+          return
+        }
+        const created = await createIndependentBooking(data)
         clearError()
         onClose()
         if (onSuccess) {
-          onSuccess(undefined, { action: 'independent' })
+          onSuccess(created, { action: 'independent' })
         }
         return
       }
       if (jobIdToUpdate) {
-        // Update existing job instead of creating new one
-        const jobData = {
-          ...data,
-          ...(quoteId && { quoteId }),
-          ...(invoiceId && { invoiceId }),
+        // Scheduling an existing job books a new appointment — ask before notifying.
+        if (isScheduledCreate && isConfirmed) {
+          setPendingAction({ kind: 'linked', data, jobId: jobIdToUpdate })
+          setShowNotifyClientModal(true)
+          return
         }
-        await updateJob({
-          id: jobIdToUpdate,
-          ...jobData,
-        })
-        clearError()
-        onClose()
-        // Fetch the updated job to pass to onSuccess
-        await useJobStore.getState().getJobById(jobIdToUpdate)
-        const updatedJob = useJobStore.getState().selectedJob
-        if (onSuccess && updatedJob) {
-          onSuccess(updatedJob, { action: 'linked' })
-        }
+        await performLinkedUpdate(jobIdToUpdate, data, false)
       } else {
         // Create new job - ask about notifying client if it's a scheduled appointment.
         // Unconfirmed appointments are tentative, so they skip the notify prompt entirely.
-        const isScheduledCreate = data.startTime && data.endTime && !data.toBeScheduled
-        if (isScheduledCreate && data.status !== 'pending-confirmation') {
-          setPendingCreatePayload({ data, existingJobIdParam })
+        if (isScheduledCreate && isConfirmed) {
+          setPendingAction({ kind: 'new', data })
           setShowNotifyClientModal(true)
           return
         }
@@ -112,25 +134,40 @@ const ScheduleJobModal = ({
     }
   }
 
-  const performCreateWithNotify = async (notifyClient: boolean) => {
+  const performPendingAction = async (notifyClient: boolean) => {
     // notifySubmitting guards double-click on Yes/No (and Esc/backdrop close,
-    // which also creates) — without it a slow create fires twice and books twice.
-    if (!pendingCreatePayload || notifySubmitting) return
+    // which also books) — without it a slow create fires twice and books twice.
+    if (!pendingAction || notifySubmitting) return
     setNotifySubmitting(true)
     try {
-      const jobData = {
-        ...pendingCreatePayload.data,
-        notifyClient,
-        ...(quoteId && { quoteId }),
-        ...(invoiceId && { invoiceId }),
-      }
-      const created = await createJob(jobData)
-      clearError()
-      setShowNotifyClientModal(false)
-      setPendingCreatePayload(null)
-      onClose()
-      if (onSuccess) {
-        onSuccess(created, { notifySent: notifyClient, action: 'new' })
+      const { kind, data, jobId } = pendingAction
+      if (kind === 'independent') {
+        const created = await createIndependentBooking({ ...data, notifyClient })
+        clearError()
+        setShowNotifyClientModal(false)
+        setPendingAction(null)
+        onClose()
+        if (onSuccess) {
+          onSuccess(created, { notifySent: notifyClient, action: 'independent' })
+        }
+      } else if (kind === 'linked' && jobId) {
+        await performLinkedUpdate(jobId, data, notifyClient)
+        setShowNotifyClientModal(false)
+        setPendingAction(null)
+      } else {
+        const created = await createJob({
+          ...data,
+          notifyClient,
+          ...(quoteId && { quoteId }),
+          ...(invoiceId && { invoiceId }),
+        })
+        clearError()
+        setShowNotifyClientModal(false)
+        setPendingAction(null)
+        onClose()
+        if (onSuccess) {
+          onSuccess(created, { notifySent: notifyClient, action: 'new' })
+        }
       }
     } catch (error: any) {
       // Keep modal open on error
@@ -151,10 +188,10 @@ const ScheduleJobModal = ({
         isLoading={notifySubmitting}
         message="Would you like to notify the client about this appointment?"
         onClose={() => {
-          performCreateWithNotify(false)
+          performPendingAction(false)
         }}
         onNotify={notify => {
-          performCreateWithNotify(notify)
+          performPendingAction(notify)
         }}
       />
       <AppModal

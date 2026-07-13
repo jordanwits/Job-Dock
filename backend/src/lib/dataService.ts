@@ -4706,6 +4706,88 @@ export const dataServices = {
           },
         })
 
+        // Client confirmation for independent bookings: when notifyClient is true on a scheduled
+        // create with a contact, send the same confirmation email/SMS a manual job booking sends
+        // (dataService jobs.create). Tentative (toBeScheduled) creates have no time to confirm, and
+        // there's no reschedule link because independent bookings aren't reschedulable via the
+        // public flow — matching the independent-booking reschedule email above.
+        if (
+          payload.notifyClient === true &&
+          !toBeScheduled &&
+          booking.startTime &&
+          booking.endTime &&
+          booking.contact
+        ) {
+          try {
+            const contact = booking.contact as (Contact & { notificationPreference?: string }) | null
+            const pref = contact?.notificationPreference ?? 'both'
+            const wantsEmail = shouldSendEmail(pref)
+            const wantsSms = shouldSendSms(pref)
+            const clientEmail = contact?.email?.trim() || null
+            const clientPhone = contact?.phone?.trim() || null
+
+            if ((wantsEmail && clientEmail) || (wantsSms && clientPhone)) {
+              const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } })
+              let logoUrl: string | null = null
+              if (settings?.logoUrl) {
+                try {
+                  const { getFileUrl } = await import('./fileUpload')
+                  logoUrl = await getFileUrl(settings.logoUrl, 7 * 24 * 60 * 60)
+                } catch (e) {
+                  console.error('Error fetching logo URL for confirmation email:', e)
+                }
+              }
+              const companyName = settings?.companyDisplayName || 'CleanDock'
+              const timezoneOffset = offsetHoursForZone(settings?.timezone, new Date(booking.startTime))
+              const serviceName = (booking as any).service?.name || booking.title || 'Appointment'
+              const clientName = contact
+                ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || 'there'
+                : 'there'
+
+              if (wantsEmail && clientEmail) {
+                console.log(`📧 Sending manual booking confirmation email to ${clientEmail} (independent booking)`)
+                const emailPayload = buildClientConfirmationEmail({
+                  clientName,
+                  serviceName,
+                  startTime: new Date(booking.startTime),
+                  endTime: new Date(booking.endTime),
+                  location: booking.location ?? undefined,
+                  timezoneOffset,
+                  companyName,
+                  logoUrl,
+                  settings: {
+                    companySupportEmail: settings?.companySupportEmail || null,
+                    companyPhone: settings?.companyPhone || null,
+                  },
+                })
+                await sendEmail({
+                  ...emailPayload,
+                  to: clientEmail,
+                  fromName: companyName,
+                  replyTo: settings?.companySupportEmail || undefined,
+                })
+                console.log('✅ Independent booking confirmation email sent successfully')
+              }
+              if (wantsSms && clientPhone) {
+                console.log(`📱 Sending manual booking confirmation SMS to ${clientPhone} (independent booking)`)
+                const smsBody = buildBookingConfirmationSms({
+                  serviceName,
+                  startTime: new Date(booking.startTime),
+                  companyName,
+                  timezoneOffset,
+                })
+                await sendSms(clientPhone, smsBody)
+                console.log('✅ Independent booking confirmation SMS sent successfully')
+              }
+            }
+          } catch (clientNotifyError) {
+            console.error(
+              '❌ Failed to send client notification for independent booking:',
+              clientNotifyError
+            )
+          }
+        }
+
         return {
           ...booking,
           price: booking.price != null ? Number(booking.price) : null,
