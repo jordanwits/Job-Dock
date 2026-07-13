@@ -583,12 +583,29 @@ const realAdminService = {
     const response = await apiClient.post('/admin/testers/approve', body)
     return response.data as { ok: boolean; checkoutUrl: string }
   },
+  provisionTester: async (body: {
+    email: string
+    name: string
+    companyName?: string
+    plan: 'solo' | 'single' | 'team' | 'team-plus'
+  }) => {
+    const response = await apiClient.post('/admin/testers/provision', body)
+    return response.data as {
+      ok: boolean
+      email: string
+      setPasswordUrl: string
+      checkoutUrl: string
+    }
+  },
 }
 
 export const adminService = useMockData
   ? {
       approveTester: async () => {
         throw new Error('Tester approval is not available in mock data mode')
+      },
+      provisionTester: async () => {
+        throw new Error('Tester provisioning is not available in mock data mode')
       },
     }
   : realAdminService

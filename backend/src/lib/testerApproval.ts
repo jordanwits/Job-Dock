@@ -1,8 +1,13 @@
 import { addMonths } from 'date-fns'
+import { randomUUID, randomBytes, createHash } from 'crypto'
 import prisma from './db'
 import { ApiError } from './errors'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Invite link is forwarded by the admin, so give it a generous TTL (a normal
+// self-serve password reset is 60 min). Validated by POST /auth/confirm-reset-password.
+const SET_PASSWORD_TOKEN_TTL_DAYS = 7
 
 export type TesterPlanInput = 'solo' | 'single' | 'team' | 'team-plus'
 
@@ -210,4 +215,129 @@ export async function createTesterApprovalCheckout(params: {
   })
 
   return { checkoutUrl: url }
+}
+
+function hashResetToken(rawToken: string): string {
+  return createHash('sha256').update(rawToken).digest('hex')
+}
+
+/** Mirrors slugify() in the auth handler so tester subdomains match the signup format. */
+function subdomainSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-zA-Z0-9-]/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50)
+}
+
+/**
+ * Platform-admin provisioning for a BRAND-NEW beta tester (owner only).
+ *
+ * The public signup flow is Stripe-first, so the only way to get an account is by
+ * completing a paid checkout — but createTesterApprovalCheckout requires an existing
+ * owner with NO subscription. This bridges that gap: it creates the Cognito user +
+ * tenant + owner row with no subscription, mints a set-password link (reusing the
+ * password-reset token flow, validated by POST /auth/confirm-reset-password), then
+ * generates the private tester checkout (6-month trial + tester coupon).
+ *
+ * Returns both links for the admin to forward. If the checkout step fails after the
+ * account is created, the account still exists and the admin can regenerate the
+ * checkout link via createTesterApprovalCheckout ("Approve tester").
+ */
+export async function provisionTesterAccount(params: {
+  email: string
+  name: string
+  companyName?: string
+  plan: TesterPlanInput
+}): Promise<{ email: string; setPasswordUrl: string; checkoutUrl: string }> {
+  const email = params.email?.trim().toLowerCase() || ''
+  const name = params.name?.trim() || ''
+  const companyName = params.companyName?.trim() || ''
+
+  if (!email || !EMAIL_RE.test(email)) {
+    throw new ApiError('A valid email is required', 400)
+  }
+  if (!name) {
+    throw new ApiError('Name is required', 400)
+  }
+  // Validate the plan up front (throws on invalid / unconfigured price) before we
+  // create any Cognito/DB state.
+  resolvePriceId(params.plan)
+
+  // Provisioning is for NEW testers only. Existing owners should use "Approve tester".
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+    select: { id: true },
+  })
+  if (existing) {
+    throw new ApiError(
+      'An account already exists for that email. Use "Approve tester" for an existing owner instead.',
+      409
+    )
+  }
+
+  // Admin-invite Cognito user (temp password, email suppressed, email_verified=true).
+  // Same helper the team-invite flow uses; its returned Username is the Cognito sub,
+  // which is what login/token resolution matches on (users.cognitoId).
+  const { createCognitoUser } = await import('./auth')
+  let cognitoId: string
+  try {
+    const result = await createCognitoUser(email, name)
+    cognitoId = result.cognitoId
+  } catch (cognitoErr: any) {
+    if (cognitoErr?.name === 'UsernameExistsException') {
+      throw new ApiError(
+        'This email already has a login. Use "Approve tester" instead, or remove the existing account first.',
+        409
+      )
+    }
+    if (cognitoErr?.name === 'InvalidParameterException') {
+      throw new ApiError(cognitoErr?.message || 'Invalid email for account creation', 400)
+    }
+    throw cognitoErr
+  }
+
+  // Create tenant + owner row with NO subscription (what tester checkout requires).
+  const tenantId = randomUUID()
+  const tenantName = companyName || `${name}'s Company`
+  const subdomain = `${subdomainSlug(tenantName)}-${tenantId.substring(0, 8)}`
+
+  await prisma.tenant.create({
+    data: { id: tenantId, name: tenantName, subdomain },
+  })
+
+  const user = await prisma.user.create({
+    data: {
+      id: randomUUID(),
+      cognitoId,
+      email,
+      name,
+      tenantId,
+      role: 'owner',
+    },
+  })
+
+  // Mint a set-password link by reusing the password-reset token table. Longer TTL
+  // than a normal reset since the admin forwards this as an invite.
+  const rawToken = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + SET_PASSWORD_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000)
+  await prisma.passwordResetToken.create({
+    data: { email, tokenHash: hashResetToken(rawToken), expiresAt },
+  })
+
+  const baseUrl = (
+    process.env.PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'http://localhost:5173'
+  ).replace(/\/$/, '')
+  const setPasswordUrl = `${baseUrl}/auth/reset-password?token=${rawToken}`
+
+  // Generate the private tester checkout (6-month trial + tester coupon) for the new owner.
+  const { checkoutUrl } = await createTesterApprovalCheckout({
+    targetUserId: user.id,
+    plan: params.plan,
+  })
+
+  return { email, setPasswordUrl, checkoutUrl }
 }

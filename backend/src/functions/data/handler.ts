@@ -916,6 +916,39 @@ We look forward to working with you!',
       }
     }
 
+    // Platform admin: provision a brand-new tester account (POST /admin/testers/provision)
+    if (resource === 'admin' && id === 'testers' && action === 'provision' && event.httpMethod === 'POST') {
+      try {
+        const context = await extractContext(event)
+        const { isPlatformAdmin } = await import('../../lib/platformAdmin')
+        if (!isPlatformAdmin(context.userEmail)) {
+          return errorResponse('Forbidden', 403)
+        }
+        const body = parseBody(event)
+        const email = typeof body?.email === 'string' ? body.email.trim() : ''
+        const name = typeof body?.name === 'string' ? body.name.trim() : ''
+        const companyName = typeof body?.companyName === 'string' ? body.companyName.trim() : ''
+        const planRaw = typeof body?.plan === 'string' ? body.plan.trim().toLowerCase() : 'solo'
+        if (!email || !name) {
+          return errorResponse('email and name are required', 400)
+        }
+        const { provisionTesterAccount } = await import('../../lib/testerApproval')
+        const result = await provisionTesterAccount({
+          email,
+          name,
+          companyName,
+          plan: planRaw as 'solo' | 'single' | 'team' | 'team-plus',
+        })
+        return successResponse({ ok: true, ...result })
+      } catch (err) {
+        if (err instanceof ApiError) {
+          return errorResponse(err.message, err.statusCode)
+        }
+        console.error('[admin/testers/provision]', err)
+        return errorResponse(err instanceof Error ? err.message : 'Failed to provision tester', 500)
+      }
+    }
+
     // Handle onboarding endpoints with authentication
     if (resource === 'onboarding') {
       console.log('[ONBOARDING] Handling onboarding request:', {
