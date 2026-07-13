@@ -13,6 +13,7 @@ import * as iam from 'aws-cdk-lib/aws-iam'
 import * as logs from 'aws-cdk-lib/aws-logs'
 import * as events from 'aws-cdk-lib/aws-events'
 import * as targets from 'aws-cdk-lib/aws-events-targets'
+import * as wafv2 from 'aws-cdk-lib/aws-wafv2'
 import * as path from 'path'
 import { Construct } from 'constructs'
 import { Config } from '../config'
@@ -383,6 +384,103 @@ export class JobDockStack extends cdk.Stack {
         }),
       },
     })
+
+    // ============================================
+    // 6b. AWS WAF (prod only) — protect the API stage from abuse
+    // ============================================
+    // Rate limits (auth + global, per-IP) and the managed IP-reputation / known-bad-inputs
+    // groups BLOCK immediately. The broad Common rule set starts in COUNT (monitor-only) so
+    // it can't break large legitimate requests (CSV imports, assistant chat > 8KB) on day one;
+    // flip its overrideAction from `{ count: {} }` to `{ none: {} }` to enforce once verified.
+    if (config.env === 'prod') {
+      const wafVisibility = (metricName: string) => ({
+        cloudWatchMetricsEnabled: true,
+        metricName,
+        sampledRequestsEnabled: true,
+      })
+
+      const apiWebAcl = new wafv2.CfnWebACL(this, 'ApiWebAcl', {
+        name: `jobdock-api-${config.env}`,
+        scope: 'REGIONAL',
+        defaultAction: { allow: {} },
+        visibilityConfig: wafVisibility(`jobdock-api-${config.env}`),
+        rules: [
+          {
+            name: 'RateLimitAuth',
+            priority: 0,
+            action: { block: {} },
+            statement: {
+              rateBasedStatement: {
+                limit: 100, // requests per 5-min window per IP, on /auth/* only
+                aggregateKeyType: 'IP',
+                scopeDownStatement: {
+                  byteMatchStatement: {
+                    searchString: '/auth/',
+                    fieldToMatch: { uriPath: {} },
+                    textTransformations: [{ priority: 0, type: 'LOWERCASE' }],
+                    positionalConstraint: 'CONTAINS',
+                  },
+                },
+              },
+            },
+            visibilityConfig: wafVisibility('RateLimitAuth'),
+          },
+          {
+            name: 'RateLimitGlobal',
+            priority: 1,
+            action: { block: {} },
+            statement: {
+              rateBasedStatement: {
+                limit: 3000, // requests per 5-min window per IP, all paths
+                aggregateKeyType: 'IP',
+              },
+            },
+            visibilityConfig: wafVisibility('RateLimitGlobal'),
+          },
+          {
+            name: 'AWSManagedIpReputation',
+            priority: 2,
+            overrideAction: { none: {} }, // let the group block
+            statement: {
+              managedRuleGroupStatement: {
+                vendorName: 'AWS',
+                name: 'AWSManagedRulesAmazonIpReputationList',
+              },
+            },
+            visibilityConfig: wafVisibility('AWSManagedIpReputation'),
+          },
+          {
+            name: 'AWSManagedKnownBadInputs',
+            priority: 3,
+            overrideAction: { none: {} }, // let the group block
+            statement: {
+              managedRuleGroupStatement: {
+                vendorName: 'AWS',
+                name: 'AWSManagedRulesKnownBadInputsRuleSet',
+              },
+            },
+            visibilityConfig: wafVisibility('AWSManagedKnownBadInputs'),
+          },
+          {
+            name: 'AWSManagedCommonRuleSet',
+            priority: 4,
+            overrideAction: { count: {} }, // MONITOR ONLY — flip to { none: {} } to enforce
+            statement: {
+              managedRuleGroupStatement: {
+                vendorName: 'AWS',
+                name: 'AWSManagedRulesCommonRuleSet',
+              },
+            },
+            visibilityConfig: wafVisibility('AWSManagedCommonRuleSet'),
+          },
+        ],
+      })
+
+      new wafv2.CfnWebACLAssociation(this, 'ApiWebAclAssociation', {
+        resourceArn: this.api.deploymentStage.stageArn,
+        webAclArn: apiWebAcl.attrArn,
+      })
+    }
 
     // ============================================
     // 7. Lambda Functions (Placeholder - will be implemented separately)
