@@ -50,7 +50,10 @@ export class JobDockStack extends cdk.Stack {
     // To keep deployments stable, we use CDK's built-in NAT providers so the VPC construct
     // manages the NAT resources + routes consistently.
 
-    const enableNat = config.env !== 'prod'
+    // NAT Gateway is required in every environment: Lambdas run in private subnets and reach
+    // external services (Cognito, Stripe, Twilio, Resend, OpenAI, Intuit, Google) outbound-only
+    // through NAT. (Prod previously disabled this and exposed the DB publicly to save the cost.)
+    const enableNat = true
     // NOTE:
     // NAT Instance support in CDK v2 is deprecated and can fail to resolve a suitable AMI
     // (we hit: "No AMI found that matched the search criteria").
@@ -141,7 +144,7 @@ export class JobDockStack extends cdk.Stack {
           : privateSubnetSelection,
         subnetGroup: databaseSubnetGroup,
         securityGroups: [dbSecurityGroup],
-        publiclyAccessible: config.env === 'prod', // Enable public access for prod to eliminate NAT Gateway
+        publiclyAccessible: false, // DB is private — reachable only from the Lambda security group inside the VPC
         databaseName: 'jobdock',
         removalPolicy: config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
         deletionProtection: config.env === 'prod', // Guard prod DB against direct console/API/CLI deletion
@@ -437,11 +440,9 @@ export class JobDockStack extends cdk.Stack {
       depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
       bundling: commonBundlingOptions,
       // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
-      ...(config.env !== 'prod' && {
-        vpc: this.vpc,
-        vpcSubnets: privateSubnetSelection,
-        securityGroups: [lambdaSecurityGroup],
-      }),
+      vpc: this.vpc,
+      vpcSubnets: privateSubnetSelection,
+      securityGroups: [lambdaSecurityGroup],
       role: lambdaRole,
       timeout: cdk.Duration.seconds(config.lambda.timeout),
       memorySize: config.lambda.memorySize,
@@ -515,11 +516,9 @@ export class JobDockStack extends cdk.Stack {
       depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
       bundling: commonBundlingOptions,
       // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
-      ...(config.env !== 'prod' && {
-        vpc: this.vpc,
-        vpcSubnets: privateSubnetSelection,
-        securityGroups: [lambdaSecurityGroup],
-      }),
+      vpc: this.vpc,
+      vpcSubnets: privateSubnetSelection,
+      securityGroups: [lambdaSecurityGroup],
       role: lambdaRole,
       timeout: cdk.Duration.seconds(config.lambda.timeout),
       memorySize: config.lambda.memorySize,
@@ -607,11 +606,9 @@ export class JobDockStack extends cdk.Stack {
       depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
       bundling: commonBundlingOptions,
       // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
-      ...(config.env !== 'prod' && {
-        vpc: this.vpc,
-        vpcSubnets: privateSubnetSelection,
-        securityGroups: [lambdaSecurityGroup],
-      }),
+      vpc: this.vpc,
+      vpcSubnets: privateSubnetSelection,
+      securityGroups: [lambdaSecurityGroup],
       timeout: cdk.Duration.seconds(300), // 5 minutes for migrations
       memorySize: 1024, // More memory for Prisma
       environment: {
@@ -648,11 +645,9 @@ export class JobDockStack extends cdk.Stack {
       depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
       bundling: commonBundlingOptions,
       // Remove VPC for production - Lambda can access public RDS directly without NAT Gateway
-      ...(config.env !== 'prod' && {
-        vpc: this.vpc,
-        vpcSubnets: privateSubnetSelection,
-        securityGroups: [lambdaSecurityGroup],
-      }),
+      vpc: this.vpc,
+      vpcSubnets: privateSubnetSelection,
+      securityGroups: [lambdaSecurityGroup],
       role: lambdaRole,
       timeout: cdk.Duration.minutes(5), // Allow time for processing many jobs
       memorySize: 512,
@@ -710,11 +705,9 @@ export class JobDockStack extends cdk.Stack {
         handler: 'handler',
         depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
         bundling: commonBundlingOptions,
-        ...(config.env !== 'prod' && {
-          vpc: this.vpc,
-          vpcSubnets: privateSubnetSelection,
-          securityGroups: [lambdaSecurityGroup],
-        }),
+        vpc: this.vpc,
+        vpcSubnets: privateSubnetSelection,
+        securityGroups: [lambdaSecurityGroup],
         role: lambdaRole,
         timeout: cdk.Duration.minutes(5),
         memorySize: 512,
@@ -770,11 +763,9 @@ export class JobDockStack extends cdk.Stack {
         handler: 'handler',
         depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
         bundling: commonBundlingOptions,
-        ...(config.env !== 'prod' && {
-          vpc: this.vpc,
-          vpcSubnets: privateSubnetSelection,
-          securityGroups: [lambdaSecurityGroup],
-        }),
+        vpc: this.vpc,
+        vpcSubnets: privateSubnetSelection,
+        securityGroups: [lambdaSecurityGroup],
         role: lambdaRole,
         timeout: cdk.Duration.minutes(5),
         memorySize: 512,
@@ -840,11 +831,9 @@ export class JobDockStack extends cdk.Stack {
         handler: 'handler',
         depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
         bundling: commonBundlingOptions,
-        ...(config.env !== 'prod' && {
-          vpc: this.vpc,
-          vpcSubnets: privateSubnetSelection,
-          securityGroups: [lambdaSecurityGroup],
-        }),
+        vpc: this.vpc,
+        vpcSubnets: privateSubnetSelection,
+        securityGroups: [lambdaSecurityGroup],
         role: googleCalendarSyncRole,
         timeout: cdk.Duration.seconds(300),
         memorySize: 512,
