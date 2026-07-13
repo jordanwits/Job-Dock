@@ -405,9 +405,25 @@ const DashboardPage = () => {
     </KpiStrip>
   ) : (
     <KpiStrip className="max-w-xl">
-      <KpiItem index={0} label="This week" value={upcoming.count} caption="appointments" to="/app/job-logs" />
+      <KpiItem index={0} label="Appointments" value={upcoming.count} caption="this week" to="/app/job-logs" />
       <KpiItem index={1} label="Active jobs" value={jobMetrics.activeCount} caption="in progress" to="/app/job-logs?status=active" />
-      <KpiItem index={2} label="Pending quotes" value={quoteMetrics.pending} caption="awaiting reply" to="/app/quotes?status=sent" />
+      <KpiItem
+        index={2}
+        label={
+          <>
+            <span className="sm:hidden">Pending</span>
+            <span className="hidden sm:inline">Pending quotes</span>
+          </>
+        }
+        value={quoteMetrics.pending}
+        caption={
+          <>
+            <span className="sm:hidden">quotes</span>
+            <span className="hidden sm:inline">awaiting reply</span>
+          </>
+        }
+        to="/app/quotes?status=sent"
+      />
     </KpiStrip>
   )
 

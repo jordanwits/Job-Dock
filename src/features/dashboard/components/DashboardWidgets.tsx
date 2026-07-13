@@ -161,9 +161,9 @@ export function KpiItem({
   to,
   index = 0,
 }: {
-  label: string
+  label: ReactNode
   value: ReactNode
-  caption?: string
+  caption?: ReactNode
   to?: string
   index?: number
 }) {
