@@ -7,6 +7,7 @@
 
 import { Context } from 'aws-lambda'
 import prisma from '../../lib/db'
+import { loadSecrets } from '../../lib/secrets'
 
 interface MigrationEvent {
   action?: 'deploy' | 'status' | 'sql'
@@ -1228,6 +1229,8 @@ export const handler = async (
   context: Context
 ): Promise<MigrationResult> => {
   console.log('Migration Lambda invoked', { event, requestId: context.awsRequestId })
+
+  await loadSecrets()
 
   const action = event.action || 'deploy'
   const timestamp = new Date().toISOString()

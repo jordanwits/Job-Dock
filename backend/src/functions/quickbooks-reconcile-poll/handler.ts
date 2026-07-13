@@ -6,8 +6,10 @@
 // invoice from QuickBooks and reconciling it. Fully-paid invoices are skipped — they're terminal.
 
 import { reconcileInvoice } from '../../lib/quickbooks/sync'
+import { loadSecrets } from '../../lib/secrets'
 
 export const handler = async () => {
+  await loadSecrets()
   const { default: prismaClient } = await import('../../lib/db')
   const prisma = prismaClient as any
 

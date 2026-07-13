@@ -15,6 +15,7 @@
 import { Context } from 'aws-lambda'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import prisma from '../../lib/db'
+import { loadSecrets } from '../../lib/secrets'
 
 const s3 = new S3Client({})
 
@@ -36,6 +37,8 @@ export const handler = async (
   context: Context
 ): Promise<CleanupResult> => {
   console.log('Job Cleanup Lambda invoked', { event, requestId: context.awsRequestId })
+
+  await loadSecrets()
 
   const dryRun = event.dryRun || false
   const now = new Date()

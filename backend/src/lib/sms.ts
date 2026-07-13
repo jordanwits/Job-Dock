@@ -1,17 +1,27 @@
 import twilio from 'twilio'
 
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || ''
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || ''
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || ''
 
-let twilioClient: ReturnType<typeof twilio> | null = null
-if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
-  twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-  console.log('[OK] Twilio SMS client initialized')
-} else {
-  console.warn(
-    `[WARN] Twilio not initialized. TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID ? 'SET' : 'NOT SET'}, TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN ? 'SET' : 'NOT SET'}`
-  )
+// The Twilio client is created lazily on first use (NOT at module load) so its auth token can be
+// sourced from Secrets Manager, which loadSecrets() populates into process.env at handler entry.
+// TWILIO_ACCOUNT_SID / TWILIO_PHONE_NUMBER stay plain (non-secret) env vars. Cached after first call.
+let cachedTwilioClient: ReturnType<typeof twilio> | null = null
+let twilioInitialized = false
+function getTwilioClient(): ReturnType<typeof twilio> | null {
+  if (!twilioInitialized) {
+    twilioInitialized = true
+    const sid = process.env.TWILIO_ACCOUNT_SID || ''
+    const token = process.env.TWILIO_AUTH_TOKEN || ''
+    if (sid && token) {
+      cachedTwilioClient = twilio(sid, token)
+      console.log('[OK] Twilio SMS client initialized')
+    } else {
+      console.warn(
+        `[WARN] Twilio not initialized. TWILIO_ACCOUNT_SID=${sid ? 'SET' : 'NOT SET'}, TWILIO_AUTH_TOKEN=${token ? 'SET' : 'NOT SET'}`
+      )
+    }
+  }
+  return cachedTwilioClient
 }
 
 /**
@@ -29,7 +39,7 @@ function normalizePhone(phone: string): string {
  * Check if Twilio SMS is configured and ready to send.
  */
 export function isSmsConfigured(): boolean {
-  return !!(twilioClient && TWILIO_PHONE_NUMBER)
+  return !!(getTwilioClient() && TWILIO_PHONE_NUMBER)
 }
 
 /** GSM-7 single-segment limit (160 chars = 1 segment, lower cost) */
@@ -54,6 +64,7 @@ function truncateToSingleSegment(body: string): string {
  */
 export async function sendSms(to: string, body: string): Promise<string | null> {
   if (!to || !body?.trim()) return null
+  const twilioClient = getTwilioClient()
   if (!twilioClient || !TWILIO_PHONE_NUMBER) {
     console.warn('[WARN] Twilio SMS not configured, skipping send')
     return null

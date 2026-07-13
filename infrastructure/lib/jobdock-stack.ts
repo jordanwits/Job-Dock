@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as rds from 'aws-cdk-lib/aws-rds'
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
@@ -327,6 +328,18 @@ export class JobDockStack extends cdk.Stack {
     this.database.secret?.grantRead(lambdaRole)
     this.database.grantConnect(lambdaRole, 'jobdock')
 
+    // Third-party application secrets (Stripe, Twilio, Resend, QuickBooks, OpenAI, Google, and the
+    // approval/photo/migrate HMAC secrets). In prod these live in one Secrets Manager secret and are
+    // loaded at Lambda cold start by backend/src/lib/secrets.ts (via the APP_SECRETS_ARN env var set
+    // on each Lambda below). dev/staging keep reading plaintext env from the deploy shell, so the
+    // secret is only referenced for prod; appSecretsArn is '' otherwise and loadSecrets() skips it.
+    const appSecrets =
+      config.env === 'prod'
+        ? secretsmanager.Secret.fromSecretNameV2(this, 'AppSecrets', 'jobdock-app-secrets-prod')
+        : undefined
+    const appSecretsArn = appSecrets?.secretArn ?? ''
+    appSecrets?.grantRead(lambdaRole)
+
     // Grant Lambda access to S3
     this.filesBucket.grantReadWrite(lambdaRole)
 
@@ -490,13 +503,8 @@ export class JobDockStack extends cdk.Stack {
       this.database instanceof rds.DatabaseInstance
         ? this.database.instanceEndpoint.hostname
         : this.database.clusterEndpoint.hostname
-    const databaseSecret = this.database.secret
-    const databaseUserSecret = databaseSecret
-      ? databaseSecret.secretValueFromJson('username')
-      : cdk.SecretValue.unsafePlainText('dbadmin')
-    const databasePasswordSecret = databaseSecret
-      ? databaseSecret.secretValueFromJson('password')
-      : cdk.SecretValue.unsafePlainText('')
+    // DB credentials are no longer injected as plaintext Lambda env vars. Each Lambda fetches them
+    // from Secrets Manager at runtime via DATABASE_SECRET_ARN (see backend/src/lib/secrets.ts).
 
     const createCopyPrismaCmd = (outputDir: string) => {
       const targetDir = path.join(outputDir, 'node_modules').replace(/\\/g, '\\\\')
@@ -549,8 +557,6 @@ export class JobDockStack extends cdk.Stack {
         DATABASE_ENDPOINT: databaseHost,
         DATABASE_NAME: 'jobdock',
         DATABASE_HOST: databaseHost,
-        DATABASE_USER: databaseUserSecret.toString(),
-        DATABASE_PASSWORD: databasePasswordSecret.toString(),
         DATABASE_PORT: '5432',
         DATABASE_OPTIONS: 'schema=public',
         USER_POOL_ID: this.userPool.userPoolId,
@@ -563,17 +569,13 @@ export class JobDockStack extends cdk.Stack {
             ? `https://${config.domain}`
             : 'http://localhost:3000',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
-        // Email configuration (Resend)
+        // Email configuration (Resend). RESEND_API_KEY is loaded from Secrets Manager at runtime.
         EMAIL_PROVIDER: 'resend',
         EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thecleandock.com',
-        RESEND_API_KEY: process.env.RESEND_API_KEY || '',
-        // Twilio SMS configuration
+        // Twilio SMS configuration. TWILIO_AUTH_TOKEN is loaded from Secrets Manager at runtime.
         TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || '',
-        TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || '',
         TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || '',
-        // Stripe billing configuration
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
-        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+        // Stripe billing configuration. Secret key + webhook secret load from Secrets Manager.
         STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID || '',
         STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_TEAM_PLUS_PRICE_ID: process.env.STRIPE_TEAM_PLUS_PRICE_ID || '',
@@ -625,8 +627,6 @@ export class JobDockStack extends cdk.Stack {
         DATABASE_ENDPOINT: databaseHost,
         DATABASE_NAME: 'jobdock',
         DATABASE_HOST: databaseHost,
-        DATABASE_USER: databaseUserSecret.toString(),
-        DATABASE_PASSWORD: databasePasswordSecret.toString(),
         DATABASE_PORT: '5432',
         DATABASE_OPTIONS: 'schema=public',
         USER_POOL_ID: this.userPool.userPoolId,
@@ -643,17 +643,13 @@ export class JobDockStack extends cdk.Stack {
             ? `https://${config.domain}`
             : 'http://localhost:3000',
         DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
-        // Email configuration (Resend)
+        // Email configuration (Resend). RESEND_API_KEY is loaded from Secrets Manager at runtime.
         EMAIL_PROVIDER: 'resend',
         EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thecleandock.com',
-        RESEND_API_KEY: process.env.RESEND_API_KEY || '',
-        // Twilio SMS configuration
+        // Twilio SMS configuration. TWILIO_AUTH_TOKEN is loaded from Secrets Manager at runtime.
         TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || '',
-        TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || '',
         TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || '',
-        // Stripe billing configuration
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
-        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+        // Stripe billing configuration. Secret key + webhook secret load from Secrets Manager.
         STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID || '',
         STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_TEAM_PLUS_PRICE_ID: process.env.STRIPE_TEAM_PLUS_PRICE_ID || '',
@@ -662,28 +658,19 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_JOBDOCK_SOLO_PRICE_ID: process.env.STRIPE_JOBDOCK_SOLO_PRICE_ID || '',
         STRIPE_JOBDOCK_TEAM_PRICE_ID: process.env.STRIPE_JOBDOCK_TEAM_PRICE_ID || '',
         STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID: process.env.STRIPE_JOBDOCK_TEAM_PLUS_PRICE_ID || '',
-        // QuickBooks Online integration (OAuth + QuickBooks Payments)
+        // QuickBooks Online integration (OAuth + QuickBooks Payments). Client secret, webhook
+        // verifier token, and token-encryption key load from Secrets Manager at runtime.
         QUICKBOOKS_ENV: process.env.QUICKBOOKS_ENV || 'sandbox',
         QUICKBOOKS_CLIENT_ID: process.env.QUICKBOOKS_CLIENT_ID || '',
-        QUICKBOOKS_CLIENT_SECRET: process.env.QUICKBOOKS_CLIENT_SECRET || '',
         QUICKBOOKS_REDIRECT_URI: process.env.QUICKBOOKS_REDIRECT_URI || '',
-        QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN: process.env.QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN || '',
-        QUICKBOOKS_TOKEN_ENC_KEY: process.env.QUICKBOOKS_TOKEN_ENC_KEY || '',
         // Google Calendar two-way sync (OAuth). GOOGLE_SYNC_FUNCTION_NAME is wired below, after the
         // sync Lambda is defined, to avoid a construct-ordering issue.
         GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
-        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
-        GOOGLE_TOKEN_ENC_KEY: process.env.GOOGLE_TOKEN_ENC_KEY || '',
         GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || '',
         JOBDOCK_PLATFORM_ADMIN_EMAILS: process.env.JOBDOCK_PLATFORM_ADMIN_EMAILS || '',
-        OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
         JOBDOCK_SUPPORT_ENGINEER_EMAIL: process.env.JOBDOCK_SUPPORT_ENGINEER_EMAIL || '',
-        // HMAC signing secrets for public token flows (no insecure in-code fallback).
-        // These MUST be set in the deploy environment or the approval/photo features fail closed.
-        APPROVAL_SECRET: process.env.APPROVAL_SECRET || '',
-        PHOTO_ACCESS_SECRET: process.env.PHOTO_ACCESS_SECRET || '',
-        // Gates the ad-hoc /__migrate and /__sms-status debug endpoints. When unset, both are disabled.
-        MIGRATE_SECRET: process.env.MIGRATE_SECRET || '',
+        // OPENAI_API_KEY, APPROVAL_SECRET, PHOTO_ACCESS_SECRET, and MIGRATE_SECRET are loaded from
+        // Secrets Manager at runtime (backend/src/lib/secrets.ts); they are no longer plaintext env.
       },
     })
 
@@ -710,11 +697,8 @@ export class JobDockStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300), // 5 minutes for migrations
       memorySize: 1024, // More memory for Prisma
       environment: {
-        DATABASE_URL: `postgresql://${databaseUserSecret.unsafeUnwrap()}:${databasePasswordSecret.unsafeUnwrap()}@${databaseHost}:5432/jobdock?schema=public`,
         DATABASE_SECRET_ARN: this.database.secret?.secretArn ?? '',
         DATABASE_HOST: databaseHost,
-        DATABASE_USER: databaseUserSecret.toString(),
-        DATABASE_PASSWORD: databasePasswordSecret.toString(),
         DATABASE_PORT: '5432',
         DATABASE_NAME: 'jobdock',
         ENV: config.env,
@@ -754,8 +738,6 @@ export class JobDockStack extends cdk.Stack {
         DATABASE_ENDPOINT: databaseHost,
         DATABASE_NAME: 'jobdock',
         DATABASE_HOST: databaseHost,
-        DATABASE_USER: databaseUserSecret.toString(),
-        DATABASE_PASSWORD: databasePasswordSecret.toString(),
         DATABASE_PORT: '5432',
         DATABASE_OPTIONS: 'schema=public',
         FILES_BUCKET: this.filesBucket.bucketName,
@@ -814,15 +796,11 @@ export class JobDockStack extends cdk.Stack {
           DATABASE_ENDPOINT: databaseHost,
           DATABASE_NAME: 'jobdock',
           DATABASE_HOST: databaseHost,
-          DATABASE_USER: databaseUserSecret.toString(),
-          DATABASE_PASSWORD: databasePasswordSecret.toString(),
           DATABASE_PORT: '5432',
           DATABASE_OPTIONS: 'schema=public',
           ENVIRONMENT: config.env,
           QUICKBOOKS_ENV: process.env.QUICKBOOKS_ENV || 'sandbox',
           QUICKBOOKS_CLIENT_ID: process.env.QUICKBOOKS_CLIENT_ID || '',
-          QUICKBOOKS_CLIENT_SECRET: process.env.QUICKBOOKS_CLIENT_SECRET || '',
-          QUICKBOOKS_TOKEN_ENC_KEY: process.env.QUICKBOOKS_TOKEN_ENC_KEY || '',
         },
         logGroup: quickbooksRefreshLogGroup,
         description: 'Refreshes QuickBooks OAuth tokens for inactive tenants (daily)',
@@ -872,15 +850,11 @@ export class JobDockStack extends cdk.Stack {
           DATABASE_ENDPOINT: databaseHost,
           DATABASE_NAME: 'jobdock',
           DATABASE_HOST: databaseHost,
-          DATABASE_USER: databaseUserSecret.toString(),
-          DATABASE_PASSWORD: databasePasswordSecret.toString(),
           DATABASE_PORT: '5432',
           DATABASE_OPTIONS: 'schema=public',
           ENVIRONMENT: config.env,
           QUICKBOOKS_ENV: process.env.QUICKBOOKS_ENV || 'sandbox',
           QUICKBOOKS_CLIENT_ID: process.env.QUICKBOOKS_CLIENT_ID || '',
-          QUICKBOOKS_CLIENT_SECRET: process.env.QUICKBOOKS_CLIENT_SECRET || '',
-          QUICKBOOKS_TOKEN_ENC_KEY: process.env.QUICKBOOKS_TOKEN_ENC_KEY || '',
         },
         logGroup: quickbooksReconcileLogGroup,
         description: 'Polls QuickBooks to reconcile payment status onto synced invoices (daily)',
@@ -940,8 +914,6 @@ export class JobDockStack extends cdk.Stack {
           DATABASE_ENDPOINT: databaseHost,
           DATABASE_NAME: 'jobdock',
           DATABASE_HOST: databaseHost,
-          DATABASE_USER: databaseUserSecret.toString(),
-          DATABASE_PASSWORD: databasePasswordSecret.toString(),
           DATABASE_PORT: '5432',
           DATABASE_OPTIONS: 'schema=public',
           ENVIRONMENT: config.env,
@@ -951,8 +923,6 @@ export class JobDockStack extends cdk.Stack {
               ? `https://${config.domain}`
               : 'http://localhost:3000',
           GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
-          GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
-          GOOGLE_TOKEN_ENC_KEY: process.env.GOOGLE_TOKEN_ENC_KEY || '',
           GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || '',
         },
         logGroup: googleCalendarSyncLogGroup,
@@ -962,6 +932,8 @@ export class JobDockStack extends cdk.Stack {
 
     this.database.secret?.grantRead(googleCalendarSyncLambda)
     this.database.grantConnect(googleCalendarSyncLambda, 'jobdock')
+    // The gcal sync Lambda uses its own role (not the shared lambdaRole), so grant it the app secret.
+    appSecrets?.grantRead(googleCalendarSyncRole)
 
     // Run the pull/reconcile sweep every 5 minutes.
     const googleCalendarSyncRule = new events.Rule(this, 'GoogleCalendarSyncSchedule', {
@@ -975,6 +947,16 @@ export class JobDockStack extends cdk.Stack {
     // Lambda — that would create a circular dependency.)
     dataLambda.addEnvironment('GOOGLE_SYNC_FUNCTION_NAME', googleCalendarSyncLambda.functionName)
     googleCalendarSyncLambda.grantInvoke(dataLambda)
+
+    // Wire the app-secrets ARN into every Lambda that reads third-party secrets at runtime. Empty
+    // string for non-prod (loadSecrets treats an empty ARN as "not configured" and skips the fetch,
+    // leaving the plaintext env in place). grantRead was attached to the Lambda roles above.
+    // (Cleanup and migration Lambdas need only the DB, so they are intentionally omitted.)
+    authLambda.addEnvironment('APP_SECRETS_ARN', appSecretsArn)
+    dataLambda.addEnvironment('APP_SECRETS_ARN', appSecretsArn)
+    quickbooksRefreshLambda.addEnvironment('APP_SECRETS_ARN', appSecretsArn)
+    quickbooksReconcileLambda.addEnvironment('APP_SECRETS_ARN', appSecretsArn)
+    googleCalendarSyncLambda.addEnvironment('APP_SECRETS_ARN', appSecretsArn)
 
     const authResource = this.api.root.addResource('auth')
     authResource.addResource('register').addMethod('POST', authIntegration)

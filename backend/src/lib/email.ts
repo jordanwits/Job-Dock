@@ -5,19 +5,28 @@ import { getFileUrl } from './fileUpload'
 
 // Email configuration from environment variables
 const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'console'
-const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'noreply@thecleandock.com'
 const ENVIRONMENT = process.env.ENVIRONMENT || process.env.NODE_ENV || 'dev'
 
-// Initialize Resend client if enabled
-let resendClient: Resend | null = null
-if (EMAIL_PROVIDER === 'resend' && RESEND_API_KEY) {
-  resendClient = new Resend(RESEND_API_KEY)
-  console.log('✅ Resend client initialized')
-} else {
-  console.warn(
-    `⚠️ Resend not initialized. EMAIL_PROVIDER=${EMAIL_PROVIDER}, RESEND_API_KEY=${RESEND_API_KEY ? 'SET' : 'NOT SET'}`
-  )
+// The Resend client is created lazily on first use (NOT at module load) so its API key can be
+// sourced from Secrets Manager, which loadSecrets() populates into process.env at handler entry —
+// after this module is imported but before any email is sent. Cached after the first call.
+let cachedResendClient: Resend | null = null
+let resendInitialized = false
+function getResendClient(): Resend | null {
+  if (!resendInitialized) {
+    resendInitialized = true
+    const apiKey = process.env.RESEND_API_KEY || ''
+    if (EMAIL_PROVIDER === 'resend' && apiKey) {
+      cachedResendClient = new Resend(apiKey)
+      console.log('✅ Resend client initialized')
+    } else {
+      console.warn(
+        `⚠️ Resend not initialized. EMAIL_PROVIDER=${EMAIL_PROVIDER}, RESEND_API_KEY=${apiKey ? 'SET' : 'NOT SET'}`
+      )
+    }
+  }
+  return cachedResendClient
 }
 
 export interface EmailPayload {
@@ -171,6 +180,11 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
   // Always send to a normalized lowercase address.
   const to = typeof rawTo === 'string' ? rawTo.trim().toLowerCase() : rawTo
 
+  // Resolve the Resend client + key at call time (secrets are loaded asynchronously at handler
+  // entry, so they must not be read at module load). Locals keep the logic below unchanged.
+  const resendClient = getResendClient()
+  const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
+
   // In production, do not silently "succeed" if Resend is selected but not configured.
   if (EMAIL_PROVIDER === 'resend' && !RESEND_API_KEY) {
     const msg = 'RESEND_API_KEY is not configured for EMAIL_PROVIDER=resend'
@@ -314,6 +328,11 @@ export async function sendEmailWithAttachments(payload: EmailWithAttachment): Pr
   const { to: rawTo, subject, htmlBody, textBody, fromName, replyTo, attachments = [] } = payload
   // Always send to a normalized lowercase address.
   const to = typeof rawTo === 'string' ? rawTo.trim().toLowerCase() : rawTo
+
+  // Resolve the Resend client + key at call time (secrets are loaded asynchronously at handler
+  // entry, so they must not be read at module load). Locals keep the logic below unchanged.
+  const resendClient = getResendClient()
+  const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 
   // In production, do not silently "succeed" if Resend is selected but not configured.
   if (EMAIL_PROVIDER === 'resend' && !RESEND_API_KEY) {

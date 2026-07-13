@@ -8,10 +8,12 @@
 import { refreshTokens } from '../../lib/quickbooks/oauth'
 import { saveTokens } from '../../lib/quickbooks/client'
 import { decryptToken } from '../../lib/quickbooks/crypto'
+import { loadSecrets } from '../../lib/secrets'
 
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000 // refresh if not refreshed in the last 7 days
 
 export const handler = async () => {
+  await loadSecrets()
   const { default: prismaClient } = await import('../../lib/db')
   const prisma = prismaClient as any
   const cutoff = new Date(Date.now() - STALE_AFTER_MS)

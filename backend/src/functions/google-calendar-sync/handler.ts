@@ -12,6 +12,7 @@
 
 import prisma from '../../lib/db'
 import { syncTenant } from '../../lib/googleCalendar'
+import { loadSecrets } from '../../lib/secrets'
 
 interface SyncLambdaEvent {
   source?: string // 'aws.events' for the EventBridge schedule
@@ -20,6 +21,7 @@ interface SyncLambdaEvent {
 }
 
 export const handler = async (event: SyncLambdaEvent): Promise<{ ok: boolean }> => {
+  await loadSecrets()
   try {
     // Scheduled sweep across all tenants with an active connection. 'error' rows are included so a
     // transient failure self-heals on a later sweep (markConnectionSuccess flips them back to

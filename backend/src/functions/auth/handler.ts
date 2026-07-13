@@ -24,6 +24,7 @@ import { successResponse, errorResponse, corsResponse, setRequestOrigin } from '
 import prisma from '../../lib/db'
 import { dataServices } from '../../lib/dataService'
 import { sendPasswordResetEmail } from '../../lib/email'
+import { loadSecrets } from '../../lib/secrets'
 import { randomUUID, randomBytes, createHash } from 'crypto'
 
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = 60
@@ -39,6 +40,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if (event.httpMethod === 'OPTIONS') {
     return corsResponse()
   }
+
+  // Load secrets from Secrets Manager (cached per cold start) before any DB / third-party use.
+  await loadSecrets()
 
   try {
     const route = buildRouteKey(event)

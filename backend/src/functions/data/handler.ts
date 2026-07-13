@@ -7,6 +7,7 @@ import { extractTenantId } from '../../lib/middleware'
 import { ensureTenantExists, getDefaultTenantId } from '../../lib/tenant'
 import { ApiError } from '../../lib/errors'
 import { verifyApprovalToken } from '../../lib/approvalTokens'
+import { loadSecrets } from '../../lib/secrets'
 import { randomUUID } from 'crypto'
 
 type ResourceKey = keyof typeof dataServices
@@ -87,6 +88,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if (event.httpMethod === 'OPTIONS') {
     return corsResponse()
   }
+
+  // Load secrets from Secrets Manager (cached per cold start) before any DB / third-party use.
+  await loadSecrets()
 
   // Short link resolve (no auth - for SMS redirects)
   if (event.httpMethod === 'GET' && event.path) {
