@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import Modal from '@/components/ui/Modal'
-import Button from '@/components/ui/Button'
-import { useTheme } from '@/contexts/ThemeContext'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
+import { AppButton, ArrowLeftIcon } from './onboardingUi'
 
 interface TourStep {
   path: string
@@ -51,7 +50,6 @@ const TOUR_STEPS: TourStep[] = [
 ]
 
 export const AppTourOverlay = () => {
-  const { theme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -78,6 +76,16 @@ export const AppTourOverlay = () => {
       }
     }
   }, [location.pathname, isActive, currentStepIndex])
+
+  // Close on Escape
+  useEffect(() => {
+    if (!isActive) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [isActive])
 
   const currentStep = TOUR_STEPS[currentStepIndex]
   const isFirstStep = currentStepIndex === 0
@@ -108,59 +116,55 @@ export const AppTourOverlay = () => {
 
   if (!isActive) return null
 
-  return (
-    <Modal
-      isOpen={isActive}
-      onClose={handleClose}
-      title={currentStep.title}
-      size="md"
-      showCloseButton={false}
-      transparentBackdrop={true}
-      footer={
-        <>
-          <div className={cn(
-            "flex-1 text-sm",
-            theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-          )}>
-            Step {currentStepIndex + 1} of {TOUR_STEPS.length}
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/20 p-4 sm:items-center">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-pop">
+        <div className="px-6 pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center rounded-full bg-accent-soft px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent-strong">
+              Tour
+            </span>
+            <span className="font-mono text-[13px] tabular-nums text-ink-subtle">
+              {currentStepIndex + 1}/{TOUR_STEPS.length}
+            </span>
           </div>
-          {!isFirstStep && (
-            <Button variant="secondary" onClick={handleBack}>
-              Back
-            </Button>
-          )}
-          <Button variant="ghost" onClick={handleClose}>
-            Skip Tour
-          </Button>
-          <Button onClick={handleNext}>{isLastStep ? 'Finish' : 'Next'}</Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <p className={cn(
-          "text-base leading-relaxed",
-          theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-        )}>{currentStep.description}</p>
+          <h2 className="mt-3 text-xl font-bold tracking-tight text-ink">{currentStep.title}</h2>
+          <p className="mt-2 text-[15px] leading-relaxed text-ink-muted">
+            {currentStep.description}
+          </p>
 
-        {/* Progress indicator */}
-        <div className="flex gap-2 pt-4">
-          {TOUR_STEPS.map((_, index) => (
-            <div
-              key={index}
-              className={cn(
-                "h-2 flex-1 rounded-full transition-colors",
-                index === currentStepIndex
-                  ? 'bg-primary-gold'
-                  : index < currentStepIndex
-                    ? 'bg-primary-blue'
-                    : theme === 'dark'
-                      ? 'bg-primary-dark'
-                      : 'bg-gray-300'
-              )}
-            />
-          ))}
+          {/* Progress indicator */}
+          <div className="mt-5 flex gap-1.5">
+            {TOUR_STEPS.map((_, index) => (
+              <div
+                key={index}
+                className={cn(
+                  'h-1.5 flex-1 rounded-full transition-colors',
+                  index === currentStepIndex
+                    ? 'bg-accent-strong'
+                    : index < currentStepIndex
+                      ? 'bg-accent'
+                      : 'bg-line'
+                )}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center gap-3 border-t border-line px-6 py-4">
+          {!isFirstStep && (
+            <AppButton variant="ghost" onClick={handleBack}>
+              <ArrowLeftIcon className="h-4 w-4" />
+              Back
+            </AppButton>
+          )}
+          <AppButton variant="ghost" onClick={handleClose} className="mr-auto">
+            Skip tour
+          </AppButton>
+          <AppButton onClick={handleNext}>{isLastStep ? 'Finish' : 'Next'}</AppButton>
         </div>
       </div>
-    </Modal>
+    </div>,
+    document.body
   )
 }

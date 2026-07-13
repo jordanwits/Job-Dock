@@ -1,20 +1,32 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, PhoneInput, Card } from '@/components/ui'
 import { settingsApi, TenantSettings } from '@/lib/api/settings'
 import { onboardingApi } from '@/lib/api/onboarding'
 import { useAuthStore } from '@/features/auth'
-import { useTheme } from '@/contexts/ThemeContext'
-import { cn } from '@/lib/utils'
+import {
+  AppButton,
+  Alert,
+  TextField,
+  PhoneField,
+  OnboardingCard,
+  BuildingIcon,
+  ImageIcon,
+  CompassIcon,
+  SparkleIcon,
+  UploadIcon,
+  ArrowLeftIcon,
+} from '../components/onboardingUi'
 
 type Step = 'welcome' | 'company-info' | 'logo' | 'tour-start'
 
+const FORM_STEPS: Step[] = ['company-info', 'logo']
+
 export const OnboardingPage = () => {
-  const { theme } = useTheme()
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const [step, setStep] = useState<Step>('welcome')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [settings, setSettings] = useState<TenantSettings | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -61,6 +73,7 @@ export const OnboardingPage = () => {
   const handleSaveCompanyInfo = async () => {
     try {
       setLoading(true)
+      setError(null)
 
       // Only update if at least one field is filled
       const hasData = companyDisplayName || companySupportEmail || companyPhone
@@ -76,6 +89,7 @@ export const OnboardingPage = () => {
       setStep('logo')
     } catch (error) {
       console.error('Failed to save company info:', error)
+      setError('We couldn’t save your company info. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -84,6 +98,7 @@ export const OnboardingPage = () => {
   const handleSaveLogo = async () => {
     try {
       setLoading(true)
+      setError(null)
 
       if (logoFile) {
         setUploadingLogo(true)
@@ -94,6 +109,7 @@ export const OnboardingPage = () => {
       setStep('tour-start')
     } catch (error) {
       console.error('Failed to upload logo:', error)
+      setError('We couldn’t upload your logo. Please try a different file.')
       setUploadingLogo(false)
     } finally {
       setLoading(false)
@@ -103,11 +119,10 @@ export const OnboardingPage = () => {
   const handleStartTour = async () => {
     try {
       setLoading(true)
+      setError(null)
 
-      console.log('Starting tour - marking onboarding as complete')
       // Mark onboarding as complete
       const result = await onboardingApi.complete()
-      console.log('Onboarding marked complete:', result)
 
       // Update user in auth store BEFORE navigating
       if (user) {
@@ -117,20 +132,20 @@ export const OnboardingPage = () => {
             onboardingCompletedAt: result.onboardingCompletedAt,
           },
         })
-        console.log('User state updated with onboarding completion')
       }
 
       // Small delay to ensure state update propagates
       await new Promise(resolve => setTimeout(resolve, 100))
 
-      console.log('Navigating to /app?tour=start')
       // Navigate to dashboard and trigger tour
       navigate('/app?tour=start')
     } catch (error: unknown) {
       console.error('Failed to complete onboarding:', error)
-      const err = error as { response?: { data?: { error?: { message?: string } } }; message?: string }
-      console.error('Error details:', err.response?.data || err.message)
-      alert(`Failed to start tour: ${err.response?.data?.error?.message || err.message || 'Unknown error'}`)
+      const err = error as {
+        response?: { data?: { error?: { message?: string } } }
+        message?: string
+      }
+      setError(err.response?.data?.error?.message || err.message || 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -139,6 +154,7 @@ export const OnboardingPage = () => {
   const handleSkipAll = async () => {
     try {
       setLoading(true)
+      setError(null)
 
       // Mark onboarding as complete
       const result = await onboardingApi.complete()
@@ -160,319 +176,303 @@ export const OnboardingPage = () => {
       navigate('/app')
     } catch (error) {
       console.error('Failed to complete onboarding:', error)
+      setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
+  const formStepIndex = FORM_STEPS.indexOf(step)
+
   return (
-    <div className={cn(
-      "min-h-screen flex items-center justify-center p-4",
-      theme === 'dark' ? 'bg-primary-dark' : 'bg-primary-lightBg'
-    )}>
-      <div className="w-full max-w-2xl">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-10">
+      <div className="w-full max-w-xl">
+        {/* Brand mark */}
+        <div className="mb-7 flex flex-col items-center text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface shadow-card ring-1 ring-line">
+            <img src="/icon-192.png" alt="" className="h-8 w-auto" />
+          </span>
+        </div>
+
+        {/* Step progress (form steps only) */}
+        {formStepIndex !== -1 && (
+          <div className="mx-auto mb-5 flex w-full max-w-[13rem] items-center justify-center gap-2">
+            {FORM_STEPS.map((s, i) => (
+              <span
+                key={s}
+                className={cnStep(i, formStepIndex)}
+              />
+            ))}
+            <span className="ml-2 font-mono text-[13px] tabular-nums text-ink-subtle">
+              {formStepIndex + 1}/{FORM_STEPS.length}
+            </span>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4">
+            <Alert tone="danger">{error}</Alert>
+          </div>
+        )}
+
         {step === 'welcome' && (
-          <Card className="p-8 space-y-6">
-            <div className="text-center space-y-4">
-              <h1 className="text-4xl font-bold text-primary-gold">Welcome to CleanDock!</h1>
-              <p className={cn(
-                "text-lg",
-                theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
-              )}>
-                Let's get you started with a quick tour and setup to make CleanDock your own.
+          <OnboardingCard className="space-y-7">
+            <div className="space-y-2.5 text-center">
+              <p className="text-[13px] font-semibold uppercase tracking-wide text-accent-strong">
+                Welcome
+              </p>
+              <h1 className="text-3xl font-bold tracking-tight text-ink">
+                Let&rsquo;s set up CleanDock
+              </h1>
+              <p className="mx-auto max-w-md text-[15px] leading-relaxed text-ink-muted">
+                A couple of quick steps to make CleanDock your own, then a short tour of the app.
               </p>
             </div>
 
-            <div className="space-y-4 pt-4">
-              <div className={cn(
-                "flex items-start space-x-3",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                <svg
-                  className="w-6 h-6 text-primary-gold flex-shrink-0 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <h3 className="font-semibold">Company Information</h3>
-                  <p className={cn(
-                    "text-sm",
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>
-                    Add your company details to personalize invoices and quotes
-                  </p>
-                </div>
-              </div>
-
-              <div className={cn(
-                "flex items-start space-x-3",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                <svg
-                  className="w-6 h-6 text-primary-gold flex-shrink-0 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <h3 className="font-semibold">Upload Your Logo</h3>
-                  <p className={cn(
-                    "text-sm",
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>
-                    Brand your documents with your company logo
-                  </p>
-                </div>
-              </div>
-
-              <div className={cn(
-                "flex items-start space-x-3",
-                theme === 'dark' ? 'text-primary-light' : 'text-primary-lightText'
-              )}>
-                <svg
-                  className="w-6 h-6 text-primary-gold flex-shrink-0 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <h3 className="font-semibold">Quick Tour</h3>
-                  <p className={cn(
-                    "text-sm",
-                    theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-                  )}>Brief walkthrough of each page</p>
-                </div>
-              </div>
+            <div className="space-y-2.5">
+              <FeatureRow
+                icon={<BuildingIcon />}
+                title="Company information"
+                description="Personalize your invoices, quotes, and emails."
+              />
+              <FeatureRow
+                icon={<ImageIcon />}
+                title="Upload your logo"
+                description="Brand every document you send to customers."
+              />
+              <FeatureRow
+                icon={<CompassIcon />}
+                title="Quick tour"
+                description="A brief walkthrough of each page — under a minute."
+              />
             </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="secondary"
+            <div className="flex flex-col-reverse gap-3 sm:flex-row">
+              <AppButton
+                variant="subtle"
                 onClick={handleSkipAll}
                 disabled={loading}
-                className="flex-1"
+                className="sm:flex-1"
               >
-                Skip All
-              </Button>
-              <Button onClick={() => setStep('company-info')} disabled={loading} className="flex-1">
-                Get Started
-              </Button>
+                Skip for now
+              </AppButton>
+              <AppButton
+                onClick={() => {
+                  setError(null)
+                  setStep('company-info')
+                }}
+                disabled={loading}
+                className="sm:flex-1"
+              >
+                Get started
+              </AppButton>
             </div>
-          </Card>
+          </OnboardingCard>
         )}
 
         {step === 'company-info' && (
-          <Card className="p-8 space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-primary-gold">Company Information</h2>
-              <p className={cn(
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>
-                This information will appear on your invoices, quotes, and emails. All fields are
-                optional.
+          <OnboardingCard className="space-y-6">
+            <div className="space-y-1.5">
+              <h2 className="text-2xl font-bold tracking-tight text-ink">Company information</h2>
+              <p className="text-[15px] leading-relaxed text-ink-muted">
+                This appears on your invoices, quotes, and emails. All fields are optional.
               </p>
             </div>
 
             <div className="space-y-4">
-              <Input
-                label="Company Name"
+              <TextField
+                label="Company name"
                 value={companyDisplayName}
                 onChange={e => setCompanyDisplayName(e.target.value)}
                 placeholder="Your Company Name"
+                leftIcon={<BuildingIcon />}
               />
 
-              <Input
-                label="Support Email"
+              <TextField
+                label="Support email"
                 type="email"
                 value={companySupportEmail}
                 onChange={e => setCompanySupportEmail(e.target.value)}
                 placeholder="support@yourcompany.com"
-                helperText="Displayed in email footers and on invoices/quotes"
+                helperText="Displayed in email footers and on invoices/quotes."
               />
 
-              <PhoneInput
-                label="Phone Number"
+              <PhoneField
+                label="Phone number"
                 value={companyPhone}
                 onChange={e => setCompanyPhone(e.target.value)}
                 placeholder="123-456-7890"
-                helperText="Displayed on invoices and quotes for customer contact"
+                helperText="Displayed on invoices and quotes for customer contact."
               />
             </div>
 
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setStep('welcome')} disabled={loading}>
-                Back
-              </Button>
-              <Button variant="ghost" onClick={() => setStep('logo')} disabled={loading}>
-                Skip
-              </Button>
-              <Button
-                onClick={handleSaveCompanyInfo}
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+              <AppButton
+                variant="ghost"
+                onClick={() => setStep('welcome')}
                 disabled={loading}
-                isLoading={loading}
-                className="flex-1"
+                className="sm:mr-auto"
               >
-                Next
-              </Button>
+                <ArrowLeftIcon className="h-4 w-4" />
+                Back
+              </AppButton>
+              <AppButton
+                variant="subtle"
+                onClick={() => {
+                  setError(null)
+                  setStep('logo')
+                }}
+                disabled={loading}
+              >
+                Skip
+              </AppButton>
+              <AppButton onClick={handleSaveCompanyInfo} disabled={loading} isLoading={loading}>
+                Continue
+              </AppButton>
             </div>
-          </Card>
+          </OnboardingCard>
         )}
 
         {step === 'logo' && (
-          <Card className="p-8 space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-primary-gold">Company Logo</h2>
-              <p className={cn(
-                theme === 'dark' ? 'text-primary-light/70' : 'text-primary-lightTextSecondary'
-              )}>
-                Upload your company logo. It will appear on invoices, quotes, and emails.
+          <OnboardingCard className="space-y-6">
+            <div className="space-y-1.5">
+              <h2 className="text-2xl font-bold tracking-tight text-ink">Company logo</h2>
+              <p className="text-[15px] leading-relaxed text-ink-muted">
+                Upload your logo to brand invoices, quotes, and emails.
               </p>
             </div>
 
-            <div className="space-y-4">
-              {logoPreview && (
-                <div className={cn(
-                  "p-6 rounded-lg border",
-                  theme === 'dark'
-                    ? 'bg-primary-dark-secondary border-primary-blue'
-                    : 'bg-gray-100 border-gray-200'
-                )}>
-                  <img
-                    src={logoPreview}
-                    alt="Logo preview"
-                    className="max-h-32 mx-auto object-contain"
-                  />
-                </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+              onChange={handleLogoSelect}
+              className="hidden"
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingLogo}
+              className="group flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-line-strong bg-surface-2 px-6 py-8 text-center transition-colors hover:border-accent hover:bg-accent-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {logoPreview ? (
+                <img
+                  src={logoPreview}
+                  alt="Logo preview"
+                  className="max-h-28 max-w-full object-contain"
+                />
+              ) : (
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
+                  <UploadIcon className="h-6 w-6" />
+                </span>
               )}
+              <span className="text-sm font-semibold text-ink">
+                {logoFile || settings?.logoUrl ? 'Change logo' : 'Upload logo'}
+              </span>
+              <span className="text-[13px] text-ink-subtle">
+                PNG, JPEG, or SVG &middot; max 5MB
+              </span>
+            </button>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/svg+xml"
-                onChange={handleLogoSelect}
-                className="hidden"
-              />
-
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingLogo}
-                className="w-full"
-              >
-                {logoFile ? 'Change Logo' : settings?.logoUrl ? 'Change Logo' : 'Upload Logo'}
-              </Button>
-
-              <p className={cn(
-                "text-sm text-center",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                Supported formats: PNG, JPEG, SVG. Max size: 5MB.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="secondary"
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+              <AppButton
+                variant="ghost"
                 onClick={() => setStep('company-info')}
                 disabled={loading || uploadingLogo}
+                className="sm:mr-auto"
               >
+                <ArrowLeftIcon className="h-4 w-4" />
                 Back
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setStep('tour-start')}
+              </AppButton>
+              <AppButton
+                variant="subtle"
+                onClick={() => {
+                  setError(null)
+                  setStep('tour-start')
+                }}
                 disabled={loading || uploadingLogo}
               >
                 Skip
-              </Button>
-              <Button
+              </AppButton>
+              <AppButton
                 onClick={handleSaveLogo}
                 disabled={loading || uploadingLogo}
                 isLoading={loading || uploadingLogo}
-                className="flex-1"
               >
-                Next
-              </Button>
+                Continue
+              </AppButton>
             </div>
-          </Card>
+          </OnboardingCard>
         )}
 
         {step === 'tour-start' && (
-          <Card className="p-8 space-y-6">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-primary-gold/20 rounded-full flex items-center justify-center mx-auto">
-                <svg
-                  className="w-8 h-8 text-primary-gold"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+          <OnboardingCard className="space-y-7">
+            <div className="space-y-4 text-center">
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
+                <SparkleIcon className="h-8 w-8" />
+              </span>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold tracking-tight text-ink">You&rsquo;re all set!</h2>
+                <p className="mx-auto max-w-md text-[15px] leading-relaxed text-ink-muted">
+                  Want a quick tour? We&rsquo;ll show you each page and what it&rsquo;s for. Takes
+                  less than a minute.
+                </p>
               </div>
-              <h2 className="text-2xl font-bold text-primary-gold">You're All Set!</h2>
-              <p className={cn(
-                "text-lg",
-                theme === 'dark' ? 'text-primary-light/80' : 'text-primary-lightTextSecondary'
-              )}>
-                Would you like a quick tour of the application?
-              </p>
-              <p className={cn(
-                "text-sm",
-                theme === 'dark' ? 'text-primary-light/60' : 'text-primary-lightTextSecondary'
-              )}>
-                We'll show you each page and what it's used for. Takes less than a minute.
-              </p>
             </div>
 
-            <div className="flex gap-3">
-              <Button
-                variant="secondary"
+            <div className="flex flex-col-reverse gap-3 sm:flex-row">
+              <AppButton
+                variant="subtle"
                 onClick={handleSkipAll}
                 disabled={loading}
-                className="flex-1"
+                className="sm:flex-1"
               >
-                Skip Tour
-              </Button>
-              <Button
+                Skip tour
+              </AppButton>
+              <AppButton
                 onClick={handleStartTour}
                 disabled={loading}
                 isLoading={loading}
-                className="flex-1"
+                className="sm:flex-1"
               >
-                Start Tour
-              </Button>
+                Start tour
+              </AppButton>
             </div>
-          </Card>
+          </OnboardingCard>
         )}
       </div>
     </div>
   )
+}
+
+/* ── Local presentational helpers ─────────────────────────────────────── */
+function FeatureRow({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <div className="flex items-start gap-3.5">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-strong">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-[15px] font-semibold text-ink">{title}</h3>
+        <p className="text-sm leading-relaxed text-ink-muted">{description}</p>
+      </div>
+    </div>
+  )
+}
+
+/** Progress-dot class for the form-step indicator. */
+function cnStep(index: number, current: number) {
+  const base = 'h-1.5 flex-1 rounded-full transition-colors'
+  if (index < current) return `${base} bg-accent`
+  if (index === current) return `${base} bg-accent-strong`
+  return `${base} bg-line`
 }
