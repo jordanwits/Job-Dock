@@ -26,7 +26,7 @@ export const SIGNUP_PLANS: Plan[] = [
     id: 'team',
     name: 'Team',
     description: 'Up to 5 users',
-    price: '$59.99/mo',
+    price: '$49.99/mo',
     features: [
       'Everything in Single',
       'Up to 5 team members',
