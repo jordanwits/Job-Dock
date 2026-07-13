@@ -5,6 +5,7 @@ import {
   Panel,
   TextField,
   SelectField,
+  CheckboxField,
   Alert,
   AlertIcon,
   InfoPanel,
@@ -79,6 +80,7 @@ export const TesterApprovalSection = () => {
   const [pEmail, setPEmail] = useState('')
   const [pCompany, setPCompany] = useState('')
   const [pPlan, setPPlan] = useState<TesterPlan>('solo')
+  const [pReplace, setPReplace] = useState(false)
   const [pLoading, setPLoading] = useState(false)
   const [pError, setPError] = useState<string | null>(null)
   const [pResult, setPResult] = useState<{
@@ -103,6 +105,7 @@ export const TesterApprovalSection = () => {
         name,
         companyName: pCompany.trim() || undefined,
         plan: pPlan,
+        replaceExisting: pReplace,
       })
       setPResult({
         email: res.email,
@@ -183,6 +186,13 @@ export const TesterApprovalSection = () => {
               value={pPlan}
               onChange={e => setPPlan(e.target.value as TesterPlan)}
               options={PLAN_OPTIONS}
+            />
+
+            <CheckboxField
+              checked={pReplace}
+              onChange={setPReplace}
+              label="Replace existing account"
+              description="If this email has a leftover/deleted account with no active subscription, delete it first and re-create fresh. Won't touch an account that still has a live subscription."
             />
 
             {pError && (

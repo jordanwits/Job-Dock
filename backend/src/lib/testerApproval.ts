@@ -250,10 +250,17 @@ export async function provisionTesterAccount(params: {
   name: string
   companyName?: string
   plan: TesterPlanInput
+  /**
+   * When true, reclaim a leftover/orphaned account for this email (e.g. one deleted
+   * from the Cognito console but still present in Postgres) before provisioning.
+   * Refused if the existing account has a live subscription — those must be canceled first.
+   */
+  replaceExisting?: boolean
 }): Promise<{ email: string; setPasswordUrl: string; checkoutUrl: string }> {
   const email = params.email?.trim().toLowerCase() || ''
   const name = params.name?.trim() || ''
   const companyName = params.companyName?.trim() || ''
+  const replaceExisting = params.replaceExisting === true
 
   if (!email || !EMAIL_RE.test(email)) {
     throw new ApiError('A valid email is required', 400)
@@ -265,37 +272,71 @@ export async function provisionTesterAccount(params: {
   // create any Cognito/DB state.
   resolvePriceId(params.plan)
 
-  // Provisioning is for NEW testers only. Existing owners should use "Approve tester".
+  // Reconcile any pre-existing account for this email. A leftover Postgres row is the
+  // common case when an account was deleted from the Cognito console (which removes only
+  // the login, not the tenant/user rows). We reclaim it only on explicit replaceExisting,
+  // and never when it still has a live subscription.
   const existing = await prisma.user.findFirst({
     where: { email: { equals: email, mode: 'insensitive' } },
-    select: { id: true },
+    select: {
+      tenantId: true,
+      tenant: { select: { stripeSubscriptionId: true, stripeSubscriptionStatus: true } },
+    },
   })
   if (existing) {
-    throw new ApiError(
-      'An account already exists for that email. Use "Approve tester" for an existing owner instead.',
-      409
-    )
+    const status = (existing.tenant.stripeSubscriptionStatus || '').toLowerCase()
+    const hasLiveSub =
+      !!existing.tenant.stripeSubscriptionId &&
+      status !== 'canceled' &&
+      status !== 'incomplete_expired'
+    if (hasLiveSub) {
+      throw new ApiError(
+        'An account with an active subscription already exists for that email. Cancel it in Stripe (or the billing portal) before re-provisioning.',
+        409
+      )
+    }
+    if (!replaceExisting) {
+      throw new ApiError(
+        'An account already exists for that email (no active subscription — likely a leftover from a deleted tester). Re-submit with "Replace existing account" to reclaim it.',
+        409
+      )
+    }
+    // Explicit replace + no live sub: fully delete the leftover account (cancels any
+    // Stripe sub, removes Cognito logins + tenant/user rows) via the same path the
+    // in-app "delete account" uses, then fall through and create it fresh.
+    const { dataServices } = await import('./dataService')
+    await dataServices.account.deleteAccount(existing.tenantId)
   }
 
   // Admin-invite Cognito user (temp password, email suppressed, email_verified=true).
   // Same helper the team-invite flow uses; its returned Username is the Cognito sub,
   // which is what login/token resolution matches on (users.cognitoId).
-  const { createCognitoUser } = await import('./auth')
+  const { createCognitoUser, deleteCognitoUser } = await import('./auth')
   let cognitoId: string
   try {
     const result = await createCognitoUser(email, name)
     cognitoId = result.cognitoId
   } catch (cognitoErr: any) {
     if (cognitoErr?.name === 'UsernameExistsException') {
-      throw new ApiError(
-        'This email already has a login. Use "Approve tester" instead, or remove the existing account first.',
-        409
-      )
-    }
-    if (cognitoErr?.name === 'InvalidParameterException') {
+      // Cognito login exists with no matching Postgres account (orphan). Reclaim it
+      // only on explicit replaceExisting: delete the stale login and retry once.
+      if (!replaceExisting) {
+        throw new ApiError(
+          'This email already has a login with no CleanDock account. Re-submit with "Replace existing account" to reclaim it.',
+          409
+        )
+      }
+      try {
+        await deleteCognitoUser(email)
+      } catch (delErr: any) {
+        if (delErr?.name !== 'UserNotFoundException') throw delErr
+      }
+      cognitoId = (await createCognitoUser(email, name)).cognitoId
+    } else if (cognitoErr?.name === 'InvalidParameterException') {
       throw new ApiError(cognitoErr?.message || 'Invalid email for account creation', 400)
+    } else {
+      throw cognitoErr
     }
-    throw cognitoErr
   }
 
   // Create tenant + owner row with NO subscription (what tester checkout requires).

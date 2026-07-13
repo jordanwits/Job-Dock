@@ -929,6 +929,7 @@ We look forward to working with you!',
         const name = typeof body?.name === 'string' ? body.name.trim() : ''
         const companyName = typeof body?.companyName === 'string' ? body.companyName.trim() : ''
         const planRaw = typeof body?.plan === 'string' ? body.plan.trim().toLowerCase() : 'solo'
+        const replaceExisting = body?.replaceExisting === true
         if (!email || !name) {
           return errorResponse('email and name are required', 400)
         }
@@ -938,6 +939,7 @@ We look forward to working with you!',
           name,
           companyName,
           plan: planRaw as 'solo' | 'single' | 'team' | 'team-plus',
+          replaceExisting,
         })
         return successResponse({ ok: true, ...result })
       } catch (err) {

@@ -8,6 +8,7 @@ import {
   CognitoIdentityProviderClient,
   AdminGetUserCommand,
   AdminCreateUserCommand,
+  AdminDeleteUserCommand,
   AdminSetUserPasswordCommand,
   InitiateAuthCommand,
   RespondToAuthChallengeCommand,
@@ -88,6 +89,18 @@ export async function createCognitoUser(email: string, name: string) {
 
   const response = await cognitoClient.send(command)
   return { cognitoId: response.User?.Username || '', tempPassword }
+}
+
+/**
+ * Delete a user from Cognito by email (username alias). Throws UserNotFoundException
+ * if the user does not exist — callers that treat absence as success should catch it.
+ */
+export async function deleteCognitoUser(email: string): Promise<void> {
+  const command = new AdminDeleteUserCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: email,
+  })
+  await cognitoClient.send(command)
 }
 
 /**

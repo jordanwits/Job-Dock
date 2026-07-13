@@ -588,6 +588,7 @@ const realAdminService = {
     name: string
     companyName?: string
     plan: 'solo' | 'single' | 'team' | 'team-plus'
+    replaceExisting?: boolean
   }) => {
     const response = await apiClient.post('/admin/testers/provision', body)
     return response.data as {
