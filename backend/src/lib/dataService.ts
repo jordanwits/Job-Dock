@@ -2256,6 +2256,13 @@ export const dataServices = {
             include: { contact: true, lineItems: true },
           })
           if (refreshed) invoiceForSend = refreshed
+        } else if (qbStatus.status === 'error') {
+          // Connection exists but the token-refresh Lambda flagged it dead — surface the skip
+          // instead of silently sending without a pay link (invisible in logs otherwise).
+          console.error(
+            '[WARN] QuickBooks connection is in error state; sending invoice without a pay link:',
+            qbStatus.lastErrorMessage ?? '(no stored error message)'
+          )
         }
       } catch (err) {
         console.error(

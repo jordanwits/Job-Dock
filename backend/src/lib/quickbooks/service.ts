@@ -53,12 +53,33 @@ export async function connect(
   if (!params.code || !params.realmId) throw new ApiError('Missing code or realmId', 400)
   if (!verifyState(params.state, tenantId)) throw new ApiError('Invalid OAuth state', 400)
 
+  const previous = await getConnectionRecord(tenantId)
   const tokens = await exchangeCodeForTokens(params.code)
   const paymentsConnected = paymentsScopeGranted()
   await saveTokens(tenantId, params.realmId, tokens, {
     connectedByUserId: userId,
     paymentsConnected,
   })
+
+  // Connecting to a DIFFERENT QB company invalidates every cached QB id (ids are realm-scoped,
+  // and numeric ids collide across companies — a stale id can silently resolve to an unrelated
+  // record in the new company). Clear them so pushes re-resolve via find-or-create, and drop the
+  // old company's pay links, which are dead at Intuit.
+  if (previous?.realmId && previous.realmId !== params.realmId) {
+    const prisma = await getPrisma()
+    await prisma.contact.updateMany({
+      where: { tenantId, quickbooksCustomerId: { not: null } },
+      data: { quickbooksCustomerId: null },
+    })
+    await prisma.invoice.updateMany({
+      where: { tenantId, quickbooksInvoiceId: { not: null } },
+      data: { quickbooksInvoiceId: null, quickbooksInvoiceUrl: null, quickbooksSyncStatus: 'none' },
+    })
+    console.log(
+      `[quickbooks] realm changed ${previous.realmId} -> ${params.realmId}; cleared cached QB ids for tenant ${tenantId}`
+    )
+  }
+
   return getStatus(tenantId)
 }
 
