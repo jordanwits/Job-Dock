@@ -580,6 +580,14 @@ export class JobDockStack extends cdk.Stack {
         STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID || '',
         STRIPE_TEAM_PLUS_PRICE_ID: process.env.STRIPE_TEAM_PLUS_PRICE_ID || '',
         STRIPE_ENFORCE_SUBSCRIPTION: process.env.STRIPE_ENFORCE_SUBSCRIPTION || 'false',
+        // Recipients for the tester-signup admin notification. Same allowlist the data Lambda
+        // uses for platform-admin gating.
+        JOBDOCK_PLATFORM_ADMIN_EMAILS: process.env.JOBDOCK_PLATFORM_ADMIN_EMAILS || '',
+        // Tester self-signup gate code. Set TESTER_SIGNUP_CODE in .env.local (baked here at synth
+        // from the deploy shell). If left blank it falls back to the Secrets Manager bundle at
+        // runtime (loadSecrets only fills a blank value, so .env.local wins when set). Blank in
+        // both => handleTesterSignup fails closed and rejects every signup.
+        TESTER_SIGNUP_CODE: process.env.TESTER_SIGNUP_CODE || '',
       },
     })
 
@@ -963,6 +971,10 @@ export class JobDockStack extends cdk.Stack {
     authResource.addResource('signup-checkout').addMethod('POST', authIntegration)
     authResource.addResource('signup-session').addMethod('GET', authIntegration)
     authResource.addResource('complete-signup').addMethod('POST', authIntegration)
+    // Self-service beta-tester signup (no Stripe). Gated by TESTER_SIGNUP_CODE, which is read at
+    // runtime from the app secrets bundle (loadSecrets) — no plaintext env var here. Under /auth/*
+    // so it inherits the WAF per-IP rate limit.
+    authResource.addResource('tester-signup').addMethod('POST', authIntegration)
     authResource.addResource('login').addMethod('POST', authIntegration)
     authResource.addResource('respond-to-challenge').addMethod('POST', authIntegration)
     authResource.addResource('refresh').addMethod('POST', authIntegration)

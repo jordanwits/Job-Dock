@@ -322,6 +322,61 @@ export async function sendPasswordResetEmail(args: {
 }
 
 /**
+ * Internal notification to the platform admin(s) when a beta tester self-serve signs up.
+ * Tester-supplied values (name/company/email) are HTML-escaped; reply-to is the tester so the
+ * admin can respond directly to welcome them.
+ */
+export async function sendTesterSignupAdminNotification(args: {
+  to: string
+  testerName: string
+  testerEmail: string
+  companyName: string
+  tenantId: string
+  signedUpAt: Date
+}): Promise<void> {
+  const { to, testerName, testerEmail, companyName, tenantId, signedUpAt } = args
+  const safeName = escapeHtmlForEmail(testerName)
+  const safeEmail = escapeHtmlForEmail(testerEmail)
+  const safeCompany = escapeHtmlForEmail(companyName)
+  const safeTenant = escapeHtmlForEmail(tenantId)
+  const when = signedUpAt.toISOString()
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:4px 12px 4px 0;color:#666;white-space:nowrap">${label}</td><td style="padding:4px 0">${value}</td></tr>`
+  const htmlBody = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+      <h1 style="font-size:20px;margin:0 0 16px">New CleanDock tester signed up</h1>
+      <table style="border-collapse:collapse;font-size:14px;line-height:1.6;color:#333">
+        ${row('Name', `<strong>${safeName}</strong>`)}
+        ${row('Email', `<a href="mailto:${escapeAttr(testerEmail)}" style="color:#111">${safeEmail}</a>`)}
+        ${row('Company', safeCompany)}
+        ${row('Tenant ID', safeTenant)}
+        ${row('Signed up', escapeHtmlForEmail(when))}
+      </table>
+      <p style="margin:20px 0 0;font-size:13px;color:#555;line-height:1.5">
+        Comped Team trial — no Stripe. Reply to this email to reach them directly.
+      </p>
+    </div>
+  `
+  const textBody =
+    `New CleanDock tester signed up\n\n` +
+    `Name: ${testerName}\n` +
+    `Email: ${testerEmail}\n` +
+    `Company: ${companyName}\n` +
+    `Tenant ID: ${tenantId}\n` +
+    `Signed up: ${when}\n\n` +
+    `Comped Team trial — no Stripe.`
+
+  await sendEmail({
+    to,
+    subject: `New CleanDock tester: ${testerName}`,
+    htmlBody,
+    textBody,
+    fromName: 'CleanDock',
+    replyTo: testerEmail,
+  })
+}
+
+/**
  * Send an email with attachments using Resend
  */
 export async function sendEmailWithAttachments(payload: EmailWithAttachment): Promise<void> {

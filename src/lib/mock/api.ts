@@ -213,6 +213,22 @@ export const mockAuthService = {
     }
   },
 
+  testerSignup: async (data: { email: string; name: string; companyName?: string; password: string; code: string }) => {
+    await delay(800)
+    return {
+      token: 'mock-jwt-token',
+      refreshToken: 'mock-refresh-token',
+      user: {
+        id: '2',
+        email: data.email,
+        name: data.name,
+        tenantId: 'tenant-2',
+        role: 'owner',
+        onboardingCompletedAt: null,
+      },
+    }
+  },
+
   logout: async () => {
     await delay(200)
     return { success: true }

@@ -51,6 +51,13 @@ interface AuthState {
     companyName?: string
     password: string
   }) => Promise<void>
+  testerSignup: (data: {
+    email: string
+    name: string
+    companyName?: string
+    password: string
+    code: string
+  }) => Promise<void>
   refreshAccessToken: () => Promise<boolean>
   logout: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
@@ -224,6 +231,39 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem('refresh_token', response.refreshToken)
           localStorage.setItem('tenant_id', user.tenantId)
         } catch (error: any) {
+          const friendlyMessage = getErrorMessage(error, 'Failed to create account. Please try again.')
+          set({
+            error: friendlyMessage,
+            isLoading: false,
+            isAuthenticated: false,
+          })
+          throw error
+        }
+      },
+
+      testerSignup: async (data: {
+        email: string
+        name: string
+        companyName?: string
+        password: string
+        code: string
+      }) => {
+        set({ isLoading: true, error: null })
+        try {
+          const response = await authService.testerSignup(data)
+          const user = response.user as User
+          set({
+            user,
+            token: response.token,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          })
+          localStorage.setItem('auth_token', response.token)
+          localStorage.setItem('refresh_token', response.refreshToken)
+          localStorage.setItem('tenant_id', user.tenantId)
+        } catch (error) {
           const friendlyMessage = getErrorMessage(error, 'Failed to create account. Please try again.')
           set({
             error: friendlyMessage,

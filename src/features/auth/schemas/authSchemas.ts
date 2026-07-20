@@ -68,9 +68,25 @@ export const completeSignupSchema = z
     path: ['confirmPassword'],
   })
 
+// Self-service beta-tester signup (no Stripe). Same fields as register, plus the tester code.
+export const testerSignupSchema = z
+  .object({
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    email: z.string().email('Please enter a valid email address'),
+    companyName: z.string().min(2, 'Company name must be at least 2 characters'),
+    code: z.string().min(1, 'Tester code is required'),
+    password: passwordValidation,
+    confirmPassword: z.string(),
+  })
+  .refine(data => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  })
+
 export type LoginFormData = z.infer<typeof loginSchema>
 export type RegisterFormData = z.infer<typeof registerSchema>
 export type CompleteSignupFormData = z.infer<typeof completeSignupSchema>
+export type TesterSignupFormData = z.infer<typeof testerSignupSchema>
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
 export type ConfirmResetPasswordFormData = z.infer<typeof confirmResetPasswordSchema>
 export type NewPasswordFormData = z.infer<typeof newPasswordSchema>

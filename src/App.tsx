@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { AppLayout, ProtectedRoute, AdminRoute } from '@/components'
 import { BillingGuard } from '@/components/billing'
 import SessionMonitor from '@/components/SessionMonitor'
-import { LoginPage, RegisterPage, SignupPage, SignupCompletePage, ResetPasswordPage, useAuthStore } from '@/features/auth'
+import { LoginPage, RegisterPage, SignupPage, SignupCompletePage, TesterSignupPage, ResetPasswordPage, useAuthStore } from '@/features/auth'
 import { DashboardPage } from '@/features/dashboard'
 import { CRMPage } from '@/features/crm'
 import { QuotesPage } from '@/features/quotes'
@@ -106,6 +106,8 @@ function App() {
         <Route path="/auth/login" element={<LoginPage />} />
         <Route path="/auth/signup" element={<SignupPage />} />
         <Route path="/auth/signup/complete" element={<SignupCompletePage />} />
+        {/* Self-service beta-tester signup (no Stripe/card). Share /auth/tester?code=… as an invite link. */}
+        <Route path="/auth/tester" element={<TesterSignupPage />} />
         <Route path="/auth/register" element={<Navigate to="/auth/signup" replace />} />
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 

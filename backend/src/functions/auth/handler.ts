@@ -23,9 +23,11 @@ import {
 import { successResponse, errorResponse, corsResponse, setRequestOrigin } from '../../lib/middleware'
 import prisma from '../../lib/db'
 import { dataServices } from '../../lib/dataService'
-import { sendPasswordResetEmail } from '../../lib/email'
+import { sendPasswordResetEmail, sendTesterSignupAdminNotification } from '../../lib/email'
+import { getPlatformAdminEmails } from '../../lib/platformAdmin'
 import { loadSecrets } from '../../lib/secrets'
 import { randomUUID, randomBytes, createHash } from 'crypto'
+import { addMonths } from 'date-fns'
 
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = 60
 
@@ -58,6 +60,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await handleSignupSession(event)
       case 'POST /auth/complete-signup':
         return await handleCompleteSignup(event)
+      case 'POST /auth/tester-signup':
+        return await handleTesterSignup(event)
       case 'POST /auth/login':
         return await handleLogin(event)
       case 'POST /auth/respond-to-challenge':
@@ -411,6 +415,167 @@ async function handleCompleteSignup(event: APIGatewayProxyEvent): Promise<APIGat
   } catch (error: any) {
     console.error('Complete signup error:', error)
     return errorResponse(error.message || 'Failed to complete signup', 500)
+  }
+}
+
+/**
+ * Self-service beta-tester signup — no Stripe, no credit card.
+ *
+ * Public signup is Stripe-first (checkout before account), which forces card entry and scares
+ * testers off. This creates the Cognito user + tenant + owner directly and marks the tenant as a
+ * COMPED Team trial written straight to the DB — no Stripe customer or subscription is ever
+ * created. It then logs the new owner in and returns tokens, exactly like handleCompleteSignup.
+ *
+ * Gated by a shared secret in TESTER_SIGNUP_CODE (hydrated from the app secrets bundle by
+ * loadSecrets). FAILS CLOSED: when the code is unset, every request is rejected, so a missing
+ * config value never leaves a public account-creation endpoint wide open. (The WAF also rate-limits
+ * /auth/* per-IP.) An email that already has an account is refused so real tenants can't be
+ * clobbered; recover an orphaned/leftover account via the admin "Replace existing account" tool.
+ *
+ * Comped-trial fields:
+ *  - stripeSubscriptionStatus 'trialing'  -> passes STRIPE_ENFORCE_SUBSCRIPTION if ever enabled
+ *  - subscriptionTier 'team'              -> unlocks Team-tier gates (invite members, assign jobs)
+ *  - stripeSubscriptionId 'comp_<uuid>'   -> non-null so getStatus reports the tier; the comp_
+ *                                            prefix can never collide with a real Stripe sub_ id
+ *  - trialEndsAt now + 6 months           -> mirrors the admin tester-checkout trial length
+ */
+async function handleTesterSignup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const body = JSON.parse(event.body || '{}')
+  const { email: rawEmail, password, name, companyName, code } = body
+
+  // Gate first, before touching Cognito/DB. Fail closed when unconfigured.
+  const expectedCode = (process.env.TESTER_SIGNUP_CODE || '').trim()
+  if (!expectedCode) {
+    console.warn('[TesterSignup] Rejected: TESTER_SIGNUP_CODE is not configured')
+    return errorResponse('Tester signup is not available.', 403)
+  }
+  const providedCode = typeof code === 'string' ? code.trim() : ''
+  if (!providedCode || providedCode !== expectedCode) {
+    return errorResponse('Invalid tester code.', 403)
+  }
+
+  // Normalize so the Cognito username and DB row are stored lowercase (pool is case-sensitive).
+  const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
+  if (!email || !password || !name) {
+    return errorResponse('Missing required fields', 400)
+  }
+
+  try {
+    // Never clobber an existing tenant. Orphan recovery (Cognito login without a DB row, or a
+    // leftover DB row) is handled by the admin provisioning tool's "Replace existing account".
+    const existing = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true },
+    })
+    if (existing) {
+      return errorResponse('An account already exists for that email. Please sign in instead.', 409)
+    }
+
+    const cognitoResponse = await registerUser(email, password, name)
+    const cognitoId = cognitoResponse.UserSub!
+
+    await cognitoClient.send(
+      new AdminConfirmSignUpCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+      })
+    )
+
+    await cognitoClient.send(
+      new AdminUpdateUserAttributesCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+        UserAttributes: [{ Name: 'email_verified', Value: 'true' }],
+      })
+    )
+
+    const tenantId = randomUUID()
+    const tenantName = (typeof companyName === 'string' && companyName.trim()) || `${name}'s Company`
+    const baseSubdomain = slugify(tenantName)
+    const uniqueId = tenantId.substring(0, 8)
+    const subdomain = `${baseSubdomain}-${uniqueId}`
+
+    await prisma.tenant.create({
+      data: {
+        id: tenantId,
+        name: tenantName,
+        subdomain,
+        stripeSubscriptionId: `comp_${randomUUID()}`,
+        stripeSubscriptionStatus: 'trialing',
+        subscriptionTier: 'team',
+        trialEndsAt: addMonths(new Date(), 6),
+      },
+    })
+
+    const user = await prisma.user.create({
+      data: {
+        id: randomUUID(),
+        cognitoId,
+        email,
+        name,
+        tenantId,
+        role: 'owner',
+      },
+    })
+
+    const tokens = await loginUser(email, password)
+
+    // Notify the platform admin(s) that a tester signed up. Non-blocking: the account already
+    // exists, so an email failure must never fail the signup (mirrors the booking-email pattern).
+    // Awaited (not fire-and-forget) so the Lambda doesn't freeze before the send completes;
+    // allSettled keeps one recipient's failure from suppressing the others.
+    try {
+      const adminEmails = getPlatformAdminEmails()
+      const signedUpAt = new Date()
+      const results = await Promise.allSettled(
+        adminEmails.map(adminEmail =>
+          sendTesterSignupAdminNotification({
+            to: adminEmail,
+            testerName: name,
+            testerEmail: email,
+            companyName: tenantName,
+            tenantId,
+            signedUpAt,
+          })
+        )
+      )
+      for (const r of results) {
+        if (r.status === 'rejected') {
+          console.error('[TesterSignup] admin notification failed (account still created):', r.reason)
+        }
+      }
+    } catch (emailErr) {
+      console.error('[TesterSignup] Unexpected error sending admin notification (account still created):', emailErr)
+    }
+
+    return successResponse(
+      {
+        token: tokens.IdToken,
+        refreshToken: tokens.RefreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          tenantId: user.tenantId,
+          role: user.role,
+          onboardingCompletedAt: null,
+        },
+      },
+      201
+    )
+  } catch (error) {
+    // AWS SDK v3 exceptions extend Error with `.name` set to the error code.
+    const name = error instanceof Error ? error.name : ''
+    const message = error instanceof Error ? error.message : ''
+    // A Cognito login already exists (possibly orphaned) — surface as a clean conflict.
+    if (name === 'UsernameExistsException') {
+      return errorResponse('An account already exists for that email. Please sign in instead.', 409)
+    }
+    if (name === 'InvalidPasswordException' || name === 'InvalidParameterException') {
+      return errorResponse(message || 'Invalid email or password', 400)
+    }
+    console.error('Tester signup error:', error)
+    return errorResponse(message || 'Failed to create tester account', 500)
   }
 }
 

@@ -76,6 +76,19 @@ const realAuthService = {
     return response.data as { token: string; refreshToken: string; user: { id: string; email: string; name: string; tenantId: string; role: string; onboardingCompletedAt: string | null } }
   },
 
+  // Self-service beta-tester signup — no Stripe/checkout. Creates the account directly (gated by
+  // the tester code) and returns tokens exactly like completeSignup.
+  testerSignup: async (data: {
+    email: string
+    name: string
+    companyName?: string
+    password: string
+    code: string
+  }) => {
+    const response = await publicApiClient.post('/auth/tester-signup', data)
+    return response.data as { token: string; refreshToken: string; user: { id: string; email: string; name: string; tenantId: string; role: string; onboardingCompletedAt: string | null } }
+  },
+
   refresh: async (refreshToken: string) => {
     const response = await apiClient.post('/auth/refresh', { refreshToken })
     return response.data
