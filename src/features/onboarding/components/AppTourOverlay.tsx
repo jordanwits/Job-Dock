@@ -8,6 +8,8 @@ interface TourStep {
   path: string
   title: string
   description: string
+  // When true, opens the AI Assistant panel as this step becomes active.
+  openAssistant?: boolean
 }
 
 const TOUR_STEPS: TourStep[] = [
@@ -47,6 +49,13 @@ const TOUR_STEPS: TourStep[] = [
     description:
       'Schedule and manage jobs on an interactive calendar. Create one-time jobs or set up recurring schedules.',
   },
+  {
+    path: '/app',
+    title: 'AI Assistant',
+    description:
+      'Ask the Assistant to draft quotes, find contacts, or schedule jobs for you. Open it anytime from the button in the bottom-right corner.',
+    openAssistant: true,
+  },
 ]
 
 export const AppTourOverlay = () => {
@@ -70,6 +79,10 @@ export const AppTourOverlay = () => {
   // Update step index when path changes during tour
   useEffect(() => {
     if (isActive) {
+      // If the current step already matches the path, stay put. This keeps steps
+      // that share a path (e.g. the global Assistant step, also on '/app') from
+      // snapping back to the first step with that path.
+      if (TOUR_STEPS[currentStepIndex]?.path === location.pathname) return
       const stepIndex = TOUR_STEPS.findIndex(step => step.path === location.pathname)
       if (stepIndex !== -1 && stepIndex !== currentStepIndex) {
         setCurrentStepIndex(stepIndex)
@@ -86,6 +99,15 @@ export const AppTourOverlay = () => {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [isActive])
+
+  // Open the Assistant panel while a step that showcases it is active, and close
+  // it again when the user moves off that step or leaves the tour.
+  useEffect(() => {
+    if (isActive && TOUR_STEPS[currentStepIndex]?.openAssistant) {
+      window.dispatchEvent(new Event('jobdock:assistant:open'))
+      return () => window.dispatchEvent(new Event('jobdock:assistant:close'))
+    }
+  }, [isActive, currentStepIndex])
 
   const currentStep = TOUR_STEPS[currentStepIndex]
   const isFirstStep = currentStepIndex === 0

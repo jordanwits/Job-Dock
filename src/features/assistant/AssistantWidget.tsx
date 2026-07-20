@@ -149,6 +149,19 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
     return () => document.removeEventListener('keydown', onKey)
   }, [open, closePanel])
 
+  // Allow other parts of the app (e.g. the onboarding tour) to open/close the panel.
+  useEffect(() => {
+    if (!enabled) return
+    const onOpen = () => setOpen(true)
+    const onClose = () => closePanel()
+    window.addEventListener('jobdock:assistant:open', onOpen)
+    window.addEventListener('jobdock:assistant:close', onClose)
+    return () => {
+      window.removeEventListener('jobdock:assistant:open', onOpen)
+      window.removeEventListener('jobdock:assistant:close', onClose)
+    }
+  }, [enabled, closePanel])
+
   // Lock body scroll while the mobile sheet is open
   useEffect(() => {
     if (!open) return
