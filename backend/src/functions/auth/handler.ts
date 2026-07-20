@@ -434,7 +434,7 @@ async function handleCompleteSignup(event: APIGatewayProxyEvent): Promise<APIGat
  *
  * Comped-trial fields:
  *  - stripeSubscriptionStatus 'trialing'  -> passes STRIPE_ENFORCE_SUBSCRIPTION if ever enabled
- *  - subscriptionTier 'team'              -> unlocks Team-tier gates (invite members, assign jobs)
+ *  - subscriptionTier 'team-plus'         -> top tier: Team gates (invite/assign) + unlimited members
  *  - stripeSubscriptionId 'comp_<uuid>'   -> non-null so getStatus reports the tier; the comp_
  *                                            prefix can never collide with a real Stripe sub_ id
  *  - trialEndsAt now + 6 months           -> mirrors the admin tester-checkout trial length
@@ -502,7 +502,7 @@ async function handleTesterSignup(event: APIGatewayProxyEvent): Promise<APIGatew
         subdomain,
         stripeSubscriptionId: `comp_${randomUUID()}`,
         stripeSubscriptionStatus: 'trialing',
-        subscriptionTier: 'team',
+        subscriptionTier: 'team-plus',
         trialEndsAt: addMonths(new Date(), 6),
       },
     })
