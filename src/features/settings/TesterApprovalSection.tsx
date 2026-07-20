@@ -4,6 +4,7 @@ import {
   AppButton,
   Panel,
   TextField,
+  TextAreaField,
   SelectField,
   CheckboxField,
   Alert,
@@ -12,6 +13,9 @@ import {
   CodeChip,
   CopyIcon,
   CheckIcon,
+  TrashIcon,
+  StatusBadge,
+  type Tone,
 } from './settingsUi'
 
 type TesterPlan = 'solo' | 'team' | 'team-plus'
@@ -142,6 +146,45 @@ export const TesterApprovalSection = () => {
       setError(extractError(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  // --- Remove testers (bulk delete by email) ---
+  const [rEmailsText, setREmailsText] = useState('')
+  const [rConfirming, setRConfirming] = useState(false)
+  const [rLoading, setRLoading] = useState(false)
+  const [rError, setRError] = useState<string | null>(null)
+  const [rResults, setRResults] = useState<
+    Array<{ email: string; status: string; detail?: string }> | null
+  >(null)
+
+  // Parse + dedupe valid emails from the free-form textarea (any whitespace/comma/semicolon separator).
+  const parsedRemoveEmails = Array.from(
+    new Set(
+      rEmailsText
+        .split(/[\s,;]+/)
+        .map(e => e.trim().toLowerCase())
+        .filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+    )
+  )
+
+  const handleRemove = async () => {
+    if (!parsedRemoveEmails.length) {
+      setRError('Enter at least one valid email')
+      setRConfirming(false)
+      return
+    }
+    setRError(null)
+    setRResults(null)
+    try {
+      setRLoading(true)
+      const res = await services.admin.removeTesters({ emails: parsedRemoveEmails })
+      setRResults(res.results)
+      setRConfirming(false)
+    } catch (err: unknown) {
+      setRError(extractError(err))
+    } finally {
+      setRLoading(false)
     }
   }
 
@@ -283,8 +326,134 @@ export const TesterApprovalSection = () => {
           </div>
         </Panel>
       </div>
+
+      {/* Remove testers (bulk delete by email) */}
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-ink">Remove testers</h2>
+          <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+            Permanently deletes tester accounts by email — the Cognito login and all their data —
+            freeing the email so they can re-sign-up with the no-card link. Paste one or more emails
+            (one per line, or comma/space separated). Any account with a real subscription is
+            skipped, so a paying customer can never be removed here.
+          </p>
+        </div>
+
+        <Panel className="p-5 ring-1 ring-inset ring-danger/30">
+          <div className="space-y-4">
+            <TextAreaField
+              label="Emails"
+              value={rEmailsText}
+              onChange={e => {
+                setREmailsText(e.target.value)
+                setRConfirming(false)
+              }}
+              placeholder={'jane@example.com\njohn@example.com'}
+              rows={5}
+              className="font-mono"
+              helperText={
+                parsedRemoveEmails.length
+                  ? `${parsedRemoveEmails.length} valid email${parsedRemoveEmails.length === 1 ? '' : 's'} detected`
+                  : 'One per line, or comma/space separated'
+              }
+            />
+
+            {rError && (
+              <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />}>
+                {rError}
+              </Alert>
+            )}
+
+            {!rConfirming ? (
+              <AppButton
+                type="button"
+                variant="danger"
+                disabled={!parsedRemoveEmails.length}
+                onClick={() => {
+                  setRResults(null)
+                  setRError(null)
+                  setRConfirming(true)
+                }}
+              >
+                <TrashIcon className="h-4 w-4" />
+                Remove {parsedRemoveEmails.length || ''} tester
+                {parsedRemoveEmails.length === 1 ? '' : 's'}
+              </AppButton>
+            ) : (
+              <div className="space-y-3 rounded-lg bg-danger-soft p-4">
+                <p className="text-sm font-medium text-danger">
+                  Permanently delete {parsedRemoveEmails.length} account
+                  {parsedRemoveEmails.length === 1 ? '' : 's'} and all their data? This can&apos;t be
+                  undone.
+                </p>
+                <div className="flex gap-2">
+                  <AppButton
+                    type="button"
+                    variant="danger"
+                    onClick={handleRemove}
+                    isLoading={rLoading}
+                  >
+                    Yes, remove
+                  </AppButton>
+                  <AppButton
+                    type="button"
+                    variant="subtle"
+                    onClick={() => setRConfirming(false)}
+                    disabled={rLoading}
+                  >
+                    Cancel
+                  </AppButton>
+                </div>
+              </div>
+            )}
+
+            {rResults && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-subtle">
+                  Results
+                </p>
+                {rResults.map(r => (
+                  <div key={r.email} className="rounded-lg bg-surface-2 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate font-mono text-sm text-ink">{r.email}</span>
+                      <StatusBadge tone={removeResultTone(r.status)}>
+                        {removeResultLabel(r.status)}
+                      </StatusBadge>
+                    </div>
+                    {r.detail && <p className="mt-0.5 text-[12px] text-ink-subtle">{r.detail}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Panel>
+      </div>
     </section>
   )
+}
+
+function removeResultTone(status: string): Tone {
+  if (status === 'removed') return 'success'
+  if (status === 'not_found') return 'neutral'
+  if (status === 'error') return 'danger'
+  return 'warning' // skipped_active_subscription | skipped_not_owner
+}
+
+function removeResultLabel(status: string): string {
+  switch (status) {
+    case 'removed':
+      return 'Removed'
+    case 'not_found':
+      return 'Not found'
+    case 'skipped_active_subscription':
+      return 'Has subscription'
+    case 'skipped_not_owner':
+      return 'Not owner'
+    case 'error':
+      return 'Error'
+    default:
+      return status
+  }
 }
 
 function extractError(err: unknown): string {

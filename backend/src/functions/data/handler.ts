@@ -951,6 +951,31 @@ We look forward to working with you!',
       }
     }
 
+    // Platform admin: bulk-remove tester accounts by email (POST /admin/testers/remove)
+    if (resource === 'admin' && id === 'testers' && action === 'remove' && event.httpMethod === 'POST') {
+      try {
+        const context = await extractContext(event)
+        const { isPlatformAdmin } = await import('../../lib/platformAdmin')
+        if (!isPlatformAdmin(context.userEmail)) {
+          return errorResponse('Forbidden', 403)
+        }
+        const body = parseBody(event)
+        const emails = Array.isArray(body?.emails) ? body.emails : []
+        if (!emails.length) {
+          return errorResponse('emails (a non-empty array) is required', 400)
+        }
+        const { removeTesterAccounts } = await import('../../lib/testerApproval')
+        const results = await removeTesterAccounts(emails)
+        return successResponse({ ok: true, results })
+      } catch (err) {
+        if (err instanceof ApiError) {
+          return errorResponse(err.message, err.statusCode)
+        }
+        console.error('[admin/testers/remove]', err)
+        return errorResponse(err instanceof Error ? err.message : 'Failed to remove testers', 500)
+      }
+    }
+
     // Handle onboarding endpoints with authentication
     if (resource === 'onboarding') {
       console.log('[ONBOARDING] Handling onboarding request:', {

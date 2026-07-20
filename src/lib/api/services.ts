@@ -611,6 +611,13 @@ const realAdminService = {
       checkoutUrl: string
     }
   },
+  removeTesters: async (body: { emails: string[] }) => {
+    const response = await apiClient.post('/admin/testers/remove', body)
+    return response.data as {
+      ok: boolean
+      results: Array<{ email: string; status: string; detail?: string }>
+    }
+  },
 }
 
 export const adminService = useMockData
@@ -620,6 +627,9 @@ export const adminService = useMockData
       },
       provisionTester: async () => {
         throw new Error('Tester provisioning is not available in mock data mode')
+      },
+      removeTesters: async () => {
+        throw new Error('Tester removal is not available in mock data mode')
       },
     }
   : realAdminService

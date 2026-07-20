@@ -382,3 +382,102 @@ export async function provisionTesterAccount(params: {
 
   return { email, setPasswordUrl, checkoutUrl }
 }
+
+export type RemoveTesterStatus =
+  | 'removed'
+  | 'not_found'
+  | 'skipped_active_subscription'
+  | 'skipped_not_owner'
+  | 'error'
+
+export interface RemoveTesterResult {
+  email: string
+  status: RemoveTesterStatus
+  detail?: string
+}
+
+/**
+ * Bulk-remove tester accounts by email (platform-admin only). For each email:
+ *  - Owner account with no REAL live subscription -> fully deleted (Cognito login + tenant/user
+ *    rows, via the same account.deleteAccount path the in-app "delete account" uses), freeing the
+ *    email so the tester can re-sign-up through the no-card flow.
+ *  - Account with a real live subscription -> skipped, so a paying customer can never be wiped.
+ *    A comped tester trial (sentinel `comp_` subscription id) is NOT treated as live, so those can
+ *    be removed.
+ *  - Email belongs to a non-owner (team member) -> skipped (never nuke a tenant from a member's email).
+ *  - No CleanDock account -> deletes an orphaned Cognito login if one lingers, else "not found".
+ *
+ * Never throws for a single bad email; every email gets an independent result. Batch capped at 200.
+ */
+export async function removeTesterAccounts(rawEmails: unknown[]): Promise<RemoveTesterResult[]> {
+  const emails = Array.from(
+    new Set(
+      (Array.isArray(rawEmails) ? rawEmails : [])
+        .map((e) => (typeof e === 'string' ? e.trim().toLowerCase() : ''))
+        .filter((e) => EMAIL_RE.test(e))
+    )
+  ).slice(0, 200)
+
+  const results: RemoveTesterResult[] = []
+  const { dataServices } = await import('./dataService')
+  const { deleteCognitoUser } = await import('./auth')
+
+  for (const email of emails) {
+    try {
+      const user = await prisma.user.findFirst({
+        where: { email: { equals: email, mode: 'insensitive' } },
+        select: {
+          role: true,
+          tenantId: true,
+          tenant: { select: { stripeSubscriptionId: true, stripeSubscriptionStatus: true } },
+        },
+      })
+
+      if (!user) {
+        // No CleanDock account. Reclaim an orphaned Cognito login if one lingers.
+        try {
+          await deleteCognitoUser(email)
+          results.push({ email, status: 'removed', detail: 'orphaned Cognito login (no account)' })
+        } catch (cognitoErr) {
+          const name = cognitoErr instanceof Error ? cognitoErr.name : ''
+          if (name === 'UserNotFoundException') {
+            results.push({ email, status: 'not_found' })
+          } else {
+            throw cognitoErr
+          }
+        }
+        continue
+      }
+
+      if (user.role !== 'owner') {
+        results.push({
+          email,
+          status: 'skipped_not_owner',
+          detail: 'email belongs to a team member, not a tenant owner',
+        })
+        continue
+      }
+
+      const subId = user.tenant.stripeSubscriptionId || ''
+      const subStatus = (user.tenant.stripeSubscriptionStatus || '').toLowerCase()
+      const isComp = subId.startsWith('comp_')
+      const hasRealLiveSub =
+        !!subId && !isComp && subStatus !== 'canceled' && subStatus !== 'incomplete_expired'
+      if (hasRealLiveSub) {
+        results.push({
+          email,
+          status: 'skipped_active_subscription',
+          detail: `real subscription present (status=${subStatus || 'unknown'})`,
+        })
+        continue
+      }
+
+      await dataServices.account.deleteAccount(user.tenantId)
+      results.push({ email, status: 'removed' })
+    } catch (err) {
+      results.push({ email, status: 'error', detail: err instanceof Error ? err.message : 'failed' })
+    }
+  }
+
+  return results
+}
