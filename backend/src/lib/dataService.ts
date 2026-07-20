@@ -5945,8 +5945,13 @@ export const dataServices = {
 
       const canInviteTeamMembers = isTeamTier && hasSubscription
 
+      // Comped (beta-tester) accounts use a sentinel `comp_` subscription id — no real Stripe
+      // object. The billing UI uses this to hide plan-change / manage-billing / unsubscribe.
+      const isComped = (tenant.stripeSubscriptionId || '').startsWith('comp_')
+
       return {
         hasSubscription,
+        isComped,
         status: tenant.stripeSubscriptionStatus || 'none',
         trialEndsAt: tenant.trialEndsAt?.toISOString(),
         currentPeriodEndsAt: tenant.currentPeriodEndsAt?.toISOString(),

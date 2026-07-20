@@ -12,6 +12,7 @@ import {
 
 interface BillingStatus {
   hasSubscription: boolean
+  isComped?: boolean
   status: string
   trialEndsAt: string | null
   currentPeriodEndsAt: string | null
@@ -232,6 +233,31 @@ export const BillingSection = () => {
   const tier = status.subscriptionTier || (hasActiveSubscription ? 'single' : null)
   const isTeam = tier === 'team' || tier === 'team-plus'
   const displayTierName = tier === 'team-plus' ? 'Team+' : tier === 'team' ? 'Team' : tier === 'single' ? 'Single' : 'No subscription'
+
+  // Beta-tester (comped) accounts have no real Stripe billing — hide the plan-change,
+  // manage-billing and unsubscribe controls and point them to support instead.
+  if (status.isComped) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Billing & Subscription</h2>
+        <Panel className="p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium text-ink">
+              Current plan: <span className="text-accent-strong">{displayTierName}</span>
+            </p>
+            <StatusBadge tone="accent">Tester account</StatusBadge>
+          </div>
+          <p className="mt-1.5 text-sm text-ink-muted">
+            You have a complimentary tester account with full access — there&apos;s no billing and no
+            card on file.
+          </p>
+        </Panel>
+        <Alert tone="info">
+          To change your plan or manage billing, please contact support.
+        </Alert>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
