@@ -8,7 +8,6 @@ const envDefaults = {
   cognitoUserPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
   cognitoClientId: import.meta.env.VITE_COGNITO_CLIENT_ID || '',
   s3Bucket: import.meta.env.VITE_S3_BUCKET || '',
-  defaultTenantId: import.meta.env.VITE_DEFAULT_TENANT_ID || 'demo-tenant',
   useMockDataFlag: parseBoolean(import.meta.env.VITE_USE_MOCK_DATA, import.meta.env.DEV),
   stripePublishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
 }
@@ -47,7 +46,6 @@ export const appEnv = {
   cognitoUserPoolId: envDefaults.cognitoUserPoolId,
   cognitoClientId: envDefaults.cognitoClientId,
   filesBucket: envDefaults.s3Bucket,
-  defaultTenantId: envDefaults.defaultTenantId,
   dataMode: resolvedDataMode,
   isLive: resolvedDataMode === 'live',
   isMock: resolvedDataMode === 'mock',

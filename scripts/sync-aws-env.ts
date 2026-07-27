@@ -133,7 +133,6 @@ function buildFrontendEnv(outputs: StackOutputs, meta: { region: string; env: st
     `VITE_COGNITO_USER_POOL_ID=${outputs.UserPoolId ?? ''}`,
     `VITE_COGNITO_CLIENT_ID=${outputs.UserPoolClientId ?? ''}`,
     `VITE_S3_BUCKET=${outputs.FilesBucketName ?? ''}`,
-    `VITE_DEFAULT_TENANT_ID=${process.env.VITE_DEFAULT_TENANT_ID || 'demo-tenant'}`,
   ].join('\n')
 }
 
@@ -148,7 +147,6 @@ function buildBackendEnv(outputs: StackOutputs, meta: { region: string; env: str
     `USER_POOL_ID=${outputs.UserPoolId ?? ''}`,
     `USER_POOL_CLIENT_ID=${outputs.UserPoolClientId ?? ''}`,
     `FILES_BUCKET=${outputs.FilesBucketName ?? ''}`,
-    `DEFAULT_TENANT_ID=${process.env.VITE_DEFAULT_TENANT_ID || 'demo-tenant'}`,
   ].join('\n')
 }
 

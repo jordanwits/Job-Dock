@@ -4,12 +4,10 @@ import { refreshAuth } from '@/lib/api/authApi'
 import { notifySessionCleared, notifyTokenRefreshed } from '@/lib/auth/sessionBridge'
 
 const API_URL = appEnv.apiUrl
-const DEFAULT_TENANT_ID = appEnv.defaultTenantId
 
 // Log API configuration for debugging
 console.log('🔧 API Client Configuration:', {
   API_URL,
-  DEFAULT_TENANT_ID,
   isMock: appEnv.isMock,
   dataMode: appEnv.dataMode,
 })
@@ -30,15 +28,10 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
 
-    // For authenticated requests, prefer tenant_id from localStorage
-    // For unauthenticated requests (public booking), fall back to DEFAULT_TENANT_ID
-    const tenantId = localStorage.getItem('tenant_id')
-    if (tenantId) {
-      config.headers['X-Tenant-ID'] = tenantId
-    } else if (!token) {
-      // Only use DEFAULT_TENANT_ID for unauthenticated requests
-      config.headers['X-Tenant-ID'] = DEFAULT_TENANT_ID
-    }
+    // No X-Tenant-ID header. The backend derives the tenant solely from the verified JWT and
+    // ignores the header; sending one (especially the old DEFAULT_TENANT_ID fallback on
+    // unauthenticated requests) only implied it was a credential. Public endpoints pass their
+    // tenant explicitly via query param or resource id.
 
     return config
   },

@@ -2,8 +2,10 @@ import prisma from './db'
 
 /**
  * Ensures a tenant row exists for the supplied tenantId.
- * When demoing locally we fall back to DEFAULT_TENANT_ID so that
- * the placeholder endpoints have something to attach data to.
+ *
+ * Only ever called with a tenant id that came from a verified JWT, so this can no longer
+ * create a row for a caller-supplied id. (It previously ran on unauthenticated requests via
+ * the removed DEFAULT_TENANT_ID fallback, which let anonymous callers create Tenant rows.)
  */
 export async function ensureTenantExists(tenantId: string) {
   if (!tenantId) {
@@ -19,9 +21,5 @@ export async function ensureTenantExists(tenantId: string) {
       subdomain: tenantId.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase(),
     },
   })
-}
-
-export function getDefaultTenantId(): string {
-  return process.env.DEFAULT_TENANT_ID || 'demo-tenant'
 }
 

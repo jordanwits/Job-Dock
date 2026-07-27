@@ -568,7 +568,6 @@ export class JobDockStack extends cdk.Stack {
           : config.domain
             ? `https://${config.domain}`
             : 'http://localhost:3000',
-        DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // Email configuration (Resend). RESEND_API_KEY is loaded from Secrets Manager at runtime.
         EMAIL_PROVIDER: 'resend',
         EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thecleandock.com',
@@ -650,7 +649,6 @@ export class JobDockStack extends cdk.Stack {
           : config.domain
             ? `https://${config.domain}`
             : 'http://localhost:3000',
-        DEFAULT_TENANT_ID: config.defaultTenantId ?? 'demo-tenant',
         // Email configuration (Resend). RESEND_API_KEY is loaded from Secrets Manager at runtime.
         EMAIL_PROVIDER: 'resend',
         EMAIL_FROM_ADDRESS: config.emailFromAddress || 'noreply@thecleandock.com',

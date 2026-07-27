@@ -5197,7 +5197,7 @@ export const dataServices = {
       const service = isPublicLookup
         ? await prisma.service.findUnique({ where: { id } })
         : await prisma.service.findFirst({ where: { id, tenantId } })
-      if (!service) throw new Error('Service not found')
+      if (!service) throw new ApiError('Service not found', 404)
       return service
     },
     create: async (tenantId: string, payload: any) => {
@@ -5260,8 +5260,8 @@ export const dataServices = {
       const service = await prisma.service.findUnique({
         where: { id },
       })
-      if (!service) throw new Error('Service not found')
-      if (!service.isActive) throw new Error('Service is not active')
+      if (!service) throw new ApiError('Service not found', 404)
+      if (!service.isActive) throw new ApiError('Service is not active', 404)
 
       // Use the service's actual tenantId for all subsequent operations
       const actualTenantId = service.tenantId
@@ -5419,8 +5419,8 @@ export const dataServices = {
         const service = await tx.service.findUnique({
           where: { id },
         })
-        if (!service) throw new Error('Service not found')
-        if (!service.isActive) throw new Error('Service is not active')
+        if (!service) throw new ApiError('Service not found', 404)
+        if (!service.isActive) throw new ApiError('Service is not active', 404)
 
         // Use the service's actual tenantId for all subsequent operations
         const actualTenantId = service.tenantId

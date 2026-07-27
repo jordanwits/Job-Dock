@@ -9,7 +9,6 @@ export interface Config {
   region: string
   domain?: string
   vercelDomain?: string // e.g. 'jobdock.vercel.app' or 'app.yourdomain.com'
-  defaultTenantId?: string
   email?: string
   emailFromAddress?: string
   cloudfrontCertificateArn?: string
@@ -42,7 +41,6 @@ export const configs: Record<string, Config> = {
   dev: {
     env: 'dev',
     region: 'us-east-1',
-    defaultTenantId: 'demo-tenant',
     emailFromAddress: 'noreply@thecleandock.com',
     network: {
       natStrategy: 'instance', // Cost-optimized: ~$3/mo vs ~$32/mo for gateway
