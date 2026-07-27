@@ -592,7 +592,7 @@ async function sendAssignmentNotification(params: {
 }
 
 // Helper to generate recurrence instances
-function generateRecurrenceInstances(params: {
+export function generateRecurrenceInstances(params: {
   startTime: Date
   endTime: Date
   recurrence: RecurrencePayload
@@ -1628,7 +1628,13 @@ export const dataServices = {
       if (session.tenantId !== tenantId) {
         throw new ApiError('Unauthorized', 403)
       }
-      await resolveConflict(payload.sessionId, payload.conflictId, payload.resolution)
+      // The contact importer only understands update/skip. The wider union on the payload is
+      // the saved-line-item vocabulary (resolveSavedLineItemConflict handles those), and any
+      // non-'update' value already took this resolver's skip branch — so this narrowing keeps
+      // runtime behaviour identical while fixing a long-standing type error that blocked
+      // ts-jest from compiling this module at all.
+      const contactResolution = payload.resolution === 'update' ? 'update' : 'skip'
+      await resolveConflict(payload.sessionId, payload.conflictId, contactResolution)
       return getImportSessionData(payload.sessionId)
     },
   },
