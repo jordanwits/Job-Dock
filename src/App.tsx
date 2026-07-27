@@ -22,6 +22,7 @@ import {
   AboutPage,
   EmailPolicyPage,
   SmsConsentPage,
+  NotFoundPage,
 } from '@/features/marketing'
 import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/onboarding'
 import { BillingSuccessPage, BillingCancelledPage } from '@/features/billing/billingPages'
@@ -352,8 +353,10 @@ function App() {
           }
         />
 
-        {/* Redirect unknown routes */}
-        <Route path="*" element={<Navigate to={isAuthenticated ? '/app' : '/'} replace />} />
+        {/* Unknown routes: signed-in users go back to the app; everyone else gets a real
+            noindex 404 page rather than a silent redirect to '/' (which Google reads as a
+            soft 404 and can index as duplicate homepage content). */}
+        <Route path="*" element={isAuthenticated ? <Navigate to="/app" replace /> : <NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   )

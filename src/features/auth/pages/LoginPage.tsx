@@ -3,8 +3,16 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import LoginForm from '../components/LoginForm'
 import { AuthShell, AuthCard, AuthAlert } from '../components/authUi'
+import { useSeo } from '@/lib/seo'
 
 const LoginPage = () => {
+  useSeo({
+    title: 'Log In',
+    description:
+      'Log in to CleanDock to manage quotes, schedules, online bookings, job logs, and invoices for your cleaning business.',
+    path: '/auth/login',
+  })
+
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isAuthenticated } = useAuthStore()

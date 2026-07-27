@@ -1,15 +1,15 @@
-import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
+import { useSeo } from '@/lib/seo'
 
 const SmsConsentPage = () => {
-  useEffect(() => {
-    document.title = 'SMS Notifications Consent | CleanDock'
-    return () => {
-      document.title = 'The Clean Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
-    }
-  }, [])
+  useSeo({
+    title: 'SMS Notifications Consent',
+    description:
+      'CleanDock SMS program details: the transactional texts we send about bookings and jobs, message frequency, message and data rates, and how to opt out.',
+    path: '/sms-consent',
+  })
 
   return (
     <MarketingLayout>

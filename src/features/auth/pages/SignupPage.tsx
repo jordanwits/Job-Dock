@@ -6,8 +6,16 @@ import { SIGNUP_PLANS, type PlanTier } from '../constants/plans'
 import MarketingLayout from '@/features/marketing/components/MarketingLayout'
 import { cn } from '@/lib/utils'
 import { AuthButton, AuthAlert, authLinkCls } from '../components/authUi'
+import { useSeo } from '@/lib/seo'
 
 const SignupPage = () => {
+  useSeo({
+    title: 'Start Your Free Trial',
+    description:
+      'Start a 14-day free trial of CleanDock. Quoting, recurring scheduling, online booking, and card/ACH payments for cleaning businesses from $29.99/mo.',
+    path: '/auth/signup',
+  })
+
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isAuthenticated } = useAuthStore()

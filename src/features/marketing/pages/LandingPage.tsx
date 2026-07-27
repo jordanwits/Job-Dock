@@ -9,6 +9,7 @@ import { landingContent } from '../landing/content/landingContent'
 import { useMediaQuery } from '../landing/hooks/useMediaQuery'
 import { useReducedMotion } from '../landing/hooks/useReducedMotion'
 import { scrollToId } from '../landing/utils'
+import { useSeo } from '@/lib/seo'
 
 // Code-split the WebGL phone so three.js stays out of the main bundle.
 const PhoneScene = lazy(() => import('../landing/phone3d/PhoneScene'))
@@ -20,6 +21,13 @@ const PhoneScene = lazy(() => import('../landing/phone3d/PhoneScene'))
  * phone instead and the WebGL layer is never loaded.
  */
 const LandingPage = () => {
+  useSeo({
+    title: 'Cleaning Business Software — Quote, Schedule & Get Paid',
+    description:
+      'All-in-one software for cleaning businesses. Send quotes, schedule recurring cleans, take online bookings, and get paid by card or ACH. Starting at $29/mo.',
+    path: '/',
+  })
+
   useEffect(() => {
     const hash = window.location.hash.slice(1)
     if (!hash) return

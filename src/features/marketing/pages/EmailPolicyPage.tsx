@@ -2,8 +2,16 @@ import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
 import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
+import { useSeo } from '@/lib/seo'
 
 const EmailPolicyPage = () => {
+  useSeo({
+    title: 'Email Communication Policy',
+    description:
+      'How CleanDock sends quote, invoice, booking, and account email — what we send, why we send it, and how to unsubscribe from non-transactional messages.',
+    path: '/email-policy',
+  })
+
   return (
     <MarketingLayout>
       {/* Hero Section */}

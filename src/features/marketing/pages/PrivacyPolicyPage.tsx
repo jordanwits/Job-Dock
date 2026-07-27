@@ -1,16 +1,16 @@
-import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
 import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
+import { useSeo } from '@/lib/seo'
 
 const PrivacyPolicyPage = () => {
-  useEffect(() => {
-    document.title = 'Privacy Policy | CleanDock'
-    return () => {
-      document.title = 'The Clean Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
-    }
-  }, [])
+  useSeo({
+    title: 'Privacy Policy',
+    description:
+      'How CleanDock collects, uses, and protects data for cleaning businesses and their customers, including contact, job photo, and payment information.',
+    path: '/privacy',
+  })
 
   return (
     <MarketingLayout>

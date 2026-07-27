@@ -1,17 +1,18 @@
 User-agent: *
 Allow: /
-Allow: /privacy
-Allow: /terms
-Allow: /email-policy
-Allow: /auth/login
-Allow: /auth/register
 
-# Block authenticated app pages from indexing
+# Customer and tenant data — must never be crawled.
 Disallow: /app/
-Disallow: /app/*
-
-# Block public booking pages (privacy)
 Disallow: /book/
 Disallow: /public/
+Disallow: /s/
+
+# OAuth callbacks: no content, and the URLs carry one-time codes.
+Disallow: /quickbooks/callback
+Disallow: /google-calendar/callback
+
+# Deliberately NOT disallowed: /auth/tester and /billing/* serve a noindex meta tag instead.
+# Google has to be able to fetch a page to see its noindex; a disallowed URL can still be
+# indexed URL-only if something links to it.
 
 Sitemap: https://www.thecleandock.com/sitemap.xml

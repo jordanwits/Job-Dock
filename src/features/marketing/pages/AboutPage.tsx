@@ -1,14 +1,14 @@
-import { useEffect } from 'react'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
+import { useSeo } from '@/lib/seo'
 
 const AboutPage = () => {
-  useEffect(() => {
-    document.title = 'About | CleanDock'
-    return () => {
-      document.title = 'The Clean Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
-    }
-  }, [])
+  useSeo({
+    title: 'About CleanDock',
+    description:
+      'CleanDock is all-in-one software for cleaning businesses — quotes, recurring scheduling, online booking, job photo proof, and card/ACH payments in one app.',
+    path: '/about',
+  })
 
   return (
     <MarketingLayout>

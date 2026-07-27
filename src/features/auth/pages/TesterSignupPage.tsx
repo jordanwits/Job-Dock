@@ -13,6 +13,7 @@ import {
   AuthAlert,
   authLinkCls,
 } from '../components/authUi'
+import { useSeo } from '@/lib/seo'
 
 /**
  * Self-service beta-tester signup — no Stripe, no credit card.
@@ -22,6 +23,16 @@ import {
  * On success the account is created directly (comped Team trial) and the tester is logged in.
  */
 const TesterSignupPage = () => {
+  // Invite-only. noindex (rather than a robots.txt Disallow) so Google is able to crawl the
+  // page, read the directive, and keep it out of the index — a disallowed URL can still be
+  // indexed URL-only if someone links to it.
+  useSeo({
+    title: 'Beta Tester Signup',
+    description: 'Invite-only beta tester signup for CleanDock.',
+    path: '/auth/tester',
+    noindex: true,
+  })
+
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const codeParam = searchParams.get('code') || ''

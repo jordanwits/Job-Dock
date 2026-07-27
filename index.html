@@ -26,6 +26,8 @@
     />
     <meta name="author" content="CleanDock" />
     <meta name="robots" content="index, follow" />
+    <!-- Default canonical. Routes override this per page via useSeo() in src/lib/seo.ts. -->
+    <link rel="canonical" href="https://www.thecleandock.com/" />
 
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
@@ -35,8 +37,12 @@
       property="og:description"
       content="The all-in-one app cleaning businesses run on. Quotes, recurring cleans, online booking, before/after proof, and card/ACH payments — all from your phone."
     />
-    <meta property="og:image" content="https://www.thecleandock.com/CleanDock.png" />
-    <meta property="og:image:alt" content="The Clean Dock Logo" />
+    <!-- Purpose-built social card: 1200x630 (1.91:1, the ratio every platform crops to),
+         opaque white, 216 KB — under the ~300 KB ceiling where WhatsApp drops the image
+         entirely. Keep those three properties if you ever replace the file. -->
+    <meta property="og:image" content="https://www.thecleandock.com/og-card.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="CleanDock — cleaning business software" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:site_name" content="CleanDock" />
@@ -48,20 +54,113 @@
       name="twitter:description"
       content="Quote, schedule recurring cleans, take online bookings, and get paid by card or ACH — one app built for cleaning businesses."
     />
-    <meta name="twitter:image" content="https://www.thecleandock.com/CleanDock.png" />
+    <meta name="twitter:image" content="https://www.thecleandock.com/og-card.png" />
+    <meta name="twitter:image:alt" content="CleanDock — cleaning business software" />
 
     <!-- Contact Information for Search Engines -->
-    <meta name="contact" content="support@thecleandock.com" />
+    <meta name="contact" content="jordan@westwavecreative.com" />
     <meta name="geo.region" content="US-CA" />
     <meta name="geo.placename" content="Redding" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Raises fetch priority on the render-blocking font CSS. The real LCP fix is to
+         self-host Inter/JetBrains Mono; the usual media="print" onload swap is an inline
+         event handler and would violate script-src 'self' once CSP stops being report-only. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap"
+    />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <title>Cleaning Business Software — Quote, Schedule & Get Paid | CleanDock</title>
+
+    <!-- Structured data. Static (not JS-injected) so Google reads it without waiting on the
+         render pass. No aggregateRating/Review: the on-page testimonials are labelled
+         illustrative examples, and marking up ratings we don't have risks a manual action. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.thecleandock.com/#organization",
+            "name": "CleanDock",
+            "legalName": "CleanDock LLC",
+            "url": "https://www.thecleandock.com/",
+            "logo": "https://www.thecleandock.com/CleanDock.png",
+            "email": "jordan@westwavecreative.com",
+            "telephone": "+1-530-338-7829",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "2211 Everest Dr",
+              "addressLocality": "Redding",
+              "addressRegion": "CA",
+              "postalCode": "96001",
+              "addressCountry": "US"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.thecleandock.com/#website",
+            "url": "https://www.thecleandock.com/",
+            "name": "CleanDock",
+            "publisher": { "@id": "https://www.thecleandock.com/#organization" }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://www.thecleandock.com/#software",
+            "name": "CleanDock",
+            "applicationCategory": "BusinessApplication",
+            "applicationSubCategory": "Field Service Management",
+            "operatingSystem": "Web browser, iOS, Android",
+            "url": "https://www.thecleandock.com/",
+            "description": "All-in-one software for cleaning businesses: quotes, recurring scheduling, online booking, job logs with before/after photos, reporting, and card or ACH payments.",
+            "publisher": { "@id": "https://www.thecleandock.com/#organization" },
+            "featureList": [
+              "Quoting and one-tap quote-to-invoice",
+              "Recurring cleaning schedules",
+              "24/7 online booking",
+              "Before/after job photos and time tracking",
+              "Revenue and employee pay reports",
+              "Card and ACH payments"
+            ],
+            "offers": [
+              {
+                "@type": "Offer",
+                "name": "Single",
+                "description": "Solo operators",
+                "price": "29.99",
+                "priceCurrency": "USD",
+                "availability": "https://schema.org/InStock",
+                "url": "https://www.thecleandock.com/auth/signup"
+              },
+              {
+                "@type": "Offer",
+                "name": "Team",
+                "description": "Up to 5 users",
+                "price": "49.99",
+                "priceCurrency": "USD",
+                "availability": "https://schema.org/InStock",
+                "url": "https://www.thecleandock.com/auth/signup"
+              },
+              {
+                "@type": "Offer",
+                "name": "Team+",
+                "description": "Unlimited users",
+                "price": "99.99",
+                "priceCurrency": "USD",
+                "availability": "https://schema.org/InStock",
+                "url": "https://www.thecleandock.com/auth/signup"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

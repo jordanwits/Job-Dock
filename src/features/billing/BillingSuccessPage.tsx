@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '@/components/ui'
+import { useSeo } from '@/lib/seo'
 
 const linkPrimary =
   'inline-flex h-10 items-center justify-center rounded-lg bg-primary-gold px-4 text-base font-medium text-primary-dark hover:bg-primary-gold/90'
@@ -7,6 +8,14 @@ const linkSecondary =
   'inline-flex h-10 items-center justify-center rounded-lg bg-primary-blue px-4 text-base font-medium text-white hover:bg-primary-blue/90 dark:text-primary-light'
 
 export function BillingSuccessPage() {
+  // Stripe return URL — transactional, never a search result.
+  useSeo({
+    title: 'Checkout Complete',
+    description: 'Your CleanDock subscription is being activated.',
+    path: '/billing/success',
+    noindex: true,
+  })
+
   const [params] = useSearchParams()
   const sessionId = params.get('session_id')
 

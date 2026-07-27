@@ -1,16 +1,16 @@
-import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
 import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
+import { useSeo } from '@/lib/seo'
 
 const TermsOfServicePage = () => {
-  useEffect(() => {
-    document.title = 'Terms of Service | CleanDock'
-    return () => {
-      document.title = 'The Clean Dock - Stop Juggling Tools. Run Your Jobs in One Place.'
-    }
-  }, [])
+  useSeo({
+    title: 'Terms of Service',
+    description:
+      'The terms governing your use of CleanDock, the all-in-one quoting, scheduling, online booking, and invoicing app built for cleaning businesses.',
+    path: '/terms',
+  })
 
   return (
     <MarketingLayout>

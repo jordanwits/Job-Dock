@@ -5,6 +5,7 @@ export { default as TermsOfServicePage } from './pages/TermsOfServicePage'
 export { default as AboutPage } from './pages/AboutPage'
 export { default as EmailPolicyPage } from './pages/EmailPolicyPage'
 export { default as SmsConsentPage } from './pages/SmsConsentPage'
+export { default as NotFoundPage } from './pages/NotFoundPage'
 
 // Components
 export { default as MarketingLayout } from './components/MarketingLayout'

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Card } from '@/components/ui'
+import { useSeo } from '@/lib/seo'
 
 const linkPrimary =
   'inline-flex h-10 items-center justify-center rounded-lg bg-primary-gold px-4 text-base font-medium text-primary-dark hover:bg-primary-gold/90'
@@ -7,6 +8,14 @@ const linkSecondary =
   'inline-flex h-10 items-center justify-center rounded-lg bg-primary-blue px-4 text-base font-medium text-white hover:bg-primary-blue/90 dark:text-primary-light'
 
 export function BillingCancelledPage() {
+  // Stripe return URL — transactional, never a search result.
+  useSeo({
+    title: 'Checkout Cancelled',
+    description: 'No charges were made to your CleanDock account.',
+    path: '/billing/cancelled',
+    noindex: true,
+  })
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-slate-950">
       <Card className="max-w-md p-8 text-center shadow-lg">
