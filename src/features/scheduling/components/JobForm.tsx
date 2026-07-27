@@ -156,6 +156,24 @@ const JobForm = ({
     job && job.startTime ? format(new Date(job.startTime), 'HH:mm') : '09:00'
   )
   const [isAllDay, setIsAllDay] = useState(false)
+
+  /**
+   * Whether the chosen start is already in the past. All-day jobs compare by date only, so
+   * "today" is never flagged; timed jobs compare the actual start instant.
+   */
+  const isStartInPast = (() => {
+    if (!startDate) return false
+    if (isAllDay) {
+      const day = parseDateStringLocal(startDate)
+      if (!day) return false
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      return day < today
+    }
+    const start = new Date(`${startDate}T${startTime || '09:00'}`)
+    return !isNaN(start.getTime()) && start < new Date()
+  })()
+
   const [toBeScheduled, setToBeScheduled] = useState(() => {
     // If user can't schedule, always default to toBeScheduled = true
     if (!canSchedule) return true
@@ -1657,6 +1675,19 @@ const JobForm = ({
                 </>
               )}
             </div>
+          )}
+
+          {/*
+            Nothing previously stopped you scheduling into the past, and saving still offered to
+            email/SMS the client about an appointment that had already happened. Warn at the
+            point the date is chosen rather than blocking it outright — backdating a job you
+            forgot to log is legitimate, notifying the customer about it is not.
+          */}
+          {isStartInPast && (
+            <p className="text-xs text-warning" role="status">
+              This {isAllDay ? 'date is' : 'date and time are'} in the past. The appointment will
+              be created as a past booking — skip the client notification unless you mean it.
+            </p>
           )}
         </div>
       )}

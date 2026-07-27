@@ -176,7 +176,10 @@ const QuoteForm = ({
         return
       }
       setSaveAndSendError(null)
-      await onSaveAndSend(cleanedData)
+      // Sending a quote necessarily makes it Sent, so state that here rather than letting the
+      // caller silently override whatever the Status select said. Previously you could pick
+      // "Draft", hit Save and send, and the quote saved as Sent with no indication why.
+      await onSaveAndSend({ ...cleanedData, status: 'sent' })
     } else {
       await onSubmit(cleanedData)
     }
@@ -416,6 +419,11 @@ const QuoteForm = ({
         <SelectField
           label="Status"
           value={statusValue}
+          helperText={
+            onSaveAndSend
+              ? 'Applies when you choose Save. Save and send always marks the quote as Sent.'
+              : undefined
+          }
           error={errors.status?.message}
           options={[
             { value: 'draft', label: 'Draft' },

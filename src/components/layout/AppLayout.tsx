@@ -67,8 +67,14 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
           />
         )}
         <main className="flex-1 lg:ml-64 min-w-0">
+          {/*
+            Extra bottom padding reserves room for the fixed Assistant launcher (bottom-right,
+            ~48px tall plus its own 1.25rem offset). Without it the launcher sits on top of
+            whatever ends the page — on Settings it completely covered the "Save changes"
+            button, which could not be scrolled clear and so was impossible to click.
+          */}
           <div
-            className={`p-4 md:p-6 space-y-6 min-w-0 ${fullWidth ? 'w-full' : 'container mx-auto'}`}
+            className={`p-4 md:p-6 pb-[calc(env(safe-area-inset-bottom,0px)+6rem)] space-y-6 min-w-0 ${fullWidth ? 'w-full' : 'container mx-auto'}`}
           >
             {children}
           </div>
