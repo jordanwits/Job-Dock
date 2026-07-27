@@ -851,7 +851,11 @@ export function SelectCircle({
       aria-label={label}
       onClick={onClick}
       className={cn(
-        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+        'relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+        // The visible dot stays 20px, but a 20px tap target is far too small for a field app
+        // used one-handed. This pseudo-element widens the hit area to ~44px without changing
+        // layout or how the control looks.
+        'before:absolute before:-inset-3 before:content-[""]',
         selected
           ? 'border-accent-strong bg-accent-strong text-accent-contrast'
           : 'border-line-strong bg-surface hover:border-accent',

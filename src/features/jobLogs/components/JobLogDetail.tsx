@@ -947,7 +947,16 @@ const JobLogDetail = ({
     )
   }
 
-  const hasOverview = jobLog.location || jobLog.contact
+  // The service address can live on the job or on the individual booking (the scheduler's
+  // Location field writes it per booking), so a job created from a quote has none of its own.
+  // Prefer the job's, then fall back to the first booking that has one — otherwise the page
+  // showed no address at all and whoever is doing the clean couldn't tell where to go.
+  const serviceLocation =
+    jobLog.location?.trim() ||
+    jobLog.bookings?.find(b => b.location?.trim())?.location?.trim() ||
+    undefined
+
+  const hasOverview = serviceLocation || jobLog.contact
   const canSeePrices = isAdminOrOwner || (user?.canSeeJobPrices ?? true)
   const primaryPrice = canSeePrices
     ? (jobLog.price ??
@@ -1442,16 +1451,27 @@ const JobLogDetail = ({
               return aTime - bTime
             })
 
-          // Get the next upcoming booking
-          const nextBooking =
-            sortedBookings.find(b => {
-              if (b.toBeScheduled) return false
-              if (!b.startTime) return false
-              const bookingDate = new Date(b.startTime)
-              return bookingDate >= new Date()
-            }) || sortedBookings[0]
+          // Prefer the next genuinely future booking, then anything still awaiting a date.
+          const now = new Date()
+          const isScheduledAt = (b: (typeof sortedBookings)[number]) =>
+            !b.toBeScheduled && !!b.startTime
+          const upcoming = sortedBookings.find(
+            b => isScheduledAt(b) && new Date(b.startTime as string) >= now
+          )
+          const awaitingDate = sortedBookings.find(b => b.toBeScheduled)
 
+          // Only once neither exists do we show a past booking - and then the MOST RECENT one.
+          // The old fallback took sortedBookings[0], i.e. the oldest booking in the series, and
+          // still rendered it under "Upcoming bookings", so a finished job advertised a date
+          // that had already passed.
+          const lastCompleted = [...sortedBookings]
+            .reverse()
+            .find(b => isScheduledAt(b) && new Date(b.startTime as string) < now)
+
+          const nextBooking = upcoming || awaitingDate || lastCompleted
           if (!nextBooking) return null
+
+          const isForthcoming = nextBooking !== lastCompleted
 
           // Check if bookings follow a recurring pattern
           const recurringTag = getRecurringTag(sortedBookings)
@@ -1459,7 +1479,7 @@ const JobLogDetail = ({
           return (
             <div className="space-y-3">
               <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
-                Upcoming bookings
+                {isForthcoming ? 'Upcoming bookings' : 'Last appointment'}
               </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-raised p-3">
@@ -1547,19 +1567,19 @@ const JobLogDetail = ({
               </dd>
             </div>
           )}
-          {jobLog.location && (
+          {serviceLocation && (
             <div>
               <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
                 Location
               </dt>
               <dd className="mt-1 text-sm text-ink">
                 <a
-                  href={getMapsHref(jobLog.location)}
+                  href={getMapsHref(serviceLocation)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={linkCls}
                 >
-                  {jobLog.location}
+                  {serviceLocation}
                 </a>
               </dd>
             </div>

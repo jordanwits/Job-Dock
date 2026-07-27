@@ -62,7 +62,7 @@ import {
   resolveSavedLineItemConflict,
 } from './savedLineItemCsvImport'
 import { normalizeSavedLineItemName } from './savedLineItemCsvHelpers'
-import { addDays, addWeeks, addMonths } from 'date-fns'
+import { addDays, addWeeks, addMonths, differenceInCalendarWeeks } from 'date-fns'
 import { toZonedTime, fromZonedTime, getTimezoneOffset } from 'date-fns-tz'
 
 // Legacy hardcoded offset (America/Los_Angeles) used before per-tenant timezones existed. Kept as
@@ -592,7 +592,7 @@ async function sendAssignmentNotification(params: {
 }
 
 // Helper to generate recurrence instances
-function generateRecurrenceInstances(params: {
+export function generateRecurrenceInstances(params: {
   startTime: Date
   endTime: Date
   recurrence: RecurrencePayload
@@ -648,16 +648,28 @@ function generateRecurrenceInstances(params: {
       Math.min(maxDate.getTime(), startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
     )
 
+    // `interval` gates which WEEKS are eligible, `daysOfWeek` gates which days within them.
+    // This branch used to emit every weekday match regardless of interval, so "every 2 weeks
+    // on Tue/Thu" silently generated a weekly series and double-booked the client. Week index
+    // is counted in calendar weeks from the start date's week, so week 0 is always eligible.
+    const weekInterval = Math.max(1, recurrence.interval || 1)
+    const isEligibleWeek = (candidate: Date, seriesStart: Date) =>
+      differenceInCalendarWeeks(candidate, seriesStart, { weekStartsOn: 0 }) % weekInterval === 0
+
     const customTz = recurrence.timezone || undefined
     if (customTz) {
       // Walk days in the BUSINESS timezone so (a) the day-of-week test uses the user's local
       // weekday, not the server's (a Mon 9pm PT start is already Tue in UTC), and (b) the
       // wall-clock time survives DST transitions instead of drifting an hour.
-      let zonedCurrent = toZonedTime(startTime, customTz)
+      const zonedStart = toZonedTime(startTime, customTz)
+      let zonedCurrent = zonedStart
       while (instanceCount < maxCount) {
         const instanceStart = fromZonedTime(zonedCurrent, customTz)
         if (instanceStart > endSearchDate) break
-        if (recurrence.daysOfWeek.includes(zonedCurrent.getDay())) {
+        if (
+          recurrence.daysOfWeek.includes(zonedCurrent.getDay()) &&
+          isEligibleWeek(zonedCurrent, zonedStart)
+        ) {
           instances.push({
             startTime: instanceStart,
             endTime: new Date(instanceStart.getTime() + duration),
@@ -668,11 +680,12 @@ function generateRecurrenceInstances(params: {
       }
     } else {
       // Legacy fallback (no timezone provided): native date arithmetic, server-local weekdays.
+      const seriesStart = new Date(startTime)
       let currentDate = new Date(startTime)
       while (instanceCount < maxCount && currentDate <= endSearchDate) {
         const dayOfWeek = currentDate.getDay()
 
-        if (recurrence.daysOfWeek.includes(dayOfWeek)) {
+        if (recurrence.daysOfWeek.includes(dayOfWeek) && isEligibleWeek(currentDate, seriesStart)) {
           instances.push({
             startTime: new Date(currentDate),
             endTime: new Date(currentDate.getTime() + duration),
@@ -1615,7 +1628,13 @@ export const dataServices = {
       if (session.tenantId !== tenantId) {
         throw new ApiError('Unauthorized', 403)
       }
-      await resolveConflict(payload.sessionId, payload.conflictId, payload.resolution)
+      // The contact importer only understands update/skip. The wider union on the payload is
+      // the saved-line-item vocabulary (resolveSavedLineItemConflict handles those), and any
+      // non-'update' value already took this resolver's skip branch — so this narrowing keeps
+      // runtime behaviour identical while fixing a long-standing type error that blocked
+      // ts-jest from compiling this module at all.
+      const contactResolution = payload.resolution === 'update' ? 'update' : 'skip'
+      await resolveConflict(payload.sessionId, payload.conflictId, contactResolution)
       return getImportSessionData(payload.sessionId)
     },
   },
@@ -2016,6 +2035,21 @@ export const dataServices = {
         },
       })
 
+      // ...and the reverse. "overdue" is time-derived, not terminal: a fully paid invoice
+      // cannot be overdue. Without this, an invoice marked paid after its due date kept
+      // status='overdue' forever, so it still rendered an Overdue badge and counted toward
+      // the dashboard / reports overdue tallies at a $0 balance. Heals legacy rows too.
+      await prisma.invoice.updateMany({
+        where: {
+          tenantId,
+          status: 'overdue',
+          paymentStatus: 'paid',
+        },
+        data: {
+          status: 'sent',
+        },
+      })
+
       const invoices = await prisma.invoice.findMany({
         where: { tenantId },
         include: { contact: true, lineItems: true },
@@ -2151,6 +2185,13 @@ export const dataServices = {
               : existingInvoice.paidAmount
             : 0
 
+      // Paying an overdue invoice clears the overdue lifecycle state. Left alone, status
+      // stayed 'overdue' and the invoice showed contradictory "Overdue" + "Paid" badges.
+      // Stays `undefined` when there is nothing to change so Prisma skips the field.
+      const effectiveStatus = payload.status ?? existingInvoice.status
+      const resolvedStatus =
+        paymentStatus === 'paid' && effectiveStatus === 'overdue' ? 'sent' : payload.status
+
       await prisma.$transaction(async tx => {
         if (lineItems) {
           await tx.invoiceLineItem.deleteMany({ where: { invoiceId: id } })
@@ -2177,7 +2218,7 @@ export const dataServices = {
             discountReason:
               payload.discountReason !== undefined ? payload.discountReason || null : undefined,
             total,
-            status: payload.status,
+            status: resolvedStatus,
             paymentStatus,
             approvalStatus:
               payload.approvalStatus !== undefined ? payload.approvalStatus : undefined,
@@ -6805,6 +6846,10 @@ export const dataServices = {
           toBeScheduled: b.toBeScheduled ?? false,
           service: b.service ? { name: b.service.name } : null,
           price: b.price != null ? Number(b.price) : null,
+          // The service address is set per booking (the scheduler's Location field), so a job
+          // created from a quote has no job-level location. Without this the job detail page
+          // showed no address at all and the cleaner had no idea where to go.
+          location: b.location ?? null,
         })),
       }
     },

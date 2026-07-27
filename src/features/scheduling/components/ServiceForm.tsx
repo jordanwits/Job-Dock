@@ -121,7 +121,7 @@ const ServiceForm = ({ service, onSubmit, onCancel, isLoading, error }: ServiceF
           label="Service name *"
           {...register('name')}
           error={errors.name?.message}
-          placeholder="e.g., Consultation, Site Visit"
+          placeholder="e.g., Standard Clean, Deep Clean"
         />
 
         <TextAreaField

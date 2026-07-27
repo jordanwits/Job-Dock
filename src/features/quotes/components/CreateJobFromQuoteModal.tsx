@@ -140,7 +140,7 @@ const CreateJobFromQuoteModal = ({
           label="Title *"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g., Kitchen Remodel, Office Renovation"
+          placeholder="e.g., Deep Clean, Move-Out Clean"
           error={submitError && !title?.trim() ? submitError : undefined}
         />
 

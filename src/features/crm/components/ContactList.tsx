@@ -302,7 +302,7 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
               <button
                 onClick={() => setDisplayMode('cards')}
                 className={cn(
-                  'flex h-8 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  'flex h-10 w-11 sm:h-8 sm:w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                   displayMode === 'cards'
                     ? 'bg-surface text-accent-strong shadow-card'
                     : 'text-ink-subtle hover:text-ink'
@@ -316,7 +316,7 @@ const ContactList = ({ onCreateClick }: ContactListProps) => {
               <button
                 onClick={() => setDisplayMode('list')}
                 className={cn(
-                  'flex h-8 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  'flex h-10 w-11 sm:h-8 sm:w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                   displayMode === 'list'
                     ? 'bg-surface text-accent-strong shadow-card'
                     : 'text-ink-subtle hover:text-ink'

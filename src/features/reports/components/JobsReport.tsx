@@ -36,6 +36,23 @@ const STATUS_META: Record<string, { label: string; tone: Tone }> = {
   inactive: { label: 'Inactive', tone: 'neutral' },
 }
 
+type ReportJobStatus = 'active' | 'completed' | 'inactive'
+
+/**
+ * Fold a job's stored status into one of the three buckets this report renders.
+ *
+ * Job status is typed as active/completed/inactive but carries other lifecycle values at
+ * runtime ('archived', and scheduling states such as 'scheduled'). The previous grouping
+ * pushed unrecognised values into a brand-new key that nothing renders, so those jobs counted
+ * toward TOTAL JOBS while appearing in no status tile — leaving total > active+completed+inactive.
+ * Everything now lands in a rendered bucket, so the tiles always sum to the total.
+ */
+const toReportJobStatus = (raw: string | undefined): ReportJobStatus => {
+  if (raw === 'completed') return 'completed'
+  if (raw === 'archived' || raw === 'inactive' || raw === 'cancelled') return 'inactive'
+  return 'active'
+}
+
 export const JobsReport = ({
   startDate,
   endDate,
@@ -62,19 +79,14 @@ export const JobsReport = ({
 
   // Group by status
   const statusGroups = useMemo(() => {
-    const groups: Record<string, JobLog[]> = {
+    const groups: Record<ReportJobStatus, JobLog[]> = {
       active: [],
       completed: [],
       inactive: [],
     }
 
     filteredJobs.forEach(job => {
-      const status = job.status === 'archived' ? 'inactive' : job.status || 'active'
-      if (groups[status]) {
-        groups[status].push(job)
-      } else {
-        groups[status] = [job]
-      }
+      groups[toReportJobStatus(job.status)].push(job)
     })
 
     return groups
@@ -228,7 +240,7 @@ export const JobsReport = ({
     const exportData = filteredJobs.map(job => {
       const invoiceId = (job as any).invoiceId
       const invoice = invoiceId ? invoiceMap.get(invoiceId) : null
-      const status = job.status === 'archived' ? 'inactive' : job.status || 'active'
+      const status = toReportJobStatus(job.status)
 
       return {
         'Job Title': job.title,

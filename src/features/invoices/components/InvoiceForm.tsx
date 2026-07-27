@@ -185,7 +185,9 @@ const InvoiceForm = ({
         return
       }
       setSaveAndSendError(null)
-      await onSaveAndSend(cleanedData)
+      // Same as the quote form: sending makes it Sent, so say so explicitly instead of
+      // letting the caller quietly override the Status the user picked.
+      await onSaveAndSend({ ...cleanedData, status: 'sent' })
     } else {
       await onSubmit(cleanedData)
     }
@@ -260,7 +262,7 @@ const InvoiceForm = ({
         {/* Invoice Title - pulled from project title when creating from a job */}
         <TextField
           label="Invoice title *"
-          placeholder="e.g., Kitchen Remodel, Office Renovation"
+          placeholder="e.g., Deep Clean, Move-Out Clean"
           error={errors.title?.message}
           {...register('title')}
         />
@@ -434,6 +436,11 @@ const InvoiceForm = ({
           <SelectField
             label="Status"
             value={statusValue}
+            helperText={
+              !invoice && onSaveAndSend
+                ? 'Applies when you choose Save. Save and send always marks the invoice as Sent.'
+                : undefined
+            }
             error={errors.status?.message}
             options={[
               { value: 'draft', label: 'Draft' },

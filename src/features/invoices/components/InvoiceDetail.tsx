@@ -21,7 +21,7 @@ import {
   StatusSelect,
   TextField,
 } from './invoicesUi'
-import { INVOICE_STATUS_OPTIONS, PAYMENT_STATUS } from './invoiceStatus'
+import { INVOICE_STATUS_OPTIONS, PAYMENT_STATUS, isInvoiceOverdue } from './invoiceStatus'
 
 interface InvoiceDetailProps {
   invoice: Invoice
@@ -196,9 +196,13 @@ const InvoiceDetail = ({
     }
   }
 
-  // Only show status badge if it's not redundant with paymentStatus
+  // Only show status badge if it's not redundant with paymentStatus.
+  // "overdue" is gated on the derived value (see isInvoiceOverdue) rather than the stored
+  // status, so paying a late invoice cannot leave an "Overdue" badge next to "Paid".
   const shouldShowStatus =
-    invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
+    invoice.status === 'draft' ||
+    invoice.status === 'cancelled' ||
+    (invoice.status === 'overdue' && isInvoiceOverdue(invoice))
 
   const handleInvoiceStatusChange = async (newStatus: string) => {
     try {
@@ -216,18 +220,7 @@ const InvoiceDetail = ({
     }
   }
 
-  // Invoice is overdue if due date is more than 1 day in the past
-  // (not on the due date itself, but the day after)
-  const isOverdue =
-    invoice.dueDate &&
-    invoice.paymentStatus !== 'paid' &&
-    (() => {
-      const dueDate = new Date(invoice.dueDate)
-      const oneDayAgo = new Date()
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-      oneDayAgo.setHours(23, 59, 59, 999)
-      return dueDate < oneDayAgo
-    })()
+  const isOverdue = isInvoiceOverdue(invoice)
 
   if (isEditing) {
     return (

@@ -1,4 +1,26 @@
-import type { InvoiceStatus, PaymentStatus, ApprovalStatus } from '../types/invoice'
+import type { Invoice, InvoiceStatus, PaymentStatus, ApprovalStatus } from '../types/invoice'
+
+/**
+ * Whether an invoice is actually overdue, right now.
+ *
+ * Prefer this over `invoice.status === 'overdue'`. The stored status is a lifecycle field the
+ * backend only ever moves forwards (sent -> overdue), so a paid-late invoice can still carry
+ * status='overdue' and render a contradictory "Overdue" + "Paid" pair. Deriving it here keeps
+ * the UI honest even for legacy rows written before the backend learned to clear the flag.
+ *
+ * Overdue means: has a due date, is not fully paid, and the due date is more than a day past
+ * (a same-day due date is not yet late).
+ */
+export const isInvoiceOverdue = (invoice: Pick<Invoice, 'dueDate' | 'paymentStatus'>): boolean => {
+  if (!invoice.dueDate) return false
+  if (invoice.paymentStatus === 'paid') return false
+
+  const endOfYesterday = new Date()
+  endOfYesterday.setDate(endOfYesterday.getDate() - 1)
+  endOfYesterday.setHours(23, 59, 59, 999)
+
+  return new Date(invoice.dueDate) < endOfYesterday
+}
 
 /** Semantic tone vocabulary shared across the invoices surface. */
 export type Tone = 'accent' | 'success' | 'warning' | 'danger' | 'info' | 'neutral'

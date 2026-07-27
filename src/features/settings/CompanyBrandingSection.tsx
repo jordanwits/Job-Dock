@@ -45,6 +45,8 @@ export const CompanyBrandingSection = ({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -63,9 +65,21 @@ export const CompanyBrandingSection = ({
   }
 
   const handleSave = async () => {
+    // This address goes into email footers and onto invoices/quotes, but the field lives
+    // outside a <form> so the browser never enforces type="email". Without this check a
+    // value like "totally-not-an-email" saved silently.
+    const email = formData.companySupportEmail?.trim()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Enter a valid email address')
+      return
+    }
+    setEmailError(null)
+
     setSaving(true)
     try {
       await onSave()
+      // Saving previously gave no feedback at all, so there was no way to tell it worked.
+      setSavedAt(Date.now())
     } finally {
       setSaving(false)
     }
@@ -85,8 +99,12 @@ export const CompanyBrandingSection = ({
           label="Support email"
           type="email"
           value={formData.companySupportEmail}
-          onChange={e => onFieldChange('companySupportEmail', e.target.value)}
+          onChange={e => {
+            if (emailError) setEmailError(null)
+            onFieldChange('companySupportEmail', e.target.value)
+          }}
           placeholder="support@yourcompany.com"
+          error={emailError ?? undefined}
           helperText="Displayed in email footers and on invoices/quotes"
         />
 
@@ -134,7 +152,16 @@ export const CompanyBrandingSection = ({
           </AppButton>
         </div>
 
-        <div className="flex justify-end pt-4">
+        <div className="flex items-center justify-end gap-3 pt-4">
+          {savedAt !== null && !saving && (
+            <span
+              key={savedAt}
+              role="status"
+              className="text-[13px] font-medium text-success animate-in fade-in"
+            >
+              Changes saved
+            </span>
+          )}
           <AppButton onClick={handleSave} isLoading={saving}>
             {saving ? 'Saving…' : 'Save changes'}
           </AppButton>

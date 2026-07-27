@@ -61,6 +61,8 @@ export interface JobLogBooking {
   price?: number | null
   quoteId?: string | null
   invoiceId?: string | null
+  /** Service address for this appointment; set per booking, not on the parent job. */
+  location?: string | null
 }
 
 export interface JobLog {

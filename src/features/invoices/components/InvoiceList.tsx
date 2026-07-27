@@ -31,6 +31,7 @@ import {
   INVOICE_STATUS_FILTER_OPTIONS,
   PAYMENT_STATUS,
   PAYMENT_STATUS_FILTER_OPTIONS,
+  isInvoiceOverdue,
 } from './invoiceStatus'
 
 interface InvoiceListProps {
@@ -44,17 +45,8 @@ const INVOICE_STATUS_FROM_URL = ['draft', 'sent', 'overdue', 'cancelled'] as con
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 
-// Overdue if due date is more than 1 day in the past and not fully paid.
-const isInvoiceOverdue = (invoice: Invoice) =>
-  !!invoice.dueDate &&
-  invoice.paymentStatus !== 'paid' &&
-  (() => {
-    const dueDate = new Date(invoice.dueDate)
-    const oneDayAgo = new Date()
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-    oneDayAgo.setHours(23, 59, 59, 999)
-    return dueDate < oneDayAgo
-  })()
+// isInvoiceOverdue now lives in ./invoiceStatus so the cards, detail view, dashboard and
+// reports all decide "overdue" the same way.
 
 const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -333,7 +325,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
             <button
               onClick={() => setDisplayMode('cards')}
               className={cn(
-                'flex h-8 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                'flex h-10 w-11 sm:h-8 sm:w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                 displayMode === 'cards' ? 'bg-surface text-accent-strong shadow-card' : 'text-ink-subtle hover:text-ink'
               )}
               title="Card view"
@@ -345,7 +337,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
             <button
               onClick={() => setDisplayMode('list')}
               className={cn(
-                'flex h-8 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                'flex h-10 w-11 sm:h-8 sm:w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                 displayMode === 'list' ? 'bg-surface text-accent-strong shadow-card' : 'text-ink-subtle hover:text-ink'
               )}
               title="List view"

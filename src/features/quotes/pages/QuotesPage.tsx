@@ -154,7 +154,7 @@ const QuotesPage = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink md:text-3xl">Quotes</h1>
-          <p className="mt-1 text-sm text-ink-muted">Create and manage quotes for your projects</p>
+          <p className="mt-1 text-sm text-ink-muted">Create and manage quotes for your clients</p>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
           <AppButton
