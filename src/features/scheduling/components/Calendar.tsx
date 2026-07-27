@@ -269,6 +269,8 @@ const Calendar = ({
   const weekColumnsRef = useRef<Map<number, DOMRect>>(new Map())
   const dayViewRef = useRef<HTMLDivElement | null>(null)
   const weekViewRef = useRef<HTMLDivElement | null>(null)
+  /** "viewMode:dayTimestamp" we've already auto-scrolled, so refetches don't re-scroll. */
+  const autoScrolledKeyRef = useRef<string | null>(null)
   const monthViewRef = useRef<HTMLDivElement | null>(null)
   const dragOriginRef = useRef<HTMLElement | null>(null)
   const isDraggingRef = useRef(false) // True only after crossing drag threshold
@@ -426,6 +428,14 @@ const Calendar = ({
     const container = viewMode === 'day' ? dayViewRef.current : weekViewRef.current
     if (!container) return
 
+    // `jobs` is in the dep list because the first render usually has no data yet, so the
+    // initial pass can only use the fallback hour. But re-running on EVERY jobs change would
+    // yank a scrolled-away user back to the top whenever anything refetched (the assistant
+    // creating a job, any data-changed event). So position once per view+date, and only
+    // consider it settled once we've placed it using real appointments.
+    const positionKey = `${viewMode}:${startOfDay(selectedDate).getTime()}`
+    if (autoScrolledKeyRef.current === positionKey) return
+
     const visibleDays =
       viewMode === 'day'
         ? [selectedDate]
@@ -442,6 +452,10 @@ const Calendar = ({
     // One hour of lead-in above the first event so it doesn't sit flush against the header.
     const targetHour =
       startHours.length > 0 ? Math.max(0, Math.min(...startHours) - 1) : DEFAULT_DAY_START_HOUR
+
+    // Only lock this view+date in once real appointments drove the position; if we used the
+    // fallback because data hadn't loaded, allow a retry when it arrives.
+    if (startHours.length > 0) autoScrolledKeyRef.current = positionKey
 
     // rAF so the hour rows have laid out before we measure/scroll.
     const frame = requestAnimationFrame(() => {
