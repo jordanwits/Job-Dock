@@ -3,6 +3,7 @@ import { downloadCsv } from '../utils/exportCsv'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
 import type { Invoice } from '@/features/invoices/types/invoice'
+import { isInvoiceOverdue } from '@/features/invoices/components/invoiceStatus'
 import {
   ReportSection,
   StatGrid,
@@ -90,7 +91,10 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
     const outstanding = total - paid
 
     const sent = statusGroups.sent.reduce((sum, i) => sum + i.total, 0)
-    const overdue = statusGroups.overdue.reduce((sum, i) => sum + (i.total - i.paidAmount), 0)
+    // Derived, not statusGroups.overdue: the stored status keeps saying 'overdue' after a
+    // late invoice is paid, which reported a phantom "OVERDUE 1 / $0.00".
+    const overdueInvoices = billableInvoices.filter(isInvoiceOverdue)
+    const overdue = overdueInvoices.reduce((sum, i) => sum + (i.total - i.paidAmount), 0)
     const draft = statusGroups.draft.reduce((sum, i) => sum + i.total, 0)
 
     return {
@@ -103,7 +107,7 @@ export const InvoicesReport = ({ startDate, endDate, invoices }: InvoicesReportP
       count: billableInvoices.length,
       excludedCount: filteredInvoices.length - billableInvoices.length,
       sentCount: statusGroups.sent.length,
-      overdueCount: statusGroups.overdue.length,
+      overdueCount: overdueInvoices.length,
       draftCount: statusGroups.draft.length,
       paidCount: paymentGroups.paid.length,
       partialCount: paymentGroups.partial.length,

@@ -260,7 +260,7 @@ const InvoiceForm = ({
         {/* Invoice Title - pulled from project title when creating from a job */}
         <TextField
           label="Invoice title *"
-          placeholder="e.g., Kitchen Remodel, Office Renovation"
+          placeholder="e.g., Deep Clean, Move-Out Clean"
           error={errors.title?.message}
           {...register('title')}
         />

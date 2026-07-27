@@ -1478,8 +1478,9 @@ const SchedulingPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">Scheduling</h1>
-          <p className="text-sm text-ink-muted">Manage your calendar, jobs, and services</p>
+          {/* Heading matches the sidebar label ("Calendar") so the two agree. */}
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Calendar</h1>
+          <p className="text-sm text-ink-muted">Manage your appointments, jobs, and services</p>
         </div>
         <div className="flex items-center gap-2">
           {(activeTab === 'calendar' || activeTab === 'upcoming-bookings') && (
@@ -1490,7 +1491,7 @@ const SchedulingPage = () => {
                   className="w-full sm:w-auto"
                   title="Keyboard shortcut: Ctrl+N or ⌘N"
                 >
-                  Schedule Job
+                  Schedule job
                 </AppButton>
               )}
               {activeTab === 'calendar' && (
@@ -1907,12 +1908,12 @@ const SchedulingPage = () => {
         }}
         title={
           editingJob?.isIndependent
-            ? 'Edit Appointment'
+            ? 'Edit appointment'
             : editingJob?.toBeScheduled
-              ? 'Schedule Job'
+              ? 'Schedule job'
               : editingJob
-                ? 'Edit Job'
-                : 'Schedule Job'
+                ? 'Edit job'
+                : 'Schedule job'
         }
         size="xl"
       >
@@ -2221,7 +2222,7 @@ const SchedulingPage = () => {
           setSelectedService(null)
           clearServicesError()
         }}
-        title={selectedService ? 'Edit Service' : 'Create New Service'}
+        title={selectedService ? 'Edit service' : 'Create service'}
         size="xl"
       >
         <ServiceForm

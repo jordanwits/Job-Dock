@@ -3,7 +3,7 @@ import { useInvoiceStore } from '../store/invoiceStore'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@/lib/utils/dateUtils'
 import { SelectCircle, StatusBadge } from './invoicesUi'
-import { INVOICE_STATUS, PAYMENT_STATUS } from './invoiceStatus'
+import { INVOICE_STATUS, PAYMENT_STATUS, isInvoiceOverdue } from './invoiceStatus'
 
 interface InvoiceCardProps {
   invoice: Invoice
@@ -20,23 +20,17 @@ const InvoiceCard = ({ invoice, isSelected, onToggleSelect }: InvoiceCardProps) 
   const payment = PAYMENT_STATUS[invoice.paymentStatus] ?? PAYMENT_STATUS.pending
   const itemCount = invoice.lineItems.length
 
+  const showPayment = invoice.trackPayment !== false
+  const isOverdue = isInvoiceOverdue(invoice)
+
   // Only show the lifecycle status when it adds info beyond the payment badge.
   // Hide it for "sent" (the payment badge already conveys pending/partial/paid).
+  // "overdue" is gated on the derived value, never the stored status, so a paid-late
+  // invoice cannot render "Overdue" and "Paid" side by side.
   const shouldShowStatus =
-    invoice.status === 'draft' || invoice.status === 'overdue' || invoice.status === 'cancelled'
-  const showPayment = invoice.trackPayment !== false
-
-  // Overdue if due date is more than 1 day in the past and not fully paid.
-  const isOverdue =
-    !!invoice.dueDate &&
-    invoice.paymentStatus !== 'paid' &&
-    (() => {
-      const dueDate = new Date(invoice.dueDate)
-      const oneDayAgo = new Date()
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-      oneDayAgo.setHours(23, 59, 59, 999)
-      return dueDate < oneDayAgo
-    })()
+    invoice.status === 'draft' ||
+    invoice.status === 'cancelled' ||
+    (invoice.status === 'overdue' && isOverdue)
 
   return (
     <div

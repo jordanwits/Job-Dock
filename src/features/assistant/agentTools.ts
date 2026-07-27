@@ -253,7 +253,7 @@ const jobStatusEnum = ['scheduled', 'in-progress', 'completed', 'cancelled', 'pe
  * Friendly-label resolvers used to build confirmation/activity summaries.
  *
  * These never expose a raw record id: they look the record up and return a
- * human label ("quote Q-1042 — Kitchen Remodel"), falling back to a generic
+ * human label ("quote Q-1042 — Deep Clean"), falling back to a generic
  * phrase if the lookup fails. Used only for the summary string, so a failed
  * lookup is non-fatal — the action itself still runs.
  */
@@ -726,7 +726,7 @@ export const agentTools: AgentTool[] = [
             title: {
               type: 'string',
               description:
-                "A short, descriptive project title for the work (Title Case), e.g. 'Kitchen Remodel' or 'Drain Repair'. Always provide one. Do NOT put the customer's name in the title.",
+                "A short, descriptive title for the work (Title Case), e.g. 'Deep Clean' or 'Move-Out Clean'. Always provide one. Do NOT put the customer's name in the title.",
             },
             lineItems: lineItemSchema,
             taxRate: { type: 'number', description: 'Decimal rate, e.g. 0.08 for 8%.' },
@@ -874,7 +874,7 @@ export const agentTools: AgentTool[] = [
             title: {
               type: 'string',
               description:
-                "A short, descriptive project title for the work (Title Case), e.g. 'Kitchen Remodel' or 'Drain Repair'. Always provide one. Do NOT put the customer's name in the title.",
+                "A short, descriptive title for the work (Title Case), e.g. 'Deep Clean' or 'Move-Out Clean'. Always provide one. Do NOT put the customer's name in the title.",
             },
             lineItems: lineItemSchema,
             taxRate: { type: 'number', description: 'Decimal rate, e.g. 0.08 for 8%.' },

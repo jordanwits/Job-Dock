@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import { useQuoteStore } from '@/features/quotes/store/quoteStore'
 import { useInvoiceStore } from '@/features/invoices/store/invoiceStore'
+import { isInvoiceOverdue } from '@/features/invoices/components/invoiceStatus'
 import { useJobLogStore } from '@/features/jobLogs/store/jobLogStore'
 import { useAuthStore } from '@/features/auth'
 import { format, startOfMonth, endOfMonth, addDays, isSameDay } from 'date-fns'
@@ -325,7 +326,10 @@ const DashboardPage = () => {
 
   // Invoice metrics
   const invoiceMetrics = useMemo(() => {
-    const overdue = invoices.filter(i => i.status === 'overdue').length
+    // Count overdue from the derived predicate, not the stored status. Keying off
+    // `status === 'overdue'` counted paid-late invoices, producing "1 overdue worth $0".
+    const overdueInvoices = invoices.filter(isInvoiceOverdue)
+    const overdue = overdueInvoices.length
     const paid = invoices.filter(i => i.paymentStatus === 'paid').length
     const unpaid = invoices.filter(
       i => i.paymentStatus !== 'paid' && i.status !== 'cancelled' && i.status !== 'draft'
@@ -337,9 +341,7 @@ const DashboardPage = () => {
     const outstanding = invoices
       .filter(isOutstanding)
       .reduce((sum, i) => sum + (i.total - i.paidAmount), 0)
-    const overdueAmount = invoices
-      .filter(i => i.status === 'overdue')
-      .reduce((sum, i) => sum + (i.total - i.paidAmount), 0)
+    const overdueAmount = overdueInvoices.reduce((sum, i) => sum + (i.total - i.paidAmount), 0)
 
     return { overdue, paid, unpaid, outstanding, overdueAmount }
   }, [invoices])

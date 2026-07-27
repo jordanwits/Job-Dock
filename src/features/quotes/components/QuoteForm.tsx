@@ -251,7 +251,7 @@ const QuoteForm = ({
         {/* Quote Title - pulled from project title when creating from a job */}
         <TextField
           label="Quote title *"
-          placeholder="e.g., Kitchen Remodel, Office Renovation"
+          placeholder="e.g., Deep Clean, Move-Out Clean"
           error={errors.title?.message}
           {...register('title')}
         />

@@ -34,6 +34,42 @@ import { resolveJobStatus, eventToneCls, type Tone } from './schedulingStatus'
 /** Stable empty default so the `paidInvoiceIds` prop never churns identity when omitted. */
 const EMPTY_PAID_SET: Set<string> = new Set()
 
+/** Hour the day/week grid scrolls to when the visible range has no appointments. */
+const DEFAULT_DAY_START_HOUR = 7
+
+/** Room left above the scroll target so the sticky date header doesn't cover it. */
+const STICKY_HEADER_ALLOWANCE = 96
+
+/**
+ * Focus + keyboard-activation props for an event surface.
+ *
+ * Event chips can't be real `<button>`s: they carry the custom pointer-event drag/resize
+ * handlers, and a button would also swallow the pointer semantics the drag relies on. Without
+ * these props they were plain divs — unreachable by Tab and unactivatable by keyboard, so the
+ * calendar was mouse-only. Enter/Space mirror what a click does; the drag path is untouched
+ * because it only listens to pointer events.
+ */
+const eventKeyboardProps = (label: string, onActivate: () => void) => ({
+  role: 'button',
+  tabIndex: 0,
+  'aria-label': label,
+  onKeyDown: (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    e.stopPropagation()
+    onActivate()
+  },
+})
+
+/** Screen-reader label for an event chip: title, who it's for, and when. */
+const eventLabel = (job: Job, start?: Date, end?: Date) => {
+  const parts = [job.title]
+  if (job.contactName) parts.push(`for ${job.contactName}`)
+  if (start && end) parts.push(`${format(start, 'EEE MMM d, h:mm a')} to ${format(end, 'h:mm a')}`)
+  else if (start) parts.push(format(start, 'EEE MMM d'))
+  return parts.join(', ')
+}
+
 /**
  * Small solid-green check badge marking a calendar event whose linked invoice is fully paid.
  * Size and position come from `className`; the check glyph fills the badge.
@@ -378,6 +414,65 @@ const Calendar = ({
       return targetDate >= jobStartDate && targetDate <= jobEndDate
     })
   }
+
+  /**
+   * Day and week views render a full 24-hour grid, which mounts scrolled to midnight — the
+   * user had to scroll past seven empty overnight hours to reach a 9 AM job. Scroll to the
+   * first appointment of the visible range instead, falling back to the start of the working
+   * day when there is nothing scheduled.
+   */
+  useEffect(() => {
+    if (viewMode !== 'day' && viewMode !== 'week') return
+    const container = viewMode === 'day' ? dayViewRef.current : weekViewRef.current
+    if (!container) return
+
+    const visibleDays =
+      viewMode === 'day'
+        ? [selectedDate]
+        : eachDayOfInterval({
+            start: startOfWeek(selectedDate, { weekStartsOn: 0 }),
+            end: endOfWeek(selectedDate, { weekStartsOn: 0 }),
+          })
+
+    const startHours = visibleDays
+      .flatMap(day => getJobsForDate(day))
+      .filter(job => job.startTime && !isMultiDayJob(job))
+      .map(job => getHours(new Date(job.startTime as string)))
+
+    // One hour of lead-in above the first event so it doesn't sit flush against the header.
+    const targetHour =
+      startHours.length > 0 ? Math.max(0, Math.min(...startHours) - 1) : DEFAULT_DAY_START_HOUR
+
+    // rAF so the hour rows have laid out before we measure/scroll.
+    const frame = requestAnimationFrame(() => {
+      const row = container.querySelector<HTMLElement>(`[data-drop-hour="${targetHour}"]`)
+      if (!row) return
+
+      // Which element actually scrolls depends on the breakpoint: on a constrained-height
+      // layout it's this container, but when the grid is free to grow it's the page. Walk up
+      // to whichever ancestor genuinely overflows rather than assuming.
+      let scroller: HTMLElement | null = container
+      while (scroller && scroller.scrollHeight <= scroller.clientHeight) {
+        scroller = scroller.parentElement
+      }
+
+      const rowTop = row.getBoundingClientRect().top
+      const isRootScroller =
+        !scroller || scroller === document.documentElement || scroller === document.body
+
+      if (isRootScroller) {
+        // The root element's own rect is already shifted by the scroll position, so the
+        // element formula below would count scrollTop twice and overshoot on re-runs.
+        const doc = document.scrollingElement as HTMLElement
+        doc.scrollTop = Math.max(0, rowTop + doc.scrollTop - STICKY_HEADER_ALLOWANCE)
+      } else {
+        const offset = rowTop - scroller!.getBoundingClientRect().top + scroller!.scrollTop
+        scroller!.scrollTop = Math.max(0, offset - STICKY_HEADER_ALLOWANCE)
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, selectedDate, jobs])
 
   // Check if job spans multiple calendar days
   const isMultiDayJob = (job: Job): boolean => {
@@ -1339,7 +1434,11 @@ const Calendar = ({
                         )}
                         {/* Main content area - draggable */}
                         <div
-                          className="absolute top-0 left-0 right-0 p-2 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto"
+                          {...eventKeyboardProps(
+                            eventLabel(job, displayStartTime, displayEndTime),
+                            () => onJobClick(job)
+                          )}
+                          className="absolute top-0 left-0 right-0 p-2 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1"
                           style={{ bottom: '24px' }}
                           onPointerDown={e => {
                             e.stopPropagation()
@@ -1577,11 +1676,15 @@ const Calendar = ({
                           <span className="hidden sm:inline">{format(day, 'EEE')}</span>
                           <span className="sm:hidden">{format(day, 'EEEEE')}</span>
                         </div>
+                        {/* Ring marks TODAY, not `selectedDate`. Navigating by week advances
+                            selectedDate a whole week at a time, so it always lands on the same
+                            weekday — keying the ring off it drew a "today"-looking circle on
+                            every week you paged to. Month view already keys off isToday. */}
                         <div
                           className={cn(
                             'text-xs md:text-sm font-mono tabular-nums font-medium',
                             isToday(day) ? 'text-accent-strong' : 'text-ink',
-                            isSameDay(day, selectedDate) &&
+                            isToday(day) &&
                               'ring-2 ring-accent rounded-full w-5 h-5 md:w-6 md:h-6 mx-auto flex items-center justify-center'
                           )}
                         >
@@ -1838,7 +1941,11 @@ const Calendar = ({
                                   )}
                                   {/* Main content area - draggable */}
                                   <div
-                                    className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto"
+                                    {...eventKeyboardProps(
+                                      eventLabel(job, displayStartTime, displayEndTime),
+                                      () => onJobClick(job)
+                                    )}
+                                    className="absolute top-0 left-0 right-0 p-1 cursor-move hover:opacity-90 transition-all overflow-hidden touch-none pointer-events-auto outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1"
                                     style={{ bottom: '16px' }}
                                     onPointerDown={e => {
                                       e.stopPropagation()
@@ -2364,11 +2471,15 @@ const Calendar = ({
                       return (
                         <div
                           key={getRowKey(job)}
+                          {...eventKeyboardProps(eventLabel(job, new Date(job.startTime)), () =>
+                            onJobClick(job)
+                          )}
                           className={cn(
                             'text-xs p-1 rounded flex items-center gap-1 min-w-0 overflow-hidden cursor-grab active:cursor-grabbing touch-none',
                             'border-l-2 border-current/40',
                             !isCurrentMonth && 'opacity-60',
                             'hover:opacity-80',
+                            'outline-none focus-visible:ring-2 focus-visible:ring-accent',
                             jobColors.chip
                           )}
                           style={

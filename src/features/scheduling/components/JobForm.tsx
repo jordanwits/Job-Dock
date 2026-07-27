@@ -1142,7 +1142,7 @@ const JobForm = ({
         label="Job Title *"
         {...register('title')}
         error={errors.title?.message}
-        placeholder="e.g., Kitchen Renovation Consultation"
+        placeholder="e.g., Weekly Clean, Move-Out Clean"
       />
 
       <TextAreaField
@@ -2035,7 +2035,7 @@ const JobForm = ({
           Cancel
         </AppButton>
         <AppButton type="submit" disabled={isLoading} isLoading={isLoading} className="w-full sm:w-auto">
-          {isLoading ? 'Saving...' : job ? 'Update Job' : jobSelectionMode === 'independent' ? 'Schedule Appointment' : jobSelectionMode === 'existing' ? 'Schedule Job' : 'Create Job'}
+          {isLoading ? 'Saving...' : job ? 'Update job' : jobSelectionMode === 'independent' ? 'Schedule appointment' : jobSelectionMode === 'existing' ? 'Schedule job' : 'Create job'}
         </AppButton>
       </div>
 
