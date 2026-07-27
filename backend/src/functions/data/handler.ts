@@ -1,10 +1,11 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse, corsResponse, extractContext, binaryResponse, setRequestOrigin } from '../../lib/middleware'
+import type { LambdaContext } from '../../lib/middleware'
 import { dataServices } from '../../lib/dataService'
 import * as quickbooks from '../../lib/quickbooks'
 import * as googleCalendar from '../../lib/googleCalendar'
-import { extractTenantId } from '../../lib/middleware'
-import { ensureTenantExists, getDefaultTenantId } from '../../lib/tenant'
+import { classifyPublicRoute } from './publicRoutes'
+import { ensureTenantExists } from '../../lib/tenant'
 import { ApiError } from '../../lib/errors'
 import { verifyApprovalToken } from '../../lib/approvalTokens'
 import { loadSecrets } from '../../lib/secrets'
@@ -1082,75 +1083,51 @@ We look forward to working with you!',
       return errorResponse('Photo not found', 404)
     }
 
-    // Check if this is a public booking endpoint that doesn't require authentication
-    const isPublicBookingEndpoint =
-      resource === 'services' &&
-      ((event.httpMethod === 'GET' && id === 'public') ||
-        (id &&
-          id !== 'public' &&
-          event.httpMethod === 'GET' &&
-          (action === 'availability' || !action)) ||
-        (id && id !== 'public' && event.httpMethod === 'POST' && action === 'book'))
-
-    // Check if this is a public approval endpoint (quote/invoice approval from email links)
-    const isPublicApprovalEndpoint =
-      event.httpMethod === 'POST' &&
-      id &&
-      ((resource === 'quotes' && (action === 'approve-public' || action === 'decline-public')) ||
-        (resource === 'invoices' && (action === 'approve-public' || action === 'decline-public')))
-    
-    // Check if this is a public approval info endpoint (GET request to fetch branding before approval)
-    const isPublicApprovalInfoEndpoint =
-      event.httpMethod === 'GET' &&
-      id &&
-      ((resource === 'quotes' && action === 'approval-info') ||
-        (resource === 'invoices' && action === 'approval-info'))
-
-    // Check if this is a public PDF endpoint (GET request to fetch quote/invoice PDF for view page)
-    const isPublicPdfEndpoint =
-      event.httpMethod === 'GET' &&
-      id &&
-      ((resource === 'quotes' && action === 'public-pdf') ||
-        (resource === 'invoices' && action === 'public-pdf'))
-
-    // Check if this is a public reschedule endpoint (booking reschedule from confirmation links)
-    const isPublicRescheduleInfoEndpoint =
-      event.httpMethod === 'GET' &&
-      resource === 'jobs' &&
-      id &&
-      action === 'reschedule-info'
-    const isPublicRescheduleEndpoint =
-      event.httpMethod === 'POST' &&
-      resource === 'jobs' &&
-      id &&
-      action === 'reschedule-public'
-
-    // For public endpoints, determine tenant ID from the resource itself
-    let tenantId: string
-    if (isPublicBookingEndpoint) {
-      tenantId = 'public-booking-placeholder'
-    } else if ((isPublicApprovalEndpoint || isPublicApprovalInfoEndpoint || isPublicPdfEndpoint) && id) {
-      // For approval endpoints, look up the tenantId from the quote/invoice record
-      tenantId = await getTenantIdFromResource(resource as 'quotes' | 'invoices', id)
-    } else if ((isPublicRescheduleInfoEndpoint || isPublicRescheduleEndpoint) && id) {
-      tenantId = await getTenantIdFromResource('jobs', id)
-    } else {
-      tenantId = await resolveTenantId(event)
-    }
-
-    if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint && !isPublicRescheduleInfoEndpoint && !isPublicRescheduleEndpoint) {
-      await ensureTenantExists(tenantId)
-    }
-
+    // Root health check — no resource, no tenant, nothing to authorize.
     if (!resource) {
       return successResponse({ status: 'ok' })
+    }
+
+    // Classify the request against the unauthenticated allowlist (see publicRoutes.ts).
+    // Everything NOT on that list requires a verified JWT below.
+    const publicRoute = classifyPublicRoute(event.httpMethod, resource, id, action)
+
+    // Resolve the tenant. Public routes derive it from the resource itself (record id, signed
+    // token, or explicit query param); everything else derives it from the verified JWT.
+    //
+    // SECURITY: this is the auth gate for the generic CRUD dispatch. `extractContext` throws
+    // ApiError(401) when the Authorization header is missing, malformed, or fails Cognito
+    // verification, so a non-public request can never reach a service with a caller-supplied
+    // tenant id. Do NOT reintroduce a tenant fallback here — an `X-Tenant-ID` header is not a
+    // credential, and honoring it without a JWT exposes the whole tenant to anyone holding the
+    // (non-secret) tenant UUID.
+    let tenantId: string
+    let authContext: LambdaContext | null = null
+    if (publicRoute.booking) {
+      tenantId = 'public-booking-placeholder'
+    } else if ((publicRoute.approval || publicRoute.approvalInfo || publicRoute.pdf) && id) {
+      // For approval endpoints, look up the tenantId from the quote/invoice record
+      tenantId = await getTenantIdFromResource(resource as 'quotes' | 'invoices', id)
+    } else if ((publicRoute.rescheduleInfo || publicRoute.reschedule) && id) {
+      tenantId = await getTenantIdFromResource('jobs', id)
+    } else if (publicRoute.settings) {
+      // Tenant comes from the ?tenantId= query param; handleGet re-reads it and returns only
+      // public branding (company name + logo).
+      tenantId = event.queryStringParameters?.tenantId ?? 'public-settings-placeholder'
+    } else {
+      authContext = await extractContext(event)
+      tenantId = authContext.tenantId
+    }
+
+    if (!publicRoute.any) {
+      await ensureTenantExists(tenantId)
     }
 
     // Subscription enforcement (when enabled)
     const enforceSubscription = process.env.STRIPE_ENFORCE_SUBSCRIPTION === 'true'
     if (enforceSubscription && resource !== 'billing' && resource !== 'admin') {
       // Always allow public endpoints
-      if (!isPublicBookingEndpoint && !isPublicApprovalEndpoint && !isPublicApprovalInfoEndpoint && !isPublicPdfEndpoint && !isPublicRescheduleInfoEndpoint && !isPublicRescheduleEndpoint) {
+      if (!publicRoute.any) {
         // Check subscription status
         const { default: prisma } = await import('../../lib/db')
         const tenant = await prisma.tenant.findUnique({
@@ -1212,15 +1189,17 @@ We look forward to working with you!',
     const authHeader = event.headers?.Authorization || event.headers?.authorization
     if (
       authHeader &&
-      !isPublicBookingEndpoint &&
-      !isPublicApprovalEndpoint &&
-      !isPublicRescheduleInfoEndpoint &&
-      !isPublicRescheduleEndpoint &&
+      !publicRoute.booking &&
+      !publicRoute.approval &&
+      !publicRoute.rescheduleInfo &&
+      !publicRoute.reschedule &&
       resource !== 'billing' &&
       resource !== 'admin'
     ) {
       const { default: prisma } = await import('../../lib/db')
-      const context = await extractContext(event)
+      // Already verified by the auth gate above on non-public routes — reuse it rather than
+      // re-verifying the JWT and re-reading the user.
+      const context = authContext ?? (await extractContext(event))
       const user = await prisma.user.findUnique({
         where: { cognitoId: context.userId },
         select: { 
@@ -1523,7 +1502,7 @@ async function handleGet(
     if (id === 'public') {
       const tenantIdParam = event.queryStringParameters?.tenantId
       if (!tenantIdParam) {
-        throw new Error('Tenant ID required for public settings endpoint')
+        throw new ApiError('Tenant ID required for public settings endpoint', 400)
       }
       return (service as typeof dataServices.settings).getPublic(tenantIdParam)
     }
@@ -1539,7 +1518,7 @@ async function handleGet(
   if (resource === 'services' && id === 'public') {
     const tenantIdParam = event.queryStringParameters?.tenantId
     if (!tenantIdParam) {
-      throw new Error('Tenant ID required for public services endpoint')
+      throw new ApiError('Tenant ID required for public services endpoint', 400)
     }
     return (service as typeof dataServices.services).getAllActiveForTenant(tenantIdParam)
   }
@@ -2408,30 +2387,8 @@ async function getTenantIdFromResource(
   return record.tenantId
 }
 
-async function resolveTenantId(event: APIGatewayProxyEvent) {
-  const headers = event.headers ?? {}
-  const authHeader = headers.Authorization || headers.authorization
-
-  try {
-    return await extractTenantId(event)
-  } catch (error) {
-    // For authenticated requests, NEVER fall back to default tenant
-    // This prevents production accounts from accidentally sharing data
-    if (authHeader) {
-      console.error('Failed to resolve tenant for authenticated request:', error)
-      throw new Error('Authentication failed: Unable to determine tenant')
-    }
-
-    // For unauthenticated requests in development, allow fallback to demo tenant
-    // In production, this should be disabled via environment variable
-    const isDevelopment = process.env.NODE_ENV !== 'production'
-    const fallback = getDefaultTenantId()
-
-    if (!fallback || !isDevelopment) {
-      throw new Error('Tenant ID not provided')
-    }
-
-    console.warn('Using fallback tenant for unauthenticated request:', fallback)
-    return fallback
-  }
-}
+// NOTE: the former `resolveTenantId()` helper was removed. It accepted an `X-Tenant-ID` header
+// on unauthenticated requests and, failing that, fell back to DEFAULT_TENANT_ID (the NODE_ENV
+// guard never engaged — Lambda does not set NODE_ENV). Both behaviors let anonymous callers
+// address a tenant. Non-public routes now resolve the tenant exclusively from the verified JWT
+// via `extractContext`; public routes resolve it from the resource they name.

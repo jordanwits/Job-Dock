@@ -59,28 +59,27 @@ export function setRequestOrigin(event: APIGatewayProxyEvent): void {
 }
 
 /**
- * Extract tenant ID from request
- * Priority: JWT token (if authenticated) > X-Tenant-ID header (for public/unauthenticated) > error
+ * Extract tenant ID from a request. The tenant ALWAYS comes from the verified JWT.
+ *
+ * SECURITY: this function used to accept an `X-Tenant-ID` header whenever no Authorization
+ * header was present, which let any anonymous caller address a tenant by its UUID. A tenant id
+ * is not a credential (it is stored in browser localStorage and travels in request headers), so
+ * it must never grant access on its own. Public/unauthenticated endpoints derive their tenant
+ * from the resource they name instead — see `functions/data/publicRoutes.ts`.
+ *
+ * The frontend still sends `X-Tenant-ID` on authenticated calls; it is simply ignored.
  */
 export async function extractTenantId(event: APIGatewayProxyEvent): Promise<string> {
   const headers = event.headers ?? {}
 
-  // If Authorization header is present, ALWAYS resolve via JWT token
-  // This prevents authenticated users from tampering with X-Tenant-ID
   const authHeader = headers.Authorization || headers.authorization
-  if (authHeader) {
-    const token = authHeader.replace('Bearer ', '')
-    return await getTenantIdFromToken(token)
+  if (!authHeader) {
+    const { ApiError } = await import('./errors')
+    throw new ApiError('Authorization header required', 401)
   }
 
-  // For unauthenticated requests (public booking, webhooks, etc.),
-  // allow X-Tenant-ID header
-  const tenantIdHeader = headers['x-tenant-id'] || headers['X-Tenant-ID']
-  if (tenantIdHeader) {
-    return tenantIdHeader
-  }
-
-  throw new Error('Tenant ID not found in request')
+  const token = authHeader.replace('Bearer ', '')
+  return await getTenantIdFromToken(token)
 }
 
 /**

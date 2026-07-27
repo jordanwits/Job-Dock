@@ -65,15 +65,16 @@ const PublicBookingPage = () => {
     // Determine what to load:
     // - If serviceId in URL path: load that specific service
     // - If tenantId in query param: load all services for that tenant
-    // - If neither: try to load all services (requires auth)
+    // - If neither: nothing to show. A booking link always carries one or the other, and the
+    //   only other option is the authenticated tenant-wide list, which a public visitor
+    //   cannot (and must not) fetch — that request 401s and would bounce them to /auth/login.
+    //   Fall through to the "No services available" panel instead.
     if (serviceId) {
       loadServicesForBooking(serviceId, false).then(() => {
         selectService(serviceId)
       })
     } else if (tenantId) {
       loadServicesForBooking(tenantId, true)
-    } else {
-      loadServicesForBooking()
     }
   }, [loadServicesForBooking, selectService, serviceId, tenantId])
 
@@ -130,7 +131,15 @@ const PublicBookingPage = () => {
   const handleBookAnother = () => {
     setShowConfirmation(false)
     resetBooking()
-    loadServicesForBooking()
+    // Reload exactly the way this page was entered. The argument-less call loads the
+    // tenant-wide list, which requires authentication — a booking customer has none.
+    if (serviceId) {
+      loadServicesForBooking(serviceId, false).then(() => {
+        selectService(serviceId)
+      })
+    } else if (tenantId) {
+      loadServicesForBooking(tenantId, true)
+    }
   }
 
   const publicBranding = branding
