@@ -53,15 +53,23 @@ function readMeta(attr: 'name' | 'property', key: string): string {
 /**
  * Snapshot of index.html's tags, captured at import time (before any route mounts) so
  * unmount can restore them rather than leaving another page's metadata behind.
+ *
+ * Guarded because this module is imported by the prerender build, which runs in Node where
+ * there is no document. Reading it at module scope would crash on import, before any
+ * component renders.
  */
-const DEFAULTS = {
-  title: document.title,
-  description: readMeta('name', 'description'),
-  ogTitle: readMeta('property', 'og:title'),
-  ogDescription: readMeta('property', 'og:description'),
-  twitterTitle: readMeta('name', 'twitter:title'),
-  twitterDescription: readMeta('name', 'twitter:description'),
-}
+const hasDOM = typeof document !== 'undefined'
+
+const DEFAULTS = hasDOM
+  ? {
+      title: document.title,
+      description: readMeta('name', 'description'),
+      ogTitle: readMeta('property', 'og:title'),
+      ogDescription: readMeta('property', 'og:description'),
+      twitterTitle: readMeta('name', 'twitter:title'),
+      twitterDescription: readMeta('name', 'twitter:description'),
+    }
+  : { title: '', description: '', ogTitle: '', ogDescription: '', twitterTitle: '', twitterDescription: '' }
 
 export function useSeo({ title, description, path, noindex = false }: SeoOptions): void {
   useEffect(() => {

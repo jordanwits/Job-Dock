@@ -1,7 +1,8 @@
 /**
  * Generates the marketing-content manifest and the sitemap from src/content/.
  *
- * Runs before every build (see the `prebuild` script). Two outputs:
+ * Runs before every build and before `npm run dev` (see the `prebuild` / `predev` scripts).
+ * Two outputs:
  *
  *   src/features/content/manifest.generated.ts  — frontmatter only, no article bodies
  *   public/sitemap.xml                          — static routes + every published article
@@ -11,98 +12,13 @@
  * lazy import — every article ends up in the main bundle. Generating the metadata separately
  * keeps the article bodies purely dynamic, one chunk each.
  *
- * Both outputs are committed so a plain `vite build` (Vercel's command) works even if this
- * script hasn't been re-run.
+ * Both outputs are committed so a plain `vite build` works even if this hasn't been re-run.
+ * Collection config and the file scan live in scripts/lib/content.mjs, shared with the
+ * prerender step.
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import matter from 'gray-matter'
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const contentRoot = join(root, 'src', 'content')
-
-const SITE_URL = 'https://www.thecleandock.com'
-
-/**
- * Must stay in sync with COLLECTIONS in src/features/content/registry.ts — this script is plain
- * Node and can't import the TypeScript module. `basePath: ''` puts a collection at the site root.
- */
-const COLLECTIONS = {
-  compare: { basePath: 'compare' },
-  guides: { basePath: 'guides' },
-  solutions: { basePath: '' },
-}
-
-function entryPath(collection, slug) {
-  const { basePath } = COLLECTIONS[collection]
-  return basePath ? `/${basePath}/${slug}` : `/${slug}`
-}
-
-/** Routes not backed by MDX. changefreq/priority are hints only; Google ignores them. */
-const STATIC_ROUTES = [
-  { path: '/', changefreq: 'weekly', priority: '1.0' },
-  { path: '/auth/signup', changefreq: 'monthly', priority: '0.8' },
-  { path: '/about', changefreq: 'monthly', priority: '0.7' },
-  { path: '/compare', changefreq: 'weekly', priority: '0.7' },
-  { path: '/guides', changefreq: 'weekly', priority: '0.7' },
-  { path: '/auth/login', changefreq: 'monthly', priority: '0.5' },
-  { path: '/privacy', changefreq: 'yearly', priority: '0.3' },
-  { path: '/terms', changefreq: 'yearly', priority: '0.3' },
-  { path: '/email-policy', changefreq: 'yearly', priority: '0.3' },
-  { path: '/sms-consent', changefreq: 'yearly', priority: '0.3' },
-]
-
-const REQUIRED_FIELDS = ['title', 'description', 'summary', 'updated']
-
-function collectEntries() {
-  const entries = []
-  const problems = []
-
-  for (const collection of Object.keys(COLLECTIONS)) {
-    const dir = join(contentRoot, collection)
-    if (!existsSync(dir)) continue
-
-    for (const file of readdirSync(dir).filter((f) => f.endsWith('.mdx'))) {
-      const slug = file.replace(/\.mdx$/, '')
-      const { data } = matter(readFileSync(join(dir, file), 'utf8'))
-
-      const missing = REQUIRED_FIELDS.filter((f) => !data[f])
-      if (missing.length) {
-        problems.push(`${collection}/${file}: missing frontmatter [${missing.join(', ')}]`)
-        continue
-      }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data.updated))) {
-        problems.push(`${collection}/${file}: "updated" must be YYYY-MM-DD, got "${data.updated}"`)
-        continue
-      }
-
-      entries.push({
-        collection,
-        slug,
-        path: entryPath(collection, slug),
-        meta: {
-          title: data.title,
-          description: data.description,
-          summary: data.summary,
-          updated: String(data.updated),
-          ...(data.navLabel ? { navLabel: data.navLabel } : {}),
-          ...(data.targetQuery ? { targetQuery: data.targetQuery } : {}),
-          ...(data.draft ? { draft: true } : {}),
-        },
-      })
-    }
-  }
-
-  // Fail the build rather than silently publishing a page with no description or a bad date —
-  // both are invisible in the UI and only surface weeks later in Search Console.
-  if (problems.length) {
-    console.error('\n[content] invalid frontmatter:\n  ' + problems.join('\n  ') + '\n')
-    process.exit(1)
-  }
-
-  return entries.sort((a, b) => b.meta.updated.localeCompare(a.meta.updated))
-}
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { ROOT, SITE_URL, STATIC_ROUTES, collectEntries } from './lib/content.mjs'
 
 function writeManifest(entries) {
   const body = `/* eslint-disable */
@@ -118,7 +34,7 @@ export interface ManifestEntry {
 
 export const manifest: ManifestEntry[] = ${JSON.stringify(entries, null, 2)}
 `
-  writeFileSync(join(root, 'src', 'features', 'content', 'manifest.generated.ts'), body, 'utf8')
+  writeFileSync(join(ROOT, 'src', 'features', 'content', 'manifest.generated.ts'), body, 'utf8')
 }
 
 function writeSitemap(entries) {
@@ -138,7 +54,7 @@ function writeSitemap(entries) {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!--
   GENERATED by scripts/build-content.mjs — do not edit by hand.
-  Articles come from src/content/; everything else from STATIC_ROUTES in that script.
+  Articles come from src/content/; everything else from STATIC_ROUTES in scripts/lib/content.mjs.
   Excluded deliberately: /auth/register (redirect), /auth/tester and /billing/* (noindex),
   and /app/* /book/* /public/* /s/* (robots.txt Disallow).
 -->
@@ -155,11 +71,18 @@ ${urls
   .join('\n')}
 </urlset>
 `
-  writeFileSync(join(root, 'public', 'sitemap.xml'), xml, 'utf8')
+  writeFileSync(join(ROOT, 'public', 'sitemap.xml'), xml, 'utf8')
   return urls.length
 }
 
-const entries = collectEntries()
+let entries
+try {
+  entries = collectEntries()
+} catch (err) {
+  console.error(`\n[content] ${err.message}\n`)
+  process.exit(1)
+}
+
 writeManifest(entries)
 const urlCount = writeSitemap(entries)
 

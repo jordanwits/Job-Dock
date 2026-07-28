@@ -1,7 +1,9 @@
 import { Suspense, lazy, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import MarketingLayout from '@/features/marketing/components/MarketingLayout'
-import { NotFoundPage } from '@/features/marketing'
+// Direct module import, not the '@/features/marketing' barrel: the barrel re-exports
+// LandingPage, which drags the whole landing tree (and three.js) into the prerender bundle.
+import NotFoundPage from '@/features/marketing/pages/NotFoundPage'
 import { useSeo } from '@/lib/seo'
 import { getEntry, COLLECTIONS, type Collection } from './registry'
 
@@ -56,7 +58,12 @@ const ContentPage = ({ collection, slug: slugProp }: ContentPageProps) => {
   return <ArticleShell collection={collection} entry={entry} Article={Article} />
 }
 
-const ArticleShell = ({
+/**
+ * Exported so the prerender build can render the identical markup. It passes an already-awaited
+ * MDX component rather than a lazy one — renderToString does not await lazy components and would
+ * emit the Suspense fallback instead of the article.
+ */
+export const ArticleShell = ({
   collection,
   entry,
   Article,
