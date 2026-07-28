@@ -15,11 +15,16 @@ Node 20 (`.nvmrc`). Three package.json workspaces: root (frontend), `backend/`, 
 - `npm run type-check` / `npm run build:check` — include `tsc` and FAIL at baseline (pre-existing errors,
   e.g. `src/lib/utils/teamColors.ts`). Don't chase those; don't add new ones.
 - `npm run lint` / `lint:fix` (`--max-warnings 0`), `npm run format` (Prettier over `src/`).
-- `npm run sync:aws:env -- --env=dev` — pulls CloudFormation outputs into `.env` + `backend/.env`.
+- `npm run sync:aws:env -- --env=<env>` — pulls CloudFormation outputs into `.env` + `backend/.env`.
+  **DENIED by `.claude/settings.json`; never run it without an explicit, in-the-moment instruction** —
+  see Gotchas.
 - Backend: `cd backend` → `npm test` (Jest, minimal coverage), `npm run prisma:generate|migrate|studio`,
   `npm run ingest-help`. Backend `npm run dev` is BROKEN (points at a nonexistent `src/index.ts`);
   there is no local API server — backend code only runs as Lambdas.
-- Infra: `cd infrastructure` → `npm run diff:dev | synth:dev | deploy:dev | deploy:prod`.
+- Infra: `cd infrastructure` → `npm run synth:dev | deploy:dev | deploy:prod`. There is NO `diff:prod`
+  script — run a prod diff with `node deploy-with-env.js diff JobDockStack-prod --context env=prod`.
+  Note `npm run <script> -- --flag` does NOT reliably pass the flag through on Windows (npm eats it);
+  call `node deploy-with-env.js <cmd> <stack> --flag` directly instead.
 - No frontend test runner is configured at all.
 
 ## Architecture / layout
@@ -85,6 +90,16 @@ models, everything hanging off `Tenant`).
 
 ## Gotchas / constraints
 
+- **`sync:aws:env` is a footgun — it is DENIED in `.claude/settings.json`.** It overwrites `.env`, and
+  `.env` is what points the local dev server at **prod** (`VITE_API_URL` + the prod Cognito pool). The
+  local server is normally run in LIVE mode against prod, so a stray `--env=dev` silently repoints
+  local development at a different backend. Deny rules cover both the npm script and direct
+  `tsx scripts/sync-aws-env.ts` invocation, under Bash and PowerShell. Lifting the rule needs the
+  user's explicit say-so; don't work around it.
+- **There is no dev environment.** `JobDockStack-dev` was destroyed 2026-07-28 (it cost ~$50/mo — its own
+  RDS instance, NAT gateway, and 100 GB volume — for an env nothing used). `deploy:dev` would recreate it
+  from scratch; don't run it casually. Non-prod testing is `mock` data mode in the browser
+  (localStorage `jobdock:data-mode` = `mock`), which needs no AWS at all.
 - **Migrations must be registered in TWO places:** prod applies only the hardcoded `PENDING_MIGRATIONS`
   array in `backend/src/functions/migrate/handler.ts` (tracked by name in `_prisma_migrations`);
   `backend/prisma/migrations/*.sql` is used only by local `prisma migrate dev`. A migration missing from

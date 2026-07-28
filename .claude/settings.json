@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(npm run sync:aws:env*)",
+      "PowerShell(npm run sync:aws:env*)",
+      "Bash(npx tsx scripts/sync-aws-env.ts*)",
+      "PowerShell(npx tsx scripts/sync-aws-env.ts*)",
+      "Bash(tsx scripts/sync-aws-env.ts*)",
+      "PowerShell(tsx scripts/sync-aws-env.ts*)"
+    ]
+  }
+}
