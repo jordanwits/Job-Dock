@@ -13,3 +13,14 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
+/**
+ * MDX marketing content (src/content/**). `meta` is the YAML frontmatter, surfaced as a named
+ * export by remark-mdx-frontmatter — see vite.config.ts.
+ */
+declare module '*.mdx' {
+  import type { ComponentType } from 'react'
+  export const meta: import('@/features/content/registry').ContentMeta
+  const MDXComponent: ComponentType<Record<string, unknown>>
+  export default MDXComponent
+}
+

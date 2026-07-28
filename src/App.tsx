@@ -24,6 +24,7 @@ import {
   SmsConsentPage,
   NotFoundPage,
 } from '@/features/marketing'
+import { ContentPage, CollectionPage } from '@/features/content'
 import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/onboarding'
 import { BillingSuccessPage, BillingCancelledPage } from '@/features/billing/billingPages'
 import { QuickBooksCallbackPage } from '@/features/quickbooks'
@@ -84,6 +85,13 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/sms-consent" element={<SmsConsentPage />} />
         <Route path="/email-policy" element={<EmailPolicyPage />} />
+
+        {/* MDX marketing content. Routes are static; which articles exist is resolved from
+            src/content/<collection>/*.mdx at build time — see features/content/registry.ts. */}
+        <Route path="/compare" element={<CollectionPage collection="compare" />} />
+        <Route path="/compare/:slug" element={<ContentPage collection="compare" />} />
+        <Route path="/guides" element={<CollectionPage collection="guides" />} />
+        <Route path="/guides/:slug" element={<ContentPage collection="guides" />} />
 
         {/* Public Booking Routes - No authentication required */}
         <Route path="/book" element={<PublicBookingPage />} />

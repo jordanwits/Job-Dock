@@ -27,7 +27,7 @@ const MarketingFooter = () => {
   return (
     <footer className="relative border-t border-slate-200 bg-slate-50 text-slate-600">
       <div className="container mx-auto px-4 py-12 md:px-6 md:py-16">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-12">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-4 md:gap-12">
           {/* Company Info */}
           <div>
             <div className="mb-4 flex items-center gap-2">
@@ -124,6 +124,24 @@ const MarketingFooter = () => {
               <li>
                 <Link to="/email-policy" className="text-slate-500 transition-colors hover:text-teal-600">
                   Email Policy
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Resources — site-wide internal links into the MDX content, so no article is
+              reachable only from the sitemap. Hub pages list the individual articles. */}
+          <div>
+            <h4 className="mb-4 text-sm font-bold text-slate-900">Resources</h4>
+            <ul className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm md:flex md:flex-col">
+              <li>
+                <Link to="/compare" className="text-slate-500 transition-colors hover:text-teal-600">
+                  Compare
+                </Link>
+              </li>
+              <li>
+                <Link to="/guides" className="text-slate-500 transition-colors hover:text-teal-600">
+                  Guides
                 </Link>
               </li>
             </ul>
