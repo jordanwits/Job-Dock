@@ -770,6 +770,49 @@ export class JobDockStack extends cdk.Stack {
 
     cleanupRule.addTarget(new targets.LambdaFunction(cleanupLambda))
 
+    // Recurrence top-up Lambda - keeps open-ended ("repeats forever") series rolling forward.
+    // Bookings are materialized only 12 months out; this adds the newly-in-window occurrences
+    // each day. It only ever appends to series that are still active with a live parent job.
+    const recurrenceTopupLogGroup = new logs.LogGroup(this, 'RecurrenceTopupLambdaLogGroup', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: config.env !== 'prod' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN,
+    })
+    const recurrenceTopupLambda = new lambdaNodejs.NodejsFunction(this, 'RecurrenceTopupLambda', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      entry: path.resolve(backendDir, 'src', 'functions', 'recurrence-topup', 'handler.ts'),
+      handler: 'handler',
+      depsLockFilePath: path.resolve(backendDir, 'package-lock.json'),
+      bundling: commonBundlingOptions,
+      vpc: this.vpc,
+      vpcSubnets: privateSubnetSelection,
+      securityGroups: [lambdaSecurityGroup],
+      role: lambdaRole,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      environment: {
+        DATABASE_SECRET_ARN: this.database.secret?.secretArn ?? '',
+        DATABASE_ENDPOINT: databaseHost,
+        DATABASE_NAME: 'jobdock',
+        DATABASE_HOST: databaseHost,
+        DATABASE_PORT: '5432',
+        DATABASE_OPTIONS: 'schema=public',
+        ENVIRONMENT: config.env,
+      },
+      logGroup: recurrenceTopupLogGroup,
+      description: 'Extends open-ended recurring series to the rolling 12-month horizon',
+    })
+
+    this.database.secret?.grantRead(recurrenceTopupLambda)
+    this.database.grantConnect(recurrenceTopupLambda, 'jobdock')
+
+    // Daily at 1 AM UTC — before the weekly cleanup pass, and well clear of the other jobs.
+    const recurrenceTopupRule = new events.Rule(this, 'RecurrenceTopupSchedule', {
+      schedule: events.Schedule.cron({ minute: '0', hour: '1' }),
+      description: 'Triggers the daily rolling top-up of open-ended recurring series',
+    })
+
+    recurrenceTopupRule.addTarget(new targets.LambdaFunction(recurrenceTopupLambda))
+
     // QuickBooks token-refresh Lambda - keeps OAuth refresh tokens alive for inactive tenants.
     // (Active tenants are refreshed lazily on demand by lib/quickbooks/client.ts.)
     const quickbooksRefreshLogGroup = new logs.LogGroup(this, 'QuickBooksTokenRefreshLogGroup', {
