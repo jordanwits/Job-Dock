@@ -24,7 +24,9 @@ if (fs.existsSync(envLocalPath)) {
   console.log('⚠ .env.local not found. RESEND_API_KEY must be set in environment for prod.')
 }
 
-// Show which variables were loaded (without showing values)
+// Show which variables were loaded. Names and lengths only — never any part of the value.
+// These lines land in terminal scrollback and CI logs, so even a leading fragment of a live
+// Stripe or Twilio key is a leak. Length is enough to spot a truncated or empty paste.
 const envVars = Object.keys(process.env).filter(
   key => key.includes('RESEND') || key.includes('STRIPE') || key.includes('EMAIL') || key.includes('TEAM_TESTING') || key.includes('TWILIO')
 )
@@ -32,9 +34,7 @@ if (envVars.length > 0) {
   console.log(`✓ Loaded ${envVars.length} environment variable(s) for deploy`)
   envVars.forEach(key => {
     const value = process.env[key]
-    const displayValue = value && value.length > 0 
-      ? `${value.substring(0, 10)}...${value.substring(value.length - 4)}` 
-      : '(empty)'
+    const displayValue = value && value.length > 0 ? `set (${value.length} chars)` : '(empty)'
     console.log(`   ${key}: ${displayValue}`)
   })
 } else {
@@ -58,7 +58,7 @@ if (isProdDeploy) {
   } else {
     console.error('❌ RESEND_API_KEY is empty or not set!')
     console.error('   Check that .env.local exists and contains RESEND_API_KEY=re_...')
-    console.error('   Current value:', keyValue || '(undefined)')
+    console.error(`   Current value: ${keyValue.length === 0 ? '(undefined or empty)' : `(${keyValue.length} chars of whitespace)`}`)
   }
 }
 

@@ -274,6 +274,52 @@ async function getAssignedToUsers(
   return users.map(u => ({ id: u.id, name: u.name || u.id }))
 }
 
+/**
+ * Batch-resolve assignee display names for a whole list in ONE query.
+ *
+ * getAssignedToName/getAssignedToUsers each hit the database per record. That is fine for a
+ * single job (create, update, getById) but turns a list endpoint into N — or 2N — round-trips,
+ * which is the cost that bites first on a t3.micro. List endpoints build this map once up front
+ * and then resolve in memory, the same way occurrenceCountByRecurrence batches booking counts.
+ *
+ * Pass every assignedTo value in the list; ids outside this tenant are simply absent from the
+ * map, which is the same filtering the per-record queries did.
+ */
+async function buildAssigneeNameMap(
+  tenantId: string,
+  assignedToValues: any[]
+): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(assignedToValues.flatMap(value => extractUserIds(value))))
+  if (ids.length === 0) return new Map()
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids }, tenantId },
+    select: { id: true, name: true },
+  })
+  return new Map(users.map(u => [u.id, u.name ?? '']))
+}
+
+/** In-memory getAssignedToName. Names come out in assignment order rather than DB order. */
+function assignedToNameFrom(
+  nameMap: Map<string, string>,
+  assignedTo: any
+): string | undefined {
+  const names = extractUserIds(assignedTo)
+    .map(id => nameMap.get(id))
+    .filter((name): name is string => !!name)
+  return names.length > 0 ? names.join(', ') : undefined
+}
+
+/** In-memory getAssignedToUsers. */
+function assignedToUsersFrom(
+  nameMap: Map<string, string>,
+  assignedTo: any
+): Array<{ id: string; name: string }> {
+  return extractUserIds(assignedTo)
+    .filter(id => nameMap.has(id))
+    .map(id => ({ id, name: nameMap.get(id) || id }))
+}
+
 // Validate assignedTo structure and that all user IDs belong to tenant (throws if invalid)
 async function validateAssignedTo(tenantId: string, assignedTo: any): Promise<void> {
   if (!assignedTo) return
@@ -2714,12 +2760,17 @@ export const dataServices = {
       }
 
       // Flatten Bookings to Job-like shape (handles both job-backed and independent appointments)
+      // One lookup for every assignee on the calendar, instead of one per booking below.
+      const bookingAssigneeNames = await buildAssigneeNameMap(
+        tenantId,
+        filteredBookings.map(b => b.assignedTo ?? (b.job as any)?.assignedTo)
+      )
       const jobsFromBookings = await Promise.all(
         filteredBookings.map(async b => {
           const job = b.job
           const isIndependent = b.isIndependent || !job
-          const assignedToName = await getAssignedToName(
-            tenantId,
+          const assignedToName = assignedToNameFrom(
+            bookingAssigneeNames,
             b.assignedTo ?? (job as any)?.assignedTo
           )
           const assignedToWithPrivacy = getAssignedToWithPrivacy(
@@ -2867,10 +2918,14 @@ export const dataServices = {
           if (c.recurrenceId) occurrenceCountByRecurrence.set(c.recurrenceId, c._count._all)
         }
       }
+      const unbookedAssigneeNames = await buildAssigneeNameMap(
+        tenantId,
+        filteredJobsWithoutBookings.map(job => job.assignedTo)
+      )
       const jobsWithoutBookingsFormatted = await Promise.all(
         filteredJobsWithoutBookings.map(async job => {
           const firstBooking = job.bookings[0]
-          const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
+          const assignedToName = assignedToNameFrom(unbookedAssigneeNames, job.assignedTo)
           const assignedToWithPrivacy = getAssignedToWithPrivacy(
             job.assignedTo,
             currentUserId,
@@ -6734,6 +6789,11 @@ export const dataServices = {
         photosByJobId.set(doc.entityId, list)
       }
       const apiBase = (process.env.API_BASE_URL || '').replace(/\/$/, '')
+      // One lookup for every assignee on the page, instead of two per job inside the map below.
+      const assigneeNames = await buildAssigneeNameMap(
+        tenantId,
+        jobs.map(job => job.assignedTo)
+      )
       return Promise.all(
         jobs.map(async job => {
           const docs = photosByJobId.get(job.id) ?? []
@@ -6758,8 +6818,8 @@ export const dataServices = {
                   createdAt: doc.createdAt.toISOString(),
                 }))
               )
-          const assignedToName = await getAssignedToName(tenantId, job.assignedTo)
-          const assignedToUsers = await getAssignedToUsers(tenantId, job.assignedTo)
+          const assignedToName = assignedToNameFrom(assigneeNames, job.assignedTo)
+          const assignedToUsers = assignedToUsersFrom(assigneeNames, job.assignedTo)
           const assignedToWithPrivacy = getAssignedToWithPrivacy(
             job.assignedTo,
             currentUserId,
