@@ -54,7 +54,7 @@ export const COLLECTIONS: Record<Collection, CollectionConfig> = {
     hub: true,
     title: 'Guides for cleaning businesses',
     description:
-      'Practical guides on pricing, scheduling, invoicing, and winning clients — written for cleaning-business owners, not general small-business advice.',
+      'Practical guides on pricing, scheduling, invoicing, and winning clients, written for cleaning-business owners rather than general small-business advice.',
     blurb: 'Practical advice on pricing, scheduling, and getting paid.',
   },
   // Vertical landing pages sit at the site root (/maid-service-software), not behind a prefix:

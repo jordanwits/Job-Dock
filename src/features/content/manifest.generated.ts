@@ -19,8 +19,7 @@ export const manifest: ManifestEntry[] = [
       "description": "Housecall Pro is built for home-service trades and priced for them. CleanDock covers five users for $49.99/mo. An honest pricing and feature comparison for cleaning businesses.",
       "summary": "Housecall Pro is a big, capable product priced for trades with office staff. Here's what that costs a cleaning crew, and where each tool actually fits.",
       "updated": "2026-07-27",
-      "targetQuery": "housecall pro alternative",
-      "draft": true
+      "targetQuery": "housecall pro alternative"
     }
   },
   {
@@ -29,7 +28,7 @@ export const manifest: ManifestEntry[] = [
     "path": "/compare/jobber-alternative-cleaning",
     "meta": {
       "title": "A Jobber alternative built for cleaning businesses",
-      "description": "Jobber is built for trades. CleanDock is built for cleaning businesses — recurring cleans, online booking, before/after photos, and 5 users for $49.99/mo. An honest pricing and feature comparison.",
+      "description": "Jobber is built for trades. CleanDock is built for cleaning businesses. Recurring cleans, online booking, before/after photos, and 5 users for $49.99/mo. An honest pricing and feature comparison.",
       "summary": "Jobber is good software that wasn't built for cleaning. Here's an honest comparison of what each costs and where each one actually fits.",
       "updated": "2026-07-27",
       "targetQuery": "jobber alternative for cleaning business"
@@ -44,21 +43,7 @@ export const manifest: ManifestEntry[] = [
       "description": "Launch27 rebranded to Automaid under Fullsteam in May 2026. If the new direction isn't for you, CleanDock covers quoting, recurring cleans, online booking and payments from $29.99/mo.",
       "summary": "Launch27 is now Automaid. If your booking software changing hands and direction has you looking around, here's what to weigh.",
       "updated": "2026-07-27",
-      "targetQuery": "launch27 alternative",
-      "draft": true
-    }
-  },
-  {
-    "collection": "compare",
-    "slug": "software-vs-spreadsheets",
-    "path": "/compare/software-vs-spreadsheets",
-    "meta": {
-      "title": "Cleaning business software vs. spreadsheets",
-      "description": "A spreadsheet runs a cleaning business fine for longer than most software companies admit. Here's exactly where it stops working, and what to do when it does.",
-      "summary": "A spreadsheet is genuinely fine for longer than software companies admit. Here's the specific point where it stops working.",
-      "updated": "2026-07-27",
-      "targetQuery": "cleaning business spreadsheet template",
-      "draft": true
+      "targetQuery": "launch27 alternative"
     }
   },
   {
@@ -67,12 +52,11 @@ export const manifest: ManifestEntry[] = [
     "path": "/airbnb-turnover-cleaning-software",
     "meta": {
       "title": "Airbnb turnover cleaning software",
-      "description": "Software for Airbnb and short-term rental turnovers — same-day scheduling, before/after photo proof on every clean, and card or ACH payment. From $29.99/mo, five users for $49.99.",
+      "description": "Software for Airbnb and short-term rental turnovers. Same-day scheduling, before/after photo proof on every clean, and card or ACH payment. From $29.99/mo, five users for $49.99.",
       "summary": "Same-day turnarounds, hard checkout windows, and hosts who want proof the unit was ready.",
       "updated": "2026-07-27",
       "navLabel": "Airbnb turnovers",
-      "targetQuery": "airbnb turnover cleaning software",
-      "draft": true
+      "targetQuery": "airbnb turnover cleaning software"
     }
   },
   {
@@ -81,12 +65,11 @@ export const manifest: ManifestEntry[] = [
     "path": "/commercial-janitorial-software",
     "meta": {
       "title": "Commercial and janitorial cleaning software",
-      "description": "Software for small commercial and janitorial crews — recurring contract schedules, crew time tracking, employee-pay reports, and card or ACH invoicing. Unlimited users for $99.99/mo.",
-      "summary": "Crews, shifts, and contract billing — with an honest account of where CleanDock fits and where it doesn't.",
+      "description": "Software for small commercial and janitorial crews. Recurring contract schedules, crew time tracking, employee-pay reports, and card or ACH invoicing. Unlimited users for $99.99/mo.",
+      "summary": "Recurring contract schedules, crew time tracking, and invoicing built for small commercial crews.",
       "updated": "2026-07-27",
       "navLabel": "Commercial & janitorial",
-      "targetQuery": "janitorial software for small business",
-      "draft": true
+      "targetQuery": "janitorial software for small business"
     }
   },
   {
@@ -95,12 +78,11 @@ export const manifest: ManifestEntry[] = [
     "path": "/maid-service-software",
     "meta": {
       "title": "Maid service software",
-      "description": "Software for residential maid services — recurring cleans that repeat themselves, online booking, before/after photos, and card or ACH payment. From $29.99/mo, five users for $49.99.",
+      "description": "Software for residential maid services. Recurring cleans that repeat themselves, online booking, before/after photos, and card or ACH payment. From $29.99/mo, five users for $49.99.",
       "summary": "Recurring clients are most of your revenue. The schedule should build itself.",
       "updated": "2026-07-27",
       "navLabel": "Maid services",
-      "targetQuery": "maid service software",
-      "draft": true
+      "targetQuery": "maid service software"
     }
   },
   {
@@ -109,12 +91,11 @@ export const manifest: ManifestEntry[] = [
     "path": "/move-out-cleaning-software",
     "meta": {
       "title": "Move-out cleaning software",
-      "description": "Software for move-out and turnover cleaning — fast quoting, before/after photo evidence for deposit disputes, and card or ACH payment. From $29.99/mo, five users for $49.99.",
+      "description": "Software for move-out and turnover cleaning. Fast quoting, before/after photo evidence for deposit disputes, and card or ACH payment. From $29.99/mo, five users for $49.99.",
       "summary": "One-off, high-ticket jobs where the quote has to go out fast and the photos have to hold up.",
       "updated": "2026-07-27",
       "navLabel": "Move-out cleaning",
-      "targetQuery": "move out cleaning business software",
-      "draft": true
+      "targetQuery": "move out cleaning business software"
     }
   },
   {
@@ -123,12 +104,11 @@ export const manifest: ManifestEntry[] = [
     "path": "/solo-house-cleaner-software",
     "meta": {
       "title": "Software for solo house cleaners",
-      "description": "$29.99/mo software for independent house cleaners — recurring schedules, online booking, before/after photos, and card or ACH payment. No per-user fees, no annual contract.",
+      "description": "$29.99/mo software for independent house cleaners. Recurring schedules, online booking, before/after photos, and card or ACH payment. No per-user fees, no annual contract.",
       "summary": "Real software for one person, at a price that makes sense when you are the whole business.",
       "updated": "2026-07-27",
       "navLabel": "Solo cleaners",
-      "targetQuery": "app for independent house cleaners",
-      "draft": true
+      "targetQuery": "app for independent house cleaners"
     }
   }
 ]

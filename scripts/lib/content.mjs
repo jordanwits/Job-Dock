@@ -31,7 +31,7 @@ export const COLLECTIONS = {
     hub: true,
     title: 'Guides for cleaning businesses',
     description:
-      'Practical guides on pricing, scheduling, invoicing, and winning clients — written for cleaning-business owners, not general small-business advice.',
+      'Practical guides on pricing, scheduling, invoicing, and winning clients, written for cleaning-business owners rather than general small-business advice.',
   },
   solutions: { basePath: '', hub: false },
 }
