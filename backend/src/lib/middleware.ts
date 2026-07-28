@@ -133,7 +133,8 @@ export function successResponse(data: any, statusCode: number = 200): APIGateway
 export function binaryResponse(
   body: Buffer,
   contentType: string,
-  statusCode: number = 200
+  statusCode: number = 200,
+  cacheControl?: string
 ): APIGatewayProxyResult {
   return {
     statusCode,
@@ -143,10 +144,11 @@ export function binaryResponse(
       Vary: 'Origin',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Tenant-ID',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-      // Avoid caching signed/tokenized photo URLs
-      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-      Pragma: 'no-cache',
-      Expires: '0',
+      // Default: don't cache signed/tokenized URLs. Callers serving immutable bytes whose
+      // URL is stable for a known window may opt in by passing `cacheControl` — Pragma and
+      // Expires are dropped in that case, since either one would defeat it downstream.
+      'Cache-Control': cacheControl ?? 'no-store, no-cache, must-revalidate, max-age=0',
+      ...(cacheControl ? {} : { Pragma: 'no-cache', Expires: '0' }),
     },
     body: body.toString('base64'),
     isBase64Encoded: true,

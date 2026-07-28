@@ -1,6 +1,16 @@
 import { useRef, useState } from 'react'
 import { TenantSettings } from '@/lib/api/settings'
 import {
+  ALLOWED_LOGO_TYPES,
+  ImageDecodeError,
+  ImageTooLargeError,
+  LOGO_MAX_EDGE,
+  MAX_LOGO_BYTES,
+  downscaleImage,
+} from '@/lib/utils/imageResize'
+import {
+  Alert,
+  AlertIcon,
   AppButton,
   TextField,
   PhoneField,
@@ -46,21 +56,51 @@ export const CompanyBrandingSection = ({
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [logoError, setLogoError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setUploadingLogo(true)
-      try {
-        await onLogoUpload(file)
-      } finally {
-        setUploadingLogo(false)
-        // Reset input so the same file can be selected again
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
+    if (!file) return
+
+    // Reset input so the same file can be selected again
+    const resetInput = () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
       }
+    }
+
+    setLogoError(null)
+    if (!ALLOWED_LOGO_TYPES.includes(file.type.toLowerCase())) {
+      setLogoError('Please choose a PNG, JPEG, or SVG file.')
+      resetInput()
+      return
+    }
+
+    // Enforce the 5MB the copy above has always promised, and shrink anything oversized —
+    // the logo is re-served on every invoice, quote and email that carries it.
+    let prepared: File
+    try {
+      prepared = await downscaleImage(file, {
+        maxEdge: LOGO_MAX_EDGE,
+        maxBytes: MAX_LOGO_BYTES,
+      })
+    } catch (err) {
+      setLogoError(
+        err instanceof ImageTooLargeError || err instanceof ImageDecodeError
+          ? err.message
+          : 'That logo could not be processed. Please try another file.'
+      )
+      resetInput()
+      return
+    }
+
+    setUploadingLogo(true)
+    try {
+      await onLogoUpload(prepared)
+    } finally {
+      setUploadingLogo(false)
+      resetInput()
     }
   }
 
@@ -150,6 +190,14 @@ export const CompanyBrandingSection = ({
             {!uploadingLogo && <UploadIcon className="h-4 w-4" />}
             {uploadingLogo ? 'Uploading…' : settings?.logoUrl ? 'Change logo' : 'Upload logo'}
           </AppButton>
+
+          {logoError && (
+            <div className="mt-3">
+              <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />} onDismiss={() => setLogoError(null)}>
+                {logoError}
+              </Alert>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-3 pt-4">

@@ -2,6 +2,20 @@ import { createHmac, timingSafeEqual } from 'crypto'
 
 const TTL_SEC = 3600 // 1 hour
 
+// Tokens expire on a fixed hourly boundary rather than exactly TTL_SEC from the moment of
+// minting, so the same photo yields a byte-identical URL for everyone for the whole bucket.
+// That URL is the browser's cache key: re-minting a fresh `exp` on every API response
+// changed it every time, so the proxy's Cache-Control could never produce a hit.
+//
+// A token issued anywhere inside a bucket stays valid for at least TTL_SEC (bucket end +
+// TTL, less an issue time that is inside the bucket), which is what lets the photo proxy
+// cache for slightly under TTL_SEC without a cached response ever outliving its token.
+const BUCKET_SEC = 3600
+
+function bucketedExpiry(nowSec: number): number {
+  return (Math.floor(nowSec / BUCKET_SEC) + 1) * BUCKET_SEC + TTL_SEC
+}
+
 /**
  * Resolve the HMAC signing secret for photo-access tokens.
  *
@@ -20,7 +34,7 @@ function getPhotoSecret(): string {
 }
 
 export function createPhotoToken(photoId: string, jobLogId: string): string {
-  const exp = Math.floor(Date.now() / 1000) + TTL_SEC
+  const exp = bucketedExpiry(Math.floor(Date.now() / 1000))
   const payload = `${photoId}:${jobLogId}:${exp}`
   const sig = createHmac('sha256', getPhotoSecret()).update(payload).digest('base64url')
   return `${Buffer.from(payload).toString('base64url')}.${sig}`

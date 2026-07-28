@@ -1,6 +1,14 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import {
+  ALLOWED_PHOTO_TYPES,
+  ImageDecodeError,
+  ImageTooLargeError,
+  MAX_PHOTO_BYTES,
+  PHOTO_MAX_EDGE,
+  downscaleImage,
+} from '@/lib/utils/imageResize'
 import type { JobLogPhoto, MarkupStroke, MarkupPoint } from '../types/jobLog'
 import { useJobLogStore } from '../store/jobLogStore'
 import { Alert, AlertIcon, AppButton, AppModal, CameraIcon, TextAreaField, TrashIcon, XIcon } from './jobLogsUi'
@@ -22,6 +30,7 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imgContainerRef = useRef<HTMLDivElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [fullscreenPhoto, setFullscreenPhoto] = useState<JobLogPhoto | null>(null)
   const [notes, setNotes] = useState('')
   const [strokes, setStrokes] = useState<MarkupStroke[]>([])
@@ -38,21 +47,48 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
     setLoadedThumbnails((prev) => new Set(prev).add(photoId))
   }, [])
 
+  const resetFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file')
+    setUploadError(null)
+
+    // Check against the types the backend actually accepts, not just "image/*" — an iPhone
+    // HEIC would otherwise sail through to a 400 from the presign endpoint.
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type.toLowerCase())) {
+      setUploadError('Please select a PNG, JPEG, or WebP image.')
+      resetFileInput()
       return
     }
+
+    // Shrink before uploading: the original is what we store and re-serve on every view.
+    let prepared: File
+    try {
+      prepared = await downscaleImage(file, {
+        maxEdge: PHOTO_MAX_EDGE,
+        maxBytes: MAX_PHOTO_BYTES,
+      })
+    } catch (err) {
+      setUploadError(
+        err instanceof ImageTooLargeError || err instanceof ImageDecodeError
+          ? err.message
+          : 'That photo could not be processed. Please try another file.'
+      )
+      resetFileInput()
+      return
+    }
+
     setUploading(true)
     try {
-      await uploadPhoto(jobLogId, file)
+      await uploadPhoto(jobLogId, prepared)
     } finally {
       setUploading(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      resetFileInput()
     }
   }
 
@@ -408,6 +444,11 @@ const PhotoCapture = ({ jobLogId, photos }: PhotoCaptureProps) => {
         {!uploading && <CameraIcon className="h-4 w-4" />}
         {uploading ? 'Uploading...' : 'Add Photo'}
       </AppButton>
+      {uploadError && (
+        <Alert tone="danger" icon={<AlertIcon className="h-4 w-4" />} onDismiss={() => setUploadError(null)}>
+          {uploadError}
+        </Alert>
+      )}
       {photos && photos.length > 0 && (
         <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
           {photos.map((p) => {

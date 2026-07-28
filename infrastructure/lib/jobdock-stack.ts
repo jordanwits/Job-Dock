@@ -80,6 +80,14 @@ export class JobDockStack extends cdk.Stack {
       ],
     })
 
+    // S3 traffic from the private subnets otherwise leaves through the NAT gateway and is
+    // billed per GB of data processed. Every photo the job-log proxy serves is an S3 read,
+    // so route S3 over a gateway endpoint instead: it costs nothing, needs no code change,
+    // and takes all photo/logo/PDF transfer off the NAT bill.
+    this.vpc.addGatewayEndpoint('S3Endpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+    })
+
     // Helper to select correct private subnet type
     const privateSubnetSelection = { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
 

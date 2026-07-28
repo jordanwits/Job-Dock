@@ -1076,7 +1076,12 @@ We look forward to working with you!',
               else if (lower.endsWith('.png')) ct = 'image/png'
               else ct = 'image/jpeg'
             }
-            return binaryResponse(buffer, ct)
+            // Photo bytes never change, and createPhotoToken buckets `exp` so this URL is
+            // stable for up to an hour — so the browser can hold it instead of re-pulling
+            // a full-size image through S3 -> NAT -> Lambda -> API Gateway on every view.
+            // `private` keeps shared caches out (the token in the URL is a bearer
+            // credential); max-age stays under the token's guaranteed remaining lifetime.
+            return binaryResponse(buffer, ct, 200, 'private, max-age=3000, immutable')
           }
         }
       }
