@@ -24,8 +24,20 @@ const contentRoot = join(root, 'src', 'content')
 
 const SITE_URL = 'https://www.thecleandock.com'
 
-/** Collections must match COLLECTIONS in src/features/content/registry.ts. */
-const COLLECTIONS = ['compare', 'guides']
+/**
+ * Must stay in sync with COLLECTIONS in src/features/content/registry.ts — this script is plain
+ * Node and can't import the TypeScript module. `basePath: ''` puts a collection at the site root.
+ */
+const COLLECTIONS = {
+  compare: { basePath: 'compare' },
+  guides: { basePath: 'guides' },
+  solutions: { basePath: '' },
+}
+
+function entryPath(collection, slug) {
+  const { basePath } = COLLECTIONS[collection]
+  return basePath ? `/${basePath}/${slug}` : `/${slug}`
+}
 
 /** Routes not backed by MDX. changefreq/priority are hints only; Google ignores them. */
 const STATIC_ROUTES = [
@@ -47,7 +59,7 @@ function collectEntries() {
   const entries = []
   const problems = []
 
-  for (const collection of COLLECTIONS) {
+  for (const collection of Object.keys(COLLECTIONS)) {
     const dir = join(contentRoot, collection)
     if (!existsSync(dir)) continue
 
@@ -68,12 +80,13 @@ function collectEntries() {
       entries.push({
         collection,
         slug,
-        path: `/${collection}/${slug}`,
+        path: entryPath(collection, slug),
         meta: {
           title: data.title,
           description: data.description,
           summary: data.summary,
           updated: String(data.updated),
+          ...(data.navLabel ? { navLabel: data.navLabel } : {}),
           ...(data.targetQuery ? { targetQuery: data.targetQuery } : {}),
           ...(data.draft ? { draft: true } : {}),
         },

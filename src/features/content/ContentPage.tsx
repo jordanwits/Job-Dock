@@ -7,6 +7,11 @@ import { getEntry, COLLECTIONS, type Collection } from './registry'
 
 interface ContentPageProps {
   collection: Collection
+  /**
+   * Explicit slug for collections routed at the site root (solutions), which have no `:slug`
+   * param to read. Prefixed collections omit it and fall back to useParams.
+   */
+  slug?: string
 }
 
 /**
@@ -35,8 +40,9 @@ const mdxComponents = {
  * Renders one MDX article. The body is code-split per article, so visiting a guide never
  * downloads the other fourteen.
  */
-const ContentPage = ({ collection }: ContentPageProps) => {
-  const { slug = '' } = useParams()
+const ContentPage = ({ collection, slug: slugProp }: ContentPageProps) => {
+  const params = useParams()
+  const slug = slugProp ?? params.slug ?? ''
   const entry = getEntry(collection, slug)
 
   // Hooks must run unconditionally, so resolve the lazy component before the early return.
@@ -71,11 +77,13 @@ const ArticleShell = ({
     <MarketingLayout>
       <article className="px-4 pb-20 pt-32 md:px-6 md:pt-40">
         <div className="mx-auto max-w-3xl">
-          <nav aria-label="Breadcrumb" className="mb-8 text-sm">
-            <Link to={`/${collection}`} className="text-teal-700 hover:text-teal-800">
-              {hub.title}
-            </Link>
-          </nav>
+          {hub.hub && (
+            <nav aria-label="Breadcrumb" className="mb-8 text-sm">
+              <Link to={`/${hub.basePath}`} className="text-teal-700 hover:text-teal-800">
+                {hub.title}
+              </Link>
+            </nav>
+          )}
 
           {entry.meta.draft && (
             <p className="mb-8 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900">

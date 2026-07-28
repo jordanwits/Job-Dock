@@ -73,5 +73,75 @@ export const manifest: ManifestEntry[] = [
       "targetQuery": "zenmaid alternative",
       "draft": true
     }
+  },
+  {
+    "collection": "solutions",
+    "slug": "airbnb-turnover-cleaning-software",
+    "path": "/airbnb-turnover-cleaning-software",
+    "meta": {
+      "title": "Airbnb turnover cleaning software",
+      "description": "Software for Airbnb and short-term rental turnovers — same-day scheduling, before/after photo proof on every clean, and card or ACH payment. From $29.99/mo, five users for $49.99.",
+      "summary": "Same-day turnarounds, hard checkout windows, and hosts who want proof the unit was ready.",
+      "updated": "2026-07-27",
+      "navLabel": "Airbnb turnovers",
+      "targetQuery": "airbnb turnover cleaning software",
+      "draft": true
+    }
+  },
+  {
+    "collection": "solutions",
+    "slug": "commercial-janitorial-software",
+    "path": "/commercial-janitorial-software",
+    "meta": {
+      "title": "Commercial and janitorial cleaning software",
+      "description": "Software for small commercial and janitorial crews — recurring contract schedules, crew time tracking, employee-pay reports, and card or ACH invoicing. Unlimited users for $99.99/mo.",
+      "summary": "Crews, shifts, and contract billing — with an honest account of where CleanDock fits and where it doesn't.",
+      "updated": "2026-07-27",
+      "navLabel": "Commercial & janitorial",
+      "targetQuery": "janitorial software for small business",
+      "draft": true
+    }
+  },
+  {
+    "collection": "solutions",
+    "slug": "maid-service-software",
+    "path": "/maid-service-software",
+    "meta": {
+      "title": "Maid service software",
+      "description": "Software for residential maid services — recurring cleans that repeat themselves, online booking, before/after photos, and card or ACH payment. From $29.99/mo, five users for $49.99.",
+      "summary": "Recurring clients are most of your revenue. The schedule should build itself.",
+      "updated": "2026-07-27",
+      "navLabel": "Maid services",
+      "targetQuery": "maid service software",
+      "draft": true
+    }
+  },
+  {
+    "collection": "solutions",
+    "slug": "move-out-cleaning-software",
+    "path": "/move-out-cleaning-software",
+    "meta": {
+      "title": "Move-out cleaning software",
+      "description": "Software for move-out and turnover cleaning — fast quoting, before/after photo evidence for deposit disputes, and card or ACH payment. From $29.99/mo, five users for $49.99.",
+      "summary": "One-off, high-ticket jobs where the quote has to go out fast and the photos have to hold up.",
+      "updated": "2026-07-27",
+      "navLabel": "Move-out cleaning",
+      "targetQuery": "move out cleaning business software",
+      "draft": true
+    }
+  },
+  {
+    "collection": "solutions",
+    "slug": "solo-house-cleaner-software",
+    "path": "/solo-house-cleaner-software",
+    "meta": {
+      "title": "Software for solo house cleaners",
+      "description": "$29.99/mo software for independent house cleaners — recurring schedules, online booking, before/after photos, and card or ACH payment. No per-user fees, no annual contract.",
+      "summary": "Real software for one person, at a price that makes sense when you are the whole business.",
+      "updated": "2026-07-27",
+      "navLabel": "Solo cleaners",
+      "targetQuery": "app for independent house cleaners",
+      "draft": true
+    }
   }
 ]

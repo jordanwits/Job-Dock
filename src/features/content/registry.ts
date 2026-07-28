@@ -20,27 +20,58 @@ export interface ContentMeta {
   updated: string
   /** One-line summary shown on the collection hub page. */
   summary: string
+  /** Short label for navigation. Falls back to `title`, which is usually too long for a footer. */
+  navLabel?: string
   /** Search query this page targets. Editorial note only — never rendered. */
   targetQuery?: string
   /** Excluded from routes, hubs and the sitemap while true. */
   draft?: boolean
 }
 
-export type Collection = 'compare' | 'guides'
+export type Collection = 'compare' | 'guides' | 'solutions'
 
-export const COLLECTIONS: Record<Collection, { title: string; description: string; blurb: string }> = {
+interface CollectionConfig {
+  /** URL prefix. An empty string puts the collection's pages at the site root. */
+  basePath: string
+  /** Whether /<basePath> renders a hub page listing the collection. */
+  hub: boolean
+  title: string
+  description: string
+  blurb: string
+}
+
+export const COLLECTIONS: Record<Collection, CollectionConfig> = {
   compare: {
+    basePath: 'compare',
+    hub: true,
     title: 'CleanDock compared',
     description:
       'Honest comparisons between CleanDock and the other software cleaning businesses consider, with current pricing and where each tool genuinely fits best.',
     blurb: 'How CleanDock stacks up against the other tools cleaning businesses look at.',
   },
   guides: {
+    basePath: 'guides',
+    hub: true,
     title: 'Guides for cleaning businesses',
     description:
       'Practical guides on pricing, scheduling, invoicing, and winning clients — written for cleaning-business owners, not general small-business advice.',
     blurb: 'Practical advice on pricing, scheduling, and getting paid.',
   },
+  // Vertical landing pages sit at the site root (/maid-service-software), not behind a prefix:
+  // they are primary landing pages that also back paid ads, not articles in a series. They get
+  // no hub — discovery is search, plus links from the footer and the landing page.
+  solutions: {
+    basePath: '',
+    hub: false,
+    title: 'Built for your kind of cleaning',
+    description: 'CleanDock for residential, Airbnb turnover, move-out, and commercial cleaning.',
+    blurb: 'Whatever kind of cleaning you do, the software should fit it.',
+  },
+}
+
+export function entryPath(collection: Collection, slug: string): string {
+  const { basePath } = COLLECTIONS[collection]
+  return basePath ? `/${basePath}/${slug}` : `/${slug}`
 }
 
 export interface ContentEntry {

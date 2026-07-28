@@ -1,10 +1,15 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { publicSiteConfig } from '../content/publicSiteConfig'
+// Direct module import, not '@/features/content' — the barrel re-exports ContentPage, which
+// imports MarketingLayout, which renders this file. The registry itself pulls in no components.
+import { getEntries } from '@/features/content/registry'
 
 const SECTION_LINKS = [
   { label: 'Features', target: 'features' },
   { label: 'Pricing', target: 'pricing' },
 ]
+
+const solutions = getEntries('solutions')
 
 const MarketingFooter = () => {
   const { pathname } = useLocation()
@@ -27,7 +32,7 @@ const MarketingFooter = () => {
   return (
     <footer className="relative border-t border-slate-200 bg-slate-50 text-slate-600">
       <div className="container mx-auto px-4 py-12 md:px-6 md:py-16">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-4 md:gap-12">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-12 lg:grid-cols-5">
           {/* Company Info */}
           <div>
             <div className="mb-4 flex items-center gap-2">
@@ -146,6 +151,28 @@ const MarketingFooter = () => {
               </li>
             </ul>
           </div>
+
+          {/* Built for — the vertical landing pages. Generated from the registry rather than
+              hardcoded: drafts are filtered out of production builds, so an unpublished page can
+              never leave a dead link in the footer. Imported from the registry module directly,
+              not the feature barrel, which would re-enter MarketingLayout and cycle. */}
+          {solutions.length > 0 && (
+            <div>
+              <h4 className="mb-4 text-sm font-bold text-slate-900">Built for</h4>
+              <ul className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm md:flex md:flex-col">
+                {solutions.map((entry) => (
+                  <li key={entry.path}>
+                    <Link
+                      to={entry.path}
+                      className="text-slate-500 transition-colors hover:text-teal-600"
+                    >
+                      {entry.meta.navLabel ?? entry.meta.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Contact Info */}
           <div>

@@ -24,7 +24,7 @@ import {
   SmsConsentPage,
   NotFoundPage,
 } from '@/features/marketing'
-import { ContentPage, CollectionPage } from '@/features/content'
+import { ContentPage, CollectionPage, getEntries } from '@/features/content'
 import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/onboarding'
 import { BillingSuccessPage, BillingCancelledPage } from '@/features/billing/billingPages'
 import { QuickBooksCallbackPage } from '@/features/quickbooks'
@@ -92,6 +92,17 @@ function App() {
         <Route path="/compare/:slug" element={<ContentPage collection="compare" />} />
         <Route path="/guides" element={<CollectionPage collection="guides" />} />
         <Route path="/guides/:slug" element={<ContentPage collection="guides" />} />
+
+        {/* Vertical landing pages live at the site root (/maid-service-software). One explicit
+            route each, generated from the manifest — a "/:slug" wildcard here would shadow
+            every other top-level route and make the table impossible to reason about. */}
+        {getEntries('solutions').map((entry) => (
+          <Route
+            key={entry.path}
+            path={entry.path}
+            element={<ContentPage collection="solutions" slug={entry.slug} />}
+          />
+        ))}
 
         {/* Public Booking Routes - No authentication required */}
         <Route path="/book" element={<PublicBookingPage />} />
