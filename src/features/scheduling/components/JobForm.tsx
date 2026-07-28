@@ -182,7 +182,10 @@ const JobForm = ({
     return job?.toBeScheduled || false
   })
   const [repeatPattern, setRepeatPattern] = useState<string>('none')
-  const [endRepeatMode, setEndRepeatMode] = useState<'never' | 'on-date'>('never')
+  // 'never' = truly open-ended: no count, no end date. The backend materializes a rolling
+  // 12-month window and the recurrence-topup Lambda extends it, so the series keeps going
+  // until the user deletes it.
+  const [endRepeatMode, setEndRepeatMode] = useState<'never' | 'after' | 'on-date'>('never')
   const [endRepeatDate, setEndRepeatDate] = useState<string>('')
   const [occurrenceCount, setOccurrenceCount] = useState<number>(12)
   const [customDays, setCustomDays] = useState<number[]>([])
@@ -921,6 +924,15 @@ const JobForm = ({
       }
 
       if (endRepeatMode === 'never') {
+        // No count and no untilDate is what marks a series open-ended server-side.
+        formData.recurrence = {
+          frequency,
+          interval,
+          daysOfWeek: frequency === 'custom' ? customDays : undefined,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }
+        console.log('✅ JobForm: Recurrence added (repeats indefinitely)', formData.recurrence)
+      } else if (endRepeatMode === 'after') {
         formData.recurrence = {
           frequency,
           interval,
@@ -928,7 +940,7 @@ const JobForm = ({
           daysOfWeek: frequency === 'custom' ? customDays : undefined,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }
-        console.log('✅ JobForm: Recurrence added (never ends)', formData.recurrence)
+        console.log('✅ JobForm: Recurrence added (fixed count)', formData.recurrence)
       } else if (endRepeatMode === 'on-date' && endRepeatDate) {
         // Calculate count based on end date
         const start = new Date(`${startDate}T${startTime || '09:00'}`)
@@ -1968,7 +1980,7 @@ const JobForm = ({
                 label="End Repeat"
                 value={endRepeatMode}
                 onChange={e => {
-                  const mode = e.target.value as 'never' | 'on-date'
+                  const mode = e.target.value as 'never' | 'after' | 'on-date'
                   setEndRepeatMode(mode)
                   if (mode === 'on-date' && !endRepeatDate && startDate) {
                     // Set default end date to 3 months from start. Parse as a LOCAL
@@ -1981,9 +1993,25 @@ const JobForm = ({
                 }}
                 options={[
                   { value: 'never', label: 'Never' },
+                  { value: 'after', label: 'After a number of times' },
                   { value: 'on-date', label: 'On Date' },
                 ]}
               />
+
+              {endRepeatMode === 'after' && (
+                <TextField
+                  label="Number of appointments"
+                  type="number"
+                  min={2}
+                  max={50}
+                  value={occurrenceCount}
+                  onChange={e => {
+                    const next = parseInt(e.target.value, 10)
+                    setOccurrenceCount(Number.isNaN(next) ? 2 : Math.min(50, Math.max(2, next)))
+                  }}
+                  helperText="Between 2 and 50. Choose Never for a series with no end."
+                />
+              )}
 
               {endRepeatMode === 'on-date' && (
                 <DateField
@@ -1994,10 +2022,19 @@ const JobForm = ({
                 />
               )}
 
-              {endRepeatMode === 'never' && getRecurrenceEndDate() && (
+              {endRepeatMode === 'never' && (
+                <div className="rounded-lg border border-info/30 bg-info-soft p-3">
+                  <p className="text-xs text-info">
+                    Repeats with no end date. Appointments are scheduled about a year ahead and
+                    extended automatically — delete the job or the series to stop it.
+                  </p>
+                </div>
+              )}
+
+              {endRepeatMode === 'after' && getRecurrenceEndDate() && (
                 <div className="rounded-lg border border-info/30 bg-info-soft p-3">
                   <p className="font-mono text-xs tabular-nums text-info">
-                    Will create {occurrenceCount} jobs through {getRecurrenceEndDate()}
+                    Will create {occurrenceCount} appointments through {getRecurrenceEndDate()}
                   </p>
                 </div>
               )}

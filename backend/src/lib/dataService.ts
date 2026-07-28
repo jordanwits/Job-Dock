@@ -591,13 +591,84 @@ async function sendAssignmentNotification(params: {
   }
 }
 
+/** How far ahead an open-ended ("repeats forever") series stays materialized. */
+export const RECURRENCE_HORIZON_MONTHS = 12
+
+/**
+ * A series repeats forever when it carries neither an occurrence count nor an end date.
+ * Such a series is materialized only out to a rolling horizon; the recurrence-topup Lambda
+ * extends it as time passes.
+ */
+export function isOpenEndedRecurrence(recurrence: {
+  count?: number | null
+  untilDate?: string | Date | null
+}): boolean {
+  return !recurrence.count && !recurrence.untilDate
+}
+
+/** End of the rolling materialization window for an open-ended series. */
+export function recurrenceHorizonEnd(now: Date = new Date()): Date {
+  return addMonths(now, RECURRENCE_HORIZON_MONTHS)
+}
+
+/**
+ * Stop (or resume) a recurring series' rolling top-up.
+ *
+ * SECURITY-OF-INTENT: the recurrence-topup worker only extends recurrences whose status is
+ * 'active'. Every path that archives a WHOLE series must mark it stopped here — otherwise the
+ * worker regrows the very appointments the user just deleted. Restores set it back to active.
+ * Archiving a single occurrence must NOT stop the series.
+ */
+async function setRecurrenceStatus(
+  tenantId: string,
+  recurrenceIds: Array<string | null | undefined>,
+  status: 'active' | 'archived'
+): Promise<void> {
+  const ids = Array.from(new Set(recurrenceIds.filter((v): v is string => !!v)))
+  if (ids.length === 0) return
+  await prisma.jobRecurrence.updateMany({
+    where: {
+      tenantId,
+      id: { in: ids },
+      // Reactivating is the precise inverse of archiving: only un-archive what WE archived.
+      // A staged-monthly series carries status 'staged' and has no fixed dates — flipping it
+      // to 'active' would both lose that marker and hand it to the top-up worker, which would
+      // start materializing real appointments for a series the user left unscheduled.
+      ...(status === 'active' ? { status: 'archived' } : {}),
+    },
+    data: { status },
+  })
+}
+
+/**
+ * Drop recurrence rows whose series was permanently deleted. Booking.recurrenceId is
+ * onDelete: SetNull, so this is safe to call before or after the bookings themselves go —
+ * it just makes sure no orphaned 'active' recurrence is left for the worker to find.
+ */
+async function deleteRecurrences(
+  tenantId: string,
+  recurrenceIds: Array<string | null | undefined>
+): Promise<void> {
+  const ids = Array.from(new Set(recurrenceIds.filter((v): v is string => !!v)))
+  if (ids.length === 0) return
+  await prisma.jobRecurrence.deleteMany({ where: { tenantId, id: { in: ids } } })
+}
+
 // Helper to generate recurrence instances
 export function generateRecurrenceInstances(params: {
   startTime: Date
   endTime: Date
   recurrence: RecurrencePayload
+  /**
+   * Only emit occurrences strictly after this instant. The walk still starts from the series'
+   * original startTime so the monthly day-of-month anchor and DST handling stay identical —
+   * this just suppresses the occurrences that already exist as Booking rows.
+   */
+  after?: Date
+  /** Overrides the materialization horizon for an open-ended series (defaults to now + 12mo). */
+  horizonEnd?: Date
 }): Array<{ startTime: Date; endTime: Date }> {
-  const { startTime, endTime, recurrence } = params
+  const { startTime, endTime, recurrence, after, horizonEnd } = params
   const instances: Array<{ startTime: Date; endTime: Date }> = []
 
   const duration = endTime.getTime() - startTime.getTime()
@@ -605,12 +676,28 @@ export function generateRecurrenceInstances(params: {
   // Hard limits for safety
   const MAX_OCCURRENCES = 50
   const MAX_MONTHS = 12
+  // An open-ended series is bounded by the horizon date, not a count, so it needs its own
+  // ceilings: how many NEW occurrences one call may emit, and how far the walk may step from
+  // the original anchor before giving up (a long-running series replays its history each run).
+  const MAX_OPEN_ENDED_BATCH = 400
+  const MAX_OPEN_ENDED_STEPS = 6000
 
+  const openEnded = isOpenEndedRecurrence(recurrence)
+
+  // Loop budget vs emit budget: for a counted series they are the same number (one push per
+  // iteration). For an open-ended series the walk may step over already-materialized history
+  // without emitting, so the two must be tracked separately.
   const maxCount = recurrence.count ? Math.min(recurrence.count, MAX_OCCURRENCES) : MAX_OCCURRENCES
+  const stepBudget = openEnded ? MAX_OPEN_ENDED_STEPS : maxCount
+  const emitBudget = openEnded ? MAX_OPEN_ENDED_BATCH : maxCount
 
   const maxDate = recurrence.untilDate
     ? new Date(recurrence.untilDate)
-    : new Date(startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
+    : openEnded
+      ? (horizonEnd ?? recurrenceHorizonEnd())
+      : new Date(startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
+
+  const shouldEmit = (instanceStart: Date) => !after || instanceStart > after
 
   // #region agent log
   console.log(
@@ -641,12 +728,20 @@ export function generateRecurrenceInstances(params: {
       })
     )
     // #endregion
-    let instanceCount = 0
+    let steps = 0
+    // This branch walks one DAY per step, so its budget is in days — not occurrences. A counted
+    // series stays bounded the way it always was (by endSearchDate and the emit count); only the
+    // open-ended walk needs an explicit ceiling.
+    const dayStepBudget = openEnded ? MAX_OPEN_ENDED_STEPS : Number.MAX_SAFE_INTEGER
 
-    // Generate instances for up to MAX_MONTHS
-    const endSearchDate = new Date(
-      Math.min(maxDate.getTime(), startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
-    )
+    // Generate instances for up to MAX_MONTHS. An open-ended series is bounded by the rolling
+    // horizon instead — clamping it to startTime + 12mo would make a series that began over a
+    // year ago produce nothing at all on every top-up run.
+    const endSearchDate = openEnded
+      ? maxDate
+      : new Date(
+          Math.min(maxDate.getTime(), startTime.getTime() + MAX_MONTHS * 30 * 24 * 60 * 60 * 1000)
+        )
 
     // `interval` gates which WEEKS are eligible, `daysOfWeek` gates which days within them.
     // This branch used to emit every weekday match regardless of interval, so "every 2 weeks
@@ -663,18 +758,19 @@ export function generateRecurrenceInstances(params: {
       // wall-clock time survives DST transitions instead of drifting an hour.
       const zonedStart = toZonedTime(startTime, customTz)
       let zonedCurrent = zonedStart
-      while (instanceCount < maxCount) {
+      while (instances.length < emitBudget && steps < dayStepBudget) {
+        steps++
         const instanceStart = fromZonedTime(zonedCurrent, customTz)
         if (instanceStart > endSearchDate) break
         if (
           recurrence.daysOfWeek.includes(zonedCurrent.getDay()) &&
-          isEligibleWeek(zonedCurrent, zonedStart)
+          isEligibleWeek(zonedCurrent, zonedStart) &&
+          shouldEmit(instanceStart)
         ) {
           instances.push({
             startTime: instanceStart,
             endTime: new Date(instanceStart.getTime() + duration),
           })
-          instanceCount++
         }
         zonedCurrent = addDays(zonedCurrent, 1)
       }
@@ -682,15 +778,19 @@ export function generateRecurrenceInstances(params: {
       // Legacy fallback (no timezone provided): native date arithmetic, server-local weekdays.
       const seriesStart = new Date(startTime)
       let currentDate = new Date(startTime)
-      while (instanceCount < maxCount && currentDate <= endSearchDate) {
+      while (instances.length < emitBudget && steps < dayStepBudget && currentDate <= endSearchDate) {
+        steps++
         const dayOfWeek = currentDate.getDay()
 
-        if (recurrence.daysOfWeek.includes(dayOfWeek) && isEligibleWeek(currentDate, seriesStart)) {
+        if (
+          recurrence.daysOfWeek.includes(dayOfWeek) &&
+          isEligibleWeek(currentDate, seriesStart) &&
+          shouldEmit(currentDate)
+        ) {
           instances.push({
             startTime: new Date(currentDate),
             endTime: new Date(currentDate.getTime() + duration),
           })
-          instanceCount++
         }
 
         // Move to next day
@@ -701,7 +801,7 @@ export function generateRecurrenceInstances(params: {
     console.log(
       '[DEBUG] Custom pattern instances generated:',
       JSON.stringify({
-        instanceCount,
+        instanceCount: instances.length,
         firstDateISO: instances[0]?.startTime.toISOString(),
         lastDateISO: instances[instances.length - 1]?.startTime.toISOString(),
       })
@@ -735,13 +835,16 @@ export function generateRecurrenceInstances(params: {
   let currentStart = new Date(startTime)
   let currentEnd = new Date(endTime)
 
-  for (let i = 0; i < maxCount; i++) {
+  for (let i = 0; i < stepBudget; i++) {
     if (currentStart > maxDate) break
+    if (instances.length >= emitBudget) break
 
-    instances.push({
-      startTime: new Date(currentStart),
-      endTime: new Date(currentEnd),
-    })
+    if (shouldEmit(currentStart)) {
+      instances.push({
+        startTime: new Date(currentStart),
+        endTime: new Date(currentEnd),
+      })
+    }
 
     // Calculate next occurrence. When timezone is provided, use toZonedTime/add/fromZonedTime
     // to preserve local clock time across DST (e.g. "9am" stays 9am when crossing spring DST).
@@ -3950,6 +4053,10 @@ export const dataServices = {
 
       const now = new Date()
       const primaryBooking = job.bookings[0]
+      // A recurring series is one Job + N Bookings, so archiving this job ends the series
+      // either way — both branches below archive every booking that hangs off it. Stop the
+      // rolling top-up in both, or the worker rebuilds what was just archived.
+      const jobRecurrenceIds = job.bookings.map((b: any) => b.recurrenceId)
 
       if (deleteAll && primaryBooking?.recurrenceId) {
         // Recurring series: archive all bookings in the series and all jobs they belong to.
@@ -3985,6 +4092,7 @@ export const dataServices = {
           data: { archivedAt: now },
         })
       }
+      await setRecurrenceStatus(tenantId, jobRecurrenceIds, 'archived')
       return { success: true }
     },
     permanentDelete: async (tenantId: string, id: string, deleteAll?: boolean) => {
@@ -4035,6 +4143,13 @@ export const dataServices = {
       } else {
         await prisma.job.delete({ where: { id } })
       }
+
+      // Deleting the job cascades its bookings away; drop the recurrence too so no 'active'
+      // row survives for the top-up worker to regrow the series from.
+      await deleteRecurrences(
+        tenantId,
+        job.bookings.map((b: any) => b.recurrenceId)
+      )
 
       return { success: true, permanent: true }
     },
@@ -4090,6 +4205,8 @@ export const dataServices = {
           }
         }
         await prisma.job.update({ where: { id }, data: { archivedAt: null } })
+        // The series is live again, so let the rolling top-up resume for it.
+        await setRecurrenceStatus(tenantId, recurrenceIds, 'active')
       } else {
         // Job itself is live; only individual bookings are archived. Find the booking the caller
         // pointed at (or the most recently archived one when unspecified).
@@ -4115,6 +4232,8 @@ export const dataServices = {
             },
             data: { archivedAt: null },
           })
+          // Undoing a "Delete series" also resumes the rolling top-up.
+          await setRecurrenceStatus(tenantId, [target.recurrenceId], 'active')
         } else {
           await prisma.booking.update({ where: { id: target.id }, data: { archivedAt: null } })
         }
@@ -5109,6 +5228,8 @@ export const dataServices = {
           where: { recurrenceId: booking.recurrenceId, tenantId, archivedAt: null },
           data: { archivedAt: new Date() },
         })
+        // Stop the rolling top-up — "Delete series" must mean the series stops producing.
+        await setRecurrenceStatus(tenantId, [booking.recurrenceId], 'archived')
         return { success: true }
       }
 
@@ -5136,6 +5257,7 @@ export const dataServices = {
         await prisma.booking.deleteMany({
           where: { recurrenceId: booking.recurrenceId, tenantId },
         })
+        await deleteRecurrences(tenantId, [booking.recurrenceId])
         return { success: true, permanent: true }
       }
 
@@ -5167,6 +5289,8 @@ export const dataServices = {
           data: { archivedAt: null },
         })
       }
+      // Restoring an occurrence of a stopped series resumes its rolling top-up.
+      await setRecurrenceStatus(tenantId, [booking.recurrenceId], 'active')
       return { success: true, bookingId: updated.id, jobId: booking.job?.id ?? null }
     },
   },
