@@ -62,19 +62,6 @@ export const manifest: ManifestEntry[] = [
     }
   },
   {
-    "collection": "compare",
-    "slug": "zenmaid-alternative",
-    "path": "/compare/zenmaid-alternative",
-    "meta": {
-      "title": "A ZenMaid alternative for cleaning businesses that quote and invoice",
-      "description": "ZenMaid is a strong scheduler for maid services and its entry plan is cheaper. CleanDock covers the whole job — quote, schedule, photo proof, invoice, paid. An honest comparison.",
-      "summary": "ZenMaid is genuinely built for maid services, and its entry plan is cheaper than ours. Here's the honest case for where each one fits.",
-      "updated": "2026-07-27",
-      "targetQuery": "zenmaid alternative",
-      "draft": true
-    }
-  },
-  {
     "collection": "solutions",
     "slug": "airbnb-turnover-cleaning-software",
     "path": "/airbnb-turnover-cleaning-software",
