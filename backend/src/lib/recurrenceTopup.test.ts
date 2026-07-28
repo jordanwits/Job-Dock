@@ -55,6 +55,7 @@ const latestBooking = {
   assignedTo: null,
   createdById: 'user-1',
   startTime: new Date(2026, 5, 29, 9, 0),
+  toBeScheduled: false,
   archivedAt: null as Date | null,
   deletedAt: null as Date | null,
 }
@@ -133,6 +134,14 @@ describe('topUpRecurrences — series that must NOT be extended', () => {
 
     expect(db.booking.createMany).not.toHaveBeenCalled()
     expect(result.skipped['job-deleted']).toBe(1)
+  })
+
+  it('skips a staged-monthly series (unscheduled anchor, rendered as a virtual chip)', async () => {
+    arrange({ cursor: { ...latestBooking, toBeScheduled: true } })
+    const result = await topUpRecurrences(NOW)
+
+    expect(db.booking.createMany).not.toHaveBeenCalled()
+    expect(result.skipped['staged-series']).toBe(1)
   })
 
   it('skips a series already materialized past the horizon', async () => {

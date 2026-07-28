@@ -140,6 +140,16 @@ export async function topUpRecurrences(now: Date = new Date()): Promise<TopUpSum
       continue
     }
 
+    // A staged-monthly series is a single to-be-scheduled anchor that the calendar renders as a
+    // virtual chip each month — it has no fixed dates to extend. Those carry status 'staged' so
+    // the query above already excludes them; this is the independent check, because
+    // materializing real appointments for a deliberately-unscheduled series is precisely the
+    // "stuck being scheduled forever" failure this worker must never cause.
+    if (latest.toBeScheduled) {
+      skip('staged-series')
+      continue
+    }
+
     if (!latest.jobId) {
       skip('no-job')
       continue

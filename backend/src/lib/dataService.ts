@@ -627,7 +627,15 @@ async function setRecurrenceStatus(
   const ids = Array.from(new Set(recurrenceIds.filter((v): v is string => !!v)))
   if (ids.length === 0) return
   await prisma.jobRecurrence.updateMany({
-    where: { tenantId, id: { in: ids } },
+    where: {
+      tenantId,
+      id: { in: ids },
+      // Reactivating is the precise inverse of archiving: only un-archive what WE archived.
+      // A staged-monthly series carries status 'staged' and has no fixed dates — flipping it
+      // to 'active' would both lose that marker and hand it to the top-up worker, which would
+      // start materializing real appointments for a series the user left unscheduled.
+      ...(status === 'active' ? { status: 'archived' } : {}),
+    },
     data: { status },
   })
 }
