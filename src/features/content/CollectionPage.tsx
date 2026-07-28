@@ -40,8 +40,13 @@ const CollectionPage = ({ collection }: CollectionPageProps) => {
                     to={entry.path}
                     className="group block py-6 transition-colors hover:bg-slate-50/80"
                   >
-                    <h2 className="text-lg font-semibold text-slate-900 group-hover:text-teal-700">
+                    <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-900 group-hover:text-teal-700">
                       {entry.meta.title}
+                      {entry.meta.draft && (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-800">
+                          Draft
+                        </span>
+                      )}
                     </h2>
                     <p className="mt-2 text-slate-600">{entry.meta.summary}</p>
                   </Link>

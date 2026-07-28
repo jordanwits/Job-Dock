@@ -77,6 +77,14 @@ const ArticleShell = ({
             </Link>
           </nav>
 
+          {entry.meta.draft && (
+            <p className="mb-8 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <strong>Draft.</strong> Visible in development only — excluded from the site
+              navigation and the sitemap. Remove <code>draft: true</code> from the frontmatter and
+              run <code>npm run build:content</code> to publish.
+            </p>
+          )}
+
           <h1 className="text-balance text-3xl font-bold text-slate-900 md:text-4xl">
             {entry.meta.title}
           </h1>

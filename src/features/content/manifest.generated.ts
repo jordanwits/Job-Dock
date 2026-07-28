@@ -12,6 +12,19 @@ export interface ManifestEntry {
 export const manifest: ManifestEntry[] = [
   {
     "collection": "compare",
+    "slug": "housecall-pro-alternative-cleaning",
+    "path": "/compare/housecall-pro-alternative-cleaning",
+    "meta": {
+      "title": "A Housecall Pro alternative for cleaning businesses",
+      "description": "Housecall Pro is built for home-service trades and priced for them. CleanDock covers five users for $49.99/mo. An honest pricing and feature comparison for cleaning businesses.",
+      "summary": "Housecall Pro is a big, capable product priced for trades with office staff. Here's what that costs a cleaning crew, and where each tool actually fits.",
+      "updated": "2026-07-27",
+      "targetQuery": "housecall pro alternative",
+      "draft": true
+    }
+  },
+  {
+    "collection": "compare",
     "slug": "jobber-alternative-cleaning",
     "path": "/compare/jobber-alternative-cleaning",
     "meta": {
@@ -20,6 +33,45 @@ export const manifest: ManifestEntry[] = [
       "summary": "Jobber is good software that wasn't built for cleaning. Here's an honest comparison of what each costs and where each one actually fits.",
       "updated": "2026-07-27",
       "targetQuery": "jobber alternative for cleaning business"
+    }
+  },
+  {
+    "collection": "compare",
+    "slug": "launch27-automaid-alternative",
+    "path": "/compare/launch27-automaid-alternative",
+    "meta": {
+      "title": "Launch27 became Automaid. Here's an alternative if that's not the direction you wanted",
+      "description": "Launch27 rebranded to Automaid under Fullsteam in May 2026. If the new direction isn't for you, CleanDock covers quoting, recurring cleans, online booking and payments from $29.99/mo.",
+      "summary": "Launch27 is now Automaid. If your booking software changing hands and direction has you looking around, here's what to weigh.",
+      "updated": "2026-07-27",
+      "targetQuery": "launch27 alternative",
+      "draft": true
+    }
+  },
+  {
+    "collection": "compare",
+    "slug": "software-vs-spreadsheets",
+    "path": "/compare/software-vs-spreadsheets",
+    "meta": {
+      "title": "Cleaning business software vs. spreadsheets",
+      "description": "A spreadsheet runs a cleaning business fine for longer than most software companies admit. Here's exactly where it stops working, and what to do when it does.",
+      "summary": "A spreadsheet is genuinely fine for longer than software companies admit. Here's the specific point where it stops working.",
+      "updated": "2026-07-27",
+      "targetQuery": "cleaning business spreadsheet template",
+      "draft": true
+    }
+  },
+  {
+    "collection": "compare",
+    "slug": "zenmaid-alternative",
+    "path": "/compare/zenmaid-alternative",
+    "meta": {
+      "title": "A ZenMaid alternative for cleaning businesses that quote and invoice",
+      "description": "ZenMaid is a strong scheduler for maid services and its entry plan is cheaper. CleanDock covers the whole job — quote, schedule, photo proof, invoice, paid. An honest comparison.",
+      "summary": "ZenMaid is genuinely built for maid services, and its entry plan is cheaper than ours. Here's the honest case for where each one fits.",
+      "updated": "2026-07-27",
+      "targetQuery": "zenmaid alternative",
+      "draft": true
     }
   }
 ]

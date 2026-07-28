@@ -19,7 +19,8 @@
     "deploy:prod": "powershell -ExecutionPolicy Bypass -File .\\deploy-production.ps1",
     "check:prod": "powershell -ExecutionPolicy Bypass -File .\\check-prod-status.ps1",
     "build:content": "node scripts/build-content.mjs",
-    "prebuild": "node scripts/build-content.mjs"
+    "prebuild": "node scripts/build-content.mjs",
+    "predev": "node scripts/build-content.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",

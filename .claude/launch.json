@@ -18,6 +18,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "3210", "--strictPort"],
       "port": 3210
+    },
+    {
+      "name": "jobdock-prod-build",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--", "--port", "3300", "--strictPort"],
+      "port": 3300
     }
   ]
 }

@@ -81,7 +81,9 @@ const entries: ContentEntry[] = manifest
       },
     ]
   })
-  .filter((entry) => !entry.meta.draft)
+  // Drafts are routable in dev so they can be previewed, and stripped from production builds.
+  // import.meta.env.DEV is statically replaced, so this whole branch is dead code in prod.
+  .filter((entry) => import.meta.env.DEV || !entry.meta.draft)
   // Newest first on the hub pages.
   .sort((a, b) => b.meta.updated.localeCompare(a.meta.updated))
 
