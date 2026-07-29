@@ -192,6 +192,8 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
   const contactFields = [
     { value: 'firstName', label: 'First Name' },
     { value: 'lastName', label: 'Last Name' },
+    // Splits one column into first + last on the server. Auto-selected for "Name"-style columns.
+    { value: 'fullName', label: 'Full Name (split in two)' },
     { value: 'email', label: 'Email' },
     { value: 'phone', label: 'Phone' },
     { value: 'company', label: 'Company' },
@@ -380,10 +382,13 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
                         key={header}
                         className={cn(
                           'flex items-center gap-3 rounded-lg bg-surface p-3 ring-1 ring-inset transition-colors',
-                          isSkipped ? 'opacity-60 ring-line' : 'ring-accent-soft'
+                          isSkipped ? 'ring-line' : 'ring-accent-soft'
                         )}
                       >
-                        <div className="flex-1">
+                        {/* De-emphasis lives on the label, never on the row: `opacity` on an
+                            ancestor of the select creates a stacking context, which traps the
+                            open dropdown's z-index and lets the rows below paint over it. */}
+                        <div className={cn('flex-1', isSkipped && 'opacity-60')}>
                           <p className="text-sm font-medium text-ink">{header}</p>
                           {preview.rows[0]?.[header] && (
                             <p className="mt-0.5 text-xs text-ink-subtle">Example: {preview.rows[0][header]}</p>

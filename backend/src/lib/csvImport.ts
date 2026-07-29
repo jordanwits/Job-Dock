@@ -131,7 +131,7 @@ function generateFieldMapping(headers: string[]): Record<string, string> {
   const mapping: Record<string, string> = {}
 
   const fieldMappings: Record<string, string[]> = {
-    // Note: 'client name', 'full name', 'name' are handled specially via name splitting
+    // Note: 'client name', 'full name', 'name' map to `fullName` below and are split server-side
     firstName: ['first name', 'first_name', 'firstname', 'first', 'given name', 'fname', 'givenname'],
     lastName: ['last name', 'last_name', 'lastname', 'last', 'surname', 'family name', 'lname', 'familyname'],
     email: ['email', 'email address', 'email_address', 'e-mail', 'mail', 'emailaddress'],
@@ -146,18 +146,16 @@ function generateFieldMapping(headers: string[]): Record<string, string> {
     notes: ['notes', 'note', 'comments', 'comment', 'description', 'special notes', 'info', 'special_notes', 'additional info', 'details', 'memo'],
   }
 
-  // Special handling for full name fields (will be split automatically)
-  const fullNameAliases = ['client name', 'client_name', 'clientname', 'full name', 'full_name', 'fullname', 'name', 'contact name', 'contact_name']
-
   headers.forEach((header) => {
     // Normalize: lowercase, trim, and replace underscores/hyphens with spaces for matching
     const normalized = header.toLowerCase().trim()
     const normalizedWithSpaces = normalized.replace(/[_-]/g, ' ')
 
-    // Check if this is a full name field first
-    if (fullNameAliases.includes(normalized) || fullNameAliases.includes(normalizedWithSpaces)) {
-      // Don't map full name fields - they'll be handled by the name splitting logic
-      // Just leave them unmapped so user can see them, but they'll be auto-processed
+    // "Name"-style columns map to the synthetic `fullName` target, which mapRowToContact splits
+    // into first + last. Mapping them explicitly (rather than leaving them unmapped and splitting
+    // them behind the user's back) is what makes the import UI's field mapping truthful.
+    if (isFullNameField(header)) {
+      mapping[header] = 'fullName'
       return
     }
 
@@ -424,7 +422,8 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
 }
 
 /**
- * Check if a CSV header is a "full name" type field
+ * Check if a CSV header looks like a "full name" column. Used to pick the default mapping for
+ * such a column; it never overrides a mapping the user has chosen.
  */
 function isFullNameField(header: string): boolean {
   const lowerHeader = header.toLowerCase().trim().replace(/[_-]/g, ' ')
@@ -451,43 +450,58 @@ function mapRowToContact(
 ): Partial<Contact> {
   const contact: any = {}
 
-  // First, look for full name fields in ALL CSV columns (even unmapped ones) and split them
-  for (const [csvField, value] of Object.entries(row)) {
-    if (!value || typeof value !== 'string') continue
-    
-    const trimmedValue = value.trim()
-    if (!trimmedValue) continue
-    
-    // Check if this is a "full name" type field (even if not mapped)
-    if (isFullNameField(csvField)) {
-      const { firstName, lastName } = splitFullName(trimmedValue)
-      if (firstName) {
-        contact.firstName = firstName
-      }
-      // Use firstName as lastName fallback if no lastName
-      if (lastName) {
-        contact.lastName = lastName
-      } else if (firstName) {
-        contact.lastName = firstName
-      }
-      console.log(`Split full name from unmapped field "${csvField}": "${trimmedValue}" -> firstName: "${firstName}", lastName: "${lastName || firstName}"`)
-    }
+  const readCell = (csvField: string): string | null => {
+    const value = row[csvField]
+    if (value === undefined || value === null) return null
+    const trimmed = String(value).trim()
+    return trimmed || null
   }
 
-  // Then apply the field mapping for explicitly mapped fields (but don't overwrite firstName/lastName if already set from full name)
+  const applyFullName = (value: string) => {
+    const { firstName, lastName } = splitFullName(value)
+    if (!firstName) return
+    contact.firstName = firstName
+    // A single-word name has no surname to use; fall back to repeating it so the row still
+    // satisfies the required-fields check rather than failing outright.
+    contact.lastName = lastName || firstName
+  }
+
+  // The field mapping is authoritative: a column is only read if the user mapped it, and it is
+  // only written to the field they chose. `fullName` is the one synthetic target — it fans out
+  // into firstName/lastName. It runs first so an explicit firstName/lastName mapping can override
+  // the split rather than the other way round.
   for (const [csvField, contactField] of Object.entries(fieldMapping)) {
-    // Skip if this is a full name field (already processed above)
-    if (isFullNameField(csvField)) continue
-    
-    const value = row[csvField]
-    if (value !== undefined && value !== null && value !== '') {
-      const trimmedValue = String(value).trim()
-      if (trimmedValue) {
-        // Don't overwrite firstName/lastName if already set from full name split
-        if ((contactField === 'firstName' || contactField === 'lastName') && contact[contactField]) {
-          continue
-        }
-        contact[contactField] = trimmedValue
+    if (contactField !== 'fullName') continue
+    const value = readCell(csvField)
+    if (value) applyFullName(value)
+  }
+
+  for (const [csvField, contactField] of Object.entries(fieldMapping)) {
+    if (!contactField || contactField === 'fullName') continue
+    const value = readCell(csvField)
+    if (value) contact[contactField] = value
+  }
+
+  // Backwards compatibility: a client from before `fullName` existed leaves name columns
+  // unmapped. Only when the mapping names no name field at all is a name column detected
+  // automatically — otherwise every row in such a file would fail validation. An explicit
+  // choice (including "don't import") is never second-guessed.
+  const mappedFields = Object.values(fieldMapping)
+  const hasNameMapping =
+    mappedFields.includes('firstName') ||
+    mappedFields.includes('lastName') ||
+    mappedFields.includes('fullName')
+  if (!hasNameMapping) {
+    for (const csvField of Object.keys(row)) {
+      if (!isFullNameField(csvField)) continue
+      // A column present in the mapping has an explicit decision attached to it — including the
+      // empty string, which means "don't import". Only columns the client never mentioned at all
+      // are eligible for the legacy auto-split.
+      if (csvField in fieldMapping) continue
+      const value = readCell(csvField)
+      if (value) {
+        applyFullName(value)
+        break
       }
     }
   }
@@ -495,24 +509,6 @@ function mapRowToContact(
   // Handle tags if present (comma-separated)
   if (contact.tags && typeof contact.tags === 'string') {
     contact.tags = contact.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t)
-  }
-
-  // Also handle the phone/contact field mapping
-  if (!contact.phone && row['Contact']) {
-    contact.phone = String(row['Contact']).trim()
-  }
-  
-  // Handle address field
-  if (!contact.address && row['Address']) {
-    contact.address = String(row['Address']).trim()
-  }
-  
-  // Handle notes from Info or Special Notes fields
-  if (!contact.notes) {
-    const infoValue = row['Info'] || row['Special Notes']
-    if (infoValue && typeof infoValue === 'string') {
-      contact.notes = String(infoValue).trim()
-    }
   }
 
   console.log('Mapped contact:', contact)
