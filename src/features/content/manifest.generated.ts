@@ -20,8 +20,7 @@ export const manifest: ManifestEntry[] = [
       "summary": "Getting paid is the part that decides whether the business works. Here is how to make it boring.",
       "updated": "2026-07-29",
       "navLabel": "Invoicing",
-      "targetQuery": "how to invoice for cleaning services",
-      "draft": true
+      "targetQuery": "how to invoice for cleaning services"
     }
   },
   {
@@ -34,8 +33,7 @@ export const manifest: ManifestEntry[] = [
       "summary": "Ranked by what actually works for a small cleaning business, not by what is easiest to write about.",
       "updated": "2026-07-29",
       "navLabel": "Getting clients",
-      "targetQuery": "how to get more cleaning clients",
-      "draft": true
+      "targetQuery": "how to get more cleaning clients"
     }
   },
   {
@@ -48,8 +46,7 @@ export const manifest: ManifestEntry[] = [
       "summary": "Most cleaners price by looking at competitors and shaving a bit off. Here's how to build a number that actually pays you.",
       "updated": "2026-07-29",
       "navLabel": "Pricing a clean",
-      "targetQuery": "how to price a house cleaning job",
-      "draft": true
+      "targetQuery": "how to price a house cleaning job"
     }
   },
   {
@@ -62,8 +59,7 @@ export const manifest: ManifestEntry[] = [
       "summary": "Recurring work is most of your revenue. The schedule should build itself, not get rebuilt every Sunday.",
       "updated": "2026-07-29",
       "navLabel": "Recurring schedules",
-      "targetQuery": "recurring cleaning schedule for clients",
-      "draft": true
+      "targetQuery": "recurring cleaning schedule for clients"
     }
   },
   {
