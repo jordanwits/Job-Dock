@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_COGNITO_CLIENT_ID: string
   /** Comma-separated emails that see the Settings "Tester approval" tab (API enforces separately). */
   readonly VITE_PLATFORM_ADMIN_EMAILS?: string
+  /** PostHog project key. Set in Vercel production only; absent locally disables analytics. */
+  readonly VITE_POSTHOG_KEY?: string
 }
 
 interface ImportMeta {

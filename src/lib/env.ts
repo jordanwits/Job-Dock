@@ -10,6 +10,9 @@ const envDefaults = {
   s3Bucket: import.meta.env.VITE_S3_BUCKET || '',
   useMockDataFlag: parseBoolean(import.meta.env.VITE_USE_MOCK_DATA, import.meta.env.DEV),
   stripePublishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
+  // Marketing analytics. Unset everywhere except the Vercel production environment, which is
+  // what keeps local dev out of the data — see src/lib/analytics.ts.
+  posthogKey: import.meta.env.VITE_POSTHOG_KEY || '',
 }
 
 const storedMode = readStoredDataMode()
@@ -50,6 +53,7 @@ export const appEnv = {
   isLive: resolvedDataMode === 'live',
   isMock: resolvedDataMode === 'mock',
   stripePublishableKey: envDefaults.stripePublishableKey,
+  posthogKey: envDefaults.posthogKey,
 }
 
 function readStoredDataMode(): DataMode | null {

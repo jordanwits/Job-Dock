@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import { AppLayout, ProtectedRoute, AdminRoute } from '@/components'
 import { BillingGuard } from '@/components/billing'
 import SessionMonitor from '@/components/SessionMonitor'
+import Analytics from '@/components/Analytics'
+import { registerContentPaths } from '@/lib/analytics'
 import { LoginPage, RegisterPage, SignupPage, SignupCompletePage, TesterSignupPage, ResetPasswordPage, useAuthStore } from '@/features/auth'
 import { DashboardPage } from '@/features/dashboard'
 import { CRMPage } from '@/features/crm'
@@ -29,6 +31,11 @@ import { OnboardingPage, OnboardingManager, AppTourOverlay } from '@/features/on
 import { BillingSuccessPage, BillingCancelledPage } from '@/features/billing/billingPages'
 import { QuickBooksCallbackPage } from '@/features/quickbooks'
 import { GoogleCalendarCallbackPage } from '@/features/googleCalendar'
+
+// Vertical landing pages sit at the site root, so analytics can't recognise them by prefix the
+// way it does /guides/* and /compare/*. Fed from the same registry the routes below are built
+// from, so the two can't drift apart.
+registerContentPaths(getEntries('solutions').map((entry) => entry.path))
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -74,6 +81,7 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <Analytics />
       <SessionMonitor />
       <OnboardingManager />
       <AppTourOverlay />

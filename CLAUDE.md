@@ -42,6 +42,12 @@ models, everything hanging off `Tenant`).
     `VITE_USE_MOCK_DATA` (default mock in dev). `src/lib/api/services.ts` switches every service between
     the live axios clients and `src/lib/mock/api.ts` (a full in-browser mock backend; logins
     `jordan@westwavecreative.com` / `demo123` and `demo@jobdock.com` / `demo123`).
+  - `src/lib/analytics.ts` — PostHog, **marketing pages only** (`/`, the MDX content routes, `/auth/signup*`).
+    Never loads on `/app/*`, `/book`, `/public/*` or `/s/:code`, and opts capture out + stops recording when
+    a visitor navigates out of scope — route-gating pageviews alone doesn't stop autocapture. Keyed on
+    `VITE_POSTHOG_KEY` (Vercel Production only; unset locally = fully tree-shaken, dev sends nothing).
+    Traffic goes through the same-origin `/ingest` rewrites in `vercel.json`, which MUST stay above the SPA
+    catch-all; that proxy is also why the CSP can stay on `script-src/connect-src 'self'`.
   - `src/features/assistant/` — in-app tool-calling AI agent over the data services (OpenAI). Prod uses the
     backend proxy `POST /assistant/chat` (server-held `OPENAI_API_KEY`); dev-only direct browser calls need
     `VITE_OPENAI_API_KEY` in `.env.local`. See `AI_ASSISTANT_HANDOFF.md` for depth.
@@ -61,7 +67,8 @@ models, everything hanging off `Tenant`).
 
 ## Deployment
 
-- **Frontend:** Vercel project `job-dock` (`.vercel/project.json`), configured by `vercel.json`
+- **Frontend:** Vercel project `clean-dock` — renamed from `job-dock`, which is the stale name still in
+  `.vercel/project.json`; the `projectId` there is what actually matters. Configured by `vercel.json`
   (`npm run build` → `dist/`, SPA rewrite, security headers). thecleandock.com / www DNS point at Vercel
   (verified 2026-07-05). Set up as a Vercel Git integration, so pushing to GitHub deploys — the dashboard
   setting itself isn't verifiable from the repo.

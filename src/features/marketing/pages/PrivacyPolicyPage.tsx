@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import MarketingLayout from '../components/MarketingLayout'
 import MarketingSection from '../components/MarketingSection'
-import { publicSiteConfig, getFormattedAddress } from '../content/publicSiteConfig'
+import { getFormattedAddress } from '../content/publicSiteConfig'
 import { useSeo } from '@/lib/seo'
 
 const PrivacyPolicyPage = () => {
@@ -19,9 +19,10 @@ const PrivacyPolicyPage = () => {
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Privacy Policy</h1>
-            <p className="text-lg text-white/70">
-              Last Updated: January {publicSiteConfig.copyrightYear}
-            </p>
+            {/* Static on purpose. This was built from the current year, so the date advanced
+                every January whether or not the policy had actually changed. Bump it by hand
+                when the text below changes. */}
+            <p className="text-lg text-white/70">Last Updated: July 2026</p>
           </div>
         </div>
       </MarketingSection>
@@ -230,9 +231,24 @@ const PrivacyPolicyPage = () => {
                   <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-4 pb-3 border-b-2 border-primary-gold/20">
                     7. Cookies and Tracking
                   </h2>
+                  <p className="mb-4 text-base md:text-lg leading-relaxed">
+                    We use essential cookies to maintain your session and remember your preferences.
+                  </p>
+                  <p className="mb-4 text-base md:text-lg leading-relaxed">
+                    On our public marketing pages — our home page, guides, comparisons, and signup
+                    pages — we also use PostHog, a product analytics service, to understand how
+                    people find and use the site. It sets a cookie so a returning browser is
+                    recognised as the same visitor, and records the pages viewed, the site or
+                    search that referred you, clicks on page elements, your browser and device
+                    type, and an approximate location derived from your IP address. We use this
+                    only to see which pages are working and where people get stuck.
+                  </p>
                   <p className="text-base md:text-lg leading-relaxed">
-                    We use essential cookies to maintain your session and remember your preferences. We do
-                    not use advertising or tracking cookies.
+                    Analytics does not run in the signed-in application, and it does not run on the
+                    quote, invoice, and booking pages your clients see. We do not use advertising
+                    cookies, we do not run ad-network or cross-site tracking pixels, and we do not
+                    sell or share this data. You can block analytics with a browser privacy setting
+                    or extension without affecting how the site works.
                   </p>
                 </section>
 
