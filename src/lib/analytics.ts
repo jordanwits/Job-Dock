@@ -52,6 +52,7 @@ let client: PostHogClient | null = null
 let loading: Promise<PostHogClient | null> | null = null
 let capturing = false
 let currentPath = ''
+let currentSignedIn = false
 
 /**
  * Hands the scope check the list of root-level content routes. Must run before the first
@@ -106,9 +107,15 @@ function load(): Promise<PostHogClient | null> {
 /**
  * Call on every navigation. Loads and enables PostHog inside marketing scope, and shuts it off
  * on the way out.
+ *
+ * `signedIn` tags events with whether the visitor already has an account, so acquisition
+ * reporting can exclude them. They are not prospects: they inflate the top of the funnel, and
+ * every signup CTA bounces them to /app (SignupPage redirects when authenticated), which would
+ * otherwise read as a drop-off that never happened.
  */
-export function syncAnalytics(pathname: string): void {
+export function syncAnalytics(pathname: string, signedIn: boolean): void {
   currentPath = normalize(pathname)
+  currentSignedIn = signedIn
   if (!appEnv.posthogKey) return
   // Never pull the SDK in for someone who has not been on a marketing page.
   if (!client && !isMarketingPath(currentPath)) return
@@ -137,6 +144,9 @@ function apply(posthog: PostHogClient | null): void {
     posthog.opt_in_capturing({ captureEventName: false })
     capturing = true
   }
+  // Registered rather than passed to capture() so it also lands on autocaptured clicks — the
+  // CTA click is the step that would otherwise strand a signed-in visitor mid-funnel.
+  posthog.register({ signed_in: currentSignedIn })
   posthog.capture('$pageview')
 }
 
