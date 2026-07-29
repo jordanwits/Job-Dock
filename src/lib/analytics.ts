@@ -125,10 +125,15 @@ export function syncAnalytics(pathname: string, signedIn: boolean): void {
 function apply(posthog: PostHogClient | null): void {
   if (!posthog) return
 
-  // Re-read rather than trusting the path syncAnalytics was called with: the import can resolve
-  // several navigations later, and what matters is where the visitor is now. Without this, a
-  // visitor who lands on / and immediately clicks into the app gets an /app pageview.
-  if (!isMarketingPath(currentPath)) {
+  // window.location is the authority here, not the path syncAnalytics was handed. Two reasons.
+  // The import can resolve several navigations later, so the original argument goes stale. And
+  // posthog stamps $current_url off window.location when it builds the event, so trusting the
+  // router path can mislabel a pageview: a redirect fired from an effect — SignupPage bounces
+  // authenticated visitors to /app — moves the browser between the router effect and this
+  // microtask, and we would capture "/auth/signup" while the browser is already on /app.
+  const livePath = normalize(window.location.pathname)
+
+  if (!isMarketingPath(livePath)) {
     if (capturing) {
       posthog.stopSessionRecording()
       posthog.opt_out_capturing()
@@ -147,6 +152,12 @@ function apply(posthog: PostHogClient | null): void {
   // Registered rather than passed to capture() so it also lands on autocaptured clicks — the
   // CTA click is the step that would otherwise strand a signed-in visitor mid-funnel.
   posthog.register({ signed_in: currentSignedIn })
+
+  // A navigation overtook this one and has not reached its own effect yet. Capturing now would
+  // file the pageview under whichever URL the browser happens to be showing. Drop it; the
+  // navigation that won will fire its own sync.
+  if (livePath !== currentPath) return
+
   posthog.capture('$pageview')
 }
 
