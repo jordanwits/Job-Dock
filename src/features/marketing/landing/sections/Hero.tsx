@@ -4,10 +4,13 @@ import Reveal from '../components/Reveal'
 import { LandingButton } from '../components/landingUi'
 import { landingContent } from '../content/landingContent'
 import { scrollToId } from '../utils'
+import { useHasSession, SIGNED_IN_CTA } from '../../hooks/useHasSession'
 
 const { hero } = landingContent
 
 const Hero = ({ showInlinePhone }: { showInlinePhone: boolean }) => {
+  const hasSession = useHasSession()
+
   return (
     <section className="relative isolate flex min-h-[100svh] items-center overflow-x-clip pt-28 pb-16 md:pt-32">
       {/* Hero background photo */}
@@ -47,8 +50,14 @@ const Hero = ({ showInlinePhone }: { showInlinePhone: boolean }) => {
           </Reveal>
           <Reveal from="up" delay={240}>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
-              <LandingButton to="/auth/signup" variant="primary" size="lg" withArrow className="w-full sm:w-auto">
-                {hero.primaryCta}
+              <LandingButton
+                to={hasSession ? SIGNED_IN_CTA.href : '/auth/signup'}
+                variant="primary"
+                size="lg"
+                withArrow
+                className="w-full sm:w-auto"
+              >
+                {hasSession ? SIGNED_IN_CTA.label : hero.primaryCta}
               </LandingButton>
               <LandingButton onClick={() => scrollToId('features')} variant="ghost" size="lg" className="w-full bg-white hover:bg-white/70 sm:w-auto">
                 {hero.secondaryCta}

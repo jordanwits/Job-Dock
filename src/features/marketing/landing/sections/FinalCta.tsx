@@ -2,10 +2,13 @@ import Reveal from '../components/Reveal'
 import { LandingButton } from '../components/landingUi'
 import { landingContent } from '../content/landingContent'
 import { scrollToId } from '../utils'
+import { useHasSession, SIGNED_IN_CTA } from '../../hooks/useHasSession'
 
 const { finalCta } = landingContent
 
 const FinalCta = () => {
+  const hasSession = useHasSession()
+
   return (
     <section className="relative isolate overflow-hidden bg-teal-700 py-24 md:py-32">
       <div className="relative mx-auto max-w-3xl px-5 text-center md:px-8">
@@ -19,8 +22,14 @@ const FinalCta = () => {
         </Reveal>
         <Reveal from="up" delay={180}>
           <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <LandingButton to="/auth/signup" variant="white" size="lg" withArrow className="w-full sm:w-auto">
-              {finalCta.primaryCta}
+            <LandingButton
+              to={hasSession ? SIGNED_IN_CTA.href : '/auth/signup'}
+              variant="white"
+              size="lg"
+              withArrow
+              className="w-full sm:w-auto"
+            >
+              {hasSession ? SIGNED_IN_CTA.label : finalCta.primaryCta}
             </LandingButton>
             <LandingButton
               onClick={() => scrollToId('how-it-works')}

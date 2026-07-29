@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { publicSiteConfig } from '../content/publicSiteConfig'
+import { useHasSession, SIGNED_IN_CTA } from '../hooks/useHasSession'
 
 const NAV_LINKS = [
   { label: 'Features', target: 'features' },
@@ -11,26 +12,14 @@ const NAV_LINKS = [
 const MarketingHeader = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const isAuthenticated = useHasSession()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // Read from localStorage in an effect rather than from useAuthStore, for two reasons. This header
-  // is in the prerender graph — MarketingLayout renders it — and importing the store pulls the auth
-  // and mock-API layers into the Node render, where they touch localStorage at module scope and
-  // throw (see the header comment in scripts/prerender/entry.tsx). Importing it through
-  // '@/features/auth' would also close a cycle, since that barrel re-exports SignupPage, which
-  // renders MarketingLayout. Resolving after mount additionally leaves the prerendered HTML in its
-  // signed-out state, which is what crawlers and first-time visitors should receive.
-  // `auth_token` is written on login and removed on logout by the store, so it tracks the session.
-  useEffect(() => {
-    setIsAuthenticated(!!window.localStorage.getItem('auth_token'))
-  }, [pathname])
-
   // Offering "Start free" to someone who already has an account sends them to a signup page that
   // immediately bounces them to /app. Point them at the app instead, and drop "Log in".
-  const ctaLabel = isAuthenticated ? 'Go to app' : 'Start free'
-  const ctaHref = isAuthenticated ? '/app' : '/auth/signup'
+  const ctaLabel = isAuthenticated ? SIGNED_IN_CTA.label : 'Start free'
+  const ctaHref = isAuthenticated ? SIGNED_IN_CTA.href : '/auth/signup'
 
   // The header is transparent only while resting at the top of the bright landing hero.
   const isLanding = pathname === '/'
