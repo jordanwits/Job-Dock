@@ -1,4 +1,3 @@
-import ParallaxLayer from '../components/ParallaxLayer'
 import Reveal from '../components/Reveal'
 import { LandingButton } from '../components/landingUi'
 import { landingContent } from '../content/landingContent'
@@ -8,11 +7,7 @@ const { finalCta } = landingContent
 
 const FinalCta = () => {
   return (
-    <section className="relative isolate overflow-hidden bg-gradient-to-br from-teal-700 via-teal-700 to-sky-700 py-24 md:py-32">
-      {/* Floating light orbs */}
-      <ParallaxLayer speed={0.16} className="pointer-events-none absolute -left-10 top-6 h-56 w-56 rounded-full bg-white/15 blur-3xl" aria-hidden />
-      <ParallaxLayer speed={-0.12} className="pointer-events-none absolute -right-12 bottom-0 h-72 w-72 rounded-full bg-sky-300/25 blur-3xl" aria-hidden />
-
+    <section className="relative isolate overflow-hidden bg-teal-700 py-24 md:py-32">
       <div className="relative mx-auto max-w-3xl px-5 text-center md:px-8">
         <Reveal from="up">
           <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-white [text-wrap:balance] sm:text-5xl">
