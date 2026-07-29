@@ -26,20 +26,6 @@ export const manifest: ManifestEntry[] = [
   },
   {
     "collection": "guides",
-    "slug": "cleaning-contract-template",
-    "path": "/guides/cleaning-contract-template",
-    "meta": {
-      "title": "Cleaning business contract template",
-      "description": "A free cleaning service agreement template you can copy and adapt, with a plain-English explanation of what each clause is protecting you from.",
-      "summary": "A service agreement you can copy, plus what each clause is actually protecting you from.",
-      "updated": "2026-07-29",
-      "navLabel": "Contract template",
-      "targetQuery": "cleaning business contract template",
-      "draft": true
-    }
-  },
-  {
-    "collection": "guides",
     "slug": "get-more-cleaning-clients",
     "path": "/guides/get-more-cleaning-clients",
     "meta": {
