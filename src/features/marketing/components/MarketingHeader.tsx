@@ -11,8 +11,26 @@ const NAV_LINKS = [
 const MarketingHeader = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Read from localStorage in an effect rather than from useAuthStore, for two reasons. This header
+  // is in the prerender graph — MarketingLayout renders it — and importing the store pulls the auth
+  // and mock-API layers into the Node render, where they touch localStorage at module scope and
+  // throw (see the header comment in scripts/prerender/entry.tsx). Importing it through
+  // '@/features/auth' would also close a cycle, since that barrel re-exports SignupPage, which
+  // renders MarketingLayout. Resolving after mount additionally leaves the prerendered HTML in its
+  // signed-out state, which is what crawlers and first-time visitors should receive.
+  // `auth_token` is written on login and removed on logout by the store, so it tracks the session.
+  useEffect(() => {
+    setIsAuthenticated(!!window.localStorage.getItem('auth_token'))
+  }, [pathname])
+
+  // Offering "Start free" to someone who already has an account sends them to a signup page that
+  // immediately bounces them to /app. Point them at the app instead, and drop "Log in".
+  const ctaLabel = isAuthenticated ? 'Go to app' : 'Start free'
+  const ctaHref = isAuthenticated ? '/app' : '/auth/signup'
 
   // The header is transparent only while resting at the top of the bright landing hero.
   const isLanding = pathname === '/'
@@ -87,27 +105,29 @@ const MarketingHeader = () => {
               <span className="absolute bottom-0 left-0 h-0.5 w-0 bg-teal-500 transition-all duration-300 group-hover:w-full" />
             </button>
           ))}
+          {!isAuthenticated && (
+            <Link
+              to="/auth/login"
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${isFilled ? 'text-slate-700 hover:bg-slate-100' : 'text-white/90 hover:bg-white/10'}`}
+            >
+              Log in
+            </Link>
+          )}
           <Link
-            to="/auth/login"
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${isFilled ? 'text-slate-700 hover:bg-slate-100' : 'text-white/90 hover:bg-white/10'}`}
-          >
-            Log in
-          </Link>
-          <Link
-            to="/auth/signup"
+            to={ctaHref}
             className="rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-teal-500/25 transition-all hover:-translate-y-0.5 hover:bg-teal-600"
           >
-            Start free
+            {ctaLabel}
           </Link>
         </nav>
 
         {/* Mobile Navigation */}
         <div className="flex items-center gap-2 md:hidden">
           <Link
-            to="/auth/signup"
+            to={ctaHref}
             className="rounded-full bg-teal-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-teal-500/25"
           >
-            Start free
+            {ctaLabel}
           </Link>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -140,19 +160,21 @@ const MarketingHeader = () => {
                 {link.label}
               </button>
             ))}
+            {!isAuthenticated && (
+              <Link
+                to="/auth/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="rounded-lg px-4 py-3 text-left text-base font-semibold text-slate-800 transition-colors hover:bg-teal-50"
+              >
+                Log in
+              </Link>
+            )}
             <Link
-              to="/auth/login"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="rounded-lg px-4 py-3 text-left text-base font-semibold text-slate-800 transition-colors hover:bg-teal-50"
-            >
-              Log in
-            </Link>
-            <Link
-              to="/auth/signup"
+              to={ctaHref}
               onClick={() => setIsMobileMenuOpen(false)}
               className="mt-1 rounded-full bg-teal-500 px-6 py-3 text-center text-base font-bold text-white shadow-md"
             >
-              Start free
+              {ctaLabel}
             </Link>
           </nav>
         </div>
