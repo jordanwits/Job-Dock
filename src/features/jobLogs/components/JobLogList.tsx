@@ -4,7 +4,6 @@ import { useJobLogStore } from '../store/jobLogStore'
 import JobLogCard from './JobLogCard'
 import { cn, formatHoursMinutes } from '@/lib/utils'
 import { format } from 'date-fns'
-import { getRecurringTag } from '../utils/recurringPattern'
 import { useJobStore } from '@/features/scheduling/store/jobStore'
 import {
   archiveWorkspaceJobSingle,
@@ -25,7 +24,6 @@ import {
   SelectCircle,
   SelectField,
   StatusBadge,
-  TagChip,
   TextField,
 } from './jobLogsUi'
 import { JOB_STATUS, JOB_STATUS_FILTER_OPTIONS, type JobLogStatus } from './jobLogStatus'
@@ -476,30 +474,30 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl bg-surface shadow-card">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div>
+              <table className="w-full table-fixed">
                 <thead className="border-b border-line">
                   <tr>
-                    <th className="w-12 px-4 py-3" />
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
+                    <th className="w-8 px-2 py-3 sm:w-12 sm:px-4" />
+                    <th className="px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4">
                       Job
                     </th>
-                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4 md:table-cell">
+                    <th className="w-[72px] px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:w-[136px] sm:px-4">
                       Created
                     </th>
-                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:px-4">
+                    <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:w-[16%] lg:w-[13%]">
                       Contact
                     </th>
-                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4 lg:table-cell">
+                    <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell lg:w-[13%]">
                       Assigned to
                     </th>
-                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4 lg:table-cell">
+                    <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell lg:w-[15%]">
                       Location
                     </th>
-                    <th className="px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4">
+                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:w-[112px] sm:px-4">
                       Status
                     </th>
-                    <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:px-4">
+                    <th className="hidden px-2 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:w-[100px] sm:px-4">
                       Total
                     </th>
                   </tr>
@@ -507,29 +505,29 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
                 <tbody className="divide-y divide-line">
                   {Array.from({ length: 8 }).map((_, idx) => (
                     <tr key={idx} className="animate-pulse bg-surface">
-                      <td className="w-12 px-4 py-3">
+                      <td className="px-2 py-3 sm:px-4">
                         <div className="mx-auto h-4 w-4 rounded-full bg-surface-2" />
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="h-4 w-32 rounded bg-surface-2" />
+                      <td className="px-2 py-3 sm:px-4">
+                        <div className="h-4 w-3/4 rounded bg-surface-2" />
                       </td>
-                      <td className="hidden px-4 py-3 md:table-cell">
-                        <div className="h-4 w-24 rounded bg-surface-2" />
+                      <td className="px-2 py-3 sm:px-4">
+                        <div className="h-4 w-4/5 rounded bg-surface-2" />
                       </td>
-                      <td className="hidden px-4 py-3 sm:table-cell">
-                        <div className="h-4 w-28 rounded bg-surface-2" />
+                      <td className="hidden px-2 py-3 sm:table-cell sm:px-4">
+                        <div className="h-4 w-4/5 rounded bg-surface-2" />
                       </td>
-                      <td className="hidden px-4 py-3 lg:table-cell">
-                        <div className="h-4 w-24 rounded bg-surface-2" />
+                      <td className="hidden px-2 py-3 sm:px-4 lg:table-cell">
+                        <div className="h-4 w-3/4 rounded bg-surface-2" />
                       </td>
-                      <td className="hidden px-4 py-3 lg:table-cell">
-                        <div className="h-4 w-20 rounded bg-surface-2" />
+                      <td className="hidden px-2 py-3 sm:px-4 lg:table-cell">
+                        <div className="h-4 w-2/3 rounded bg-surface-2" />
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="h-4 w-16 rounded bg-surface-2" />
+                      <td className="hidden px-2 py-3 sm:table-cell sm:px-4">
+                        <div className="h-4 w-3/5 rounded bg-surface-2" />
                       </td>
-                      <td className="hidden px-4 py-3 sm:table-cell">
-                        <div className="h-4 w-16 rounded bg-surface-2" />
+                      <td className="hidden px-2 py-3 sm:table-cell sm:px-4">
+                        <div className="ml-auto h-4 w-2/3 rounded bg-surface-2" />
                       </td>
                     </tr>
                   ))}
@@ -568,8 +566,8 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
       ) : (
         // List layout (table)
         <div className="overflow-hidden rounded-xl bg-surface shadow-card">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div>
+            <table className="w-full table-fixed">
               <thead className="border-b border-line">
                 <tr>
                   <th className="w-8 px-2 py-3 sm:w-12 sm:px-4">
@@ -588,22 +586,22 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
                   <th className="px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4">
                     Job
                   </th>
-                  <th className="px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:px-4">
+                  <th className="w-[72px] px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:w-[136px] sm:px-4">
                     Created
                   </th>
-                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell">
+                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:w-[16%] lg:w-[13%]">
                     Contact
                   </th>
-                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell">
+                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell lg:w-[13%]">
                     Assigned to
                   </th>
-                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell">
+                  <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell lg:w-[15%]">
                     Location
                   </th>
-                  <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:px-4">
+                  <th className="hidden px-2 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:w-[112px] sm:px-4">
                     Status
                   </th>
-                  <th className="hidden px-2 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:px-4">
+                  <th className="hidden px-2 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell sm:w-[100px] sm:px-4">
                     Total
                   </th>
                 </tr>
@@ -611,7 +609,6 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
               <tbody className="divide-y divide-line">
                 {filteredJobLogs.map(jobLog => {
                   const hasTime = (jobLog.timeEntries?.length ?? 0) > 0
-                  const recurringTag = jobLog.bookings ? getRecurringTag(jobLog.bookings) : null
                   const status = JOB_STATUS[resolveStatus(jobLog.status)]
                   return (
                     <tr
@@ -626,13 +623,8 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
                           className="mx-auto"
                         />
                       </td>
-                      <td className="min-w-0 px-2 py-3 sm:px-4">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="min-w-0 truncate text-sm font-medium text-ink">
-                            {jobLog.title}
-                          </span>
-                          {recurringTag && <TagChip>{recurringTag}</TagChip>}
-                        </div>
+                      <td className="px-2 py-3 sm:px-4">
+                        <div className="truncate text-sm font-medium text-ink">{jobLog.title}</div>
                       </td>
                       <td className="px-2 py-3 text-sm text-ink-muted sm:px-4">
                         <span className="hidden whitespace-nowrap font-mono tabular-nums sm:inline">
@@ -642,25 +634,25 @@ const JobLogList = ({ onCreateClick, onSelectJobLog }: JobLogListProps) => {
                           {format(new Date(jobLog.createdAt), 'MMM d')}
                         </span>
                       </td>
-                      <td className="hidden whitespace-nowrap px-2 py-3 text-sm text-ink-muted sm:table-cell sm:px-4">
-                        <div className="max-w-[150px] truncate">
+                      <td className="hidden px-2 py-3 text-sm text-ink-muted sm:table-cell sm:px-4">
+                        <div className="truncate">
                           {jobLog.contact?.name || <span className="text-ink-subtle">—</span>}
                         </div>
                       </td>
-                      <td className="hidden whitespace-nowrap px-2 py-3 text-sm text-ink-muted sm:px-4 lg:table-cell">
-                        <div className="max-w-[150px] truncate">
+                      <td className="hidden px-2 py-3 text-sm text-ink-muted sm:px-4 lg:table-cell">
+                        <div className="truncate">
                           {jobLog.assignedToName || <span className="text-ink-subtle">—</span>}
                         </div>
                       </td>
-                      <td className="hidden whitespace-nowrap px-2 py-3 text-sm text-ink-muted sm:px-4 lg:table-cell">
-                        <div className="max-w-[150px] truncate">
+                      <td className="hidden px-2 py-3 text-sm text-ink-muted sm:px-4 lg:table-cell">
+                        <div className="truncate">
                           {jobLog.location || <span className="text-ink-subtle">—</span>}
                         </div>
                       </td>
-                      <td className="hidden whitespace-nowrap px-2 py-3 sm:table-cell sm:px-4">
+                      <td className="hidden overflow-hidden px-2 py-3 sm:table-cell sm:px-4">
                         <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
                       </td>
-                      <td className="hidden whitespace-nowrap px-2 py-3 text-right sm:table-cell sm:px-4">
+                      <td className="hidden overflow-hidden px-2 py-3 text-right sm:table-cell sm:px-4">
                         <span className="font-mono text-sm font-semibold tabular-nums text-ink">
                           {hasTime ? computeTotalHours(jobLog) : '—'}
                         </span>

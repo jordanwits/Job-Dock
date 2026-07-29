@@ -11,6 +11,76 @@ export interface ManifestEntry {
 
 export const manifest: ManifestEntry[] = [
   {
+    "collection": "guides",
+    "slug": "cleaning-business-invoicing",
+    "path": "/guides/cleaning-business-invoicing",
+    "meta": {
+      "title": "Invoicing for cleaning businesses",
+      "description": "How to invoice cleaning clients so you actually get paid. Deposits, payment terms, card versus ACH costs, and what to do when an invoice goes unpaid.",
+      "summary": "Getting paid is the part that decides whether the business works. Here is how to make it boring.",
+      "updated": "2026-07-29",
+      "navLabel": "Invoicing",
+      "targetQuery": "how to invoice for cleaning services",
+      "draft": true
+    }
+  },
+  {
+    "collection": "guides",
+    "slug": "cleaning-contract-template",
+    "path": "/guides/cleaning-contract-template",
+    "meta": {
+      "title": "Cleaning business contract template",
+      "description": "A free cleaning service agreement template you can copy and adapt, with a plain-English explanation of what each clause is protecting you from.",
+      "summary": "A service agreement you can copy, plus what each clause is actually protecting you from.",
+      "updated": "2026-07-29",
+      "navLabel": "Contract template",
+      "targetQuery": "cleaning business contract template",
+      "draft": true
+    }
+  },
+  {
+    "collection": "guides",
+    "slug": "get-more-cleaning-clients",
+    "path": "/guides/get-more-cleaning-clients",
+    "meta": {
+      "title": "How to get more cleaning clients",
+      "description": "Where residential cleaning clients actually come from, ranked by what works for a small business, with specific tactics for Google Business Profile, referrals and local groups.",
+      "summary": "Ranked by what actually works for a small cleaning business, not by what is easiest to write about.",
+      "updated": "2026-07-29",
+      "navLabel": "Getting clients",
+      "targetQuery": "how to get more cleaning clients",
+      "draft": true
+    }
+  },
+  {
+    "collection": "guides",
+    "slug": "how-to-price-house-cleaning",
+    "path": "/guides/how-to-price-house-cleaning",
+    "meta": {
+      "title": "How to price a house cleaning job",
+      "description": "A working method for pricing residential cleaning. Build your rate from labour, overhead and profit rather than guessing, with worked examples for recurring cleans, deep cleans and move-outs.",
+      "summary": "Most cleaners price by looking at competitors and shaving a bit off. Here's how to build a number that actually pays you.",
+      "updated": "2026-07-29",
+      "navLabel": "Pricing a clean",
+      "targetQuery": "how to price a house cleaning job",
+      "draft": true
+    }
+  },
+  {
+    "collection": "guides",
+    "slug": "recurring-cleaning-schedules",
+    "path": "/guides/recurring-cleaning-schedules",
+    "meta": {
+      "title": "Setting up recurring cleaning schedules",
+      "description": "How to structure weekly, biweekly and monthly cleaning schedules so the calendar builds itself, routes stay tight, and holidays and cancellations do not cascade.",
+      "summary": "Recurring work is most of your revenue. The schedule should build itself, not get rebuilt every Sunday.",
+      "updated": "2026-07-29",
+      "navLabel": "Recurring schedules",
+      "targetQuery": "recurring cleaning schedule for clients",
+      "draft": true
+    }
+  },
+  {
     "collection": "compare",
     "slug": "housecall-pro-alternative-cleaning",
     "path": "/compare/housecall-pro-alternative-cleaning",
