@@ -24,6 +24,24 @@ interface ImportContactsModalProps {
 
 type ImportStep = 'upload' | 'preview' | 'mapping' | 'processing' | 'conflicts' | 'complete'
 
+/**
+ * Pull the message the API actually sent. Axios puts its own "Request failed with status code 500"
+ * on `err.message`, so reading that alone threw away every explanation the backend gave — a CSV
+ * the parser rejected showed up as a bare status code with no hint of what was wrong with it.
+ */
+const apiErrorMessage = (err: unknown, fallback: string): string => {
+  // errorResponse() in the backend nests the payload as { error: { message } }; the flat shape is
+  // accepted too so this keeps working if an endpoint responds with { message }.
+  const data = (
+    err as { response?: { data?: { error?: { message?: unknown }; message?: unknown } } }
+  )?.response?.data
+  for (const candidate of [data?.error?.message, data?.message]) {
+    if (typeof candidate === 'string' && candidate) return candidate
+  }
+  const fromError = (err as { message?: unknown })?.message
+  return typeof fromError === 'string' && fromError ? fromError : fallback
+}
+
 const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContactsModalProps) => {
   const [step, setStep] = useState<ImportStep>('upload')
   const [csvFile, setCsvFile] = useState<File | null>(null)
@@ -51,13 +69,17 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
     setApplyToAll(false)
     setShowFieldMapping(false)
     setError(null)
+    // Without this the input still holds the previous file, so picking that same file again is not
+    // a change and fires no event — the modal would just sit on the upload step doing nothing.
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.name.endsWith('.csv')) {
+    // Excel on Windows writes .CSV, so compare case-insensitively.
+    if (!file.name.toLowerCase().endsWith('.csv')) {
       setError('Please select a CSV file')
       return
     }
@@ -71,6 +93,10 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
     setCsvFile(file)
 
     const reader = new FileReader()
+    reader.onerror = () => {
+      setError("That file couldn't be read. Try re-saving it as CSV and selecting it again.")
+      setIsLoading(false)
+    }
     reader.onload = async (event) => {
       const content = event.target?.result as string
       setCsvContent(content)
@@ -84,7 +110,7 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
         setFieldMapping(previewData.suggestedMapping)
         setStep('preview')
       } catch (err: any) {
-        setError(err.message || 'Failed to parse CSV file')
+        setError(apiErrorMessage(err, 'Failed to parse CSV file'))
       } finally {
         setIsLoading(false)
       }
@@ -120,7 +146,10 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
         setStep('complete')
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to start import')
+      setError(apiErrorMessage(err, 'Failed to start import'))
+      // Drop back to the mapping step so the message is next to the thing they can change,
+      // instead of leaving them on a blank processing screen.
+      setStep('preview')
     } finally {
       setIsLoading(false)
     }
@@ -165,7 +194,7 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to resolve conflict')
+      setError(apiErrorMessage(err, 'Failed to resolve conflict'))
     } finally {
       setIsLoading(false)
     }
@@ -189,11 +218,18 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
     }))
   }
 
+  /** Without a name the server rejects every row, so don't let the import start. */
+  const mappedTargets = Object.values(fieldMapping)
+  const hasNameMapping =
+    mappedTargets.includes('fullName') ||
+    (mappedTargets.includes('firstName') && mappedTargets.includes('lastName'))
+
   const contactFields = [
     { value: 'firstName', label: 'First Name' },
     { value: 'lastName', label: 'Last Name' },
     // Splits one column into first + last on the server. Auto-selected for "Name"-style columns.
-    { value: 'fullName', label: 'Full Name (split in two)' },
+    // Kept short so it fits the 180px menu without forcing a horizontal scrollbar.
+    { value: 'fullName', label: 'Full Name (split)' },
     { value: 'email', label: 'Email' },
     { value: 'phone', label: 'Phone' },
     { value: 'company', label: 'Company' },
@@ -292,6 +328,13 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
                 <p className="text-xs text-ink-subtle">contacts found</p>
               </div>
             </div>
+
+            {/* Non-fatal problems with the file — these used to abort the whole import */}
+            {preview.warnings?.map((warning) => (
+              <Alert key={warning} tone="warning" icon={<AlertIcon className="h-4 w-4" />}>
+                {warning}
+              </Alert>
+            ))}
 
             {/* Preview table */}
             <div className="overflow-hidden rounded-xl bg-surface shadow-card">
@@ -413,42 +456,53 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
 
               {/* Helper text */}
               <div className="mt-4">
-                <Alert tone="info" icon={<InfoIcon className="h-4 w-4" />}>
-                  <strong className="font-semibold">Auto-detected:</strong> We've automatically matched common field names.
-                  {!showFieldMapping ? ' Click "Customize mapping" above to adjust.' : ' First Name and Last Name are required.'}
-                </Alert>
+                {hasNameMapping ? (
+                  <Alert tone="info" icon={<InfoIcon className="h-4 w-4" />}>
+                    <strong className="font-semibold">Auto-detected:</strong> We've automatically matched common field names.
+                    {!showFieldMapping
+                      ? ' Click "Customize mapping" above to adjust.'
+                      : ' A name is required: either First Name and Last Name, or one column mapped to Full Name.'}
+                  </Alert>
+                ) : (
+                  <Alert tone="warning" icon={<AlertIcon className="h-4 w-4" />}>
+                    <strong className="font-semibold">A name is required.</strong> Map a column to{' '}
+                    <em>Full Name</em>, or to both <em>First Name</em> and <em>Last Name</em>, before importing —
+                    otherwise every row will be rejected.
+                  </Alert>
+                )}
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex items-center justify-between pt-1">
               <AppButton variant="ghost" onClick={handleCancel}>Cancel import</AppButton>
-              <AppButton onClick={handleConfirmMapping} isLoading={isLoading} disabled={isLoading}>
+              <AppButton
+                onClick={handleConfirmMapping}
+                isLoading={isLoading}
+                disabled={isLoading || !hasNameMapping || preview.totalRows === 0}
+              >
                 {isLoading ? 'Processing...' : `Import ${preview.totalRows} contacts`}
               </AppButton>
             </div>
           </div>
         )}
 
-        {/* Processing step */}
-        {step === 'processing' && importData && (
+        {/* Processing step. Deliberately not gated on importData: that only arrives when the import
+            has already finished, so requiring it left this screen blank for the whole import. The
+            server processes the file in one request, so there is no incremental progress to show. */}
+        {step === 'processing' && (
           <div className="space-y-6 py-10 text-center">
             <Spinner className="mx-auto h-12 w-12 text-accent-strong" />
             <div>
-              <h3 className="text-lg font-semibold text-ink">Importing your contacts...</h3>
+              <h3 className="text-lg font-semibold text-ink">
+                Importing{preview ? ` ${preview.totalRows}` : ''} contacts...
+              </h3>
               <p className="mt-1 text-sm text-ink-muted">This may take a moment. Please don't close this window.</p>
             </div>
             <div className="mx-auto max-w-md">
               <div className="h-1.5 overflow-hidden rounded-full bg-line">
-                <div
-                  className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
-                  style={{ width: `${(importData.progress.processed / importData.progress.total) * 100}%` }}
-                />
+                <div className="h-full w-1/3 animate-indeterminate rounded-full bg-accent" />
               </div>
-              <p className="mt-2 text-sm text-ink-muted">
-                <span className="font-mono tabular-nums">{importData.progress.processed}</span> of{' '}
-                <span className="font-mono tabular-nums">{importData.progress.total}</span> contacts processed
-              </p>
             </div>
           </div>
         )}
@@ -464,11 +518,37 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
               )}
             </Alert>
 
-            {/* Comparison cards */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <ConflictCard title="Current contact" tone="neutral" data={currentConflict.existingContact} />
-              <ConflictCard title="New from CSV" tone="accent" data={currentConflict.incomingData} />
-            </div>
+            {/* Comparison cards. Differing fields are flagged on both sides — without that the two
+                panels are indistinguishable and there's nothing to base a decision on. */}
+            {(() => {
+              const changed = changedConflictFields(
+                currentConflict.existingContact,
+                currentConflict.incomingData
+              )
+              return (
+                <>
+                  {changed.length === 0 && (
+                    <Alert tone="info" icon={<InfoIcon className="h-4 w-4" />}>
+                      These two records are identical, so updating changes nothing.
+                    </Alert>
+                  )}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <ConflictCard
+                      title="Current contact"
+                      tone="neutral"
+                      data={currentConflict.existingContact}
+                      changed={changed}
+                    />
+                    <ConflictCard
+                      title="New from CSV"
+                      tone="accent"
+                      data={currentConflict.incomingData}
+                      changed={changed}
+                    />
+                  </div>
+                </>
+              )
+            })()}
 
             {/* Apply to all */}
             {importData.pendingConflicts.length > 1 && (
@@ -498,12 +578,30 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
         {/* Complete step */}
         {step === 'complete' && importData && (
           <div className="space-y-6 py-4 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-soft text-success">
-              <CheckIcon className="h-8 w-8" />
+            <div
+              className={cn(
+                'mx-auto flex h-16 w-16 items-center justify-center rounded-full',
+                importData.progress.failed > 0
+                  ? 'bg-warning-soft text-warning'
+                  : 'bg-success-soft text-success'
+              )}
+            >
+              {importData.progress.failed > 0 ? (
+                <AlertIcon className="h-8 w-8" />
+              ) : (
+                <CheckIcon className="h-8 w-8" />
+              )}
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-ink">Import complete</h3>
-              <p className="mt-1 text-sm text-ink-muted">Your contacts have been successfully imported</p>
+              {/* Don't claim success when rows were rejected — the counts below contradicted it. */}
+              <h3 className="text-xl font-semibold text-ink">
+                {importData.progress.failed > 0 ? 'Import finished with errors' : 'Import complete'}
+              </h3>
+              <p className="mt-1 text-sm text-ink-muted">
+                {importData.progress.failed > 0
+                  ? `${importData.progress.inserted + importData.progress.updated} contact(s) imported, ${importData.progress.failed} could not be`
+                  : 'Your contacts have been successfully imported'}
+              </p>
             </div>
 
             {/* Summary */}
@@ -523,7 +621,11 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
                 <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
                   {importData.errors.map((err, idx) => (
                     <div key={idx} className="rounded-lg bg-surface-2 p-3 text-xs">
-                      <span className="font-semibold text-danger">Row {err.rowIndex + 1}:</span>
+                      {/* `line` is the real line in their file. rowIndex + 1 was the index into the
+                          filtered rows, which drifted from the file whenever a row was skipped. */}
+                      <span className="font-semibold text-danger">
+                        Line {err.line ?? err.rowIndex + 2}:
+                      </span>
                       <span className="ml-2 text-ink-muted">{err.message}</span>
                     </div>
                   ))}
@@ -549,22 +651,54 @@ const ImportContactsModal = ({ isOpen, onClose, onImportComplete }: ImportContac
   )
 }
 
+type ConflictFields = {
+  firstName?: string
+  lastName?: string
+  email?: string
+  phone?: string
+  company?: string
+}
+
+const conflictRows = (data: ConflictFields): { key: string; label: string; value?: string }[] => [
+  { key: 'name', label: 'Name', value: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() },
+  { key: 'email', label: 'Email', value: data.email },
+  { key: 'phone', label: 'Phone', value: data.phone },
+  { key: 'company', label: 'Company', value: data.company },
+]
+
+/**
+ * Which of the compared fields actually differ. Email is compared case-insensitively to match how
+ * the server detects duplicates, so a pure casing difference isn't presented as a change.
+ */
+function changedConflictFields(existing: ConflictFields, incoming: ConflictFields): string[] {
+  const existingRows = conflictRows(existing)
+  const incomingRows = conflictRows(incoming)
+  return existingRows
+    .filter((row, i) => {
+      const before = (row.value ?? '').trim()
+      const after = (incomingRows[i].value ?? '').trim()
+      // An absent incoming value leaves the existing one alone, so it isn't a change.
+      if (!after) return false
+      return row.key === 'email'
+        ? before.toLowerCase() !== after.toLowerCase()
+        : before !== after
+    })
+    .map(row => row.key)
+}
+
 /* Conflict comparison card */
 function ConflictCard({
   title,
   tone,
   data,
+  changed,
 }: {
   title: string
   tone: 'neutral' | 'accent'
-  data: { firstName?: string; lastName?: string; email?: string; phone?: string; company?: string }
+  data: ConflictFields
+  changed: string[]
 }) {
-  const rows: { label: string; value?: string }[] = [
-    { label: 'Name', value: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() },
-    { label: 'Email', value: data.email },
-    { label: 'Phone', value: data.phone },
-    { label: 'Company', value: data.company },
-  ]
+  const rows = conflictRows(data)
   return (
     <div
       className={cn(
@@ -574,14 +708,25 @@ function ConflictCard({
     >
       <h4 className={cn('mb-3 text-sm font-semibold', tone === 'accent' ? 'text-accent-strong' : 'text-ink')}>{title}</h4>
       <div className="space-y-3 text-sm">
-        {rows.map((row) =>
-          row.value ? (
+        {rows.map((row) => {
+          if (!row.value) return null
+          const isChanged = changed.includes(row.key)
+          return (
             <div key={row.label} className="border-b border-line pb-2 last:border-0 last:pb-0">
-              <p className="mb-0.5 text-[11px] uppercase tracking-wide text-ink-subtle">{row.label}</p>
-              <p className="break-words text-ink">{row.value}</p>
+              <p className="mb-0.5 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-ink-subtle">
+                {row.label}
+                {isChanged && (
+                  <span className="rounded bg-warning-soft px-1.5 py-px text-[10px] font-semibold normal-case text-warning">
+                    differs
+                  </span>
+                )}
+              </p>
+              <p className={cn('break-words', isChanged ? 'font-medium text-ink' : 'text-ink-muted')}>
+                {row.value}
+              </p>
             </div>
-          ) : null
-        )}
+          )
+        })}
       </div>
     </div>
   )

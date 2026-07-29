@@ -71,10 +71,16 @@ export default {
           from: { transform: 'translateY(100%)' },
           to: { transform: 'translateY(0)' },
         },
+        // Sweeps a partial bar back and forth for work whose progress can't be measured.
+        indeterminate: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(300%)' },
+        },
       },
       animation: {
         // Mobile full-screen modal entrance (iOS-sheet style)
         'modal-slide-up': 'modal-slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
+        indeterminate: 'indeterminate 1.4s ease-in-out infinite',
       },
     },
   },

@@ -6,6 +6,7 @@
 import Papa from 'papaparse'
 import prisma from './db'
 import { Contact } from '@prisma/client'
+import { ApiError } from './errors'
 
 export interface ImportSession {
   id: string
@@ -38,6 +39,8 @@ export interface ImportConflict {
 
 export interface ImportError {
   rowIndex: number
+  /** 1-based line in the source file, so the message matches what the user sees in their spreadsheet. */
+  line: number
   field?: string
   message: string
   data: any
@@ -48,6 +51,8 @@ export interface CSVPreview {
   rows: any[]
   totalRows: number
   suggestedMapping: Record<string, string>
+  /** Non-fatal problems with the file (e.g. rows whose column count doesn't match the header). */
+  warnings: string[]
 }
 
 export interface ImportSessionData {
@@ -68,59 +73,101 @@ export interface ImportSessionData {
 // In-memory storage for import sessions (in production, use Redis or DynamoDB)
 const importSessions = new Map<string, ImportSession>()
 
+interface ParsedCSV {
+  headers: string[]
+  rows: Array<Record<string, string>>
+  /** 1-based source line for each row in `rows`, aligned by index. */
+  lines: number[]
+  warnings: string[]
+}
+
 /**
- * Parse CSV and generate preview
+ * Parse a CSV into rows plus their source line numbers.
+ *
+ * Empty lines are kept by the parser (rather than using skipEmptyLines) and filtered here, so a
+ * row's index in `parsed.data` still corresponds to its line in the file — that is what lets row
+ * errors quote a line number the user can find in their spreadsheet. Both the preview and the
+ * import run through this one function so they can never disagree about what the file contains.
  */
-export function parseCSVPreview(csvContent: string): CSVPreview {
-  console.log('[parseCSVPreview] Starting, content length:', csvContent?.length)
+function parseCSV(csvContent: string): ParsedCSV {
   const parsed = Papa.parse<Record<string, string>>(csvContent, {
     header: true,
-    skipEmptyLines: 'greedy', // Skip lines with all empty values
+    skipEmptyLines: false,
     transformHeader: (header) => header.trim(),
     quoteChar: '"',
     escapeChar: '"',
   })
 
-  console.log('[parseCSVPreview] Parsed:', { errorCount: parsed.errors.length, dataLength: parsed.data?.length, fields: parsed.meta?.fields })
-
-  if (parsed.errors.length > 0) {
-    console.error('[parseCSVPreview] Parse errors:', parsed.errors)
-    // Only throw if it's a critical error, not just warnings
-    const criticalErrors = parsed.errors.filter((e: { type?: string }) => e.type === 'Quotes' || e.type === 'FieldMismatch')
-    if (criticalErrors.length > 0) {
-      throw new Error(`CSV parsing error: ${criticalErrors[0].message}`)
-    }
+  // An unterminated quote swallows the rest of the file, so there is genuinely nothing to import.
+  const unterminatedQuote = parsed.errors.find((e: { type?: string }) => e.type === 'Quotes')
+  if (unterminatedQuote) {
+    throw new ApiError(
+      'This file has a quotation mark that is never closed, so the rest of it can\'t be read. ' +
+        'Re-export it from your spreadsheet and try again.',
+      400
+    )
   }
 
   const headers = parsed.meta.fields || []
-  
-  // Filter out rows that are truly empty (all values are empty or whitespace)
-  const nonEmptyRows = (parsed.data as any[]).filter(row => {
-    return Object.values(row).some(value => 
-      value !== null && 
-      value !== undefined && 
-      String(value).trim() !== '' &&
-      String(value).trim().toLowerCase() !== 'false' // Filter out rows with just FALSE values
-    )
+
+  // Rows whose column count differs from the header are still usable: short rows simply leave
+  // fields empty and long rows put the surplus in __parsed_extra. One hand-edited line must not
+  // reject the entire file, so these are reported as warnings and imported.
+  const mismatchedRows = new Set(
+    parsed.errors
+      .filter((e: { type?: string }) => e.type === 'FieldMismatch')
+      .map((e: { row?: number }) => e.row)
+      .filter((row): row is number => typeof row === 'number')
+  )
+
+  const rows: Array<Record<string, string>> = []
+  const lines: number[] = []
+  const mismatchedLines: number[] = []
+
+  ;(parsed.data as any[]).forEach((row, index) => {
+    const hasContent = Object.entries(row).some(([key, value]) => {
+      if (key === '__parsed_extra') return false
+      if (value === null || value === undefined) return false
+      const trimmed = String(value).trim()
+      // Rows that are entirely FALSE come from spreadsheet boolean columns, not real contacts.
+      return trimmed !== '' && trimmed.toLowerCase() !== 'false'
+    })
+    if (!hasContent) return
+
+    delete row.__parsed_extra
+    // +2 == one line for the header, and lines are 1-based.
+    const line = index + 2
+    rows.push(row)
+    lines.push(line)
+    if (mismatchedRows.has(index)) mismatchedLines.push(line)
   })
 
-  const rows = nonEmptyRows.slice(0, 5) // Preview first 5 rows
-  const totalRows = nonEmptyRows.length
+  const warnings: string[] = []
+  if (mismatchedLines.length > 0) {
+    const shown = mismatchedLines.slice(0, 10).join(', ')
+    const suffix = mismatchedLines.length > 10 ? `, and ${mismatchedLines.length - 10} more` : ''
+    warnings.push(
+      `${mismatchedLines.length} row(s) don't have the same number of columns as the header ` +
+        `(line${mismatchedLines.length > 1 ? 's' : ''} ${shown}${suffix}). ` +
+        'They will still be imported, using the columns that lined up.'
+    )
+  }
 
-  console.log('[parseCSVPreview] Headers:', headers)
-  console.log('[parseCSVPreview] First row sample:', rows[0])
-  console.log('[parseCSVPreview] Total non-empty rows:', totalRows)
+  return { headers, rows, lines, warnings }
+}
 
-  // Suggest field mappings based on common column names
-  const suggestedMapping = generateFieldMapping(headers)
-
-  console.log('[parseCSVPreview] Generated mapping:', suggestedMapping)
+/**
+ * Parse CSV and generate preview
+ */
+export function parseCSVPreview(csvContent: string): CSVPreview {
+  const { headers, rows, warnings } = parseCSV(csvContent)
 
   return {
     headers,
-    rows,
-    totalRows,
-    suggestedMapping,
+    rows: rows.slice(0, 5), // Preview first 5 rows
+    totalRows: rows.length,
+    suggestedMapping: generateFieldMapping(headers),
+    warnings,
   }
 }
 
@@ -233,27 +280,11 @@ export async function processImportSession(
   session.status = 'processing'
 
   const csvContent = Buffer.from(session.csvData, 'base64').toString('utf-8')
-  const parsed = Papa.parse<Record<string, string>>(csvContent, {
-    header: true,
-    skipEmptyLines: 'greedy',
-    transformHeader: (header) => header.trim(),
-    quoteChar: '"',
-    escapeChar: '"',
-  })
-
-  // Filter out truly empty rows
-  const allRows = parsed.data as any[]
-  const rows = allRows.filter(row => {
-    return Object.values(row).some(value => 
-      value !== null && 
-      value !== undefined && 
-      String(value).trim() !== '' &&
-      String(value).trim().toLowerCase() !== 'false'
-    )
-  })
+  const { rows, lines } = parseCSV(csvContent)
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
+    const line = lines[i]
 
     try {
       // Map CSV fields to contact fields
@@ -268,10 +299,12 @@ export async function processImportSession(
       const lastName = contactData.lastName?.trim()
       
       if (!firstName || !lastName) {
-        const errorMsg = `Missing required fields: ${!firstName ? 'firstName' : ''} ${!lastName ? 'lastName' : ''}`.trim()
+        const missing = [!firstName && 'first name', !lastName && 'last name'].filter(Boolean)
+        const errorMsg = `Missing required ${missing.length > 1 ? 'fields' : 'field'}: ${missing.join(' and ')}`
         console.log('Validation error:', errorMsg, 'for row:', row)
         session.errors.push({
           rowIndex: i,
+          line,
           message: errorMsg,
           data: row,
         })
@@ -287,12 +320,13 @@ export async function processImportSession(
       // Check for duplicates using multiple criteria
       let existing = null
       
-      // First, check by email if available
+      // First, check by email if available. Case-insensitively: addresses are not case-sensitive
+      // in practice, and matching exactly let ADA@x.com and ada@x.com both import as new contacts.
       if (contactData.email) {
         existing = await prisma.contact.findFirst({
           where: {
             tenantId: session.tenantId,
-            email: contactData.email,
+            email: { equals: contactData.email, mode: 'insensitive' },
           },
         })
       }
@@ -347,6 +381,7 @@ export async function processImportSession(
         })
         session.errors.push({
           rowIndex: i,
+          line,
           message: 'Internal error: firstName or lastName missing after validation',
           data: row,
         })
@@ -381,6 +416,7 @@ export async function processImportSession(
     } catch (error: any) {
       session.errors.push({
         rowIndex: i,
+        line,
         message: error.message || 'Unknown error',
         data: row,
       })

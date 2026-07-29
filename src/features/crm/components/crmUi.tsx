@@ -218,17 +218,45 @@ export interface SelectFieldProps
  * and a token popover for the options — so the option list matches the design
  * system instead of the OS-native dropdown.
  */
+/**
+ * The edges an absolutely-positioned popover will actually be clipped by: the nearest scrolling or
+ * clipping ancestor, or the viewport when there isn't one. Measuring against the viewport alone is
+ * wrong inside a modal — the modal body ends well above the bottom of the window, so a menu can
+ * have "room" on screen and still be cut off by the panel it lives in.
+ */
+function clippingBounds(el: HTMLElement): { top: number; bottom: number } {
+  const clips = /(auto|scroll|hidden|clip)/
+  let node = el.parentElement
+  while (node && node !== document.body) {
+    const style = getComputedStyle(node)
+    if (clips.test(style.overflowY) || clips.test(style.overflowX)) {
+      const rect = node.getBoundingClientRect()
+      return {
+        top: Math.max(0, rect.top),
+        bottom: Math.min(window.innerHeight, rect.bottom),
+      }
+    }
+    node = node.parentElement
+  }
+  return { top: 0, bottom: window.innerHeight }
+}
+
 export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
   (
     { className, menuClassName, label, error, helperText, options, value, onChange, onBlur, name, id, disabled, placeholder, 'aria-label': ariaLabel, ...rest },
     ref
   ) => {
     const [isOpen, setIsOpen] = useState(false)
+    const [openUpward, setOpenUpward] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
     const selectRef = useRef<HTMLSelectElement>(null)
     useImperativeHandle(ref, () => selectRef.current as HTMLSelectElement)
     const selectId = id || name
+
+    /** Menu height cap, kept in sync with the max-h-64 class below. */
+    const MENU_MAX_HEIGHT = 256
 
     useEffect(() => {
       const onDoc = (e: MouseEvent) => {
@@ -243,14 +271,22 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
       return () => document.removeEventListener('mousedown', onDoc)
     }, [isOpen, onBlur])
 
-    // Keep the open menu in view inside scrollable containers (e.g. modals).
+    // Decide which way to open before the menu paints: downward normally, upward when the space
+    // below the trigger can't hold the menu but the space above can. Previously the menu always
+    // opened downward and a scrollIntoView() nudged the surrounding scroll container to reveal it,
+    // which yanked the whole panel out from under the pointer mid-click.
     useEffect(() => {
-      if (!isOpen) return
-      const t = setTimeout(
-        () => dropdownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }),
-        10
-      )
-      return () => clearTimeout(t)
+      if (!isOpen) {
+        setOpenUpward(false)
+        return
+      }
+      const trigger = triggerRef.current
+      if (!trigger) return
+      const { top, bottom } = trigger.getBoundingClientRect()
+      const bounds = clippingBounds(trigger)
+      const spaceBelow = bounds.bottom - bottom
+      const spaceAbove = top - bounds.top
+      setOpenUpward(spaceBelow < MENU_MAX_HEIGHT + 16 && spaceAbove > spaceBelow)
     }, [isOpen])
 
     const selected = options.find(o => o.value === value)
@@ -292,6 +328,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
 
         <div className="relative w-full" ref={containerRef}>
           <button
+            ref={triggerRef}
             type="button"
             onClick={() => !disabled && setIsOpen(o => !o)}
             disabled={disabled}
@@ -316,7 +353,8 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
               ref={dropdownRef}
               role="listbox"
               className={cn(
-                'absolute z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line',
+                'absolute z-50 max-h-64 w-full overflow-y-auto rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-line',
+                openUpward ? 'bottom-full mb-2' : 'top-full mt-2',
                 menuClassName
               )}
             >

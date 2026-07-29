@@ -13,6 +13,8 @@ export interface ImportConflict {
 
 export interface ImportError {
   rowIndex: number
+  /** 1-based line in the source file. Older responses may not include it. */
+  line?: number
   field?: string
   message: string
   data: any
@@ -23,6 +25,8 @@ export interface CSVPreview {
   rows: any[]
   totalRows: number
   suggestedMapping: Record<string, string>
+  /** Non-fatal problems with the file, e.g. rows whose column count doesn't match the header. */
+  warnings?: string[]
 }
 
 export interface ImportProgress {
