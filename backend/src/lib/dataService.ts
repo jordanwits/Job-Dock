@@ -86,6 +86,20 @@ function offsetHoursForZone(timezone: string | null | undefined, at: Date): numb
   }
 }
 
+/**
+ * The tenant-local calendar day (YYYY-MM-DD) that an instant falls on, given the tenant's UTC
+ * offset in hours. Shifting the instant by the offset makes its UTC fields read as local
+ * wall-clock fields, so the UTC date portion IS the local date.
+ *
+ * Never use Date#toDateString()/getDate() to decide "what day is this for the business" — those
+ * resolve against the Lambda's zone (UTC), which rolls over mid-afternoon for US tenants. Doing
+ * so made every slot on the next local business day look like "today" from 17:00 Pacific onward,
+ * so `sameDayBooking: false` silently hid the whole next day from the public booking page.
+ */
+function localDayKey(instant: Date, offsetHours: number): string {
+  return new Date(instant.getTime() + offsetHours * 3_600_000).toISOString().slice(0, 10)
+}
+
 // Recurrence types
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'custom'
 
@@ -5516,8 +5530,13 @@ export const dataServices = {
       // Generate slots for each day in range
       const slotsData: { date: string; slots: { start: string; end: string }[] }[] = []
 
+      // Start one UTC day before the range so the tenant's CURRENT local day is always covered.
+      // currentDay is a UTC midnight, but slots are placed at (localHour - offset), so for a
+      // tenant behind UTC the local day in progress lives partly on the previous UTC day. Extra
+      // candidates are harmless: past slots and disallowed same-day slots are filtered below.
       const currentDay = new Date(rangeStart)
       currentDay.setHours(0, 0, 0, 0)
+      currentDay.setDate(currentDay.getDate() - 1)
 
       while (currentDay <= rangeEnd) {
         const dayOfWeek = currentDay.getDay()
@@ -5553,8 +5572,13 @@ export const dataServices = {
             // Skip if slot is in the past
             if (slotStart < now) continue
 
-            // Skip same-day bookings if not allowed
-            if (!sameDayBooking && slotStart.toDateString() === now.toDateString()) continue
+            // Skip same-day bookings if not allowed. "Same day" is the BUSINESS's calendar day,
+            // not the Lambda's UTC day — see localDayKey.
+            if (
+              !sameDayBooking &&
+              localDayKey(slotStart, timezoneOffset) === localDayKey(now, timezoneOffset)
+            )
+              continue
 
             // Skip if outside advance booking window
             const daysInFuture = (slotStart.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
@@ -5650,9 +5674,17 @@ export const dataServices = {
           throw new Error('Slot is outside working hours')
         }
 
-        // Validate advance booking rules
+        // Validate advance booking rules. Compare the tenant's LOCAL calendar days (see
+        // localDayKey) — the Lambda's UTC day would reject legitimate next-day bookings every
+        // evening. `timezoneOffset` is resolved at the slot instant; resolve `now` at its own
+        // instant so a DST change between the two doesn't shift either day.
         const sameDayBooking = availability?.sameDayBooking ?? false
-        if (!sameDayBooking && startTime.toDateString() === now.toDateString()) {
+        const nowOffset =
+          availability?.timezoneOffset ?? offsetHoursForZone(bookingTzSettings?.timezone, now)
+        if (
+          !sameDayBooking &&
+          localDayKey(startTime, timezoneOffset) === localDayKey(now, nowOffset)
+        ) {
           throw new Error('Same-day booking is not allowed')
         }
 

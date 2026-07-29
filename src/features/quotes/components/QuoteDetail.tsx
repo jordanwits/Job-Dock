@@ -20,7 +20,7 @@ import {
   SendIcon,
   StatusSelect,
 } from './quotesUi'
-import { QUOTE_STATUS_OPTIONS } from './quoteStatus'
+import { QUOTE_STATUS_ALL_OPTIONS, QUOTE_STATUS_OPTIONS } from './quoteStatus'
 
 interface QuoteDetailProps {
   quote: Quote
@@ -81,7 +81,9 @@ const QuoteDetail = ({
   const handleConvertToInvoice = async (options: { paymentTerms: string; dueDate: string }) => {
     try {
       const invoice = await convertQuoteToInvoice(quote, options)
-      await deleteQuote(quote.id)
+      // Mark the quote invoiced rather than deleting it — it is the record of what the customer
+      // accepted, and the invoice links back to it by quote number.
+      await updateQuote({ id: quote.id, status: 'converted' })
       setShowConvertModal(false)
       setConfirmationMessage('Quote converted to invoice')
       setShowConfirmation(true)
@@ -221,7 +223,12 @@ const QuoteDetail = ({
             </div>
             <StatusSelect
               value={quote.status}
-              options={QUOTE_STATUS_OPTIONS}
+              // An invoiced quote is locked: its status is owned by the invoice that came from it,
+              // and reverting it by hand would put it back in "To Be Invoiced" to be billed twice.
+              options={
+                quote.status === 'converted' ? QUOTE_STATUS_ALL_OPTIONS : QUOTE_STATUS_OPTIONS
+              }
+              disabled={quote.status === 'converted'}
               onChange={handleStatusChange}
               isLoading={isLoading}
             />

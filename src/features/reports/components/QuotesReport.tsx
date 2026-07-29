@@ -32,12 +32,25 @@ const STATUS_META: Record<string, { label: string; tone: Tone }> = {
 }
 
 export const QuotesReport = ({ startDate, endDate, quotes, invoices = [] }: QuotesReportProps) => {
-  // Build converted quote snapshots from invoices that were created from quotes
+  /**
+   * Quotes converted before the fix that stopped deleting them are gone from the quotes table, so
+   * they are reconstructed from the invoice's stored snapshot. Converted quotes now survive with
+   * status `converted`, so skip any snapshot whose quote we already have — otherwise every newly
+   * converted quote would be counted twice here.
+   */
+  const existingQuoteNumbers = useMemo(
+    () => new Set(quotes.map(q => q.quoteNumber)),
+    [quotes]
+  )
+
   const convertedQuotes = useMemo((): QuoteForReport[] => {
     return invoices
       .filter(
         (inv): inv is Invoice & { convertedFromQuoteNumber: string } =>
-          !!(inv as Invoice & { convertedFromQuoteNumber?: string }).convertedFromQuoteNumber
+          !!(inv as Invoice & { convertedFromQuoteNumber?: string }).convertedFromQuoteNumber &&
+          !existingQuoteNumbers.has(
+            (inv as Invoice & { convertedFromQuoteNumber: string }).convertedFromQuoteNumber
+          )
       )
       .map(inv => ({
         id: `conv-${inv.id}`,
@@ -56,7 +69,7 @@ export const QuotesReport = ({ startDate, endDate, quotes, invoices = [] }: Quot
         createdAt: inv.convertedFromQuoteCreatedAt ?? inv.createdAt,
         updatedAt: inv.createdAt,
       }))
-  }, [invoices])
+  }, [invoices, existingQuoteNumbers])
 
   // Merge active quotes with converted snapshots, filter by date range (createdAt)
   const filteredQuotes = useMemo(() => {
@@ -78,7 +91,11 @@ export const QuotesReport = ({ startDate, endDate, quotes, invoices = [] }: Quot
     }
 
     filteredQuotes.forEach(quote => {
-      const status = quote.status || 'draft'
+      // An invoiced quote is still a won quote, and it used to reach this report as an
+      // `accepted` snapshot rebuilt from the invoice. Fold it back into `accepted` so keeping the
+      // real quote around doesn't move the numbers the owner has been looking at.
+      const raw = quote.status || 'draft'
+      const status = raw === 'converted' ? 'accepted' : raw
       if (groups[status]) {
         groups[status].push(quote)
       } else {

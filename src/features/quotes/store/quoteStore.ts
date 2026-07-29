@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { quotesService } from '@/lib/api/services'
 import { getErrorMessage } from '@/lib/utils/errorHandler'
-import type { Quote, CreateQuoteData, UpdateQuoteData } from '../types/quote'
+import type { Quote, CreateQuoteData, UpdateQuoteData, QuoteStatus } from '../types/quote'
 
 interface QuoteState {
   quotes: Quote[]
@@ -9,7 +9,7 @@ interface QuoteState {
   isLoading: boolean
   error: string | null
   searchQuery: string
-  statusFilter: 'all' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+  statusFilter: 'all' | QuoteStatus
   
   // Actions
   fetchQuotes: () => Promise<void>
@@ -20,7 +20,7 @@ interface QuoteState {
   sendQuote: (id: string) => Promise<Quote>
   setSelectedQuote: (quote: Quote | null) => void
   setSearchQuery: (query: string) => void
-  setStatusFilter: (status: 'all' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired') => void
+  setStatusFilter: (status: 'all' | QuoteStatus) => void
   clearError: () => void
 }
 
@@ -150,7 +150,7 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
     set({ searchQuery: query })
   },
 
-  setStatusFilter: (status: 'all' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired') => {
+  setStatusFilter: (status: 'all' | QuoteStatus) => {
     set({ statusFilter: status })
   },
 

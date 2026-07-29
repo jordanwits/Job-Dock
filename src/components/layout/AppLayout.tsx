@@ -72,9 +72,15 @@ const AppLayout = ({ children, sidebarItems = [], user, onLogout, fullWidth }: A
             ~48px tall plus its own 1.25rem offset). Without it the launcher sits on top of
             whatever ends the page — on Settings it completely covered the "Save changes"
             button, which could not be scrolled clear and so was impossible to click.
+
+            Use side-specific padding here, never the `p-*`/`md:p-*` shorthand. Tailwind emits
+            responsive variants after the base layer, so `md:p-6` (padding: 1.5rem) is a later
+            rule of equal specificity and silently resets this padding-bottom back to 24px at
+            >=768px — which is exactly how the launcher ended up back on top of "Save changes"
+            on desktop while mobile looked fine.
           */}
           <div
-            className={`p-4 md:p-6 pb-[calc(env(safe-area-inset-bottom,0px)+6rem)] space-y-6 min-w-0 ${fullWidth ? 'w-full' : 'container mx-auto'}`}
+            className={`px-4 pt-4 md:px-6 md:pt-6 pb-[calc(env(safe-area-inset-bottom,0px)+6rem)] space-y-6 min-w-0 ${fullWidth ? 'w-full' : 'container mx-auto'}`}
           >
             {children}
           </div>

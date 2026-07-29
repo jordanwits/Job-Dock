@@ -65,7 +65,7 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     setSelectedInvoice,
     convertQuoteToInvoice,
   } = useInvoiceStore()
-  const { deleteQuote } = useQuoteStore()
+  const { updateQuote } = useQuoteStore()
 
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
     const saved = localStorage.getItem('invoices-display-mode')
@@ -230,7 +230,10 @@ const InvoiceList = ({ onCreateClick }: InvoiceListProps) => {
     setIsConverting(true)
     try {
       const invoice = await convertQuoteToInvoice(selectedQuoteForConversion, options)
-      await deleteQuote(selectedQuoteForConversion.id)
+      // Mark the quote invoiced rather than deleting it — it is the record of what the customer
+      // accepted. `converted` also drops it out of the "To Be Invoiced" list below, which only
+      // returns quotes still in `accepted`.
+      await updateQuote({ id: selectedQuoteForConversion.id, status: 'converted' })
       setSelectedQuoteForConversion(null)
       // Refresh both invoices and quotes
       await fetchInvoices()

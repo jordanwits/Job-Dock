@@ -99,7 +99,7 @@ const JobLogDetail = ({
     isLoading: jobLogsLoading,
   } = useJobLogStore()
   const { convertQuoteToInvoice, setSelectedInvoice } = useInvoiceStore()
-  const { deleteQuote } = useQuoteStore()
+  const { updateQuote } = useQuoteStore()
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [quoteForConvert, setQuoteForConvert] = useState<
     import('@/features/quotes/types/quote').Quote | null
@@ -860,7 +860,9 @@ const JobLogDetail = ({
       if (linkableJobId) {
         await services.jobs.update(linkableJobId, { invoiceId: invoice.id })
       }
-      await deleteQuote(quoteForConvert.id)
+      // Mark the quote invoiced rather than deleting it — it is the record of what the customer
+      // accepted, and this job still links back to it.
+      await updateQuote({ id: quoteForConvert.id, status: 'converted' })
       setShowConvertModal(false)
       setQuoteForConvert(null)
       setSelectedInvoice(invoice)

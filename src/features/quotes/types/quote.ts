@@ -6,6 +6,16 @@ export interface QuoteLineItem {
   total: number
 }
 
+/**
+ * `converted` is set by the system when a quote becomes an invoice — it is never chosen by hand.
+ * It replaces the old behaviour of deleting the quote on conversion, which destroyed the record of
+ * what the customer actually accepted.
+ *
+ * Single source of truth: reference this rather than re-spelling the union, or the two copies
+ * drift and only one of them learns about new statuses.
+ */
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted'
+
 export interface Quote {
   id: string
   quoteNumber: string
@@ -24,7 +34,7 @@ export interface Quote {
   discount: number
   discountReason?: string
   total: number
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+  status: QuoteStatus
   /** Set when the client declines via the public approval link (optional). */
   clientDeclineReason?: string
   notes?: string
@@ -42,14 +52,12 @@ export interface CreateQuoteData {
   discountReason?: string
   notes?: string
   validUntil?: string
-  status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+  status?: QuoteStatus
 }
 
 export interface UpdateQuoteData extends Partial<CreateQuoteData> {
   id: string
 }
-
-export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
 
 /** User-facing labels (stored/API status for declined quotes remains `rejected`). */
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
@@ -58,4 +66,5 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   accepted: 'Accepted',
   rejected: 'Declined',
   expired: 'Expired',
+  converted: 'Invoiced',
 }

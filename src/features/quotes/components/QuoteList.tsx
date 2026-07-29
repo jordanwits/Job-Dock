@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuoteStore } from '../store/quoteStore'
-import type { Quote } from '../types/quote'
+import type { Quote, QuoteStatus } from '../types/quote'
 import QuoteCard from './QuoteCard'
 import { quotesService } from '@/lib/api/services'
 import { cn } from '@/lib/utils'
@@ -208,9 +208,7 @@ const QuoteList = ({ onCreateClick }: QuoteListProps) => {
             <SelectField
               value={statusFilter}
               onChange={(e) =>
-                setStatusFilter(
-                  e.target.value as 'all' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
-                )
+                setStatusFilter(e.target.value as 'all' | QuoteStatus)
               }
               aria-label="Filter by status"
               options={QUOTE_STATUS_FILTER_OPTIONS}

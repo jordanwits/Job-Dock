@@ -15,16 +15,35 @@ export const QUOTE_STATUS: Record<QuoteStatus, { label: string; tone: Tone }> = 
   accepted: { label: 'Accepted', tone: 'success' },
   rejected: { label: 'Declined', tone: 'danger' },
   expired: { label: 'Expired', tone: 'warning' },
+  converted: { label: 'Invoiced', tone: 'accent' },
 }
 
+/** Statuses a user can pick by hand. `converted` is deliberately absent — it is owned by the
+ *  quote→invoice conversion, and hand-reverting it would let the same quote be invoiced twice. */
 const QUOTE_STATUS_ORDER: QuoteStatus[] = ['draft', 'sent', 'accepted', 'rejected', 'expired']
+
+/** Everything that can appear on a quote, including system-set statuses. */
+const QUOTE_STATUS_ALL_ORDER: QuoteStatus[] = [...QUOTE_STATUS_ORDER, 'converted']
+
+const toOption = (v: QuoteStatus) => ({
+  value: v,
+  label: QUOTE_STATUS[v].label,
+  tone: QUOTE_STATUS[v].tone,
+})
 
 /** Status options for the interactive StatusSelect on the detail view. */
 export const QUOTE_STATUS_OPTIONS: { value: QuoteStatus; label: string; tone: Tone }[] =
-  QUOTE_STATUS_ORDER.map(v => ({ value: v, label: QUOTE_STATUS[v].label, tone: QUOTE_STATUS[v].tone }))
+  QUOTE_STATUS_ORDER.map(toOption)
+
+/**
+ * Same, plus system-set statuses. Used only to render the badge for a quote already in such a
+ * status (the select is disabled in that case) — never as a set of choices.
+ */
+export const QUOTE_STATUS_ALL_OPTIONS: { value: QuoteStatus; label: string; tone: Tone }[] =
+  QUOTE_STATUS_ALL_ORDER.map(toOption)
 
 /** Status options for the list filter (includes an "All" entry). */
 export const QUOTE_STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: 'All status' },
-  ...QUOTE_STATUS_ORDER.map(v => ({ value: v, label: QUOTE_STATUS[v].label })),
+  ...QUOTE_STATUS_ALL_ORDER.map(v => ({ value: v, label: QUOTE_STATUS[v].label })),
 ]
