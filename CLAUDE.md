@@ -47,7 +47,10 @@ models, everything hanging off `Tenant`).
     a visitor navigates out of scope — route-gating pageviews alone doesn't stop autocapture. Keyed on
     `VITE_POSTHOG_KEY` (Vercel Production only; unset locally = fully tree-shaken, dev sends nothing).
     Traffic goes through the same-origin `/ingest` rewrites in `vercel.json`, which MUST stay above the SPA
-    catch-all; that proxy is also why the CSP can stay on `script-src/connect-src 'self'`.
+    catch-all; that proxy is also why the CSP can stay on `script-src/connect-src 'self'`. Those rewrites use
+    `:path(.*)`, NOT `:path*` — posthog-js posts to `/e/` with a trailing slash, and `:path*` matches by
+    segment so the empty final segment fails to match, silently dropping every event into the SPA catch-all
+    (which answers 200 with `index.html`, so it looks healthy in the network tab).
   - `src/features/assistant/` — in-app tool-calling AI agent over the data services (OpenAI). Prod uses the
     backend proxy `POST /assistant/chat` (server-held `OPENAI_API_KEY`); dev-only direct browser calls need
     `VITE_OPENAI_API_KEY` in `.env.local`. See `AI_ASSISTANT_HANDOFF.md` for depth.
