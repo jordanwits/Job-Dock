@@ -23,6 +23,13 @@ export interface RunAssistantOptions {
   message: string
   /** Ask the user to confirm a write action. Resolve true to proceed. */
   confirmWrite: (summary: string, opts?: { destructive?: boolean }) => Promise<boolean>
+  /**
+   * Whether recoverable writes need the confirmWrite step (the user's
+   * "Ask before making changes" toggle). Read as a getter rather than a
+   * snapshot so flipping the toggle mid-run applies to the remaining tool
+   * calls. Deletes always confirm, whatever this returns.
+   */
+  requireConfirmation: () => boolean
   /** Optional: notified when a tool starts running (for a status line). */
   onToolActivity?: (label: string) => void
   /** The route the user is currently viewing — passed to tools (e.g. help) as a hint. */
@@ -70,7 +77,23 @@ function localOffset(now: Date): string {
   return `${sign}${hh}:${mm}`
 }
 
-function systemPrompt(clientRoute?: string): string {
+/**
+ * The confirmation-related working rules. The user can turn the confirm step
+ * off, which changes how the model should narrate and pace its writes — so the
+ * prompt has to describe the mode it's actually running in.
+ */
+function confirmationRules(requireConfirmation: boolean): string {
+  if (requireConfirmation) {
+    return `- Write actions require user confirmation, which the app handles automatically — briefly state what you're about to do before calling the tool. If the user declines, acknowledge it and offer alternatives.
+- You can chain tools to complete a request (e.g. find a contact, then create their quote, then send it). Confirm each write as it comes up.`
+  }
+  return `- The user has turned confirmations OFF, so most writes take effect the moment you call the tool — no confirm step, no undo. Don't ask "want me to go ahead?" for something they've already asked for; say what you're doing in one short line, then do it.
+- Two things still show a confirmation the user has to accept: deleting a record, and sending a quote or invoice (send_quote / send_invoice email the customer directly). Call those tools the same way — just expect the user to approve first, and handle a decline gracefully.
+- That puts the accuracy entirely on you: never guess or invent a value, and still ask a short question when a required detail is missing or the request could reasonably mean two different things. Acting on a misread request is the one mistake there's no longer a safety net for.
+- You can chain tools to complete a request (e.g. find a contact, then create their quote, then send it).`
+}
+
+function systemPrompt(clientRoute: string | undefined, requireConfirmation: boolean): string {
   const now = new Date()
   const offset = localOffset(now)
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local time'
@@ -119,9 +142,8 @@ Conversation flow:
 - After completing an action, confirm what happened in one short sentence using the friendly label, then offer the single most useful next step as a brief question (e.g. after creating a quote: "Want me to send it to Jane Doe?"; after converting a quote: "Want me to send the invoice?"). Don't dump a menu of options.
 
 Other:
-- Write actions require user confirmation, which the app handles automatically — briefly state what you're about to do before calling the tool. If the user declines, acknowledge it and offer alternatives.
-- Deletes are permanent. Only call a delete tool when the user clearly asked to delete that specific record; make sure you have the right id (look it up first) and never delete something they didn't ask about.
-- You can chain tools to complete a request (e.g. find a contact, then create their quote, then send it). Confirm each write as it comes up.
+${confirmationRules(requireConfirmation)}
+- Deletes are permanent. Only call a delete tool when the user clearly asked to delete that specific record; make sure you have the right id (look it up first) and never delete something they didn't ask about. The user confirms every delete explicitly, whatever their other settings.
 - Stay focused on CleanDock tasks. Be concise and friendly. After completing an action, confirm what happened in one or two sentences.`
 }
 
@@ -150,7 +172,7 @@ async function createCompletion(messages: OpenAIMessage[]): Promise<AssistantMes
  */
 export async function runAssistant(opts: RunAssistantOptions): Promise<{ reply: string }> {
   const messages: OpenAIMessage[] = [
-    { role: 'system', content: systemPrompt(opts.clientRoute) },
+    { role: 'system', content: systemPrompt(opts.clientRoute, opts.requireConfirmation()) },
     ...opts.history.map(m => ({ role: m.role, content: m.content }) as OpenAIMessage),
     { role: 'user', content: opts.message },
   ]
@@ -196,8 +218,10 @@ export async function runAssistant(opts: RunAssistantOptions): Promise<{ reply: 
       // it for both the confirm prompt and the activity status line.
       const summary = (await tool.summarize?.(args)) || tool.name
 
-      // Gate write actions behind user confirmation.
-      if (tool.mutates) {
+      // Gate write actions behind user confirmation. Deletes and customer-facing
+      // sends always ask — they can't be taken back, so the "Ask before making
+      // changes" toggle only covers writes that stay inside the app.
+      if (tool.mutates && (tool.destructive || tool.alwaysConfirm || opts.requireConfirmation())) {
         const approved = await opts.confirmWrite(summary, { destructive: tool.destructive })
         if (!approved) {
           respond({ status: 'cancelled_by_user' })

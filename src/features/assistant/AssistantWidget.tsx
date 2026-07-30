@@ -1,9 +1,10 @@
-import { FormEvent, useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import { FormEvent, useState, useRef, useEffect, useCallback, useId, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import { helpApi } from '@/lib/api/help'
 import { cn } from '@/lib/utils'
 import { runAssistant, isAssistantConfigured, type ChatLine } from './assistantClient'
+import { loadConfirmWrites, saveConfirmWrites } from './assistantPrefs'
 import { useSpeechToText } from './useSpeechToText'
 
 export interface AssistantWidgetProps {
@@ -74,7 +75,7 @@ function AssistantMark({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg'; 
 const SUGGESTIONS = [
   'How do I send a quote?',
   "What's overdue this week?",
-  'Book a 1-hour consult with Sarah tomorrow at 2pm',
+  'Book a 1-hour consult',
 ]
 
 export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
@@ -87,6 +88,12 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
   const [toolStatus, setToolStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null)
+  // "Ask before making changes" — persisted across sessions. Held in a ref too
+  // so the running agent loop reads the live value (flipping it mid-run applies
+  // to the remaining tool calls) without re-creating the loop's callbacks.
+  const [confirmWrites, setConfirmWrites] = useState(loadConfirmWrites)
+  const confirmWritesRef = useRef(confirmWrites)
+  const confirmToggleLabelId = useId()
   // Report a problem (escalation to engineering) - reuses the help backend.
   const [reportOpen, setReportOpen] = useState(false)
   const [reportNote, setReportNote] = useState('')
@@ -245,6 +252,16 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
     setPendingConfirm(null)
   }
 
+  const toggleConfirmWrites = () => {
+    const next = !confirmWritesRef.current
+    confirmWritesRef.current = next
+    setConfirmWrites(next)
+    saveConfirmWrites(next)
+  }
+
+  // Read by the agent loop before each write, so it always sees the live value.
+  const requireConfirmation = useCallback(() => confirmWritesRef.current, [])
+
   const sendMessage = async (e?: FormEvent, override?: string) => {
     e?.preventDefault()
     const text = (override ?? input).trim()
@@ -261,6 +278,7 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
         history,
         message: text,
         confirmWrite,
+        requireConfirmation,
         onToolActivity: setToolStatus,
         clientRoute,
       })
@@ -398,6 +416,37 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
           </div>
         </header>
 
+        {/* Confirmation preference — always visible, so the mode the assistant
+            is running in is never a surprise. Deletes ask either way. */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-surface-2 px-4 py-2">
+          <span className="min-w-0">
+            <span id={confirmToggleLabelId} className="block text-[12px] font-medium leading-tight text-ink">
+              Ask before making changes
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-tight text-ink-subtle">
+              {confirmWrites ? 'I’ll check with you first' : 'I’ll act right away · deletes & sends still ask'}
+            </span>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={confirmWrites}
+            aria-labelledby={confirmToggleLabelId}
+            onClick={toggleConfirmWrites}
+            className={cn(
+              'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-2',
+              confirmWrites ? 'bg-accent-strong' : 'bg-line-strong'
+            )}
+          >
+            <span
+              className={cn(
+                'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                confirmWrites ? 'translate-x-[18px]' : 'translate-x-0.5'
+              )}
+            />
+          </button>
+        </div>
+
         {/* Message thread */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3.5 py-4" role="log" aria-label="Assistant messages">
           {reportNotice && (
@@ -412,7 +461,10 @@ export function AssistantWidget({ enabled = true }: AssistantWidgetProps) {
               <p className="text-[15px] font-semibold text-ink">How can I help?</p>
               <p className="mx-auto mt-1.5 max-w-[34ch] text-[13px] leading-relaxed text-ink-muted">
                 Ask how something works, or tell me what to do — I can answer CleanDock questions and
-                take actions for you. I’ll always confirm before changing anything.
+                take actions for you.{' '}
+                {confirmWrites
+                  ? 'I’ll confirm before changing anything.'
+                  : 'I’ll make changes without asking — deletes and customer emails still need your OK.'}
               </p>
               <div className="mt-5 flex w-full flex-col gap-2">
                 {SUGGESTIONS.map(s => (

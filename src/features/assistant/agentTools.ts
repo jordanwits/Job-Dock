@@ -7,8 +7,10 @@
  * changes — in mock mode they mutate localStorage and the UI updates live;
  * in live mode they hit the real backend.
  *
- * Tools flagged `mutates: true` are gated behind a user confirmation step
- * by the agent loop (see assistantClient.ts).
+ * Tools flagged `mutates: true` are gated behind a user confirmation step by
+ * the agent loop (see assistantClient.ts) unless the user has turned
+ * confirmations off. Tools flagged `destructive: true` or `alwaysConfirm: true`
+ * confirm regardless of that preference.
  */
 import type OpenAI from 'openai'
 import {
@@ -33,10 +35,19 @@ export interface ToolContext {
 export interface AgentTool {
   /** Tool name exposed to the model. */
   name: string
-  /** Whether this tool writes data (requires user confirmation before running). */
+  /** Whether this tool writes data (confirmed before running unless the user opted out). */
   mutates: boolean
-  /** Destructive (e.g. delete) — shown with an emphatic, irreversible-warning confirm. */
+  /**
+   * Destructive (e.g. delete) — shown with an emphatic, irreversible-warning
+   * confirm that the user always sees, even with confirmations turned off.
+   */
   destructive?: boolean
+  /**
+   * Confirm every time, even with confirmations turned off, but with the
+   * ordinary (non-alarming) confirm card. For writes that reach outside the
+   * app and can't be taken back — emailing a customer, say.
+   */
+  alwaysConfirm?: boolean
   /** Which data store(s) this write affects, so views can refresh after it runs. */
   affects?: DataEntity | DataEntity[]
   /** OpenAI function/tool schema. */
@@ -799,6 +810,8 @@ export const agentTools: AgentTool[] = [
   {
     name: 'send_quote',
     mutates: true,
+    // Emails the customer — can't be unsent, so it confirms either way.
+    alwaysConfirm: true,
     affects: 'quotes',
     summarize: async a => `Send ${await labelQuote(a?.id)} to the customer`,
     schema: {
@@ -948,6 +961,8 @@ export const agentTools: AgentTool[] = [
   {
     name: 'send_invoice',
     mutates: true,
+    // Emails the customer — can't be unsent, so it confirms either way.
+    alwaysConfirm: true,
     affects: 'invoices',
     summarize: async a => `Send ${await labelInvoice(a?.id)} to the customer`,
     schema: {
